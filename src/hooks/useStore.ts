@@ -1,11 +1,12 @@
 import { useLocalStorage } from './useLocalStorage';
-import { Exercise, WorkoutTemplate, WorkoutSession } from '../types';
+import { Exercise, WorkoutTemplate, WorkoutSession, ActivePlan } from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
 export function useStore() {
   const [customExercises, setCustomExercises] = useLocalStorage<Exercise[]>('ll_custom_exercises', []);
   const [templates, setTemplates] = useLocalStorage<WorkoutTemplate[]>('ll_templates', []);
   const [sessions, setSessions] = useLocalStorage<WorkoutSession[]>('ll_sessions', []);
+  const [activePlan, setActivePlan] = useLocalStorage<ActivePlan | null>('ll_active_plan', null);
 
   const exercises = [...DEFAULT_EXERCISES, ...customExercises];
 
@@ -89,6 +90,8 @@ export function useStore() {
     customExercises,
     templates,
     sessions,
+    activePlan,
+    setActivePlan,
     getExercise,
     addCustomExercise,
     deleteCustomExercise,

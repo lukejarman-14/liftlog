@@ -2,12 +2,14 @@ import { Dumbbell, Plus, TrendingUp, Clock, Flame } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { WorkoutSession, WorkoutTemplate, NavState } from '../../types';
+import { WeeklyCalendar } from '../WeeklyCalendar';
+import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan } from '../../types';
 import { useStore } from '../../hooks/useStore';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
   templates: WorkoutTemplate[];
+  activePlan: ActivePlan | null;
   onNavigate: (nav: NavState) => void;
 }
 
@@ -32,7 +34,7 @@ function totalVolume(session: WorkoutSession) {
     acc + ex.sets.reduce((s, set) => s + set.reps * set.weight, 0), 0);
 }
 
-export function Dashboard({ sessions, templates, onNavigate }: DashboardProps) {
+export function Dashboard({ sessions, templates, activePlan, onNavigate }: DashboardProps) {
   const { getExercise } = useStore();
   const recent = [...sessions].sort((a, b) => b.startTime - a.startTime).slice(0, 5);
 
@@ -76,6 +78,9 @@ export function Dashboard({ sessions, templates, onNavigate }: DashboardProps) {
           <div className="text-xs text-gray-500 mt-0.5">Vol (kg)</div>
         </Card>
       </div>
+
+      {/* Weekly calendar */}
+      <WeeklyCalendar sessions={sessions} activePlan={activePlan} onNavigate={onNavigate} />
 
       {/* Quick start */}
       <section className="mb-6">

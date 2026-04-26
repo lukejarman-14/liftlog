@@ -7,6 +7,8 @@ import { ExerciseDetail } from './components/screens/ExerciseDetail';
 import { WorkoutBuilder } from './components/screens/WorkoutBuilder';
 import { ActiveWorkout } from './components/screens/ActiveWorkout';
 import { History } from './components/screens/History';
+import { PlanBrowser } from './components/screens/PlanBrowser';
+import { PlanDetail } from './components/screens/PlanDetail';
 import { NavState, WorkoutExercise, WorkoutSession } from './types';
 
 export default function App() {
@@ -53,6 +55,7 @@ export default function App() {
         <Dashboard
           sessions={store.sessions}
           templates={store.templates}
+          activePlan={store.activePlan}
           onNavigate={navigate}
         />
       )}
@@ -104,6 +107,24 @@ export default function App() {
           sessions={store.sessions}
           onNavigate={navigate}
           onDeleteSession={store.deleteSession}
+        />
+      )}
+
+      {screen === 'plans' && (
+        <PlanBrowser
+          activePlan={store.activePlan}
+          onSetActivePlan={store.setActivePlan}
+          onNavigate={navigate}
+        />
+      )}
+
+      {screen === 'plan-detail' && nav.planId && (
+        <PlanDetail
+          planId={nav.planId}
+          activePlan={store.activePlan}
+          onSetActivePlan={store.setActivePlan}
+          onNavigate={navigate}
+          onBack={() => navigate({ screen: 'plans' })}
         />
       )}
 
