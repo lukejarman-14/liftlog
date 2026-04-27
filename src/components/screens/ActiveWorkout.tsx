@@ -14,6 +14,29 @@ interface ActiveWorkoutProps {
   onNavigate: (nav: NavState) => void;
 }
 
+// ── Sound ──────────────────────────────────────────────────────────────────
+
+function playRestEndSound() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    // Three quick ascending beeps
+    ([[880, 0], [1100, 0.18], [1320, 0.36]] as [number, number][]).forEach(([freq, offset]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.4, ctx.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.15);
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + 0.15);
+    });
+  } catch (_) { /* audio not available */ }
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function getMeasureLabel(type: MeasureType, unit?: string): string {
@@ -41,43 +64,44 @@ function formatSetDisplay(set: CompletedSet, type: MeasureType, unit?: string): 
   }
 }
 
-// ── Rest timer overlay ─────────────────────────────────────────────────────
+function formatRestTime(secs: number): string {
+  if (secs >= 60) return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  return `${secs}s`;
+}
 
-function RestTimer({ remaining, progress, onSkip }: {
+// ── Inline rest timer row ──────────────────────────────────────────────────
+
+interface RestInfo {
   remaining: number;
   progress: number;
   onSkip: () => void;
-}) {
-  const mins = Math.floor(remaining / 60);
-  const secs = remaining % 60;
-  const circumference = 2 * Math.PI * 44;
-  const dash = circumference * (1 - progress);
+}
 
+function InlineRestTimer({ restInfo }: { restInfo: RestInfo }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl p-8 mx-4 w-full max-w-xs text-center shadow-2xl">
-        <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Rest</p>
-        <div className="relative w-32 h-32 mx-auto mb-6">
-          <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="44" fill="none" stroke="#f3f4f6" strokeWidth="8" />
-            <circle
-              cx="50" cy="50" r="44"
-              fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={dash}
-              className="transition-all duration-1000"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-3xl font-bold text-gray-900">
-              {mins > 0 ? `${mins}:${String(secs).padStart(2, '0')}` : `${secs}`}
-            </span>
-          </div>
+    <div className="flex items-center gap-3 mt-2 px-3 py-2.5 bg-orange-50 border border-orange-200 rounded-xl">
+      <Clock size={14} className="text-orange-500 flex-shrink-0" />
+      <div className="flex-1">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-semibold text-orange-700">Rest</span>
+          <span className="text-sm font-bold text-orange-800 tabular-nums">
+            {formatRestTime(restInfo.remaining)}
+          </span>
         </div>
-        <Button variant="ghost" onClick={onSkip} className="text-gray-500">
-          <SkipForward size={16} /> Skip Rest
-        </Button>
+        <div className="h-1.5 bg-orange-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-orange-400 rounded-full transition-all duration-1000"
+            style={{ width: `${(1 - restInfo.progress) * 100}%` }}
+          />
+        </div>
       </div>
+      <button
+        onClick={restInfo.onSkip}
+        className="flex items-center gap-1 text-xs text-orange-600 font-semibold px-2.5 py-1.5 bg-white border border-orange-200 rounded-lg hover:bg-orange-50 flex-shrink-0"
+      >
+        <SkipForward size={11} />
+        Skip
+      </button>
     </div>
   );
 }
@@ -116,7 +140,6 @@ function SetRow({
 
   const handleLog = () => {
     if (completed) return;
-    // For reps-only, value goes into reps; for everything else, measured value goes into weight
     if (measureType === 'reps') {
       onComplete({ reps, weight: 0, completedAt: Date.now() });
     } else {
@@ -128,7 +151,7 @@ function SetRow({
     <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
       completed ? 'bg-green-50 border border-green-100' : 'bg-gray-50'
     }`}>
-      {/* Set / trial number */}
+      {/* Set number */}
       <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">
         {setIndex + 1}
       </span>
@@ -170,7 +193,7 @@ function SetRow({
           </>
         )}
 
-        {/* REPS ONLY: no weight */}
+        {/* REPS ONLY */}
         {measureType === 'reps' && (
           <div className="flex items-center gap-1">
             <button onClick={() => setReps(r => Math.max(1, r - 1))}
@@ -222,15 +245,17 @@ function SetRow({
   );
 }
 
-// ── Exercise section with progression ─────────────────────────────────────
+// ── Exercise section ───────────────────────────────────────────────────────
 
 function ExerciseSection({
   sessionExercise,
   sessionId,
+  restInfo,
   onCompleteSet,
 }: {
   sessionExercise: SessionExercise;
   sessionId: string;
+  restInfo?: RestInfo;
   onCompleteSet: (setIndex: number, set: CompletedSet) => void;
 }) {
   const { getExercise, getLastSession, getPB } = useStore();
@@ -250,7 +275,6 @@ function ExerciseSection({
   const totalSets      = sessionExercise.targetSets;
   const allDone        = completedCount >= totalSets;
 
-  // Per-set defaults: use previous set in this session → last session → template target
   const getSetDefaults = (i: number) => {
     if (i > 0 && sessionExercise.sets[i - 1]) {
       return { weight: sessionExercise.sets[i - 1].weight, reps: sessionExercise.sets[i - 1].reps };
@@ -264,13 +288,11 @@ function ExerciseSection({
     return { weight: sessionExercise.targetWeight, reps: sessionExercise.targetReps };
   };
 
-  // Live new-PB check
   const currentBest = sessionExercise.sets.reduce<{ weight: number; reps: number } | null>(
     (best, set) => (!best || set.weight > best.weight ? set : best), null,
   );
   const isNewPB = !!(currentBest && pb && currentBest.weight > pb.weight);
 
-  // PB display value depends on measure type
   const pbDisplay = pb
     ? formatSetDisplay({ ...pb, completedAt: 0 }, measureType, unit)
     : null;
@@ -306,9 +328,8 @@ function ExerciseSection({
 
       {!collapsed && (
         <div className="px-4 pb-4">
-          {/* Progression panels — last time & PB */}
+          {/* Last time & PB */}
           <div className="flex gap-2 mb-3">
-            {/* Last time */}
             <button
               onClick={() => setShowAllLast(s => !s)}
               className="flex-1 bg-blue-50 rounded-xl px-3 py-2 text-left"
@@ -333,7 +354,6 @@ function ExerciseSection({
               )}
             </button>
 
-            {/* PB */}
             <div className="flex-1 bg-yellow-50 rounded-xl px-3 py-2">
               <div className="flex items-center gap-1.5 mb-0.5">
                 <Trophy size={11} className="text-yellow-500" />
@@ -370,6 +390,9 @@ function ExerciseSection({
               );
             })}
           </div>
+
+          {/* Inline rest timer — shown between sets */}
+          {restInfo && <InlineRestTimer restInfo={restInfo} />}
         </div>
       )}
     </Card>
@@ -381,11 +404,17 @@ function ExerciseSection({
 export function ActiveWorkout({ session, onUpdateSession, onFinish, onNavigate }: ActiveWorkoutProps) {
   const timer = useTimer();
   const [showFinish, setShowFinish] = useState(false);
+  const [restingExerciseIdx, setRestingExerciseIdx] = useState<number | null>(null);
 
   const totalSets     = session.exercises.reduce((a, e) => a + e.targetSets, 0);
   const completedSets = session.exercises.reduce((a, e) => a + e.sets.length, 0);
   const progressPct   = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
   const elapsedMins   = Math.floor((Date.now() - session.startTime) / 60000);
+
+  const handleSkipRest = useCallback(() => {
+    timer.skip();
+    setRestingExerciseIdx(null);
+  }, [timer]);
 
   const handleCompleteSet = useCallback((exerciseIdx: number, setIndex: number, set: CompletedSet) => {
     const updated: WorkoutSession = {
@@ -399,22 +428,30 @@ export function ActiveWorkout({ session, onUpdateSession, onFinish, onNavigate }
     };
     onUpdateSession(updated);
 
-    // Start rest timer unless last set of last exercise
+    // Start rest timer unless it's the very last set of the last exercise
     const ex = session.exercises[exerciseIdx];
     const isLastSet      = setIndex === ex.targetSets - 1;
     const isLastExercise = exerciseIdx === session.exercises.length - 1;
     if (!(isLastSet && isLastExercise) && ex.restSeconds > 0) {
       timer.start(ex.restSeconds);
+      setRestingExerciseIdx(exerciseIdx);
     }
   }, [session, onUpdateSession, timer]);
 
-  // Vibrate when rest ends
+  // Sound + vibrate when rest ends
   useEffect(() => {
     if (timer.finished) {
+      playRestEndSound();
       if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
       timer.stop();
+      setRestingExerciseIdx(null);
     }
   }, [timer.finished, timer]);
+
+  // Build restInfo for the currently resting exercise
+  const restInfo: RestInfo | undefined = (timer.running && restingExerciseIdx !== null)
+    ? { remaining: timer.remaining, progress: timer.progress, onSkip: handleSkipRest }
+    : undefined;
 
   return (
     <>
@@ -443,6 +480,7 @@ export function ActiveWorkout({ session, onUpdateSession, onFinish, onNavigate }
               key={ex.exerciseId}
               sessionExercise={ex}
               sessionId={session.id}
+              restInfo={exerciseIdx === restingExerciseIdx ? restInfo : undefined}
               onCompleteSet={(setIndex, set) => handleCompleteSet(exerciseIdx, setIndex, set)}
             />
           ))}
@@ -454,10 +492,6 @@ export function ActiveWorkout({ session, onUpdateSession, onFinish, onNavigate }
           </Button>
         </div>
       </Layout>
-
-      {timer.running && (
-        <RestTimer remaining={timer.remaining} progress={timer.progress} onSkip={timer.skip} />
-      )}
 
       {showFinish && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

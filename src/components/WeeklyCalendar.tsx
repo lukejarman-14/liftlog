@@ -12,6 +12,7 @@ interface WeeklyCalendarProps {
   sessions: WorkoutSession[];
   activePlan: ActivePlan | null;
   onNavigate: (nav: NavState) => void;
+  onStartWorkout: (templateId: string, name: string) => void;
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -28,7 +29,7 @@ function dateToStr(d: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-export function WeeklyCalendar({ sessions, activePlan, onNavigate }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ sessions, activePlan, onNavigate, onStartWorkout }: WeeklyCalendarProps) {
   const weekDates = getWeekDates(0);
   const today = new Date();
 
@@ -156,7 +157,7 @@ export function WeeklyCalendar({ sessions, activePlan, onNavigate }: WeeklyCalen
                   <CheckCircle2 size={22} className="text-green-500 ml-3 flex-shrink-0" />
                 ) : (
                   <button
-                    onClick={() => onNavigate({ screen: 'workout-builder', templateId: planSession.templateId })}
+                    onClick={() => onStartWorkout(planSession.templateId, planSession.name)}
                     className={`ml-3 flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
                       isToday
                         ? 'bg-brand-500 text-white hover:bg-brand-600'

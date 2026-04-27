@@ -11,6 +11,7 @@ interface PlanDetailProps {
   activePlan: ActivePlan | null;
   onSetActivePlan: (plan: ActivePlan | null) => void;
   onNavigate: (nav: NavState) => void;
+  onStartWorkout: (templateId: string, name: string) => void;
   onBack: () => void;
 }
 
@@ -52,7 +53,7 @@ function formatRest(seconds: number): string {
   return `${seconds}s`;
 }
 
-export function PlanDetail({ planId, activePlan, onSetActivePlan, onNavigate, onBack }: PlanDetailProps) {
+export function PlanDetail({ planId, activePlan, onSetActivePlan, onNavigate, onStartWorkout, onBack }: PlanDetailProps) {
   const plan = POSITION_PLANS.find(p => p.id === planId);
   const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
   // key = `${weekNumber}-${dayOfWeek}` → whether exercises are shown
@@ -196,7 +197,7 @@ export function PlanDetail({ planId, activePlan, onSetActivePlan, onNavigate, on
                           <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
                             {isCurrentWeek && (
                               <button
-                                onClick={() => onNavigate({ screen: 'workout-builder', templateId: planSession.templateId })}
+                                onClick={() => onStartWorkout(planSession.templateId, planSession.name)}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-brand-500 text-white rounded-xl text-xs font-semibold hover:bg-brand-600"
                               >
                                 <Play size={11} />

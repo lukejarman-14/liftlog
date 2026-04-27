@@ -11,6 +11,7 @@ import { PlanBrowser } from './components/screens/PlanBrowser';
 import { PlanDetail } from './components/screens/PlanDetail';
 import { Onboarding } from './components/screens/Onboarding';
 import { NavState, WorkoutExercise, WorkoutSession, UserProfile } from './types';
+import { POSITION_TEMPLATES } from './data/positionPlans';
 
 export default function App() {
   const store = useStore();
@@ -48,6 +49,14 @@ export default function App() {
     setNav({ screen: 'dashboard' });
   };
 
+  // Directly starts a position-plan session from a template ID (bypasses the builder)
+  const handleStartTemplate = (templateId: string, name: string) => {
+    const template = POSITION_TEMPLATES.find(t => t.id === templateId);
+    if (template) {
+      handleStartWorkout(name || template.name, template.exercises);
+    }
+  };
+
   const handleOnboardingComplete = (profile: UserProfile, recommendedPlanId: string) => {
     store.setUserProfile(profile);
     if (recommendedPlanId) {
@@ -76,6 +85,7 @@ export default function App() {
           templates={store.templates}
           activePlan={store.activePlan}
           onNavigate={navigate}
+          onStartWorkout={handleStartTemplate}
         />
       )}
 
@@ -143,6 +153,7 @@ export default function App() {
           activePlan={store.activePlan}
           onSetActivePlan={store.setActivePlan}
           onNavigate={navigate}
+          onStartWorkout={handleStartTemplate}
           onBack={() => navigate({ screen: 'plans' })}
         />
       )}

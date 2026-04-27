@@ -11,6 +11,7 @@ interface DashboardProps {
   templates: WorkoutTemplate[];
   activePlan: ActivePlan | null;
   onNavigate: (nav: NavState) => void;
+  onStartWorkout: (templateId: string, name: string) => void;
 }
 
 function formatDuration(ms: number) {
@@ -34,7 +35,7 @@ function totalVolume(session: WorkoutSession) {
     acc + ex.sets.reduce((s, set) => s + set.reps * set.weight, 0), 0);
 }
 
-export function Dashboard({ sessions, templates, activePlan, onNavigate }: DashboardProps) {
+export function Dashboard({ sessions, templates, activePlan, onNavigate, onStartWorkout }: DashboardProps) {
   const { getExercise } = useStore();
   const recent = [...sessions].sort((a, b) => b.startTime - a.startTime).slice(0, 5);
 
@@ -80,7 +81,7 @@ export function Dashboard({ sessions, templates, activePlan, onNavigate }: Dashb
       </div>
 
       {/* Weekly calendar */}
-      <WeeklyCalendar sessions={sessions} activePlan={activePlan} onNavigate={onNavigate} />
+      <WeeklyCalendar sessions={sessions} activePlan={activePlan} onNavigate={onNavigate} onStartWorkout={onStartWorkout} />
 
       {/* Quick start */}
       <section className="mb-6">
