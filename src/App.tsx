@@ -10,6 +10,7 @@ import { History } from './components/screens/History';
 import { PlanBrowser } from './components/screens/PlanBrowser';
 import { PlanDetail } from './components/screens/PlanDetail';
 import { Onboarding } from './components/screens/Onboarding';
+import { Profile } from './components/screens/Profile';
 import { NavState, WorkoutExercise, WorkoutSession, UserProfile } from './types';
 import { POSITION_TEMPLATES } from './data/positionPlans';
 
@@ -84,6 +85,7 @@ export default function App() {
           sessions={store.sessions}
           templates={store.templates}
           activePlan={store.activePlan}
+          profilePicture={store.profilePicture}
           onNavigate={navigate}
           onStartWorkout={handleStartTemplate}
         />
@@ -155,6 +157,20 @@ export default function App() {
           onNavigate={navigate}
           onStartWorkout={handleStartTemplate}
           onBack={() => navigate({ screen: 'plans' })}
+        />
+      )}
+
+      {screen === 'profile' && store.userProfile && (
+        <Profile
+          userProfile={store.userProfile}
+          profilePicture={store.profilePicture}
+          totalSessions={store.sessions.length}
+          onSetProfilePicture={store.setProfilePicture}
+          onResetProfile={() => {
+            store.setUserProfile(null);
+            navigate({ screen: 'dashboard' });
+          }}
+          onBack={() => navigate({ screen: 'dashboard' })}
         />
       )}
 

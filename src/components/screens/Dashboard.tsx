@@ -10,6 +10,7 @@ interface DashboardProps {
   sessions: WorkoutSession[];
   templates: WorkoutTemplate[];
   activePlan: ActivePlan | null;
+  profilePicture: string | null;
   onNavigate: (nav: NavState) => void;
   onStartWorkout: (templateId: string, name: string) => void;
 }
@@ -35,8 +36,8 @@ function totalVolume(session: WorkoutSession) {
     acc + ex.sets.reduce((s, set) => s + set.reps * set.weight, 0), 0);
 }
 
-export function Dashboard({ sessions, templates, activePlan, onNavigate, onStartWorkout }: DashboardProps) {
-  const { getExercise } = useStore();
+export function Dashboard({ sessions, templates, activePlan, profilePicture, onNavigate, onStartWorkout }: DashboardProps) {
+  const { getExercise, userProfile } = useStore();
   const recent = [...sessions].sort((a, b) => b.startTime - a.startTime).slice(0, 5);
 
   const thisWeekSessions = sessions.filter(s => {
@@ -50,9 +51,25 @@ export function Dashboard({ sessions, templates, activePlan, onNavigate, onStart
 
   const totalWeekVolume = thisWeekSessions.reduce((acc, s) => acc + totalVolume(s), 0);
 
+  const initials = userProfile
+    ? `${userProfile.firstName.charAt(0)}${userProfile.lastName.charAt(0)}`.toUpperCase()
+    : '?';
+
   return (
     <Layout
       title="LiftLog"
+      leftAction={
+        <button
+          onClick={() => onNavigate({ screen: 'profile' })}
+          className="w-9 h-9 rounded-full overflow-hidden border-2 border-brand-200 flex items-center justify-center bg-brand-100 flex-shrink-0 hover:border-brand-400 transition-colors"
+        >
+          {profilePicture ? (
+            <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-xs font-bold text-brand-600">{initials}</span>
+          )}
+        </button>
+      }
       rightAction={
         <button
           onClick={() => onNavigate({ screen: 'workout-builder' })}

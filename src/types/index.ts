@@ -127,7 +127,8 @@ export type Screen =
   | 'history'
   | 'exercise-detail'
   | 'plans'
-  | 'plan-detail';
+  | 'plan-detail'
+  | 'profile';
 
 export interface NavState {
   screen: Screen;

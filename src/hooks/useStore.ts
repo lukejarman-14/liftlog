@@ -8,6 +8,7 @@ export function useStore() {
   const [sessions, setSessions] = useLocalStorage<WorkoutSession[]>('ll_sessions', []);
   const [activePlan, setActivePlan] = useLocalStorage<ActivePlan | null>('ll_active_plan', null);
   const [userProfile, setUserProfile] = useLocalStorage<UserProfile | null>('ll_user_profile', null);
+  const [profilePicture, setProfilePicture] = useLocalStorage<string | null>('ll_profile_picture', null);
 
   const exercises = [...DEFAULT_EXERCISES, ...customExercises];
 
@@ -95,6 +96,8 @@ export function useStore() {
     setActivePlan,
     userProfile,
     setUserProfile,
+    profilePicture,
+    setProfilePicture,
     getExercise,
     addCustomExercise,
     deleteCustomExercise,
