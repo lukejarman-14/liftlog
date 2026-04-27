@@ -15,6 +15,10 @@ interface PlanDetailProps {
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const PLAN_EMOJI: Record<string, string> = {
+  GK: '🧤', CB: '🛡️', FB: '⚡', CM: '⚙️', W: '💨', ST: '🎯',
+};
+
 const PHASE_COLOURS: Record<string, { bg: string; text: string }> = {
   Foundation: { bg: 'bg-blue-100',   text: 'text-blue-700'   },
   Build:      { bg: 'bg-purple-100', text: 'text-purple-700' },
@@ -58,7 +62,7 @@ export function PlanDetail({ planId, activePlan, onSetActivePlan, onNavigate, on
       <Card className="p-4 mb-5">
         <div className="flex items-center gap-3 mb-2">
           <span className="text-3xl">
-            {{ GK: '🧤', CB: '🛡️', FB: '⚡', CM: '⚙️', W: '💨', ST: '🎯' }[plan.shortName] ?? '⚽'}
+            {PLAN_EMOJI[plan.shortName] ?? '⚽'}
           </span>
           <div>
             <div className="font-bold text-gray-900 text-lg">{plan.position}</div>

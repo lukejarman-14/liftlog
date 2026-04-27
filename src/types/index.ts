@@ -75,17 +75,50 @@ export interface WorkoutSession {
   date: string;
 }
 
+// ── Training Plans ────────────────────────────────────────────────────────
+
+export interface PlanSession {
+  dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0 = Monday … 6 = Sunday
+  templateId: string;
+  name: string;
+  tags: string[];
+}
+
+export interface PlanWeek {
+  weekNumber: number;
+  phase: string;
+  sessions: PlanSession[];
+}
+
+export interface PositionPlan {
+  id: string;
+  position: string;
+  shortName: string;
+  description: string;
+  weeks: PlanWeek[];
+}
+
+export interface ActivePlan {
+  planId: string;
+  startDate: string; // YYYY-MM-DD (the Monday of week 1)
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────
+
 export type Screen =
   | 'dashboard'
   | 'exercise-library'
   | 'workout-builder'
   | 'active-workout'
   | 'history'
-  | 'exercise-detail';
+  | 'exercise-detail'
+  | 'plans'
+  | 'plan-detail';
 
 export interface NavState {
   screen: Screen;
   exerciseId?: string;
   templateId?: string;
   sessionId?: string;
+  planId?: string;
 }
