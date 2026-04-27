@@ -1,14 +1,19 @@
 import { useRef } from 'react';
-import { Camera, Mail, User, Shield, Calendar, Target, Dumbbell, LogOut } from 'lucide-react';
+import {
+  Camera, Mail, User, Shield, Calendar, Target, Dumbbell,
+  LogOut, PlayCircle, ChevronRight,
+} from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
-import { UserProfile } from '../../types';
+import { UserProfile, UserSettings } from '../../types';
 
 interface ProfileProps {
   userProfile: UserProfile;
   profilePicture: string | null;
   totalSessions: number;
+  settings: UserSettings;
   onSetProfilePicture: (pic: string | null) => void;
+  onUpdateSettings: (partial: Partial<UserSettings>) => void;
   onResetProfile: () => void;
   onBack: () => void;
 }
@@ -36,7 +41,57 @@ function getInitials(first: string, last: string) {
   return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
 }
 
-export function Profile({ userProfile, profilePicture, totalSessions, onSetProfilePicture, onResetProfile, onBack }: ProfileProps) {
+// ── Toggle switch ──────────────────────────────────────────────────────────
+function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      aria-pressed={enabled}
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+        enabled ? 'bg-brand-500' : 'bg-gray-200'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+          enabled ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
+}
+
+// ── Setting row ────────────────────────────────────────────────────────────
+function SettingRow({
+  icon,
+  label,
+  description,
+  enabled,
+  onToggle,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-3">
+      <div className="w-8 h-8 rounded-xl bg-brand-50 flex items-center justify-center flex-shrink-0 text-brand-500">
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-gray-800">{label}</div>
+        <div className="text-xs text-gray-400 leading-snug mt-0.5">{description}</div>
+      </div>
+      <Toggle enabled={enabled} onToggle={onToggle} />
+    </div>
+  );
+}
+
+export function Profile({
+  userProfile, profilePicture, totalSessions,
+  settings, onSetProfilePicture, onUpdateSettings, onResetProfile, onBack,
+}: ProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,7 +103,6 @@ export function Profile({ userProfile, profilePicture, totalSessions, onSetProfi
       if (typeof result === 'string') onSetProfilePicture(result);
     };
     reader.readAsDataURL(file);
-    // Reset so the same file can be re-selected
     e.target.value = '';
   };
 
@@ -58,10 +112,10 @@ export function Profile({ userProfile, profilePicture, totalSessions, onSetProfi
 
   return (
     <Layout title="My Profile" onBack={onBack}>
-      {/* Avatar + name block */}
-      <Card className="p-6 mb-5">
+
+      {/* ── Avatar + name ─────────────────────────────────────────────── */}
+      <Card className="p-6 mb-4">
         <div className="flex flex-col items-center">
-          {/* Profile picture */}
           <div className="relative mb-4">
             <div className="w-24 h-24 rounded-full overflow-hidden bg-brand-100 flex items-center justify-center border-4 border-white shadow-lg">
               {profilePicture ? (
@@ -78,13 +132,7 @@ export function Profile({ userProfile, profilePicture, totalSessions, onSetProfi
             >
               <Camera size={14} />
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
           </div>
 
           <h2 className="text-xl font-bold text-gray-900">
@@ -100,7 +148,6 @@ export function Profile({ userProfile, profilePicture, totalSessions, onSetProfi
               {POSITION_LABELS[userProfile.position] ?? userProfile.position}
             </span>
           </div>
-
           <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-400">
             <Calendar size={12} />
             Joined {joinedDate}
@@ -108,22 +155,20 @@ export function Profile({ userProfile, profilePicture, totalSessions, onSetProfi
         </div>
       </Card>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-5">
+      {/* ── Stats ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
         <Card className="p-4 text-center">
           <div className="text-2xl font-bold text-brand-500">{totalSessions}</div>
           <div className="text-xs text-gray-500 mt-0.5">Workouts logged</div>
         </Card>
         <Card className="p-4 text-center">
-          <div className="text-2xl font-bold text-brand-500">
-            {POSITION_EMOJI[userProfile.position] ?? '⚽'}
-          </div>
+          <div className="text-2xl font-bold text-brand-500">{POSITION_EMOJI[userProfile.position] ?? '⚽'}</div>
           <div className="text-xs text-gray-500 mt-0.5">{POSITION_LABELS[userProfile.position]}</div>
         </Card>
       </div>
 
-      {/* Training background */}
-      <Card className="p-4 mb-5">
+      {/* ── Training background ───────────────────────────────────────── */}
+      <Card className="p-4 mb-4">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Training Profile</h3>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
@@ -156,9 +201,9 @@ export function Profile({ userProfile, profilePicture, totalSessions, onSetProfi
         </div>
       </Card>
 
-      {/* Goals */}
+      {/* ── Goals ─────────────────────────────────────────────────────── */}
       {userProfile.goals.length > 0 && (
-        <Card className="p-4 mb-5">
+        <Card className="p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Target size={14} className="text-brand-500" />
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Goals</h3>
@@ -173,9 +218,36 @@ export function Profile({ userProfile, profilePicture, totalSessions, onSetProfi
         </Card>
       )}
 
-      {/* Danger zone */}
-      <Card className="p-4">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Account</h3>
+      {/* ── Settings ──────────────────────────────────────────────────── */}
+      <Card className="p-4 mb-4">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Settings &amp; Preferences</h3>
+        <p className="text-xs text-gray-400 mb-3">More settings will be added here over time.</p>
+
+        <div className="divide-y divide-gray-100">
+          <SettingRow
+            icon={<PlayCircle size={15} />}
+            label="Tutorial videos &amp; explanations"
+            description="Show demo videos and step-by-step how-to guides inside each exercise during a workout and in exercise detail"
+            enabled={settings.showTutorialVideos}
+            onToggle={() => onUpdateSettings({ showTutorialVideos: !settings.showTutorialVideos })}
+          />
+
+          {/* Placeholder rows so user can see the pattern — easy to wire up */}
+          <div className="flex items-center gap-3 py-3 opacity-40 pointer-events-none">
+            <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+              <ChevronRight size={14} className="text-gray-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-gray-800">More settings coming soon</div>
+              <div className="text-xs text-gray-400">Rest timer sounds, units, theme…</div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Account ───────────────────────────────────────────────────── */}
+      <Card className="p-4 mb-8">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account</h3>
         {profilePicture && (
           <button
             onClick={() => onSetProfilePicture(null)}

@@ -103,6 +103,17 @@ export interface ActivePlan {
   startDate: string; // YYYY-MM-DD (the Monday of week 1)
 }
 
+// ── User Settings ─────────────────────────────────────────────────────────
+
+export interface UserSettings {
+  showTutorialVideos: boolean;   // show demo videos & how-to guides in workouts + exercise detail
+  // add more preferences here over time
+}
+
+export const DEFAULT_SETTINGS: UserSettings = {
+  showTutorialVideos: true,
+};
+
 // ── User Profile / Onboarding ─────────────────────────────────────────────
 
 export interface UserProfile {

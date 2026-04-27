@@ -107,6 +107,7 @@ export default function App() {
           <ExerciseDetail
             exercise={exercise}
             sessions={store.sessions}
+            showTutorials={store.userSettings.showTutorialVideos}
             onNavigate={navigate}
             onBack={() => setNav({ screen: 'exercise-library' })}
           />
@@ -127,6 +128,7 @@ export default function App() {
       {screen === 'active-workout' && activeSession && (
         <ActiveWorkout
           session={activeSession}
+          showTutorials={store.userSettings.showTutorialVideos}
           onUpdateSession={handleUpdateSession}
           onFinish={handleFinishWorkout}
           onNavigate={navigate}
@@ -165,7 +167,9 @@ export default function App() {
           userProfile={store.userProfile}
           profilePicture={store.profilePicture}
           totalSessions={store.sessions.length}
+          settings={store.userSettings}
           onSetProfilePicture={store.setProfilePicture}
+          onUpdateSettings={store.updateSettings}
           onResetProfile={() => {
             store.setUserProfile(null);
             navigate({ screen: 'dashboard' });

@@ -1,5 +1,5 @@
 import { useLocalStorage } from './useLocalStorage';
-import { Exercise, WorkoutTemplate, WorkoutSession, ActivePlan, UserProfile } from '../types';
+import { Exercise, WorkoutTemplate, WorkoutSession, ActivePlan, UserProfile, UserSettings, DEFAULT_SETTINGS } from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
 export function useStore() {
@@ -9,6 +9,10 @@ export function useStore() {
   const [activePlan, setActivePlan] = useLocalStorage<ActivePlan | null>('ll_active_plan', null);
   const [userProfile, setUserProfile] = useLocalStorage<UserProfile | null>('ll_user_profile', null);
   const [profilePicture, setProfilePicture] = useLocalStorage<string | null>('ll_profile_picture', null);
+  const [userSettings, setUserSettings] = useLocalStorage<UserSettings>('ll_settings', DEFAULT_SETTINGS);
+
+  const updateSettings = (partial: Partial<UserSettings>) =>
+    setUserSettings(prev => ({ ...prev, ...partial }));
 
   const exercises = [...DEFAULT_EXERCISES, ...customExercises];
 
@@ -98,6 +102,8 @@ export function useStore() {
     setUserProfile,
     profilePicture,
     setProfilePicture,
+    userSettings,
+    updateSettings,
     getExercise,
     addCustomExercise,
     deleteCustomExercise,

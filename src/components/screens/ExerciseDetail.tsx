@@ -23,6 +23,7 @@ function formatSetChip(set: CompletedSet, measureType: MeasureType, unit?: strin
 interface ExerciseDetailProps {
   exercise: Exercise;
   sessions: WorkoutSession[];
+  showTutorials: boolean;
   onNavigate: (nav: NavState) => void;
   onBack: () => void;
 }
@@ -34,7 +35,7 @@ interface ChartPoint {
   sets: number;
 }
 
-export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: ExerciseDetailProps) {
+export function ExerciseDetail({ exercise, sessions, showTutorials, onNavigate, onBack }: ExerciseDetailProps) {
   const exerciseSessions = sessions
     .filter(s => s.exercises.some(e => e.exerciseId === exercise.id))
     .sort((a, b) => a.startTime - b.startTime);
@@ -57,8 +58,8 @@ export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: Exerc
   const totalSets = allSets.length;
   const totalVolume = allSets.reduce((acc, s) => acc + s.reps * s.weight, 0);
 
-  const desc = EXERCISE_DESCRIPTIONS[exercise.id];
-  const hasVideo = !!EXERCISE_VIDEOS[exercise.id];
+  const desc = showTutorials ? EXERCISE_DESCRIPTIONS[exercise.id] : undefined;
+  const hasVideo = showTutorials && !!EXERCISE_VIDEOS[exercise.id];
 
   return (
     <Layout title={exercise.name} onBack={onBack}>

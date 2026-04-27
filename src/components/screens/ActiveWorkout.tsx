@@ -1,14 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp, Trophy, Clock } from 'lucide-react';
+import {
+  CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp,
+  Trophy, Clock, PlayCircle, BookOpen, Lightbulb, MapPin, ChevronRight,
+} from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { useTimer } from '../../hooks/useTimer';
 import { useStore } from '../../hooks/useStore';
 import { WorkoutSession, SessionExercise, CompletedSet, NavState, MeasureType } from '../../types';
+import { EXERCISE_VIDEOS } from '../../data/exerciseVideos';
+import { EXERCISE_DESCRIPTIONS } from '../../data/exerciseDescriptions';
 
 interface ActiveWorkoutProps {
   session: WorkoutSession;
+  showTutorials: boolean;
   onUpdateSession: (session: WorkoutSession) => void;
   onFinish: (session: WorkoutSession) => void;
   onNavigate: (nav: NavState) => void;
@@ -21,7 +27,6 @@ function playRestEndSound() {
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
-    // Three quick ascending beeps
     ([[880, 0], [1100, 0.18], [1320, 0.36]] as [number, number][]).forEach(([freq, offset]) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -69,7 +74,7 @@ function formatRestTime(secs: number): string {
   return `${secs}s`;
 }
 
-// ── Inline rest timer row ──────────────────────────────────────────────────
+// ── Inline rest timer ──────────────────────────────────────────────────────
 
 interface RestInfo {
   remaining: number;
@@ -106,7 +111,102 @@ function InlineRestTimer({ restInfo }: { restInfo: RestInfo }) {
   );
 }
 
-// ── Set row — adapts to measureType ───────────────────────────────────────
+// ── Tutorial panel (collapsible, inside the exercise card) ─────────────────
+
+function TutorialPanel({ exerciseId, exerciseName }: { exerciseId: string; exerciseName: string }) {
+  const [open, setOpen] = useState(false);
+  const hasVideo = !!EXERCISE_VIDEOS[exerciseId];
+  const desc = EXERCISE_DESCRIPTIONS[exerciseId];
+
+  if (!hasVideo && !desc) return null;
+
+  return (
+    <div className="border-t border-gray-100 mt-1">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors"
+      >
+        <PlayCircle size={14} className="text-brand-400 flex-shrink-0" />
+        <span className="text-xs font-semibold text-brand-500 flex-1">
+          {open ? 'Hide tutorial' : 'Show tutorial & how-to'}
+        </span>
+        {open
+          ? <ChevronUp size={13} className="text-gray-400" />
+          : <ChevronRight size={13} className="text-gray-400" />
+        }
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 bg-gray-50/60">
+          {/* YouTube video */}
+          {hasVideo && (
+            <div className="mb-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <PlayCircle size={12} className="text-brand-500" />
+                <span className="text-xs font-semibold text-gray-600">Demo Video</span>
+              </div>
+              <div className="relative w-full rounded-xl overflow-hidden" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  className="absolute inset-0 w-full h-full"
+                  src={`https://www.youtube.com/embed/${EXERCISE_VIDEOS[exerciseId]}?rel=0&modestbranding=1`}
+                  title={`${exerciseName} demonstration`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          )}
+
+          {/* How-to steps */}
+          {desc && (
+            <>
+              <div className="flex items-center gap-1.5 mb-2">
+                <BookOpen size={12} className="text-brand-500" />
+                <span className="text-xs font-semibold text-gray-600">How to do it</span>
+              </div>
+              <ol className="flex flex-col gap-1.5 mb-3">
+                {desc.how.map((step, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="flex-shrink-0 w-4 h-4 rounded-full bg-brand-100 text-brand-600 text-xs font-bold flex items-center justify-center mt-0.5">
+                      {i + 1}
+                    </span>
+                    <span className="text-xs text-gray-700 leading-relaxed">{step}</span>
+                  </li>
+                ))}
+              </ol>
+
+              {desc.tips && desc.tips.length > 0 && (
+                <div className="mb-2">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Lightbulb size={11} className="text-yellow-500" />
+                    <span className="text-xs font-semibold text-yellow-700">Tips</span>
+                  </div>
+                  {desc.tips.map((tip, i) => (
+                    <p key={i} className="text-xs text-gray-600 leading-relaxed mb-1 pl-3">• {tip}</p>
+                  ))}
+                </div>
+              )}
+
+              {desc.footballContext && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <MapPin size={11} className="text-green-600" />
+                    <span className="text-xs font-semibold text-green-700">Football context</span>
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line pl-3">
+                    {desc.footballContext}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Set row ────────────────────────────────────────────────────────────────
 
 function SetRow({
   setIndex,
@@ -129,14 +229,7 @@ function SetRow({
   const [weight, setWeight] = useState(defaultWeight);
 
   const label = getMeasureLabel(measureType, unit);
-
-  // Step size for the +/− buttons based on measure type
-  const step = measureType === 'strength'  ? 2.5
-             : measureType === 'time'      ? 1
-             : measureType === 'height'    ? 1
-             : measureType === 'distance'  ? 0.1
-             : measureType === 'score'     ? 1
-             : 1;
+  const step = measureType === 'strength' ? 2.5 : measureType === 'distance' ? 0.1 : 1;
 
   const handleLog = () => {
     if (completed) return;
@@ -151,14 +244,11 @@ function SetRow({
     <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
       completed ? 'bg-green-50 border border-green-100' : 'bg-gray-50'
     }`}>
-      {/* Set number */}
       <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">
         {setIndex + 1}
       </span>
 
       <div className="flex-1 flex items-center gap-2 flex-wrap">
-
-        {/* STRENGTH: weight × reps */}
         {measureType === 'strength' && (
           <>
             <div className="flex items-center gap-1">
@@ -193,7 +283,6 @@ function SetRow({
           </>
         )}
 
-        {/* REPS ONLY */}
         {measureType === 'reps' && (
           <div className="flex items-center gap-1">
             <button onClick={() => setReps(r => Math.max(1, r - 1))}
@@ -211,18 +300,15 @@ function SetRow({
           </div>
         )}
 
-        {/* SINGLE VALUE: time / distance / height / score */}
         {(measureType === 'time' || measureType === 'distance' || measureType === 'height' || measureType === 'score') && (
           <div className="flex items-center gap-1">
             <button onClick={() => setWeight(w => Math.max(0, parseFloat((w - step).toFixed(2))))}
               className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200">
               <Minus size={12} />
             </button>
-            <input
-              type="number" value={weight} min="0" step={step}
+            <input type="number" value={weight} min="0" step={step}
               onChange={e => setWeight(parseFloat(e.target.value) || 0)}
-              className="w-20 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
+              className="w-20 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500" />
             <button onClick={() => setWeight(w => parseFloat((w + step).toFixed(2)))}
               className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200">
               <Plus size={12} />
@@ -232,7 +318,6 @@ function SetRow({
         )}
       </div>
 
-      {/* Log / tick button */}
       <button
         onClick={handleLog}
         className={`p-1 rounded-full transition-colors flex-shrink-0 ${
@@ -250,11 +335,13 @@ function SetRow({
 function ExerciseSection({
   sessionExercise,
   sessionId,
+  showTutorials,
   restInfo,
   onCompleteSet,
 }: {
   sessionExercise: SessionExercise;
   sessionId: string;
+  showTutorials: boolean;
   restInfo?: RestInfo;
   onCompleteSet: (setIndex: number, set: CompletedSet) => void;
 }) {
@@ -279,12 +366,8 @@ function ExerciseSection({
     if (i > 0 && sessionExercise.sets[i - 1]) {
       return { weight: sessionExercise.sets[i - 1].weight, reps: sessionExercise.sets[i - 1].reps };
     }
-    if (lastSession?.sets[i]) {
-      return { weight: lastSession.sets[i].weight, reps: lastSession.sets[i].reps };
-    }
-    if (lastSession?.sets[0]) {
-      return { weight: lastSession.sets[0].weight, reps: lastSession.sets[0].reps };
-    }
+    if (lastSession?.sets[i]) return { weight: lastSession.sets[i].weight, reps: lastSession.sets[i].reps };
+    if (lastSession?.sets[0]) return { weight: lastSession.sets[0].weight, reps: lastSession.sets[0].reps };
     return { weight: sessionExercise.targetWeight, reps: sessionExercise.targetReps };
   };
 
@@ -292,18 +375,11 @@ function ExerciseSection({
     (best, set) => (!best || set.weight > best.weight ? set : best), null,
   );
   const isNewPB = !!(currentBest && pb && currentBest.weight > pb.weight);
-
-  const pbDisplay = pb
-    ? formatSetDisplay({ ...pb, completedAt: 0 }, measureType, unit)
-    : null;
-
+  const pbDisplay = pb ? formatSetDisplay({ ...pb, completedAt: 0 }, measureType, unit) : null;
   const lastBest = lastSession?.sets.length
     ? lastSession.sets.reduce((b, s) => s.weight > b.weight ? s : b)
     : null;
-
-  const lastDisplay = lastBest
-    ? formatSetDisplay({ ...lastBest, completedAt: 0 }, measureType, unit)
-    : null;
+  const lastDisplay = lastBest ? formatSetDisplay({ ...lastBest, completedAt: 0 }, measureType, unit) : null;
 
   return (
     <Card className={`overflow-hidden ${allDone ? 'opacity-80' : ''}`}>
@@ -327,73 +403,77 @@ function ExerciseSection({
       </button>
 
       {!collapsed && (
-        <div className="px-4 pb-4">
-          {/* Last time & PB */}
-          <div className="flex gap-2 mb-3">
-            <button
-              onClick={() => setShowAllLast(s => !s)}
-              className="flex-1 bg-blue-50 rounded-xl px-3 py-2 text-left"
-            >
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <Clock size={11} className="text-blue-500" />
-                <span className="text-xs font-semibold text-blue-600">Last Time</span>
-              </div>
-              {lastSession && lastSession.sets.length > 0 ? (
-                <div className="text-xs text-blue-700 leading-relaxed">
-                  {showAllLast
-                    ? lastSession.sets.map((s, i) => (
-                        <span key={i} className="mr-2 whitespace-nowrap">
-                          {formatSetDisplay(s, measureType, unit)}
-                        </span>
-                      ))
-                    : <span className="font-medium">{lastDisplay}</span>
-                  }
-                </div>
-              ) : (
-                <div className="text-xs text-blue-400 italic">No history yet</div>
-              )}
-            </button>
+        <>
+          {/* Tutorial panel (when setting is on) */}
+          {showTutorials && (
+            <TutorialPanel exerciseId={exercise.id} exerciseName={exercise.name} />
+          )}
 
-            <div className="flex-1 bg-yellow-50 rounded-xl px-3 py-2">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <Trophy size={11} className="text-yellow-500" />
-                <span className="text-xs font-semibold text-yellow-600">
-                  {measureType === 'time' || measureType === 'score' ? 'Best' : 'PB'}
-                </span>
-              </div>
-              {pbDisplay ? (
-                <div className="text-xs text-yellow-700 font-medium">
-                  {pbDisplay}
-                  {isNewPB && <span className="ml-1 font-bold">New!</span>}
+          <div className="px-4 pb-4">
+            {/* Last time & PB */}
+            <div className="flex gap-2 mb-3">
+              <button onClick={() => setShowAllLast(s => !s)} className="flex-1 bg-blue-50 rounded-xl px-3 py-2 text-left">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Clock size={11} className="text-blue-500" />
+                  <span className="text-xs font-semibold text-blue-600">Last Time</span>
                 </div>
-              ) : (
-                <div className="text-xs text-yellow-400 italic">Not set yet</div>
-              )}
+                {lastSession && lastSession.sets.length > 0 ? (
+                  <div className="text-xs text-blue-700 leading-relaxed">
+                    {showAllLast
+                      ? lastSession.sets.map((s, i) => (
+                          <span key={i} className="mr-2 whitespace-nowrap">
+                            {formatSetDisplay(s, measureType, unit)}
+                          </span>
+                        ))
+                      : <span className="font-medium">{lastDisplay}</span>
+                    }
+                  </div>
+                ) : (
+                  <div className="text-xs text-blue-400 italic">No history yet</div>
+                )}
+              </button>
+
+              <div className="flex-1 bg-yellow-50 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Trophy size={11} className="text-yellow-500" />
+                  <span className="text-xs font-semibold text-yellow-600">
+                    {measureType === 'time' || measureType === 'score' ? 'Best' : 'PB'}
+                  </span>
+                </div>
+                {pbDisplay ? (
+                  <div className="text-xs text-yellow-700 font-medium">
+                    {pbDisplay}
+                    {isNewPB && <span className="ml-1 font-bold">New!</span>}
+                  </div>
+                ) : (
+                  <div className="text-xs text-yellow-400 italic">Not set yet</div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Set rows */}
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: totalSets }).map((_, i) => {
-              const defaults = getSetDefaults(i);
-              return (
-                <SetRow
-                  key={i}
-                  setIndex={i}
-                  completed={sessionExercise.sets[i] ?? null}
-                  defaultWeight={defaults.weight}
-                  defaultReps={defaults.reps}
-                  measureType={measureType}
-                  unit={unit}
-                  onComplete={set => onCompleteSet(i, set)}
-                />
-              );
-            })}
-          </div>
+            {/* Set rows */}
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: totalSets }).map((_, i) => {
+                const defaults = getSetDefaults(i);
+                return (
+                  <SetRow
+                    key={i}
+                    setIndex={i}
+                    completed={sessionExercise.sets[i] ?? null}
+                    defaultWeight={defaults.weight}
+                    defaultReps={defaults.reps}
+                    measureType={measureType}
+                    unit={unit}
+                    onComplete={set => onCompleteSet(i, set)}
+                  />
+                );
+              })}
+            </div>
 
-          {/* Inline rest timer — shown between sets */}
-          {restInfo && <InlineRestTimer restInfo={restInfo} />}
-        </div>
+            {/* Inline rest timer */}
+            {restInfo && <InlineRestTimer restInfo={restInfo} />}
+          </div>
+        </>
       )}
     </Card>
   );
@@ -401,7 +481,7 @@ function ExerciseSection({
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
-export function ActiveWorkout({ session, onUpdateSession, onFinish, onNavigate }: ActiveWorkoutProps) {
+export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onNavigate }: ActiveWorkoutProps) {
   const timer = useTimer();
   const [showFinish, setShowFinish] = useState(false);
   const [restingExerciseIdx, setRestingExerciseIdx] = useState<number | null>(null);
@@ -428,7 +508,6 @@ export function ActiveWorkout({ session, onUpdateSession, onFinish, onNavigate }
     };
     onUpdateSession(updated);
 
-    // Start rest timer unless it's the very last set of the last exercise
     const ex = session.exercises[exerciseIdx];
     const isLastSet      = setIndex === ex.targetSets - 1;
     const isLastExercise = exerciseIdx === session.exercises.length - 1;
@@ -438,7 +517,6 @@ export function ActiveWorkout({ session, onUpdateSession, onFinish, onNavigate }
     }
   }, [session, onUpdateSession, timer]);
 
-  // Sound + vibrate when rest ends
   useEffect(() => {
     if (timer.finished) {
       playRestEndSound();
@@ -448,7 +526,6 @@ export function ActiveWorkout({ session, onUpdateSession, onFinish, onNavigate }
     }
   }, [timer.finished, timer]);
 
-  // Build restInfo for the currently resting exercise
   const restInfo: RestInfo | undefined = (timer.running && restingExerciseIdx !== null)
     ? { remaining: timer.remaining, progress: timer.progress, onSkip: handleSkipRest }
     : undefined;
@@ -480,6 +557,7 @@ export function ActiveWorkout({ session, onUpdateSession, onFinish, onNavigate }
               key={ex.exerciseId}
               sessionExercise={ex}
               sessionId={session.id}
+              showTutorials={showTutorials}
               restInfo={exerciseIdx === restingExerciseIdx ? restInfo : undefined}
               onCompleteSet={(setIndex, set) => handleCompleteSet(exerciseIdx, setIndex, set)}
             />
