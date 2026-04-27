@@ -1,4 +1,4 @@
-import { TrendingUp, Dumbbell } from 'lucide-react';
+import { TrendingUp, Dumbbell, PlayCircle } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -7,6 +7,7 @@ import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Exercise, WorkoutSession, NavState, MeasureType, CompletedSet } from '../../types';
+import { EXERCISE_VIDEOS } from '../../data/exerciseVideos';
 
 function formatSetChip(set: CompletedSet, measureType: MeasureType, unit?: string): string {
   const lbl = unit ?? (measureType === 'time' ? 's' : measureType === 'distance' ? 'm' : measureType === 'height' ? 'cm' : '');
@@ -67,6 +68,25 @@ export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: Exerc
         ))}
         <span className="text-xs text-gray-400 ml-auto">Rest: {exercise.defaultRestSeconds}s</span>
       </div>
+
+      {/* Demo video */}
+      {EXERCISE_VIDEOS[exercise.id] ? (
+        <Card className="mb-6 overflow-hidden">
+          <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+            <PlayCircle size={15} className="text-brand-500" />
+            <span className="text-sm font-semibold text-gray-700">Exercise Demo</span>
+          </div>
+          <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+            <iframe
+              className="absolute inset-0 w-full h-full"
+              src={`https://www.youtube.com/embed/${EXERCISE_VIDEOS[exercise.id]}?rel=0&modestbranding=1`}
+              title={`${exercise.name} demonstration`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </Card>
+      ) : null}
 
       {/* Personal records */}
       <div className="grid grid-cols-3 gap-3 mb-6">
