@@ -103,6 +103,20 @@ export interface ActivePlan {
   startDate: string; // YYYY-MM-DD (the Monday of week 1)
 }
 
+// ── User Profile / Onboarding ─────────────────────────────────────────────
+
+export interface UserProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  position: 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST';
+  experienceYears: '<1' | '1-3' | '3-5' | '5+';
+  gymFrequency: '0' | '1-2' | '3-4' | '5+';
+  goals: string[];           // e.g. ['speed', 'strength', 'endurance']
+  gymAccess: 'full' | 'basic' | 'none';
+  completedAt: number;       // timestamp
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────
 
 export type Screen =

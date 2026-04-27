@@ -9,7 +9,8 @@ import { ActiveWorkout } from './components/screens/ActiveWorkout';
 import { History } from './components/screens/History';
 import { PlanBrowser } from './components/screens/PlanBrowser';
 import { PlanDetail } from './components/screens/PlanDetail';
-import { NavState, WorkoutExercise, WorkoutSession } from './types';
+import { Onboarding } from './components/screens/Onboarding';
+import { NavState, WorkoutExercise, WorkoutSession, UserProfile } from './types';
 
 export default function App() {
   const store = useStore();
@@ -46,6 +47,24 @@ export default function App() {
     setActiveSession(null);
     setNav({ screen: 'dashboard' });
   };
+
+  const handleOnboardingComplete = (profile: UserProfile, recommendedPlanId: string) => {
+    store.setUserProfile(profile);
+    if (recommendedPlanId) {
+      const today = new Date();
+      const day = today.getDay(); // 0=Sun, 1=Mon...
+      const daysToMonday = day === 1 ? 0 : day === 0 ? 1 : 8 - day;
+      const startDate = new Date(today);
+      if (daysToMonday > 0) startDate.setDate(today.getDate() + daysToMonday);
+      store.setActivePlan({ planId: recommendedPlanId, startDate: startDate.toISOString().split('T')[0] });
+    }
+    navigate({ screen: 'dashboard' });
+  };
+
+  // Show onboarding for new users who haven't completed it yet
+  if (!store.userProfile) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
 
   const { screen } = nav;
 
