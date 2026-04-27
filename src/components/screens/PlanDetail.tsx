@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Play, CheckCircle2, Dumbbell } from 'lucide-react';
+import { ChevronDown, ChevronUp, Play, CheckCircle2, Dumbbell, Eye, EyeOff, Clock } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { ActivePlan, NavState } from '../../types';
 import { POSITION_PLANS, POSITION_TEMPLATES, getCurrentPlanWeek } from '../../data/positionPlans';
+import { DEFAULT_EXERCISES } from '../../data/exercises';
 
 interface PlanDetailProps {
   planId: string;
@@ -27,9 +28,35 @@ const PHASE_COLOURS: Record<string, { bg: string; text: string }> = {
   Peak:       { bg: 'bg-red-100',    text: 'text-red-700'    },
 };
 
+const CATEGORY_COLOURS: Record<string, string> = {
+  Plyometrics:      'bg-lime-100 text-lime-700',
+  Strength:         'bg-brand-100 text-brand-700',
+  Eccentric:        'bg-violet-100 text-violet-700',
+  Isometric:        'bg-cyan-100 text-cyan-700',
+  Conditioning:     'bg-rose-100 text-rose-700',
+  Olympic:          'bg-indigo-100 text-indigo-700',
+  Legs:             'bg-green-100 text-green-700',
+  Back:             'bg-blue-100 text-blue-700',
+  Chest:            'bg-red-100 text-red-700',
+  'Speed & Agility':'bg-emerald-100 text-emerald-700',
+};
+
+function formatTarget(sets: number, reps: number, weight: number): string {
+  if (weight > 0) return `${sets}×${reps} @ ${weight}kg`;
+  if (reps > 1)   return `${sets}×${reps}`;
+  return `${sets} sets`;
+}
+
+function formatRest(seconds: number): string {
+  if (seconds >= 60) return `${Math.floor(seconds / 60)}m ${seconds % 60 > 0 ? (seconds % 60) + 's' : ''}`.trim();
+  return `${seconds}s`;
+}
+
 export function PlanDetail({ planId, activePlan, onSetActivePlan, onNavigate, onBack }: PlanDetailProps) {
   const plan = POSITION_PLANS.find(p => p.id === planId);
   const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
+  // key = `${weekNumber}-${dayOfWeek}` → whether exercises are shown
+  const [previewOpen, setPreviewOpen] = useState<Record<string, boolean>>({});
 
   if (!plan) {
     return (
@@ -52,8 +79,11 @@ export function PlanDetail({ planId, activePlan, onSetActivePlan, onNavigate, on
     onNavigate({ screen: 'dashboard' });
   };
 
-  const handleStop = () => {
-    onSetActivePlan(null);
+  const handleStop = () => onSetActivePlan(null);
+
+  const togglePreview = (weekNum: number, dayOfWeek: number) => {
+    const key = `${weekNum}-${dayOfWeek}`;
+    setPreviewOpen(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
@@ -61,9 +91,7 @@ export function PlanDetail({ planId, activePlan, onSetActivePlan, onNavigate, on
       {/* Header card */}
       <Card className="p-4 mb-5">
         <div className="flex items-center gap-3 mb-2">
-          <span className="text-3xl">
-            {PLAN_EMOJI[plan.shortName] ?? '⚽'}
-          </span>
+          <span className="text-3xl">{PLAN_EMOJI[plan.shortName] ?? '⚽'}</span>
           <div>
             <div className="font-bold text-gray-900 text-lg">{plan.position}</div>
             <div className="text-xs text-gray-400">8 weeks · 3 sessions/wk · Mon/Wed/Fri</div>
@@ -135,35 +163,88 @@ export function PlanDetail({ planId, activePlan, onSetActivePlan, onNavigate, on
 
               {/* Session list */}
               {open && (
-                <div className="border-t border-gray-100 divide-y divide-gray-50">
+                <div className="border-t border-gray-100">
                   {planWeek.sessions.map(planSession => {
                     const template = POSITION_TEMPLATES.find(t => t.id === planSession.templateId);
+                    const previewKey = `${planWeek.weekNumber}-${planSession.dayOfWeek}`;
+                    const isPreviewOpen = !!previewOpen[previewKey];
+                    const exCount = template?.exercises.length ?? 0;
+
                     return (
-                      <div key={planSession.dayOfWeek} className="flex items-center gap-3 px-3 py-2.5 bg-gray-50">
-                        <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
-                          <Dumbbell size={16} className="text-brand-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-xs font-semibold text-brand-500">{DAY_LABELS[planSession.dayOfWeek]}</span>
+                      <div key={planSession.dayOfWeek} className="border-b border-gray-50 last:border-b-0">
+                        {/* Session header row */}
+                        <div className="flex items-center gap-3 px-3 py-3 bg-gray-50">
+                          <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
+                            <Dumbbell size={16} className="text-brand-600" />
                           </div>
-                          <div className="text-sm font-medium text-gray-900 truncate">{planSession.name}</div>
-                          {template && (
-                            <div className="text-xs text-gray-400 truncate">{template.description}</div>
-                          )}
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {planSession.tags.map(tag => (
-                              <span key={tag} className="text-xs bg-white text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded-full">{tag}</span>
-                            ))}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-xs font-semibold text-brand-500">{DAY_LABELS[planSession.dayOfWeek]}</span>
+                              <span className="text-xs text-gray-300">·</span>
+                              <span className="text-xs text-gray-400">{exCount} exercises</span>
+                            </div>
+                            <div className="text-sm font-semibold text-gray-900 truncate">{planSession.name}</div>
+                            {template && (
+                              <div className="text-xs text-gray-400 truncate mt-0.5">{template.description}</div>
+                            )}
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {planSession.tags.map(tag => (
+                                <span key={tag} className="text-xs bg-white text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded-full">{tag}</span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
+                            {isCurrentWeek && (
+                              <button
+                                onClick={() => onNavigate({ screen: 'workout-builder', templateId: planSession.templateId })}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-brand-500 text-white rounded-xl text-xs font-semibold hover:bg-brand-600"
+                              >
+                                <Play size={11} />
+                                Start
+                              </button>
+                            )}
+                            <button
+                              onClick={() => togglePreview(planWeek.weekNumber, planSession.dayOfWeek)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 text-gray-500 rounded-xl text-xs font-medium hover:bg-gray-50"
+                            >
+                              {isPreviewOpen ? <EyeOff size={11} /> : <Eye size={11} />}
+                              {isPreviewOpen ? 'Hide' : 'Preview'}
+                            </button>
                           </div>
                         </div>
-                        {isCurrentWeek && (
-                          <button
-                            onClick={() => onNavigate({ screen: 'workout-builder', templateId: planSession.templateId })}
-                            className="flex-shrink-0 p-2 bg-brand-500 text-white rounded-xl hover:bg-brand-600"
-                          >
-                            <Play size={14} />
-                          </button>
+
+                        {/* Exercise preview list */}
+                        {isPreviewOpen && template && (
+                          <div className="bg-white border-t border-gray-100 px-3 py-2">
+                            <div className="flex flex-col gap-1">
+                              {template.exercises.map((ex, idx) => {
+                                const exercise = DEFAULT_EXERCISES.find(e => e.id === ex.exerciseId);
+                                const catColour = exercise ? (CATEGORY_COLOURS[exercise.category] ?? 'bg-gray-100 text-gray-500') : 'bg-gray-100 text-gray-500';
+                                return (
+                                  <div key={idx} className="flex items-center gap-2.5 py-1.5 border-b border-gray-50 last:border-b-0">
+                                    <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-400 font-medium flex-shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <span className="text-sm text-gray-800 font-medium">
+                                        {exercise?.name ?? ex.exerciseId}
+                                      </span>
+                                    </div>
+                                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${catColour}`}>
+                                      {exercise?.category ?? '—'}
+                                    </span>
+                                    <div className="text-xs text-gray-500 flex-shrink-0 text-right">
+                                      <div className="font-medium">{formatTarget(ex.targetSets, ex.targetReps, ex.targetWeight)}</div>
+                                      <div className="flex items-center gap-0.5 text-gray-400 justify-end">
+                                        <Clock size={9} />
+                                        {formatRest(ex.restSeconds)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
                         )}
                       </div>
                     );
