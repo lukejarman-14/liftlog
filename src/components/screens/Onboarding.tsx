@@ -93,10 +93,10 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     setGoals(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
 
   const canNext = () => {
-    if (step === 0) return firstName.trim() !== '' && lastName.trim() !== '' && email.includes('@');
-    if (step === 1) return position !== '';
-    if (step === 2) return experience !== '';
-    if (step === 3) return goals.length > 0 && gymAccess !== '';
+    if (step === 1) return firstName.trim() !== '' && lastName.trim() !== '' && email.includes('@');
+    if (step === 2) return position !== '';
+    if (step === 3) return experience !== '';
+    if (step === 4) return goals.length > 0 && gymAccess !== '';
     return true;
   };
 
