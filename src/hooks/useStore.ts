@@ -4,7 +4,7 @@ import {
   UserProfile, UserSettings, DEFAULT_SETTINGS,
   BaselineTest, BaselineResults,
   MatchEntry, PerformanceEntry,
-  TestSession,
+  TestSession, GeneratedProgramme,
 } from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
@@ -26,6 +26,7 @@ export function useStore() {
   const [matchEntries, setMatchEntries] = useLocalStorage<MatchEntry[]>('ll_match_entries', []);
   const [performanceEntries, setPerformanceEntries] = useLocalStorage<PerformanceEntry[]>('ll_performance_entries', []);
   const [testSessions, setTestSessions] = useLocalStorage<TestSession[]>('ll_test_sessions', []);
+  const [generatedProgrammes, setGeneratedProgrammes] = useLocalStorage<GeneratedProgramme[]>('ll_generated_programmes', []);
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));
@@ -61,6 +62,13 @@ export function useStore() {
       const idx = prev.findIndex(s => s.id === session.id);
       if (idx >= 0) { const next = [...prev]; next[idx] = session; return next; }
       return [...prev, session];
+    });
+
+  // Generated programmes — store up to 10 most recent
+  const saveGeneratedProgramme = (programme: GeneratedProgramme) =>
+    setGeneratedProgrammes(prev => {
+      const filtered = prev.filter(p => p.id !== programme.id);
+      return [programme, ...filtered].slice(0, 10);
     });
 
   const exercises = [...DEFAULT_EXERCISES, ...customExercises];
@@ -173,5 +181,7 @@ export function useStore() {
     deletePerformanceEntry,
     testSessions,
     saveTestSession,
+    generatedProgrammes,
+    saveGeneratedProgramme,
   };
 }

@@ -216,7 +216,9 @@ export type Screen =
   | 'plan-detail'
   | 'profile'
   | 'testing-battery'
-  | 'load-calendar';
+  | 'load-calendar'
+  | 'programme-builder'
+  | 'generated-programme';
 
 export interface NavState {
   screen: Screen;
@@ -224,6 +226,69 @@ export interface NavState {
   templateId?: string;
   sessionId?: string;
   planId?: string;
+}
+
+// ── AI Programme Builder ──────────────────────────────────────────────────
+
+export type PrimaryGoal = 'speed' | 'strength' | 'power' | 'endurance' | 'injury_prevention';
+export type MatchDayPref = 'saturday' | 'sunday' | 'midweek';
+export type Weakness = 'speed' | 'strength' | 'endurance' | 'power' | 'agility' | 'injury_prone';
+export type InjuryArea = 'hamstring' | 'ankle' | 'knee' | 'groin' | 'calf' | 'back' | 'shoulder';
+
+export interface ProgrammeInputs {
+  position: 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST';
+  experienceYears: '<1' | '1-3' | '3-5' | '5+';
+  sessionsPerWeek: 2 | 3 | 4;
+  primaryGoal: PrimaryGoal;
+  secondaryGoals: string[];
+  matchDay: MatchDayPref;
+  biggestWeakness: Weakness;
+  injuryHistory: InjuryArea[];
+  readiness: { sleep: number; fatigue: number; soreness: number; stress: number };
+  gymAccess: 'full' | 'basic' | 'none';
+}
+
+export interface ProgrammeExercise {
+  name: string;
+  sets: string;
+  reps: string;
+  rest: string;
+  intensity?: string;
+  cue: string;
+}
+
+export interface SessionBlock {
+  title: string;
+  exercises: ProgrammeExercise[];
+}
+
+export interface ProgrammeSession {
+  mdDay: string;
+  dayOfWeek: string;
+  objective: string;
+  readinessNote: string;
+  durationMin: number;
+  blocks: SessionBlock[];
+}
+
+export interface ProgrammeWeek {
+  weekNumber: number;
+  phase: string;
+  phaseGoal: string;
+  sessions: ProgrammeSession[];
+}
+
+export interface GeneratedProgramme {
+  id: string;
+  createdAt: number;
+  title: string;
+  summary: string;
+  readinessScore: number;
+  readinessLevel: 'high' | 'moderate' | 'low';
+  readinessGuidance: string;
+  durationWeeks: number;
+  inputs: ProgrammeInputs;
+  weeks: ProgrammeWeek[];
 }
 
 // ── Testing Engine ─────────────────────────────────────────────────────────

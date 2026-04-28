@@ -16,11 +16,16 @@ import { POSITION_TEMPLATES } from './data/positionPlans';
 import { TestingBattery } from './components/screens/TestingBattery';
 import { sessionToLegacyTest, calcBaselineResults } from './data/testingBattery';
 import { LoadCalendar } from './components/screens/LoadCalendar';
+import { ProgrammeBuilder } from './components/screens/ProgrammeBuilder';
+import { GeneratedProgramme } from './components/screens/GeneratedProgramme';
+import { generateProgramme } from './lib/programmeGenerator';
+import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 
 export default function App() {
   const store = useStore();
   const [nav, setNav] = useState<NavState>({ screen: 'dashboard' });
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
+  const [currentProgramme, setCurrentProgramme] = useState<GPType | null>(null);
 
   const navigate = useCallback((next: NavState) => setNav(next), []);
 
@@ -82,6 +87,13 @@ export default function App() {
     store.setUserProfile(profile);
     activatePlan(recommendedPlanId);
     navigate({ screen: 'testing-battery' });
+  };
+
+  const handleGenerateProgramme = (inputs: ProgrammeInputs) => {
+    const programme = generateProgramme(inputs);
+    store.saveGeneratedProgramme(programme);
+    setCurrentProgramme(programme);
+    navigate({ screen: 'generated-programme' });
   };
 
   const handleBatteryComplete = (session: TestSession) => {
@@ -225,7 +237,23 @@ export default function App() {
         />
       )}
 
-      {screen !== 'testing-battery' && (
+      {screen === 'programme-builder' && store.userProfile && (
+        <ProgrammeBuilder
+          userProfile={store.userProfile}
+          onGenerate={handleGenerateProgramme}
+          onBack={() => navigate({ screen: 'dashboard' })}
+        />
+      )}
+
+      {screen === 'generated-programme' && currentProgramme && (
+        <GeneratedProgramme
+          programme={currentProgramme}
+          onBack={() => navigate({ screen: 'dashboard' })}
+          onRebuild={() => navigate({ screen: 'programme-builder' })}
+        />
+      )}
+
+      {screen !== 'testing-battery' && screen !== 'programme-builder' && screen !== 'generated-programme' && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
       )}
     </div>
