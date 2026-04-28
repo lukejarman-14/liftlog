@@ -225,7 +225,9 @@ export default function App() {
         />
       )}
 
-      <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
+      {screen !== 'testing-battery' && (
+        <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
+      )}
     </div>
   );
 }
