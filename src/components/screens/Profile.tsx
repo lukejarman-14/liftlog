@@ -1,22 +1,27 @@
 import { useRef } from 'react';
 import {
   Camera, Mail, User, Shield, Calendar, Target, Dumbbell,
-  LogOut, PlayCircle, ChevronRight,
+  LogOut, PlayCircle, ChevronRight, Activity, Zap,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { UserProfile, UserSettings } from '../../types';
+import { BaselineData } from '../../hooks/useStore';
+import { GRADE_LABELS, GRADE_COLOURS } from '../../data/testingBattery';
 
 interface ProfileProps {
   userProfile: UserProfile;
   profilePicture: string | null;
   totalSessions: number;
   settings: UserSettings;
+  baseline: BaselineData | null;
   onSetProfilePicture: (pic: string | null) => void;
   onUpdateSettings: (partial: Partial<UserSettings>) => void;
+  onStartBattery: () => void;
   onResetProfile: () => void;
   onBack: () => void;
 }
+
 
 const POSITION_LABELS: Record<string, string> = {
   GK: 'Goalkeeper', CB: 'Centre Back', FB: 'Full Back',
@@ -90,7 +95,8 @@ function SettingRow({
 
 export function Profile({
   userProfile, profilePicture, totalSessions,
-  settings, onSetProfilePicture, onUpdateSettings, onResetProfile, onBack,
+  settings, baseline, onSetProfilePicture, onUpdateSettings,
+  onStartBattery, onResetProfile, onBack,
 }: ProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -217,6 +223,88 @@ export function Profile({
           </div>
         </Card>
       )}
+
+      {/* ── Fitness Baseline ──────────────────────────────────────────── */}
+      <Card className="p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Activity size={14} className="text-brand-500" />
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fitness Testing</h3>
+          </div>
+          <button
+            onClick={onStartBattery}
+            className="text-xs font-semibold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-full hover:bg-brand-100 transition-colors flex items-center gap-1"
+          >
+            <Zap size={11} />
+            {baseline ? 'Re-test' : 'Take Test'}
+          </button>
+        </div>
+
+        {baseline ? (
+          <div>
+            <p className="text-xs text-gray-400 mb-3">
+              Tested {new Date(baseline.savedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+
+            {(baseline.results.aerobicScore !== undefined || baseline.results.anaerobicScore !== undefined) && (
+              <div className="mb-3">
+                {baseline.results.aerobicScore !== undefined && (
+                  <div className="mb-2">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-600 font-medium">🫀 Aerobic</span>
+                      <span className="font-bold text-blue-600">{baseline.results.aerobicScore}/100</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-blue-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-blue-400" style={{ width: `${baseline.results.aerobicScore}%` }} />
+                    </div>
+                  </div>
+                )}
+                {baseline.results.anaerobicScore !== undefined && (
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-600 font-medium">⚡ Anaerobic</span>
+                      <span className="font-bold text-orange-500">{baseline.results.anaerobicScore}/100</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-orange-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-orange-400" style={{ width: `${baseline.results.anaerobicScore}%` }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              {([
+                { label: '10m Sprint',     value: baseline.test.sprint10m             ? `${baseline.test.sprint10m}s`                    : null, grade: baseline.results.sprint10mGrade },
+                { label: '30m Sprint',     value: baseline.test.sprint30m             ? `${baseline.test.sprint30m}s`                    : null, grade: baseline.results.sprint30mGrade },
+                { label: 'CMJ (best)',     value: baseline.test.cmjBest               ? `${baseline.test.cmjBest}cm`                     : null, grade: baseline.results.cmjGrade       },
+                { label: 'Fatigue Index',  value: baseline.results.fatigueIndex       ? `${baseline.results.fatigueIndex.toFixed(1)}%`   : null, grade: baseline.results.fiGrade        },
+                { label: 'Yo-Yo IR1',      value: baseline.test.yoyoLevel             ? `Level ${baseline.test.yoyoLevel}`               : null, grade: baseline.results.yoyoGrade      },
+              ] as { label: string; value: string | null; grade?: 1|2|3|4 }[]).filter(r => r.value).map(row => (
+                <div key={row.label} className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-gray-600 flex-1">{row.label}</span>
+                  <span className="text-xs font-bold text-gray-800">{row.value}</span>
+                  {row.grade && (
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${GRADE_COLOURS[row.grade].bg} ${GRADE_COLOURS[row.grade].text} ${GRADE_COLOURS[row.grade].border}`}>
+                      {GRADE_LABELS[row.grade]}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center py-4 text-center">
+            <div className="w-10 h-10 rounded-full bg-brand-50 flex items-center justify-center mb-2">
+              <Activity size={18} className="text-brand-400" />
+            </div>
+            <p className="text-sm font-medium text-gray-600 mb-1">No test on record</p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              A 15-minute battery measures your aerobic &amp; anaerobic energy systems against football-specific norms.
+            </p>
+          </div>
+        )}
+      </Card>
 
       {/* ── Settings ──────────────────────────────────────────────────── */}
       <Card className="p-4 mb-4">

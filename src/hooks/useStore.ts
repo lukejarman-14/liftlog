@@ -1,6 +1,12 @@
 import { useLocalStorage } from './useLocalStorage';
-import { Exercise, WorkoutTemplate, WorkoutSession, ActivePlan, UserProfile, UserSettings, DEFAULT_SETTINGS } from '../types';
+import { Exercise, WorkoutTemplate, WorkoutSession, ActivePlan, UserProfile, UserSettings, DEFAULT_SETTINGS, BaselineTest, BaselineResults } from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
+
+export interface BaselineData {
+  test: BaselineTest;
+  results: BaselineResults;
+  savedAt: number;
+}
 
 export function useStore() {
   const [customExercises, setCustomExercises] = useLocalStorage<Exercise[]>('ll_custom_exercises', []);
@@ -10,9 +16,13 @@ export function useStore() {
   const [userProfile, setUserProfile] = useLocalStorage<UserProfile | null>('ll_user_profile', null);
   const [profilePicture, setProfilePicture] = useLocalStorage<string | null>('ll_profile_picture', null);
   const [userSettings, setUserSettings] = useLocalStorage<UserSettings>('ll_settings', DEFAULT_SETTINGS);
+  const [baseline, setBaselineRaw] = useLocalStorage<BaselineData | null>('ll_baseline', null);
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));
+
+  const saveBaseline = (test: BaselineTest, results: BaselineResults) =>
+    setBaselineRaw({ test, results, savedAt: Date.now() });
 
   const exercises = [...DEFAULT_EXERCISES, ...customExercises];
 
@@ -114,5 +124,7 @@ export function useStore() {
     getSessionsForExercise,
     getLastSession,
     getPB,
+    baseline,
+    saveBaseline,
   };
 }

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ChevronRight, ChevronLeft, Check, Dumbbell, Zap } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, Dumbbell, Zap, Activity } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { POSITION_PLANS } from '../../data/positionPlans';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile, recommendedPlanId: string) => void;
+  onStartBattery: (profile: UserProfile, recommendedPlanId: string) => void;
 }
 
 // ── Position options ───────────────────────────────────────────────────────
@@ -74,9 +75,9 @@ function experienceBlurb(exp: string, freq: string): string {
   return 'Elite commitment. The programme moves fast — you\'ll be in Power and Peak phases within 6 weeks. Stay on top of recovery.';
 }
 
-const TOTAL_STEPS = 5; // 0=details, 1=position, 2=experience, 3=goals+gym, 4=recommendation
+const TOTAL_STEPS = 6; // 0=welcome, 1=details, 2=position, 3=experience, 4=goals+gym, 5=recommendation, 6=battery offer
 
-export function Onboarding({ onComplete }: OnboardingProps) {
+export function Onboarding({ onComplete, onStartBattery }: OnboardingProps) {
   const [step, setStep] = useState(0);
 
   // Form state
@@ -103,20 +104,21 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const recommendedPlanId = POSITION_PLAN_MAP[position] ?? 'plan-midfielder';
   const recommendedPlan   = POSITION_PLANS.find(p => p.id === recommendedPlanId);
 
-  const handleFinish = () => {
-    const profile: UserProfile = {
-      firstName,
-      lastName,
-      email,
-      position: position as UserProfile['position'],
-      experienceYears: experience as UserProfile['experienceYears'],
-      gymFrequency: frequency as UserProfile['gymFrequency'],
-      goals,
-      gymAccess: gymAccess as UserProfile['gymAccess'],
-      completedAt: Date.now(),
-    };
-    onComplete(profile, recommendedPlanId);
-  };
+  const buildProfile = (): UserProfile => ({
+    firstName,
+    lastName,
+    email,
+    position: position as UserProfile['position'],
+    experienceYears: experience as UserProfile['experienceYears'],
+    gymFrequency: frequency as UserProfile['gymFrequency'],
+    goals,
+    gymAccess: gymAccess as UserProfile['gymAccess'],
+    completedAt: Date.now(),
+  });
+
+  const handleFinish = () => onComplete(buildProfile(), recommendedPlanId);
+  const handleSkipPlan = () => onComplete(buildProfile(), '');
+  const handleGoToBattery = () => onStartBattery(buildProfile(), recommendedPlanId);
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -405,28 +407,70 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             </div>
 
             <button
-              onClick={handleFinish}
+              onClick={() => setStep(6)}
               className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-lg mb-3"
             >
               <Zap size={18} />
               Start My Plan
             </button>
             <button
-              onClick={() => {
-                // Save profile but don't auto-start plan
-                const profile: UserProfile = {
-                  firstName, lastName, email,
-                  position: position as UserProfile['position'],
-                  experienceYears: experience as UserProfile['experienceYears'],
-                  gymFrequency: frequency as UserProfile['gymFrequency'],
-                  goals, gymAccess: gymAccess as UserProfile['gymAccess'],
-                  completedAt: Date.now(),
-                };
-                onComplete(profile, '');
-              }}
+              onClick={handleSkipPlan}
               className="w-full py-3 rounded-2xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
             >
               Skip — I'll browse plans myself
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP 6: Testing Battery offer ───────────────────────────── */}
+        {step === 6 && (
+          <div className="flex-1 flex flex-col py-12 pt-16">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                <Check size={16} className="text-green-600" />
+              </div>
+              <span className="text-sm font-semibold text-green-700">You're all set!</span>
+            </div>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">One more thing 💪</h2>
+            <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+              Would you like to do a <span className="font-semibold text-gray-700">Fitness Testing Battery</span>? It takes ~15 minutes and gives you a scientifically-grounded energy system profile — aerobic vs anaerobic score, Fatigue Index, and position-specific benchmarks.
+            </p>
+
+            {/* What you get */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {[
+                { icon: '⚡', label: 'Sprint times', sub: '10m & 30m splits' },
+                { icon: '🦘', label: 'Jump height', sub: 'CMJ explosive power' },
+                { icon: '🔄', label: 'Fatigue Index', sub: '6-sprint RSA test' },
+                { icon: '🫀', label: 'Aerobic score', sub: 'Yo-Yo IR1 level' },
+              ].map(item => (
+                <div key={item.label} className="bg-brand-50 border border-brand-100 rounded-2xl p-3">
+                  <div className="text-lg mb-0.5">{item.icon}</div>
+                  <div className="text-xs font-bold text-brand-700">{item.label}</div>
+                  <div className="text-xs text-brand-500">{item.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-6">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Based on protocols validated by Girard et al. (2011), Bangsbo et al. (2008), and Stølen et al. (2005). You'll need a 30m flat space, cones, and a stopwatch.
+              </p>
+            </div>
+
+            <button
+              onClick={handleGoToBattery}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-lg mb-3"
+            >
+              <Activity size={18} />
+              Take the Fitness Test
+            </button>
+            <button
+              onClick={handleFinish}
+              className="w-full py-3 rounded-2xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
+            >
+              Skip — go to my dashboard
             </button>
           </div>
         )}

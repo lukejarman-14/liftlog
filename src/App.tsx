@@ -11,8 +11,9 @@ import { PlanBrowser } from './components/screens/PlanBrowser';
 import { PlanDetail } from './components/screens/PlanDetail';
 import { Onboarding } from './components/screens/Onboarding';
 import { Profile } from './components/screens/Profile';
-import { NavState, WorkoutExercise, WorkoutSession, UserProfile } from './types';
+import { NavState, WorkoutExercise, WorkoutSession, UserProfile, BaselineTest, BaselineResults } from './types';
 import { POSITION_TEMPLATES } from './data/positionPlans';
+import { TestingBattery } from './components/screens/TestingBattery';
 
 export default function App() {
   const store = useStore();
@@ -58,22 +59,42 @@ export default function App() {
     }
   };
 
+  const activatePlan = (planId: string) => {
+    if (!planId) return;
+    const today = new Date();
+    const day = today.getDay();
+    const daysToMonday = day === 1 ? 0 : day === 0 ? 1 : 8 - day;
+    const startDate = new Date(today);
+    if (daysToMonday > 0) startDate.setDate(today.getDate() + daysToMonday);
+    store.setActivePlan({ planId, startDate: startDate.toISOString().split('T')[0] });
+  };
+
   const handleOnboardingComplete = (profile: UserProfile, recommendedPlanId: string) => {
     store.setUserProfile(profile);
-    if (recommendedPlanId) {
-      const today = new Date();
-      const day = today.getDay(); // 0=Sun, 1=Mon...
-      const daysToMonday = day === 1 ? 0 : day === 0 ? 1 : 8 - day;
-      const startDate = new Date(today);
-      if (daysToMonday > 0) startDate.setDate(today.getDate() + daysToMonday);
-      store.setActivePlan({ planId: recommendedPlanId, startDate: startDate.toISOString().split('T')[0] });
-    }
+    activatePlan(recommendedPlanId);
+    navigate({ screen: 'dashboard' });
+  };
+
+  // Called when user taps "Take the Fitness Test" on the onboarding battery offer screen
+  const handleStartBattery = (profile: UserProfile, recommendedPlanId: string) => {
+    store.setUserProfile(profile);
+    activatePlan(recommendedPlanId);
+    navigate({ screen: 'testing-battery' });
+  };
+
+  const handleBatteryComplete = (test: BaselineTest, results: BaselineResults) => {
+    store.saveBaseline(test, results);
     navigate({ screen: 'dashboard' });
   };
 
   // Show onboarding for new users who haven't completed it yet
   if (!store.userProfile) {
-    return <Onboarding onComplete={handleOnboardingComplete} />;
+    return (
+      <Onboarding
+        onComplete={handleOnboardingComplete}
+        onStartBattery={handleStartBattery}
+      />
+    );
   }
 
   const { screen } = nav;
@@ -168,13 +189,23 @@ export default function App() {
           profilePicture={store.profilePicture}
           totalSessions={store.sessions.length}
           settings={store.userSettings}
+          baseline={store.baseline}
           onSetProfilePicture={store.setProfilePicture}
           onUpdateSettings={store.updateSettings}
+          onStartBattery={() => navigate({ screen: 'testing-battery' })}
           onResetProfile={() => {
             store.setUserProfile(null);
             navigate({ screen: 'dashboard' });
           }}
           onBack={() => navigate({ screen: 'dashboard' })}
+        />
+      )}
+
+      {screen === 'testing-battery' && store.userProfile && (
+        <TestingBattery
+          position={store.userProfile.position}
+          onComplete={handleBatteryComplete}
+          onSkip={() => navigate({ screen: store.sessions.length > 0 ? 'dashboard' : 'dashboard' })}
         />
       )}
 

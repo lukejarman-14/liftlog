@@ -128,6 +128,36 @@ export interface UserProfile {
   completedAt: number;       // timestamp
 }
 
+// ── Fitness Baseline / Testing Battery ───────────────────────────────────
+
+export interface BaselineTest {
+  sprint10m?: number;       // seconds (standing start)
+  sprint30m?: number;       // seconds (standing start)
+  cmjBest?: number;         // centimetres (best of 3 trials)
+  rsaSprints?: number[];    // array of 6 sprint times in seconds (30m each)
+  yoyoLevel?: number;       // Yo-Yo IR1 level reached (e.g. 17.5 = level 17, shuttle 5)
+  sex?: 'male' | 'female';
+  completedAt: number;
+}
+
+export interface BaselineResults {
+  // RSA-derived
+  rsaBestTime?: number;
+  rsaMeanTime?: number;
+  rsaWorstTime?: number;
+  fatigueIndex?: number;         // % — Girard et al. 2011 formula
+  // Classifications 1–4 (1=poor, 2=average, 3=good, 4=excellent)
+  sprint10mGrade?: 1|2|3|4;
+  sprint30mGrade?: 1|2|3|4;
+  cmjGrade?: 1|2|3|4;
+  rsaGrade?: 1|2|3|4;
+  fiGrade?: 1|2|3|4;
+  yoyoGrade?: 1|2|3|4;
+  // Overall energy system profile
+  anaerobicScore?: number;       // 0–100
+  aerobicScore?: number;         // 0–100
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────
 
 export type Screen =
@@ -139,7 +169,8 @@ export type Screen =
   | 'exercise-detail'
   | 'plans'
   | 'plan-detail'
-  | 'profile';
+  | 'profile'
+  | 'testing-battery';
 
 export interface NavState {
   screen: Screen;
