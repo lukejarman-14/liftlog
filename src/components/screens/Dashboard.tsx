@@ -1,10 +1,11 @@
-import { Dumbbell, Plus, TrendingUp, Clock, Flame } from 'lucide-react';
+import { Dumbbell, Plus, TrendingUp, Clock, Flame, Calendar } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { WeeklyCalendar } from '../WeeklyCalendar';
 import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan } from '../../types';
 import { useStore } from '../../hooks/useStore';
+import { getTodayProfile } from '../../lib/loadManagement';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
@@ -37,8 +38,9 @@ function totalVolume(session: WorkoutSession) {
 }
 
 export function Dashboard({ sessions, templates, activePlan, profilePicture, onNavigate, onStartWorkout }: DashboardProps) {
-  const { getExercise, userProfile } = useStore();
+  const { getExercise, userProfile, matchEntries } = useStore();
   const recent = [...sessions].sort((a, b) => b.startTime - a.startTime).slice(0, 5);
+  const todayProfile = getTodayProfile(matchEntries);
 
   const thisWeekSessions = sessions.filter(s => {
     const d = new Date(s.date);
@@ -96,6 +98,32 @@ export function Dashboard({ sessions, templates, activePlan, profilePicture, onN
           <div className="text-xs text-gray-500 mt-0.5">Vol (kg)</div>
         </Card>
       </div>
+
+      {/* Today's Training Load */}
+      <button
+        onClick={() => onNavigate({ screen: 'load-calendar' })}
+        className={`w-full mb-5 p-4 rounded-2xl border-2 text-left transition-all ${todayProfile.borderColour} ${todayProfile.bgColour} hover:opacity-90`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">{todayProfile.emoji}</span>
+            <span className={`text-sm font-bold ${todayProfile.textColour}`}>
+              Today — {todayProfile.label}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            {todayProfile.volumeMultiplier > 0 && (
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${todayProfile.bgColour} ${todayProfile.borderColour} ${todayProfile.textColour}`}>
+                {Math.round(todayProfile.volumeMultiplier * 100)}% load
+              </span>
+            )}
+            <Calendar size={14} className={todayProfile.textColour} />
+          </div>
+        </div>
+        <p className={`text-xs leading-relaxed ${todayProfile.textColour} opacity-80`}>
+          {todayProfile.guidance}
+        </p>
+      </button>
 
       {/* Weekly calendar */}
       <WeeklyCalendar sessions={sessions} activePlan={activePlan} onNavigate={onNavigate} onStartWorkout={onStartWorkout} />

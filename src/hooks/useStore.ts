@@ -1,5 +1,10 @@
 import { useLocalStorage } from './useLocalStorage';
-import { Exercise, WorkoutTemplate, WorkoutSession, ActivePlan, UserProfile, UserSettings, DEFAULT_SETTINGS, BaselineTest, BaselineResults } from '../types';
+import {
+  Exercise, WorkoutTemplate, WorkoutSession, ActivePlan,
+  UserProfile, UserSettings, DEFAULT_SETTINGS,
+  BaselineTest, BaselineResults,
+  MatchEntry, PerformanceEntry,
+} from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
 export interface BaselineData {
@@ -17,12 +22,36 @@ export function useStore() {
   const [profilePicture, setProfilePicture] = useLocalStorage<string | null>('ll_profile_picture', null);
   const [userSettings, setUserSettings] = useLocalStorage<UserSettings>('ll_settings', DEFAULT_SETTINGS);
   const [baseline, setBaselineRaw] = useLocalStorage<BaselineData | null>('ll_baseline', null);
+  const [matchEntries, setMatchEntries] = useLocalStorage<MatchEntry[]>('ll_match_entries', []);
+  const [performanceEntries, setPerformanceEntries] = useLocalStorage<PerformanceEntry[]>('ll_performance_entries', []);
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));
 
   const saveBaseline = (test: BaselineTest, results: BaselineResults) =>
     setBaselineRaw({ test, results, savedAt: Date.now() });
+
+  // Match entries
+  const saveMatchEntry = (entry: MatchEntry) =>
+    setMatchEntries(prev => {
+      const idx = prev.findIndex(e => e.id === entry.id);
+      if (idx >= 0) { const next = [...prev]; next[idx] = entry; return next; }
+      return [...prev, entry];
+    });
+
+  const deleteMatchEntry = (id: string) =>
+    setMatchEntries(prev => prev.filter(e => e.id !== id));
+
+  // Performance entries
+  const savePerformanceEntry = (entry: PerformanceEntry) =>
+    setPerformanceEntries(prev => {
+      const idx = prev.findIndex(e => e.id === entry.id);
+      if (idx >= 0) { const next = [...prev]; next[idx] = entry; return next; }
+      return [...prev, entry];
+    });
+
+  const deletePerformanceEntry = (id: string) =>
+    setPerformanceEntries(prev => prev.filter(e => e.id !== id));
 
   const exercises = [...DEFAULT_EXERCISES, ...customExercises];
 
@@ -126,5 +155,11 @@ export function useStore() {
     getPB,
     baseline,
     saveBaseline,
+    matchEntries,
+    saveMatchEntry,
+    deleteMatchEntry,
+    performanceEntries,
+    savePerformanceEntry,
+    deletePerformanceEntry,
   };
 }

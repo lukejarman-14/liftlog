@@ -24,10 +24,22 @@ export type MeasureType =
   | 'height'     // centimetres — for CMJ, box jump height
   | 'score';     // free numeric — Yo-Yo level, 30-15 speed, etc.
 
+// Primary training classification — determines progression logic
+export type PrimaryCategory =
+  | 'strength'           // max force — progress by load
+  | 'power'             // rate of force — progress by output (height/distance/velocity)
+  | 'acceleration'      // 0–30m speed — max effort, full recovery
+  | 'deceleration'      // braking mechanics
+  | 'change-of-direction'
+  | 'resilience'        // injury prevention (eccentric, isometric)
+  | 'conditioning';     // aerobic/anaerobic capacity — progress by volume/load
+
 export interface Exercise {
   id: string;
   name: string;
   category: ExerciseCategory;
+  primaryCategory?: PrimaryCategory;
+  footballTransfer?: 'low' | 'medium' | 'high';
   defaultRestSeconds: number;
   muscleGroups: string[];
   measureType?: MeasureType;   // defaults to 'strength' when absent
@@ -41,6 +53,7 @@ export interface WorkoutExercise {
   targetReps: number;
   targetWeight: number;
   restSeconds: number;
+  targetRpe?: number;    // 1–10, target RPE for this exercise
 }
 
 export interface WorkoutTemplate {
@@ -54,6 +67,7 @@ export interface CompletedSet {
   reps: number;
   weight: number;
   completedAt: number;
+  rpe?: number;          // 1–10, Rate of Perceived Exertion (actual)
 }
 
 export interface SessionExercise {
@@ -62,6 +76,7 @@ export interface SessionExercise {
   targetReps: number;
   targetWeight: number;
   restSeconds: number;
+  targetRpe?: number;    // carried from WorkoutExercise
   sets: CompletedSet[];
 }
 
@@ -158,6 +173,36 @@ export interface BaselineResults {
   aerobicScore?: number;         // 0–100
 }
 
+// ── Performance Tracking ──────────────────────────────────────────────────
+
+export type PerformanceMetric =
+  | 'sprint_10m'         // seconds
+  | 'sprint_20m'         // seconds
+  | 'sprint_30m'         // seconds
+  | 'cmj'               // cm
+  | 'broad_jump'        // m
+  | 'rsa_fatigue_index'; // %
+
+export interface PerformanceEntry {
+  id: string;
+  date: string;          // YYYY-MM-DD
+  metric: PerformanceMetric;
+  value: number;
+}
+
+// ── Match Load Management ─────────────────────────────────────────────────
+
+export type MatchEntryType = 'match' | 'team_training';
+
+export interface MatchEntry {
+  id: string;
+  date: string;          // YYYY-MM-DD
+  type: MatchEntryType;
+  label?: string;        // optional e.g. "League vs City"
+}
+
+export type LoadDay = 'MD' | 'MD-1' | 'MD-2' | 'MD-3' | 'MD+1' | 'MD+2' | 'free';
+
 // ── Navigation ────────────────────────────────────────────────────────────
 
 export type Screen =
@@ -170,7 +215,8 @@ export type Screen =
   | 'plans'
   | 'plan-detail'
   | 'profile'
-  | 'testing-battery';
+  | 'testing-battery'
+  | 'load-calendar';
 
 export interface NavState {
   screen: Screen;

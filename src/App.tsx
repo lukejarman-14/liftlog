@@ -14,6 +14,7 @@ import { Profile } from './components/screens/Profile';
 import { NavState, WorkoutExercise, WorkoutSession, UserProfile, BaselineTest, BaselineResults } from './types';
 import { POSITION_TEMPLATES } from './data/positionPlans';
 import { TestingBattery } from './components/screens/TestingBattery';
+import { LoadCalendar } from './components/screens/LoadCalendar';
 
 export default function App() {
   const store = useStore();
@@ -206,6 +207,13 @@ export default function App() {
           position={store.userProfile.position}
           onComplete={handleBatteryComplete}
           onSkip={() => navigate({ screen: store.sessions.length > 0 ? 'dashboard' : 'dashboard' })}
+        />
+      )}
+
+      {screen === 'load-calendar' && (
+        <LoadCalendar
+          onNavigate={navigate}
+          onBack={() => navigate({ screen: 'dashboard' })}
         />
       )}
 

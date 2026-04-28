@@ -1,9 +1,13 @@
-import { Trash2, Clock, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
+import { Trash2, Clock, TrendingUp, ChevronDown, ChevronUp, Activity, Zap, BarChart2 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { WorkoutSession, NavState, MeasureType, CompletedSet } from '../../types';
 import { useStore } from '../../hooks/useStore';
+import { sessionAvgRpe, RPE_LABELS } from '../../lib/rpeProgression';
+import { GRADE_LABELS, GRADE_COLOURS } from '../../data/testingBattery';
+
+// ── Formatting helpers ─────────────────────────────────────────────────────
 
 function formatSetChip(set: CompletedSet, measureType: MeasureType, unit?: string): string {
   const lbl = unit ?? (measureType === 'time' ? 's' : measureType === 'distance' ? 'm' : measureType === 'height' ? 'cm' : measureType === 'score' ? '' : 'kg');
@@ -12,12 +16,6 @@ function formatSetChip(set: CompletedSet, measureType: MeasureType, unit?: strin
     case 'strength': return `${set.weight}kg × ${set.reps}`;
     default:         return `${set.weight}${lbl ? ' ' + lbl : ''}`;
   }
-}
-
-interface HistoryProps {
-  sessions: WorkoutSession[];
-  onNavigate: (nav: NavState) => void;
-  onDeleteSession: (id: string) => void;
 }
 
 function formatDuration(ms: number) {
@@ -37,6 +35,15 @@ function totalVolume(session: WorkoutSession) {
     acc + ex.sets.reduce((s, set) => s + set.reps * set.weight, 0), 0);
 }
 
+function getRpeColour(rpe: number): string {
+  if (rpe <= 4) return 'text-green-600 bg-green-50';
+  if (rpe <= 6) return 'text-yellow-600 bg-yellow-50';
+  if (rpe <= 8) return 'text-orange-600 bg-orange-50';
+  return 'text-red-600 bg-red-50';
+}
+
+// ── Session card ───────────────────────────────────────────────────────────
+
 function SessionCard({ session, onDelete, onNavigate }: {
   session: WorkoutSession;
   onDelete: () => void;
@@ -46,6 +53,9 @@ function SessionCard({ session, onDelete, onNavigate }: {
   const [expanded, setExpanded] = useState(false);
   const duration = session.endTime ? formatDuration(session.endTime - session.startTime) : null;
   const vol = totalVolume(session);
+
+  const allSets = session.exercises.flatMap(e => e.sets);
+  const avgRpe  = sessionAvgRpe(allSets);
 
   return (
     <Card className="overflow-hidden">
@@ -63,18 +73,25 @@ function SessionCard({ session, onDelete, onNavigate }: {
           </button>
         </div>
 
-        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+        <div className="flex items-center gap-3 mt-2 flex-wrap">
           {duration && (
-            <span className="flex items-center gap-1"><Clock size={12} />{duration}</span>
-          )}
-          {vol > 0 && (
-            <span className="flex items-center gap-1 text-brand-500 font-medium">
-              <TrendingUp size={12} />
-              {vol >= 1000 ? `${(vol / 1000).toFixed(1)}k` : vol} kg
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <Clock size={11} />{duration}
             </span>
           )}
-          <span>{session.exercises.length} exercises</span>
-          <span>{session.exercises.reduce((a, e) => a + e.sets.length, 0)} sets</span>
+          {vol > 0 && (
+            <span className="flex items-center gap-1 text-xs text-brand-600 font-medium">
+              <TrendingUp size={11} />
+              {vol >= 1000 ? `${(vol / 1000).toFixed(1)}k` : vol}kg
+            </span>
+          )}
+          <span className="text-xs text-gray-400">{session.exercises.length} exercises</span>
+          <span className="text-xs text-gray-400">{allSets.length} sets</span>
+          {avgRpe !== null && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${getRpeColour(avgRpe)}`}>
+              RPE {avgRpe} avg
+            </span>
+          )}
         </div>
 
         <button
@@ -104,6 +121,7 @@ function SessionCard({ session, onDelete, onNavigate }: {
                     {ex.sets.map((set, i) => (
                       <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                         {formatSetChip(set, exercise.measureType ?? 'strength', exercise.unit)}
+                        {set.rpe && <span className="text-gray-400 ml-1">@{set.rpe}</span>}
                       </span>
                     ))}
                   </div>
@@ -115,6 +133,201 @@ function SessionCard({ session, onDelete, onNavigate }: {
       )}
     </Card>
   );
+}
+
+// ── Performance overview card ──────────────────────────────────────────────
+
+function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => void }) {
+  const { baseline } = useStore();
+
+  if (!baseline) {
+    return (
+      <Card className="p-4 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Activity size={14} className="text-brand-500" />
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fitness Profile</h3>
+          </div>
+          <button
+            onClick={() => onNavigate({ screen: 'testing-battery' })}
+            className="text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full hover:bg-brand-100"
+          >
+            Take Test
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 leading-relaxed">
+          Complete the 15-minute fitness testing battery to unlock your aerobic/anaerobic profile and position benchmarks.
+        </p>
+      </Card>
+    );
+  }
+
+  const { results, test, savedAt } = baseline;
+
+  return (
+    <Card className="p-4 mb-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Activity size={14} className="text-brand-500" />
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fitness Profile</h3>
+        </div>
+        <button
+          onClick={() => onNavigate({ screen: 'testing-battery' })}
+          className="text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full hover:bg-brand-100"
+        >
+          Re-test
+        </button>
+      </div>
+
+      <p className="text-xs text-gray-400 mb-3">
+        Last tested {new Date(savedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+      </p>
+
+      {/* Energy bars */}
+      {(results.aerobicScore !== undefined || results.anaerobicScore !== undefined) && (
+        <div className="mb-3">
+          {results.aerobicScore !== undefined && (
+            <div className="mb-2">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-gray-600 font-medium">🫀 Aerobic</span>
+                <span className="font-bold text-blue-600">{results.aerobicScore}/100</span>
+              </div>
+              <div className="h-2 rounded-full bg-blue-100 overflow-hidden">
+                <div className="h-full rounded-full bg-blue-400" style={{ width: `${results.aerobicScore}%` }} />
+              </div>
+            </div>
+          )}
+          {results.anaerobicScore !== undefined && (
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-gray-600 font-medium">⚡ Anaerobic</span>
+                <span className="font-bold text-orange-500">{results.anaerobicScore}/100</span>
+              </div>
+              <div className="h-2 rounded-full bg-orange-100 overflow-hidden">
+                <div className="h-full rounded-full bg-orange-400" style={{ width: `${results.anaerobicScore}%` }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Metric chips */}
+      <div className="flex flex-wrap gap-2">
+        {([
+          { label: '10m', value: test.sprint10m ? `${test.sprint10m}s` : null, grade: results.sprint10mGrade },
+          { label: '30m', value: test.sprint30m ? `${test.sprint30m}s` : null, grade: results.sprint30mGrade },
+          { label: 'CMJ', value: test.cmjBest ? `${test.cmjBest}cm` : null, grade: results.cmjGrade },
+          { label: 'FI',  value: results.fatigueIndex ? `${results.fatigueIndex.toFixed(1)}%` : null, grade: results.fiGrade },
+          { label: 'Yo-Yo', value: test.yoyoLevel ? `Lv ${test.yoyoLevel}` : null, grade: results.yoyoGrade },
+        ] as { label: string; value: string | null; grade?: 1|2|3|4 }[]).filter(r => r.value).map(row => (
+          <div key={row.label} className={`px-2.5 py-1 rounded-xl border text-xs ${
+            row.grade ? `${GRADE_COLOURS[row.grade].bg} ${GRADE_COLOURS[row.grade].text} ${GRADE_COLOURS[row.grade].border}` : 'bg-gray-50 text-gray-600 border-gray-200'
+          }`}>
+            <span className="font-semibold">{row.label}</span>
+            <span className="ml-1 font-normal opacity-80">{row.value}</span>
+            {row.grade && <span className="ml-1 opacity-60">{GRADE_LABELS[row.grade]}</span>}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ── Week summary ───────────────────────────────────────────────────────────
+
+function WeekSummary({ sessions }: { sessions: WorkoutSession[] }) {
+  const now  = new Date();
+  const dow  = now.getDay();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+  weekStart.setHours(0, 0, 0, 0);
+
+  const prevStart = new Date(weekStart);
+  prevStart.setDate(weekStart.getDate() - 7);
+
+  const thisWeek = sessions.filter(s => new Date(s.date) >= weekStart);
+  const lastWeek = sessions.filter(s => {
+    const d = new Date(s.date);
+    return d >= prevStart && d < weekStart;
+  });
+
+  const allSets = thisWeek.flatMap(s => s.exercises.flatMap(e => e.sets));
+  const avgRpe  = sessionAvgRpe(allSets);
+
+  const thisVol = thisWeek.reduce((a, s) => a + totalVolume(s), 0);
+  const lastVol = lastWeek.reduce((a, s) => a + totalVolume(s), 0);
+  const volDelta = lastVol > 0 ? Math.round(((thisVol - lastVol) / lastVol) * 100) : null;
+
+  const thisSets = allSets.length;
+  const lastSets = lastWeek.reduce((a, s) => a + s.exercises.reduce((b, e) => b + e.sets.length, 0), 0);
+
+  return (
+    <Card className="p-4 mb-5">
+      <div className="flex items-center gap-2 mb-3">
+        <BarChart2 size={14} className="text-brand-500" />
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">This Week</h3>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="text-center">
+          <div className="text-2xl font-extrabold text-brand-500">{thisWeek.length}</div>
+          <div className="text-xs text-gray-400">sessions</div>
+          {lastWeek.length > 0 && (
+            <div className={`text-xs font-medium mt-0.5 ${
+              thisWeek.length >= lastWeek.length ? 'text-green-500' : 'text-red-400'
+            }`}>
+              {thisWeek.length >= lastWeek.length ? '▲' : '▼'} vs {lastWeek.length}
+            </div>
+          )}
+        </div>
+
+        <div className="text-center">
+          <div className="text-2xl font-extrabold text-brand-500">{thisSets}</div>
+          <div className="text-xs text-gray-400">sets</div>
+          {lastSets > 0 && (
+            <div className={`text-xs font-medium mt-0.5 ${
+              thisSets >= lastSets ? 'text-green-500' : 'text-red-400'
+            }`}>
+              {thisSets >= lastSets ? '▲' : '▼'} vs {lastSets}
+            </div>
+          )}
+        </div>
+
+        <div className="text-center">
+          {avgRpe !== null ? (
+            <>
+              <div className={`text-2xl font-extrabold ${
+                avgRpe <= 6 ? 'text-green-500' : avgRpe <= 8 ? 'text-orange-500' : 'text-red-500'
+              }`}>{avgRpe}</div>
+              <div className="text-xs text-gray-400">avg RPE</div>
+              <div className="text-xs text-gray-400 mt-0.5 truncate">{RPE_LABELS[Math.round(avgRpe)]}</div>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-extrabold text-gray-300">—</div>
+              <div className="text-xs text-gray-400">avg RPE</div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {volDelta !== null && (
+        <div className={`mt-3 pt-3 border-t border-gray-100 text-xs text-center font-medium ${
+          volDelta >= 0 ? 'text-green-600' : 'text-red-500'
+        }`}>
+          Volume: {volDelta >= 0 ? '+' : ''}{volDelta}% vs last week ({thisVol >= 1000 ? `${(thisVol / 1000).toFixed(1)}k` : thisVol}kg vs {lastVol >= 1000 ? `${(lastVol / 1000).toFixed(1)}k` : lastVol}kg)
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ── Main ───────────────────────────────────────────────────────────────────
+
+interface HistoryProps {
+  sessions: WorkoutSession[];
+  onNavigate: (nav: NavState) => void;
+  onDeleteSession: (id: string) => void;
 }
 
 export function History({ sessions, onNavigate, onDeleteSession }: HistoryProps) {
@@ -129,16 +342,30 @@ export function History({ sessions, onNavigate, onDeleteSession }: HistoryProps)
   });
 
   return (
-    <Layout title="History">
+    <Layout title="Performance">
+
+      {/* Performance fitness overview */}
+      <PerformanceOverview onNavigate={onNavigate} />
+
+      {/* This week summary */}
+      {sessions.length > 0 && <WeekSummary sessions={sessions} />}
+
+      {/* Session log */}
+      <div className="flex items-center gap-2 mb-3">
+        <Zap size={14} className="text-brand-500" />
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Session Log</h2>
+      </div>
+
       {sorted.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <p className="text-base">No workouts logged yet.</p>
-        </div>
+        <Card className="p-8 text-center">
+          <Activity size={28} className="mx-auto text-gray-300 mb-2" />
+          <p className="text-sm text-gray-500">No workouts logged yet.</p>
+        </Card>
       ) : (
         <div className="flex flex-col gap-6">
           {Object.entries(grouped).map(([month, monthSessions]) => (
             <section key={month}>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">{month}</h2>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">{month}</h3>
               <div className="flex flex-col gap-3">
                 {monthSessions.map(session => (
                   <SessionCard
