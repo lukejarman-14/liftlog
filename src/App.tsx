@@ -11,9 +11,10 @@ import { PlanBrowser } from './components/screens/PlanBrowser';
 import { PlanDetail } from './components/screens/PlanDetail';
 import { Onboarding } from './components/screens/Onboarding';
 import { Profile } from './components/screens/Profile';
-import { NavState, WorkoutExercise, WorkoutSession, UserProfile, BaselineTest, BaselineResults } from './types';
+import { NavState, WorkoutExercise, WorkoutSession, UserProfile, TestSession } from './types';
 import { POSITION_TEMPLATES } from './data/positionPlans';
 import { TestingBattery } from './components/screens/TestingBattery';
+import { sessionToLegacyTest, calcBaselineResults } from './data/testingBattery';
 import { LoadCalendar } from './components/screens/LoadCalendar';
 
 export default function App() {
@@ -83,8 +84,12 @@ export default function App() {
     navigate({ screen: 'testing-battery' });
   };
 
-  const handleBatteryComplete = (test: BaselineTest, results: BaselineResults) => {
-    store.saveBaseline(test, results);
+  const handleBatteryComplete = (session: TestSession) => {
+    store.saveTestSession(session);
+    // Backward compat — keep legacy baseline in sync for Profile screen
+    const legacyTest = sessionToLegacyTest(session);
+    const legacyResults = calcBaselineResults(legacyTest);
+    store.saveBaseline(legacyTest, legacyResults);
     navigate({ screen: 'dashboard' });
   };
 
@@ -205,8 +210,11 @@ export default function App() {
       {screen === 'testing-battery' && store.userProfile && (
         <TestingBattery
           position={store.userProfile.position}
+          previousSession={store.testSessions.length > 0
+            ? store.testSessions[store.testSessions.length - 1]
+            : null}
           onComplete={handleBatteryComplete}
-          onSkip={() => navigate({ screen: store.sessions.length > 0 ? 'dashboard' : 'dashboard' })}
+          onSkip={() => navigate({ screen: 'dashboard' })}
         />
       )}
 

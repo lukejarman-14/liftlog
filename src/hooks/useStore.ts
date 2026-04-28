@@ -4,6 +4,7 @@ import {
   UserProfile, UserSettings, DEFAULT_SETTINGS,
   BaselineTest, BaselineResults,
   MatchEntry, PerformanceEntry,
+  TestSession,
 } from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
@@ -24,6 +25,7 @@ export function useStore() {
   const [baseline, setBaselineRaw] = useLocalStorage<BaselineData | null>('ll_baseline', null);
   const [matchEntries, setMatchEntries] = useLocalStorage<MatchEntry[]>('ll_match_entries', []);
   const [performanceEntries, setPerformanceEntries] = useLocalStorage<PerformanceEntry[]>('ll_performance_entries', []);
+  const [testSessions, setTestSessions] = useLocalStorage<TestSession[]>('ll_test_sessions', []);
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));
@@ -52,6 +54,14 @@ export function useStore() {
 
   const deletePerformanceEntry = (id: string) =>
     setPerformanceEntries(prev => prev.filter(e => e.id !== id));
+
+  // Test sessions (historical — never overwritten)
+  const saveTestSession = (session: TestSession) =>
+    setTestSessions(prev => {
+      const idx = prev.findIndex(s => s.id === session.id);
+      if (idx >= 0) { const next = [...prev]; next[idx] = session; return next; }
+      return [...prev, session];
+    });
 
   const exercises = [...DEFAULT_EXERCISES, ...customExercises];
 
@@ -161,5 +171,7 @@ export function useStore() {
     performanceEntries,
     savePerformanceEntry,
     deletePerformanceEntry,
+    testSessions,
+    saveTestSession,
   };
 }

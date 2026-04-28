@@ -225,3 +225,34 @@ export interface NavState {
   sessionId?: string;
   planId?: string;
 }
+
+// ── Testing Engine ─────────────────────────────────────────────────────────
+
+export type TestType = '10m' | '30m' | 'cmj' | 'broad_jump' | 'rsa' | 'yoyo';
+
+export interface SingleTestResult {
+  type: TestType;
+  /** All recorded attempt values (seconds / cm / m / level depending on type) */
+  attempts: number[];
+  /** Best value — lowest for time tests, highest for distance/height/level */
+  best: number;
+  skipped: boolean;
+  // RSA-specific
+  rsaAllSprints?: number[];  // 6 entered sprint times (seconds)
+  rsaMeanTime?: number;
+  rsaBestTime?: number;
+  fatigueIndex?: number;     // % (Girard et al. 2011)
+}
+
+export interface TestSession {
+  id: string;
+  date: string;              // YYYY-MM-DD
+  completedAt: number;
+  sex: 'male' | 'female';
+  selectedTests: TestType[];
+  results: SingleTestResult[];
+  /** Grading per test type, plus 'rsa_fi' for fatigue index */
+  grades: Partial<Record<string, 1 | 2 | 3 | 4>>;
+  aerobicScore?: number;     // 0–100
+  anaerobicScore?: number;   // 0–100
+}

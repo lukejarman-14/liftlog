@@ -47,7 +47,7 @@
  *   → Yo-Yo IR1 and sprint performance are independent predictors of match running.
  */
 
-import { BaselineTest, BaselineResults } from '../types';
+import { BaselineTest, BaselineResults, SingleTestResult, TestSession, TestType } from '../types';
 
 // ── Norm tables ────────────────────────────────────────────────────────────
 // Grade 4 = excellent, 3 = good, 2 = average, 1 = below average
@@ -105,6 +105,22 @@ export const NORMS_YOYO: Record<GradeKey, NormBand> = {
   3: { male: 17,  female: 14  },
   2: { male: 14,  female: 11  },
   1: { male: 0,   female: 0   },
+};
+
+/** Broad jump / standing long jump (cm) — higher is better */
+export const NORMS_BROAD_JUMP: Record<GradeKey, NormBand> = {
+  4: { male: 250, female: 210 },
+  3: { male: 220, female: 185 },
+  2: { male: 190, female: 160 },
+  1: { male: 0,   female: 0   },
+};
+
+/** RSA 6 × 20m mean time (s) — lower is better */
+export const NORMS_RSA_20M: Record<GradeKey, NormBand> = {
+  4: { male: 2.80, female: 3.10 },
+  3: { male: 2.95, female: 3.25 },
+  2: { male: 3.15, female: 3.45 },
+  1: { male: 99,   female: 99   },
 };
 
 // ── Grading helpers ────────────────────────────────────────────────────────
@@ -299,17 +315,17 @@ export const TEST_PROTOCOLS = {
     reference: 'Linthorne (2001) Am J Phys; Bosco et al.',
   },
   rsa: {
-    name: 'Repeated Sprint Ability (RSA): 6 × 30m',
+    name: 'Repeated Sprint Ability (RSA): 6 × 20m',
     whatItMeasures: 'Ability to maintain sprint speed across repeated efforts — reflects both anaerobic capacity and aerobic recovery.',
-    setup: 'A 30m straight course. 20 seconds passive (standing) rest between each sprint. Use the same timer method as your 30m sprint.',
+    setup: 'A flat 20m straight course. Mark start and finish with cones. You need a stopwatch or partner to record times. 20 seconds passive rest between sprints.',
     protocol: [
-      'Sprint 1: Run 30m at FULL effort. Start your timer, stop at 30m.',
-      'Immediately start a 20-second rest countdown.',
-      'After 20 s, Sprint 2. Repeat for all 6 sprints.',
-      'Record each sprint time to the nearest 0.01 s.',
-      'The app will calculate your Fatigue Index (FI) and mean time.',
+      'Have your stopwatch ready. You will complete 6 × 20m sprints.',
+      'The app counts down 5 seconds before each sprint — sprint on "GO".',
+      'Run 20m at FULL effort and stop your stopwatch at the line.',
+      'Tap "Sprint Done" to start your 20-second rest countdown.',
+      'After all 6, enter your 6 times into the app.',
     ],
-    whyFI: 'The Fatigue Index (Girard et al., 2011) quantifies the % decrease in sprint performance over repeated efforts. Formula: FI = [(Total time − n × Best time) / (n × Best time)] × 100. A low FI means your anaerobic system recovers well — partly via aerobic re-synthesis of phosphocreatine. Elite footballers typically show FI < 3%.',
+    whyFI: 'The Fatigue Index (Girard et al., 2011) quantifies the % decrease in sprint performance over repeated efforts. Formula: FI = [(Total time − n × Best time) / (n × Best time)] × 100. A low FI means your aerobic system effectively resynthesises phosphocreatine between sprints. Elite footballers typically show FI < 3%.',
     reference: 'Girard et al. (2011) Sports Med; Spencer et al. (2005) Sports Med',
   },
   yoyo: {
@@ -324,4 +340,148 @@ export const TEST_PROTOCOLS = {
     ],
     reference: 'Bangsbo et al. (2008) Sports Med',
   },
+  broad_jump: {
+    name: 'Standing Long Jump',
+    whatItMeasures: 'Horizontal explosive power — reflects fast-twitch recruitment and rate of force development.',
+    setup: 'A flat surface with a tape measure. Stand behind a line, feet shoulder-width apart.',
+    protocol: [
+      'Stand with toes behind the start line, feet shoulder-width apart.',
+      'Bend knees and swing arms back, then explode forward, jumping as far as possible.',
+      'Land with both feet. Measure from the start line to the back of the nearest heel.',
+      'Take up to 3 attempts with 45 seconds rest. Record the BEST in centimetres.',
+    ],
+    reference: 'Maulder & Cronin (2005) J Sports Sci',
+  },
 };
+
+// ── Test display metadata ──────────────────────────────────────────────────
+
+export const TEST_LABELS: Record<TestType, string> = {
+  '10m': '10m Sprint',
+  '30m': '30m Sprint',
+  cmj: 'Countermovement Jump',
+  broad_jump: 'Standing Long Jump',
+  rsa: 'Repeated Sprint Ability',
+  yoyo: 'Yo-Yo IR1',
+};
+
+export const TEST_UNIT: Record<TestType, string> = {
+  '10m': 's',
+  '30m': 's',
+  cmj: 'cm',
+  broad_jump: 'cm',
+  rsa: 's',   // mean time
+  yoyo: 'level',
+};
+
+/** true = lower is better (time); false = higher is better (height/distance/level) */
+export const TEST_LOWER_IS_BETTER: Record<TestType, boolean> = {
+  '10m': true,
+  '30m': true,
+  cmj: false,
+  broad_jump: false,
+  rsa: true,
+  yoyo: false,
+};
+
+// ── New session-based calc ─────────────────────────────────────────────────
+
+export function calcTestSession(
+  results: SingleTestResult[],
+  sex: 'male' | 'female',
+): {
+  grades: Partial<Record<string, 1 | 2 | 3 | 4>>;
+  aerobicScore?: number;
+  anaerobicScore?: number;
+} {
+  const grades: Partial<Record<string, 1 | 2 | 3 | 4>> = {};
+  const anaScores: number[] = [];
+  const aerScores: number[] = [];
+
+  for (const r of results) {
+    if (r.skipped || r.best === 0) continue;
+    switch (r.type) {
+      case '10m': {
+        const g = gradeTime(r.best, NORMS_10M, sex);
+        grades['10m'] = g;
+        anaScores.push((g / 4) * 100);
+        break;
+      }
+      case '30m': {
+        const g = gradeTime(r.best, NORMS_30M, sex);
+        grades['30m'] = g;
+        anaScores.push((g / 4) * 100);
+        break;
+      }
+      case 'cmj': {
+        const g = gradeMag(r.best, NORMS_CMJ, sex);
+        grades['cmj'] = g;
+        anaScores.push((g / 4) * 100);
+        break;
+      }
+      case 'broad_jump': {
+        const g = gradeMag(r.best, NORMS_BROAD_JUMP, sex);
+        grades['broad_jump'] = g;
+        anaScores.push((g / 4) * 100);
+        break;
+      }
+      case 'rsa': {
+        if (r.rsaMeanTime && r.rsaMeanTime > 0) {
+          const g = gradeTime(r.rsaMeanTime, NORMS_RSA_20M, sex);
+          grades['rsa'] = g;
+          anaScores.push((g / 4) * 100 * 0.5);
+          aerScores.push((g / 4) * 100 * 0.5);
+        }
+        if (r.fatigueIndex !== undefined && r.fatigueIndex >= 0) {
+          const g = gradeTime(r.fatigueIndex, NORMS_FI, sex);
+          grades['rsa_fi'] = g;
+          aerScores.push((g / 4) * 100);
+        }
+        break;
+      }
+      case 'yoyo': {
+        const g = gradeMag(r.best, NORMS_YOYO, sex);
+        grades['yoyo'] = g;
+        aerScores.push((g / 4) * 100);
+        break;
+      }
+    }
+  }
+
+  return {
+    grades,
+    anaerobicScore: anaScores.length
+      ? Math.round(anaScores.reduce((a, b) => a + b, 0) / anaScores.length)
+      : undefined,
+    aerobicScore: aerScores.length
+      ? Math.round(aerScores.reduce((a, b) => a + b, 0) / aerScores.length)
+      : undefined,
+  };
+}
+
+/** Convert a new TestSession to the legacy BaselineTest format (backward compat). */
+export function sessionToLegacyTest(session: TestSession): BaselineTest {
+  const get = (type: TestType) => session.results.find(r => r.type === type && !r.skipped);
+  const rsa = get('rsa');
+  return {
+    sprint10m: get('10m')?.best,
+    sprint30m: get('30m')?.best,
+    cmjBest: get('cmj')?.best,
+    rsaSprints: rsa?.rsaAllSprints?.filter(t => t > 0),
+    yoyoLevel: get('yoyo')?.best,
+    sex: session.sex,
+    completedAt: session.completedAt,
+  };
+}
+
+/** Compute delta and improvement for progression display. */
+export function getProgression(
+  current: number,
+  previous: number,
+  lowerIsBetter: boolean,
+): { delta: number; pct: number; improved: boolean } {
+  const delta = current - previous;
+  const pct = previous !== 0 ? Math.abs((delta / previous) * 100) : 0;
+  const improved = lowerIsBetter ? delta < 0 : delta > 0;
+  return { delta, pct, improved };
+}
