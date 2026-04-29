@@ -6,16 +6,135 @@
 import { useState } from 'react';
 import {
   ChevronLeft, ChevronDown, ChevronUp,
-  Zap, Shield, Clock, Calendar, TrendingUp, BookOpen,
+  Zap, Shield, Clock, Calendar, TrendingUp, BookOpen, Play,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
-import { GeneratedProgramme as GPType, ProgrammeSession, SessionBlock, ProgrammeExercise } from '../../types';
+import {
+  GeneratedProgramme as GPType, ProgrammeSession, SessionBlock, ProgrammeExercise,
+  WorkoutExercise, Exercise,
+} from '../../types';
+
+// ── Exercise name → library ID mapping ────────────────────────────────────
+
+const NAME_TO_ID: Record<string, string> = {
+  'back squat': 'squat',
+  'front squat': 'front-squat',
+  'romanian deadlift': 'rdl',
+  'rdl': 'rdl',
+  'trap bar deadlift': 'deadlift',
+  'hex bar deadlift': 'deadlift',
+  'deadlift': 'deadlift',
+  'power clean': 'power-clean',
+  'hang power clean': 'hang-power-clean',
+  'hang clean': 'hang-clean',
+  'hang snatch': 'hang-snatch',
+  'bench press': 'bench-press',
+  'db bench press': 'db-bench',
+  'pull-up': 'pull-up',
+  'weighted pull-up': 'pull-up',
+  'push press': 'ohp',
+  'overhead press': 'ohp',
+  'dumbbell shoulder press': 'db-ohp',
+  'db shoulder press': 'db-ohp',
+  'dumbbell row': 'db-row',
+  'db row': 'db-row',
+  'goblet squat': 'squat',
+  'bulgarian split squat': 'lunge',
+  'split squat': 'lunge',
+  'reverse lunge': 'lunge',
+  'lunge': 'lunge',
+  'hip thrust': 'hip-thrust',
+  'glute bridge': 'hip-thrust',
+  'calf raise': 'calf-raise',
+  'plank': 'plank',
+  'kettlebell swing': 'kettlebell-swing',
+  'jump squat': 'squat',
+  'box jump': 'squat',
+  'broad jump': 'squat',
+  'nordic hamstring curl': 'leg-curl',
+  'leg curl': 'leg-curl',
+};
+
+function parseRest(rest: string): number {
+  if (!rest) return 90;
+  const m = rest.match(/(\d+):(\d+)/);
+  if (m) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  const s = rest.match(/(\d+)\s*s/);
+  if (s) return parseInt(s[1], 10);
+  const min = rest.match(/(\d+)\s*min/);
+  if (min) return parseInt(min[1], 10) * 60;
+  const plain = rest.match(/^(\d+)$/);
+  if (plain) return parseInt(plain[1], 10);
+  return 90;
+}
+
+function parseReps(reps: string): number {
+  const n = parseInt(reps, 10);
+  return isNaN(n) ? 8 : Math.min(n, 20);
+}
+
+function parseSets(sets: string): number {
+  const n = parseInt(sets, 10);
+  return isNaN(n) ? 3 : Math.min(n, 6);
+}
+
+/** Convert programme session exercises to WorkoutExercise[] using library ID lookup */
+function sessionToWorkoutExercises(session: ProgrammeSession, exercises: Exercise[]): WorkoutExercise[] {
+  const all: ProgrammeExercise[] = session.blocks
+    .filter(b => !b.title.includes('Warm-Up') && !b.title.includes('warm-up'))
+    .flatMap(b => b.exercises);
+
+  const result: WorkoutExercise[] = [];
+  const used = new Set<string>();
+
+  for (const pe of all) {
+    const key = pe.name.toLowerCase().split('(')[0].trim();
+    let id: string | undefined;
+
+    // Direct lookup
+    id = NAME_TO_ID[key];
+
+    // Partial match fallback
+    if (!id) {
+      for (const [pattern, mappedId] of Object.entries(NAME_TO_ID)) {
+        if (key.includes(pattern) || pattern.includes(key.split(' ')[0])) {
+          id = mappedId;
+          break;
+        }
+      }
+    }
+
+    // Library scan fallback
+    if (!id) {
+      const found = exercises.find(e =>
+        e.name.toLowerCase().includes(key.split(' ')[0]) ||
+        key.includes(e.name.toLowerCase().split(' ')[0]),
+      );
+      id = found?.id;
+    }
+
+    if (id && !used.has(id) && exercises.find(e => e.id === id)) {
+      used.add(id);
+      result.push({
+        exerciseId: id,
+        targetSets: parseSets(pe.sets),
+        targetReps: parseReps(pe.reps),
+        targetWeight: 0,
+        restSeconds: parseRest(pe.rest),
+      });
+    }
+  }
+
+  return result.slice(0, 8); // cap at 8 exercises
+}
 
 interface Props {
   programme: GPType;
+  exercises: Exercise[];
   onBack: () => void;
   onRebuild: () => void;
+  onStartSession: (name: string, exercises: WorkoutExercise[]) => void;
 }
 
 // ── Readiness badge ────────────────────────────────────────────────────────
@@ -46,9 +165,11 @@ function MdBadge({ mdDay }: { mdDay: string }) {
     'MD-3': 'bg-yellow-100 text-yellow-700 border-yellow-200',
     'MD-4': 'bg-brand-100 text-brand-700 border-brand-200',
   };
+  // Display without hyphens: MD-4 → MD4, MD+1 → MD+1
+  const display = mdDay.replace('MD-', 'MD').replace('MD+', 'MD+');
   return (
     <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${colours[mdDay] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-      {mdDay}
+      {display}
     </span>
   );
 }
@@ -184,8 +305,22 @@ function BlockCard({ block }: { block: SessionBlock }) {
 
 // ── Session card ───────────────────────────────────────────────────────────
 
-function SessionCard({ session }: { session: ProgrammeSession }) {
+function SessionCard({
+  session, exercises, onStart,
+}: {
+  session: ProgrammeSession;
+  exercises: Exercise[];
+  onStart: (name: string, exs: WorkoutExercise[]) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
+  const mdDisplay = session.mdDay.replace('MD-', 'MD').replace('MD+', 'MD+');
+
+  const handleStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const workoutExs = sessionToWorkoutExercises(session, exercises);
+    onStart(`${mdDisplay} · ${session.dayOfWeek}`, workoutExs);
+  };
+
   return (
     <Card className="mb-4 overflow-hidden">
       <button
@@ -209,6 +344,17 @@ function SessionCard({ session }: { session: ProgrammeSession }) {
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
       </button>
+
+      {/* Start button — always visible */}
+      <div className="px-4 pb-3 -mt-1">
+        <button
+          onClick={handleStart}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600 transition-colors active:scale-[0.98]"
+        >
+          <Play size={15} />
+          Start Session
+        </button>
+      </div>
 
       {expanded && (
         <div className="px-4 pb-4 border-t border-gray-100 pt-3">
@@ -296,7 +442,7 @@ function MethodLegend() {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function GeneratedProgramme({ programme, onBack, onRebuild }: Props) {
+export function GeneratedProgramme({ programme, exercises, onBack, onRebuild, onStartSession }: Props) {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [showExplanation, setShowExplanation] = useState(false);
   const week = programme.weeks[selectedWeek];
@@ -397,7 +543,9 @@ export function GeneratedProgramme({ programme, onBack, onRebuild }: Props) {
 
           <MethodLegend />
 
-          {week.sessions.map((session, i) => <SessionCard key={i} session={session} />)}
+          {week.sessions.map((session, i) => (
+            <SessionCard key={i} session={session} exercises={exercises} onStart={onStartSession} />
+          ))}
         </div>
       )}
 

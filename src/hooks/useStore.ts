@@ -4,7 +4,7 @@ import {
   UserProfile, UserSettings, DEFAULT_SETTINGS,
   BaselineTest, BaselineResults,
   MatchEntry, PerformanceEntry,
-  TestSession, GeneratedProgramme,
+  TestSession, GeneratedProgramme, DailyReadiness,
 } from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
@@ -27,6 +27,7 @@ export function useStore() {
   const [performanceEntries, setPerformanceEntries] = useLocalStorage<PerformanceEntry[]>('ll_performance_entries', []);
   const [testSessions, setTestSessions] = useLocalStorage<TestSession[]>('ll_test_sessions', []);
   const [generatedProgrammes, setGeneratedProgrammes] = useLocalStorage<GeneratedProgramme[]>('ll_generated_programmes', []);
+  const [dailyReadinessLog, setDailyReadinessLog] = useLocalStorage<DailyReadiness[]>('ll_daily_readiness', []);
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));
@@ -70,6 +71,18 @@ export function useStore() {
       const filtered = prev.filter(p => p.id !== programme.id);
       return [programme, ...filtered].slice(0, 10);
     });
+
+  // Daily readiness
+  const saveDailyReadiness = (entry: DailyReadiness) =>
+    setDailyReadinessLog(prev => {
+      const filtered = prev.filter(r => r.date !== entry.date);
+      return [entry, ...filtered].slice(0, 90); // keep 90 days
+    });
+
+  const getTodayReadiness = (): DailyReadiness | null => {
+    const today = new Date().toISOString().split('T')[0];
+    return dailyReadinessLog.find(r => r.date === today) ?? null;
+  };
 
   const exercises = [...DEFAULT_EXERCISES, ...customExercises];
 
@@ -183,5 +196,8 @@ export function useStore() {
     saveTestSession,
     generatedProgrammes,
     saveGeneratedProgramme,
+    dailyReadinessLog,
+    saveDailyReadiness,
+    getTodayReadiness,
   };
 }

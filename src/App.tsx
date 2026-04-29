@@ -7,7 +7,6 @@ import { ExerciseDetail } from './components/screens/ExerciseDetail';
 import { WorkoutBuilder } from './components/screens/WorkoutBuilder';
 import { ActiveWorkout } from './components/screens/ActiveWorkout';
 import { History } from './components/screens/History';
-import { PlanBrowser } from './components/screens/PlanBrowser';
 import { PlanDetail } from './components/screens/PlanDetail';
 import { Onboarding } from './components/screens/Onboarding';
 import { Profile } from './components/screens/Profile';
@@ -18,6 +17,7 @@ import { sessionToLegacyTest, calcBaselineResults } from './data/testingBattery'
 import { LoadCalendar } from './components/screens/LoadCalendar';
 import { ProgrammeBuilder } from './components/screens/ProgrammeBuilder';
 import { GeneratedProgramme } from './components/screens/GeneratedProgramme';
+import { ProgrammeHub } from './components/screens/ProgrammeHub';
 import { generateProgramme } from './lib/programmeGenerator';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 
@@ -48,9 +48,7 @@ export default function App() {
     setNav({ screen: 'active-workout' });
   };
 
-  const handleUpdateSession = (session: WorkoutSession) => {
-    setActiveSession(session);
-  };
+  const handleUpdateSession = (session: WorkoutSession) => setActiveSession(session);
 
   const handleFinishWorkout = (session: WorkoutSession) => {
     store.saveSession(session);
@@ -58,12 +56,10 @@ export default function App() {
     setNav({ screen: 'dashboard' });
   };
 
-  // Directly starts a position-plan session from a template ID (bypasses the builder)
+  // Directly starts a position-plan session from a template ID
   const handleStartTemplate = (templateId: string, name: string) => {
     const template = POSITION_TEMPLATES.find(t => t.id === templateId);
-    if (template) {
-      handleStartWorkout(name || template.name, template.exercises);
-    }
+    if (template) handleStartWorkout(name || template.name, template.exercises);
   };
 
   const activatePlan = (planId: string) => {
@@ -82,7 +78,6 @@ export default function App() {
     navigate({ screen: 'dashboard' });
   };
 
-  // Called when user taps "Take the Fitness Test" on the onboarding battery offer screen
   const handleStartBattery = (profile: UserProfile, recommendedPlanId: string) => {
     store.setUserProfile(profile);
     activatePlan(recommendedPlanId);
@@ -96,16 +91,20 @@ export default function App() {
     navigate({ screen: 'generated-programme' });
   };
 
+  const handleViewProgramme = (programme: GPType) => {
+    setCurrentProgramme(programme);
+    navigate({ screen: 'generated-programme' });
+  };
+
   const handleBatteryComplete = (session: TestSession) => {
     store.saveTestSession(session);
-    // Backward compat — keep legacy baseline in sync for Profile screen
     const legacyTest = sessionToLegacyTest(session);
     const legacyResults = calcBaselineResults(legacyTest);
     store.saveBaseline(legacyTest, legacyResults);
     navigate({ screen: 'dashboard' });
   };
 
-  // Show onboarding for new users who haven't completed it yet
+  // Show onboarding for new users
   if (!store.userProfile) {
     return (
       <Onboarding
@@ -116,6 +115,7 @@ export default function App() {
   }
 
   const { screen } = nav;
+  const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme'];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -125,6 +125,8 @@ export default function App() {
           templates={store.templates}
           activePlan={store.activePlan}
           profilePicture={store.profilePicture}
+          todayReadiness={store.getTodayReadiness()}
+          onSaveReadiness={store.saveDailyReadiness}
           onNavigate={navigate}
           onStartWorkout={handleStartTemplate}
         />
@@ -182,11 +184,13 @@ export default function App() {
         />
       )}
 
-      {screen === 'plans' && (
-        <PlanBrowser
-          activePlan={store.activePlan}
-          onSetActivePlan={store.setActivePlan}
+      {/* Plans tab → Programme Hub */}
+      {screen === 'plans' && store.userProfile && (
+        <ProgrammeHub
+          userProfile={store.userProfile}
+          generatedProgrammes={store.generatedProgrammes}
           onNavigate={navigate}
+          onViewProgramme={handleViewProgramme}
         />
       )}
 
@@ -241,19 +245,21 @@ export default function App() {
         <ProgrammeBuilder
           userProfile={store.userProfile}
           onGenerate={handleGenerateProgramme}
-          onBack={() => navigate({ screen: 'dashboard' })}
+          onBack={() => navigate({ screen: 'plans' })}
         />
       )}
 
       {screen === 'generated-programme' && currentProgramme && (
         <GeneratedProgramme
           programme={currentProgramme}
-          onBack={() => navigate({ screen: 'dashboard' })}
+          exercises={store.exercises}
+          onBack={() => navigate({ screen: 'plans' })}
           onRebuild={() => navigate({ screen: 'programme-builder' })}
+          onStartSession={handleStartWorkout}
         />
       )}
 
-      {screen !== 'testing-battery' && screen !== 'programme-builder' && screen !== 'generated-programme' && (
+      {!fullScreens.includes(screen) && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
       )}
     </div>

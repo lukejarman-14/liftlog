@@ -1,9 +1,10 @@
-import { Dumbbell, Plus, TrendingUp, Clock, Flame, Calendar, Zap } from 'lucide-react';
+import { Dumbbell, Plus, TrendingUp, Clock, Flame, Calendar } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { WeeklyCalendar } from '../WeeklyCalendar';
-import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan } from '../../types';
+import { DailyReadinessWidget } from '../DailyReadinessWidget';
+import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan, DailyReadiness } from '../../types';
 import { useStore } from '../../hooks/useStore';
 import { getTodayProfile } from '../../lib/loadManagement';
 
@@ -12,6 +13,8 @@ interface DashboardProps {
   templates: WorkoutTemplate[];
   activePlan: ActivePlan | null;
   profilePicture: string | null;
+  todayReadiness: DailyReadiness | null;
+  onSaveReadiness: (r: DailyReadiness) => void;
   onNavigate: (nav: NavState) => void;
   onStartWorkout: (templateId: string, name: string) => void;
 }
@@ -37,7 +40,7 @@ function totalVolume(session: WorkoutSession) {
     acc + ex.sets.reduce((s, set) => s + set.reps * set.weight, 0), 0);
 }
 
-export function Dashboard({ sessions, templates, activePlan, profilePicture, onNavigate, onStartWorkout }: DashboardProps) {
+export function Dashboard({ sessions, templates, activePlan, profilePicture, todayReadiness, onSaveReadiness, onNavigate, onStartWorkout }: DashboardProps) {
   const { getExercise, userProfile, matchEntries } = useStore();
   const recent = [...sessions].sort((a, b) => b.startTime - a.startTime).slice(0, 5);
   const todayProfile = getTodayProfile(matchEntries);
@@ -125,25 +128,11 @@ export function Dashboard({ sessions, templates, activePlan, profilePicture, onN
         </p>
       </button>
 
+      {/* Daily readiness check-in */}
+      <DailyReadinessWidget existing={todayReadiness} onSave={onSaveReadiness} />
+
       {/* Weekly calendar */}
       <WeeklyCalendar sessions={sessions} activePlan={activePlan} onNavigate={onNavigate} onStartWorkout={onStartWorkout} />
-
-      {/* AI Programme Builder CTA */}
-      <button
-        onClick={() => onNavigate({ screen: 'programme-builder' })}
-        className="w-full mb-5 p-4 rounded-2xl bg-gradient-to-r from-brand-600 to-brand-500 text-white text-left shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
-      >
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
-            <Zap size={18} className="text-yellow-300" />
-            <span className="font-bold text-base">Build My Programme</span>
-          </div>
-          <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-semibold">AI</span>
-        </div>
-        <p className="text-sm text-white/80 leading-snug">
-          Get a personalised {userProfile ? userProfile.experienceYears === '<1' ? '6' : userProfile.experienceYears === '1-3' ? '8' : userProfile.experienceYears === '3-5' ? '10' : '12' : '8'}-week football S&C plan built around your position, goals, and today's readiness.
-        </p>
-      </button>
 
       {/* Quick start */}
       <section className="mb-6">

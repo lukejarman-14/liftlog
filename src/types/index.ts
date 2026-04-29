@@ -118,6 +118,19 @@ export interface ActivePlan {
   startDate: string; // YYYY-MM-DD (the Monday of week 1)
 }
 
+// ── Daily Readiness ───────────────────────────────────────────────────────
+
+export interface DailyReadiness {
+  date: string;           // YYYY-MM-DD
+  sleep: number;          // 1–10
+  fatigue: number;        // 1–10
+  soreness: number;       // 1–10
+  stress: number;         // 1–10
+  score: number;          // computed 0–10
+  level: 'elite' | 'high' | 'moderate' | 'low';
+  completedAt: number;    // timestamp
+}
+
 // ── User Settings ─────────────────────────────────────────────────────────
 
 export interface UserSettings {
@@ -254,7 +267,7 @@ export interface ProgrammeInputs {
   injuryHistory: InjuryArea[];
   readiness: { sleep: number; fatigue: number; soreness: number; stress: number };
   gymAccess: 'full' | 'basic' | 'none';
-  fvEmphasis: FVEmphasis;
+  fvEmphasis?: FVEmphasis; // always 'balanced' — kept for historical data compatibility
 }
 
 export interface ProgrammeExercise {

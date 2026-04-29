@@ -124,29 +124,29 @@ function getMdSlots(sessionsPerWeek: number, matchDay: string): MdSlot[] {
 }
 
 // ── Force-velocity profile per session ────────────────────────────────────
-// MD-4 = strength end (maximal force); MD-3 = speed end (high velocity); MD-2 = middle
+// Balanced: MD-4 = strength end; MD-3 = speed end; MD-2 = middle of curve
 
-function getFVProfile(mdDay: string, fvEmphasis: string): {
+function getFVProfile(mdDay: string): {
   profile: string;
   loadScheme: 'heavy' | 'moderate' | 'light';
   repRange: 'low' | 'medium' | 'high';
 } {
-  const isSpeedBias = fvEmphasis === 'speed';
-  const isStrengthBias = fvEmphasis === 'strength';
-
-  if (mdDay === 'MD-4') {
-    if (isSpeedBias)     return { profile: 'Strength-speed — moderate load with explosive intent', loadScheme: 'moderate', repRange: 'medium' };
-    if (isStrengthBias)  return { profile: 'Maximal strength — heavy load, low velocity, peak force production', loadScheme: 'heavy', repRange: 'low' };
-    return { profile: 'Strength-speed — heavy compound work paired with explosive power output', loadScheme: 'heavy', repRange: 'low' };
-  }
-  if (mdDay === 'MD-3') {
-    if (isStrengthBias)  return { profile: 'Speed-strength — moderate load at high velocity to maintain F-V balance', loadScheme: 'moderate', repRange: 'medium' };
-    return { profile: 'Speed end of F-V curve — low load, maximal velocity, elastic energy', loadScheme: 'light', repRange: 'high' };
-  }
-  if (mdDay === 'MD-2') {
-    return { profile: 'Middle of F-V curve — repeated-effort conditioning, moderate output', loadScheme: 'moderate', repRange: 'medium' };
-  }
-  return { profile: 'Neural priming — submaximal load, high intent, low fatigue', loadScheme: 'light', repRange: 'medium' };
+  if (mdDay === 'MD-4') return {
+    profile: 'Strength end of F-V curve — heavy compound work paired with explosive power output',
+    loadScheme: 'heavy', repRange: 'low',
+  };
+  if (mdDay === 'MD-3') return {
+    profile: 'Speed end of F-V curve — low load, maximal velocity, elastic energy',
+    loadScheme: 'light', repRange: 'high',
+  };
+  if (mdDay === 'MD-2') return {
+    profile: 'Middle of F-V curve — repeated-effort conditioning, moderate output',
+    loadScheme: 'moderate', repRange: 'medium',
+  };
+  return {
+    profile: 'Neural priming — submaximal load, high intent, zero accumulated fatigue',
+    loadScheme: 'light', repRange: 'medium',
+  };
 }
 
 // ── Warm-up blocks ─────────────────────────────────────────────────────────
@@ -894,8 +894,8 @@ function buildSession(
   if (slot.mdDay === 'MD+1') return recoverySession(slot.dayOfWeek);
   if (slot.mdDay === 'MD-1') return primingSession(slot.dayOfWeek, inputs.position, inputs.playStyle);
 
-  const { position, biggestWeakness, injuryHistory, gymAccess, fvEmphasis } = inputs;
-  const fv = getFVProfile(slot.mdDay, fvEmphasis);
+  const { position, biggestWeakness, injuryHistory, gymAccess } = inputs;
+  const fv = getFVProfile(slot.mdDay);
 
   // Strength library lookup
   const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
@@ -1070,16 +1070,12 @@ function buildSession(
 
 // ── Progression note per week ──────────────────────────────────────────────
 
-function progressNote(week: number, fvEmphasis: string): string {
-  const fvHint = fvEmphasis === 'speed'
-    ? 'Prioritise velocity — increase sprint distances rather than load.'
-    : fvEmphasis === 'strength'
-    ? 'Add 2.5–5kg to compound lifts where technique is solid.'
-    : 'Progress both load (compounds) and sprint distances in parallel.';
-  if (week <= 2) return `Record every lift and sprint — baseline data drives all future progression. ${fvHint}`;
-  if (week <= 5) return `${fvHint} RPE 7–8 on main sets.`;
-  if (week <= 9) return `Push toward technical limit — RPE 8–9. ${fvHint}`;
-  return `Final phase: reduce sets by 1, increase intensity. Peak expression — ${fvHint}`;
+function progressNote(week: number): string {
+  const hint = 'Progress both load (compounds) and sprint distances in parallel.';
+  if (week <= 2) return `Record every lift and sprint — baseline data drives all future progression. ${hint}`;
+  if (week <= 5) return `Add 2.5–5kg to main compounds and extend sprint volumes vs last week. RPE 7–8.`;
+  if (week <= 9) return `Push toward technical limit — RPE 8–9. ${hint}`;
+  return 'Final phase: reduce sets by 1, increase intensity. Peak expression — maximise output.';
 }
 
 // ── Coach explanation ──────────────────────────────────────────────────────
@@ -1092,14 +1088,9 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
     speed: 'speed and acceleration', strength: 'maximal strength', power: 'explosive power',
     endurance: 'endurance capacity', injury_prevention: 'injury prevention',
   };
-  const fvLabels: Record<string, string> = {
-    speed: 'speed end of the force-velocity curve — sessions use lower loads and higher velocities to maximise rate of force development',
-    strength: 'strength end of the force-velocity curve — heavy compound work drives maximal force production as the primary adaptation',
-    balanced: 'the full force-velocity curve — heavy strength days are paired with speed days to develop both qualities without compromising either',
-  };
+  const fvLine = 'the full force-velocity curve — heavy strength days are paired with speed days to develop both qualities without compromising either';
   const pos = posLabels[inputs.position] ?? inputs.position;
   const goal = goalLabels[inputs.primaryGoal] ?? inputs.primaryGoal;
-  const fvLine = fvLabels[inputs.fvEmphasis];
   const weaknessLine = inputs.biggestWeakness === 'injury_prone'
     ? 'Additional injury prevention work is embedded in every session — prehab is treated as non-negotiable, not optional.'
     : `Your identified weakness — ${inputs.biggestWeakness} — receives prioritised attention in dedicated blocks every session.`;
@@ -1112,7 +1103,7 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
     ? ` Your ${inputs.playStyle.replace(/-/g, '-')} play style is reflected in position-specific speed patterns and conditioning protocols.`
     : '';
 
-  return `This ${totalWeeks}-week programme is built for a ${pos} whose primary physical objective is ${goal}. The training sits on ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session follows a three-method structure: concentric work drives force production, eccentric work builds structural resilience and injury tolerance, and isometric work develops joint stability and co-contraction strength — all three qualities are trained in every week.\n\nThe match-day periodisation runs MD-4 → MD-3 → MD-2 → MD-1 → MD: peak loading falls furthest from the match, and fatigue is systematically reduced as match day approaches. MD-3 targets the speed end of the F-V curve, MD-4 the strength end — together they develop the full athletic profile across the week.\n\n${readinessLine}`;
+  return `This ${totalWeeks}-week programme is built for a ${pos} whose primary physical objective is ${goal}. The training covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session follows a three-method structure: concentric work drives force production, eccentric work builds structural resilience and injury tolerance, and isometric work develops joint stability and co-contraction strength — all three qualities are trained every week.\n\nThe match-day periodisation runs MD4 → MD3 → MD2 → MD1 → MD: peak loading falls furthest from the match, and fatigue is systematically reduced as match day approaches. MD3 targets the speed end of the F-V curve, MD4 the strength end — together they develop the full athletic profile across the week.\n\n${readinessLine}`;
 }
 
 // ── Main export ────────────────────────────────────────────────────────────
@@ -1129,10 +1120,6 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     speed: 'Speed & Acceleration', strength: 'Strength', power: 'Explosive Power',
     endurance: 'Endurance', injury_prevention: 'Injury Prevention',
   };
-  const FV_LABELS: Record<string, string> = {
-    speed: 'Speed emphasis', strength: 'Strength emphasis', balanced: 'Balanced F-V',
-  };
-
   const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNum = i + 1;
     const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
@@ -1142,21 +1129,20 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     return {
       weekNumber: weekNum,
       phase,
-      phaseGoal: `${phaseGoal} [Wk ${weekNum}: ${progressNote(weekNum, inputs.fvEmphasis)}]`,
+      phaseGoal: `${phaseGoal} [Wk ${weekNum}: ${progressNote(weekNum)}]`,
       sessions,
     };
   });
 
   const pos = POSITION_LABELS[inputs.position] ?? inputs.position;
   const goal = GOAL_LABELS[inputs.primaryGoal] ?? inputs.primaryGoal;
-  const fv = FV_LABELS[inputs.fvEmphasis] ?? 'Balanced';
   const matchStr = inputs.matchDay.charAt(0).toUpperCase() + inputs.matchDay.slice(1);
 
   return {
     id: `prog-${Date.now()}`,
     createdAt: Date.now(),
-    title: `${pos} — ${goal} · ${fv}`,
-    summary: `${totalWeeks}-week personalised programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inputs.sessionsPerWeek} sessions/week · Match day: ${matchStr} · ${fv}.`,
+    title: `${pos} — ${goal}`,
+    summary: `${totalWeeks}-week personalised programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inputs.sessionsPerWeek} sessions/week · Match day: ${matchStr}.`,
     coachExplanation: buildCoachExplanation(inputs, totalWeeks, readinessLevel),
     readinessScore: score,
     readinessLevel,

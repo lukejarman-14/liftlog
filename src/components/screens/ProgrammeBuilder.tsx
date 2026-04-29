@@ -1,6 +1,6 @@
 /**
- * ProgrammeBuilder v2 — 6-step wizard collecting full inputs for the AI programme generator.
- * Pre-fills position, experience, gym access from UserProfile.
+ * ProgrammeBuilder v2 — 5-step wizard collecting inputs for the AI programme generator.
+ * Pre-fills position, experience, gym access from UserProfile. FV always balanced.
  */
 
 import { useState } from 'react';
@@ -10,7 +10,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import {
   ProgrammeInputs, PrimaryGoal, MatchDayPref, Weakness, InjuryArea,
-  PlayStyle, FVEmphasis, UserProfile,
+  PlayStyle, UserProfile,
 } from '../../types';
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
   onBack: () => void;
 }
 
-const STEPS = ['Schedule', 'Position', 'Goals', 'Injuries', 'Readiness', 'Review'];
+const STEPS = ['Schedule', 'Position', 'Goals', 'Injuries', 'Readiness'];
 
 type Opt<T extends string> = { value: T; label: string; description?: string };
 
@@ -55,11 +55,6 @@ const PLAY_STYLE_OPTS: Opt<PlayStyle>[] = [
   { value: 'counter-attack', label: '🚀 Counter-Attack', description: 'Explosive transition speed' },
 ];
 
-const FV_OPTS: Opt<FVEmphasis>[] = [
-  { value: 'speed', label: '⚡ Speed emphasis', description: 'Low load · high velocity · rate of force development' },
-  { value: 'balanced', label: '⚖️ Balanced', description: 'Full F-V curve development across the week' },
-  { value: 'strength', label: '💪 Strength emphasis', description: 'High load · lower velocity · maximal force' },
-];
 
 const GOAL_OPTS: Opt<PrimaryGoal>[] = [
   { value: 'speed', label: '⚡ Speed', description: 'Max velocity & acceleration' },
@@ -151,25 +146,6 @@ function ChipSelector<T extends string>({
   );
 }
 
-function ReviewRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-semibold text-gray-900 capitalize">{value}</span>
-    </div>
-  );
-}
-
-function ReadinessDisplay({ label, value, high }: { label: string; value: number; high: (v: number) => boolean }) {
-  const ok = high(value);
-  return (
-    <div className={`rounded-lg p-3 text-center ${ok ? 'bg-green-100' : 'bg-orange-100'}`}>
-      <div className={`text-xl font-bold ${ok ? 'text-green-700' : 'text-orange-700'}`}>{value}</div>
-      <div className={`text-xs font-medium ${ok ? 'text-green-600' : 'text-orange-600'}`}>{label}</div>
-    </div>
-  );
-}
-
 // ── Main wizard ────────────────────────────────────────────────────────────
 
 export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
@@ -182,7 +158,6 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   const [primaryPos, setPrimaryPos] = useState<string>(userProfile.position);
   const [secondaryPos, setSecondaryPos] = useState<string>('');
   const [playStyle, setPlayStyle] = useState<PlayStyle>('box-to-box');
-  const [fvEmphasis, setFvEmphasis] = useState<FVEmphasis>('balanced');
   // Step 2 — Goals
   const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal>('speed');
   const [secondaryGoals, setSecondaryGoals] = useState<string[]>([]);
@@ -214,14 +189,14 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
       injuryHistory,
       readiness,
       gymAccess: userProfile.gymAccess,
-      fvEmphasis,
+      fvEmphasis: 'balanced',
     };
     onGenerate(inputs);
   };
 
   const totalSteps = STEPS.length;
-  const stepIcons = [Activity, User, Target, Brain, Zap, Check];
-  const StepIcon = stepIcons[step];
+  const stepIcons = [Activity, User, Target, Brain, Zap];
+  const StepIcon = stepIcons[step] ?? Check;
 
   const expWeeks: Record<string, string> = { '<1': '6', '1-3': '8', '3-5': '10', '5+': '12' };
 
@@ -255,7 +230,6 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           {step === 2 && 'Goals & Weakness'}
           {step === 3 && 'Injury History'}
           {step === 4 && "Today's Readiness"}
-          {step === 5 && 'Review & Generate'}
         </h2>
       </div>
 
@@ -316,11 +290,6 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
             <p className="text-sm font-semibold text-gray-700 mb-2">Play style</p>
             <ChipSelector options={PLAY_STYLE_OPTS} selected={playStyle} onToggle={setPlayStyle} />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-700 mb-1">Force-velocity emphasis</p>
-            <p className="text-xs text-gray-500 mb-2">Determines whether sessions bias toward heavy strength or high-velocity speed work</p>
-            <ChipSelector options={FV_OPTS} selected={fvEmphasis} onToggle={setFvEmphasis} />
-          </div>
         </div>
       )}
 
@@ -378,7 +347,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
         </div>
       )}
 
-      {/* ── Step 4: Readiness ── */}
+      {/* ── Step 4: Readiness + Generate ── */}
       {step === 4 && (
         <div>
           <p className="text-sm text-gray-600 mb-5">Rate how you feel right now. These scores calibrate your programme's starting intensity band.</p>
@@ -386,71 +355,22 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           <ReadinessSlider label="Fatigue Level" description="How tired/fatigued do you feel today?" value={readiness.fatigue} onChange={v => setReadiness(r => ({ ...r, fatigue: v }))} inverted />
           <ReadinessSlider label="Muscle Soreness" description="Any soreness from previous training?" value={readiness.soreness} onChange={v => setReadiness(r => ({ ...r, soreness: v }))} inverted />
           <ReadinessSlider label="Stress Level" description="Life stress, work, or mental load today?" value={readiness.stress} onChange={v => setReadiness(r => ({ ...r, stress: v }))} inverted />
-          <Card className="p-4 bg-gray-50 mt-2">
-            <p className="text-xs text-gray-500 font-semibold mb-1">Readiness bands</p>
-            <div className="space-y-1">
+          <Card className="p-4 bg-gray-50 mt-2 mb-6">
+            <div className="flex gap-3 flex-wrap">
               {[
-                { label: '9–10 · Elite', colour: 'text-emerald-600' },
-                { label: '7–8 · High', colour: 'text-green-600' },
-                { label: '4–6 · Moderate', colour: 'text-yellow-600' },
-                { label: '1–3 · Low', colour: 'text-red-500' },
-              ].map(b => <p key={b.label} className={`text-xs font-medium ${b.colour}`}>{b.label}</p>)}
+                { label: '9–10 Elite', colour: 'text-emerald-600' },
+                { label: '7–8 High', colour: 'text-green-600' },
+                { label: '4–6 Moderate', colour: 'text-yellow-600' },
+                { label: '1–3 Low', colour: 'text-red-500' },
+              ].map(b => <span key={b.label} className={`text-xs font-semibold ${b.colour}`}>{b.label}</span>)}
             </div>
           </Card>
-        </div>
-      )}
-
-      {/* ── Step 5: Review ── */}
-      {step === 5 && (
-        <div className="space-y-4">
-          <Card className="p-4">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Programme Profile</p>
-            <div className="space-y-2">
-              <ReviewRow label="Primary position" value={POSITION_OPTS.find(o => o.value === primaryPos)?.label ?? primaryPos} />
-              {secondaryPos && <ReviewRow label="Secondary position" value={POSITION_OPTS.find(o => o.value === secondaryPos)?.label ?? secondaryPos} />}
-              <ReviewRow label="Play style" value={PLAY_STYLE_OPTS.find(o => o.value === playStyle)?.label ?? playStyle} />
-              <ReviewRow label="F-V emphasis" value={FV_OPTS.find(o => o.value === fvEmphasis)?.label ?? fvEmphasis} />
-              <ReviewRow label="Sessions/week" value={`${sessionsPerWeek} sessions`} />
-              <ReviewRow label="Match day" value={matchDay.charAt(0).toUpperCase() + matchDay.slice(1)} />
-              <ReviewRow label="Gym access" value={userProfile.gymAccess} />
-              <ReviewRow label="Programme length" value={`${expWeeks[userProfile.experienceYears] ?? '8'} weeks`} />
-            </div>
-          </Card>
-          <Card className="p-4">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Goals</p>
-            <div className="space-y-2">
-              <ReviewRow label="Primary goal" value={GOAL_OPTS.find(o => o.value === primaryGoal)?.label ?? primaryGoal} />
-              {secondaryGoals.length > 0 && <ReviewRow label="Secondary" value={secondaryGoals.join(', ')} />}
-              <ReviewRow label="Biggest weakness" value={WEAKNESS_OPTS.find(o => o.value === biggestWeakness)?.label ?? biggestWeakness} />
-            </div>
-          </Card>
-          {injuryHistory.length > 0 && (
-            <Card className="p-4">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Injury Prehab</p>
-              <div className="flex flex-wrap gap-2">
-                {injuryHistory.map(area => (
-                  <span key={area} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
-                    {INJURY_OPTS.find(o => o.value === area)?.label ?? area}
-                  </span>
-                ))}
-              </div>
-            </Card>
-          )}
-          <Card className="p-4">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Today's Readiness</p>
-            <div className="grid grid-cols-2 gap-2">
-              <ReadinessDisplay label="Sleep" value={readiness.sleep} high={v => v >= 7} />
-              <ReadinessDisplay label="Fatigue" value={readiness.fatigue} high={v => v <= 4} />
-              <ReadinessDisplay label="Soreness" value={readiness.soreness} high={v => v <= 4} />
-              <ReadinessDisplay label="Stress" value={readiness.stress} high={v => v <= 4} />
-            </div>
-          </Card>
-          <Button fullWidth size="lg" onClick={handleGenerate} className="mt-2">
+          <Button fullWidth size="lg" onClick={handleGenerate}>
             <Zap size={18} />
             Generate My Programme
           </Button>
-          <p className="text-center text-xs text-gray-400 pb-4">
-            Generates a personalised {expWeeks[userProfile.experienceYears] ?? '8'}-week plan
+          <p className="text-center text-xs text-gray-400 mt-2 pb-6">
+            {expWeeks[userProfile.experienceYears] ?? '8'} weeks · {sessionsPerWeek} sessions/week
           </p>
         </div>
       )}
