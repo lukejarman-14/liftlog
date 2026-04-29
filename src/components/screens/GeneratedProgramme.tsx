@@ -1,13 +1,16 @@
 /**
- * GeneratedProgramme — displays a fully generated personalised football S&C programme.
- * Week selector (horizontal scroll) → session cards (expandable blocks).
+ * GeneratedProgramme v2 — displays a fully generated personalised football S&C programme.
+ * Shows force-velocity profile, method tags, tempo, intensity intent, and coach explanation.
  */
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronDown, ChevronUp, Zap, Shield, Clock, Calendar, TrendingUp } from 'lucide-react';
+import {
+  ChevronLeft, ChevronDown, ChevronUp,
+  Zap, Shield, Clock, Calendar, TrendingUp, BookOpen,
+} from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
-import { GeneratedProgramme as GPType, ProgrammeSession, SessionBlock } from '../../types';
+import { GeneratedProgramme as GPType, ProgrammeSession, SessionBlock, ProgrammeExercise } from '../../types';
 
 interface Props {
   programme: GPType;
@@ -17,13 +20,14 @@ interface Props {
 
 // ── Readiness badge ────────────────────────────────────────────────────────
 
-function ReadinessBadge({ level, score }: { level: 'high' | 'moderate' | 'low'; score: number }) {
-  const map = {
-    high: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', label: 'High Readiness' },
-    moderate: { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-300', label: 'Moderate Readiness' },
-    low: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', label: 'Low Readiness' },
+function ReadinessBadge({ level, score }: { level: string; score: number }) {
+  const map: Record<string, { bg: string; text: string; border: string; label: string }> = {
+    elite:    { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-300', label: 'Elite Readiness' },
+    high:     { bg: 'bg-green-100',   text: 'text-green-700',   border: 'border-green-300',   label: 'High Readiness' },
+    moderate: { bg: 'bg-yellow-100',  text: 'text-yellow-700',  border: 'border-yellow-300',  label: 'Moderate Readiness' },
+    low:      { bg: 'bg-red-100',     text: 'text-red-700',     border: 'border-red-300',     label: 'Low Readiness' },
   };
-  const s = map[level];
+  const s = map[level] ?? map.high;
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold ${s.bg} ${s.text} ${s.border}`}>
       <Zap size={11} />
@@ -49,49 +53,66 @@ function MdBadge({ mdDay }: { mdDay: string }) {
   );
 }
 
-// ── Phase colour ───────────────────────────────────────────────────────────
+// ── Method type badge ──────────────────────────────────────────────────────
 
-function phaseColour(phase: string) {
-  switch (phase) {
-    case 'Foundation': return 'bg-blue-500';
-    case 'Build': return 'bg-purple-500';
-    case 'Strength & Power': return 'bg-orange-500';
-    case 'Peak': return 'bg-red-500';
-    default: return 'bg-gray-500';
-  }
+const METHOD_COLOURS: Record<string, string> = {
+  concentric: 'bg-blue-50 text-blue-600',
+  eccentric:  'bg-orange-50 text-orange-600',
+  isometric:  'bg-purple-50 text-purple-600',
+  reactive:   'bg-red-50 text-red-600',
+  mixed:      'bg-gray-100 text-gray-600',
+};
+
+const METHOD_LABELS: Record<string, string> = {
+  concentric: 'CON', eccentric: 'ECC', isometric: 'ISO', reactive: 'REACT', mixed: 'MIXED',
+};
+
+const INTENT_COLOURS: Record<string, string> = {
+  explosive:   'bg-red-100 text-red-700',
+  maximal:     'bg-rose-100 text-rose-700',
+  controlled:  'bg-teal-50 text-teal-700',
+  moderate:    'bg-gray-100 text-gray-600',
+  submaximal:  'bg-yellow-50 text-yellow-700',
+  reactive:    'bg-pink-100 text-pink-700',
+};
+
+function MethodTag({ type }: { type?: string }) {
+  if (!type) return null;
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${METHOD_COLOURS[type] ?? 'bg-gray-100 text-gray-500'}`}>
+      {METHOD_LABELS[type] ?? type}
+    </span>
+  );
 }
 
-function phaseTextColour(phase: string) {
-  switch (phase) {
-    case 'Foundation': return 'text-blue-700';
-    case 'Build': return 'text-purple-700';
-    case 'Strength & Power': return 'text-orange-700';
-    case 'Peak': return 'text-red-700';
-    default: return 'text-gray-700';
-  }
+function IntentTag({ intent }: { intent?: string }) {
+  if (!intent) return null;
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${INTENT_COLOURS[intent] ?? 'bg-gray-100 text-gray-600'}`}>
+      {intent}
+    </span>
+  );
 }
 
 // ── Exercise row ───────────────────────────────────────────────────────────
 
-function ExerciseRow({
-  name, sets, reps, rest, intensity, cue,
-}: {
-  name: string; sets: string; reps: string; rest: string; intensity?: string; cue: string;
-}) {
+function ExerciseRow({ exercise }: { exercise: ProgrammeExercise }) {
   const [open, setOpen] = useState(false);
+  const { name, sets, reps, rest, intensity, tempo, methodType, intensityIntent, cue } = exercise;
   return (
     <div className="border-b border-gray-100 last:border-0">
-      <button
-        className="w-full text-left py-3 px-3 flex items-start justify-between"
-        onClick={() => setOpen(o => !o)}
-      >
+      <button className="w-full text-left py-3 px-3 flex items-start justify-between" onClick={() => setOpen(o => !o)}>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-900 leading-tight">{name}</p>
-          <div className="flex gap-2 mt-1 flex-wrap">
-            <Pill label={`${sets} sets`} colour="bg-brand-100 text-brand-700" />
-            <Pill label={reps} colour="bg-gray-100 text-gray-600" />
-            {rest && <Pill label={`rest ${rest}`} colour="bg-blue-50 text-blue-600" />}
+          <div className="flex gap-1.5 mt-1.5 flex-wrap items-center">
+            <Pill label={`${sets} × ${reps}`} colour="bg-brand-100 text-brand-700" />
+            {rest && <Pill label={`${rest} rest`} colour="bg-gray-100 text-gray-600" />}
             {intensity && <Pill label={intensity} colour="bg-orange-100 text-orange-600" />}
+            {tempo && <Pill label={`⏱ ${tempo}`} colour="bg-indigo-50 text-indigo-600" />}
+          </div>
+          <div className="flex gap-1.5 mt-1.5 flex-wrap">
+            <MethodTag type={methodType} />
+            <IntentTag intent={intensityIntent} />
           </div>
         </div>
         <div className="ml-2 mt-1 text-gray-400 flex-shrink-0">
@@ -103,6 +124,12 @@ function ExerciseRow({
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">Coaching Cue</p>
             <p className="text-sm text-gray-700 leading-relaxed">{cue}</p>
+            {tempo && (
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-0.5">Tempo · {tempo}</p>
+                <p className="text-xs text-gray-600">{tempoExplain(tempo)}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -110,10 +137,19 @@ function ExerciseRow({
   );
 }
 
+function tempoExplain(tempo: string): string {
+  const parts = tempo.split('-');
+  if (parts.length !== 4) return `Tempo notation: ${tempo}`;
+  const [ecc, pause, con, rest] = parts;
+  const eccStr = ecc === 'x' || ecc === '0' ? 'Explosive down' : `${ecc}s lowering (eccentric)`;
+  const pauseStr = pause === '0' ? '' : `, ${pause}s pause at bottom`;
+  const conStr = con === 'x' ? 'Explosive concentric (as fast as possible)' : con === '0' ? '' : `${con}s concentric`;
+  const restStr = rest === '0' ? '' : `, ${rest}s pause at top`;
+  return [eccStr, pauseStr, conStr, restStr].filter(Boolean).join('');
+}
+
 function Pill({ label, colour }: { label: string; colour: string }) {
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colour}`}>{label}</span>
-  );
+  return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colour}`}>{label}</span>;
 }
 
 // ── Block card ─────────────────────────────────────────────────────────────
@@ -123,20 +159,23 @@ function BlockCard({ block }: { block: SessionBlock }) {
   return (
     <Card className="overflow-hidden mb-3">
       <button
-        className="w-full text-left px-4 py-3 flex items-center justify-between bg-gray-50"
+        className="w-full text-left px-4 py-3 flex items-start justify-between bg-gray-50"
         onClick={() => setOpen(o => !o)}
       >
-        <span className="text-sm font-bold text-gray-800">{block.title}</span>
-        <div className="flex items-center gap-2 text-gray-400">
-          <span className="text-xs">{block.exercises.length} exercises</span>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-bold text-gray-800">{block.title}</span>
+          {block.methodFocus && (
+            <p className="text-xs text-gray-500 mt-0.5 leading-snug">{block.methodFocus}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-gray-400 ml-2 flex-shrink-0">
+          <span className="text-xs">{block.exercises.length}</span>
           {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
       </button>
       {open && (
         <div>
-          {block.exercises.map((ex, i) => (
-            <ExerciseRow key={i} {...ex} />
-          ))}
+          {block.exercises.map((ex, i) => <ExerciseRow key={i} exercise={ex} />)}
         </div>
       )}
     </Card>
@@ -149,7 +188,6 @@ function SessionCard({ session }: { session: ProgrammeSession }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <Card className="mb-4 overflow-hidden">
-      {/* Header */}
       <button
         className="w-full text-left p-4 flex items-start justify-between"
         onClick={() => setExpanded(e => !e)}
@@ -159,11 +197,13 @@ function SessionCard({ session }: { session: ProgrammeSession }) {
             <MdBadge mdDay={session.mdDay} />
             <span className="text-sm font-semibold text-gray-700">{session.dayOfWeek}</span>
             <div className="flex items-center gap-1 text-xs text-gray-400">
-              <Clock size={11} />
-              {session.durationMin} min
+              <Clock size={11} /> {session.durationMin} min
             </div>
           </div>
           <p className="text-sm text-gray-600 leading-snug mt-1">{session.objective}</p>
+          {session.fvProfile && (
+            <p className="text-xs text-indigo-600 font-medium mt-1.5">⚡ {session.fvProfile}</p>
+          )}
         </div>
         <div className="ml-3 text-gray-400 flex-shrink-0 mt-1">
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -177,13 +217,79 @@ function SessionCard({ session }: { session: ProgrammeSession }) {
             <Zap size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-amber-800 leading-relaxed">{session.readinessNote}</p>
           </div>
-
-          {/* Blocks */}
-          {session.blocks.map((block, i) => (
-            <BlockCard key={i} block={block} />
-          ))}
+          {session.blocks.map((block, i) => <BlockCard key={i} block={block} />)}
         </div>
       )}
+    </Card>
+  );
+}
+
+// ── Phase helpers ──────────────────────────────────────────────────────────
+
+function phaseColour(phase: string) {
+  switch (phase) {
+    case 'Foundation': return 'bg-blue-500';
+    case 'Build': return 'bg-purple-500';
+    case 'Strength & Power': return 'bg-orange-500';
+    case 'Peak': return 'bg-red-500';
+    default: return 'bg-gray-500';
+  }
+}
+function phaseTextColour(phase: string) {
+  switch (phase) {
+    case 'Foundation': return 'text-blue-700';
+    case 'Build': return 'text-purple-700';
+    case 'Strength & Power': return 'text-orange-700';
+    case 'Peak': return 'text-red-700';
+    default: return 'text-gray-700';
+  }
+}
+
+// ── Phase bar ──────────────────────────────────────────────────────────────
+
+function PhaseBar({ weeks, selectedWeek, onSelect }: { weeks: string[]; selectedWeek: number; onSelect: (i: number) => void }) {
+  const segments: { phase: string; start: number; end: number }[] = [];
+  weeks.forEach((p, i) => {
+    const last = segments[segments.length - 1];
+    if (last && last.phase === p) last.end = i;
+    else segments.push({ phase: p, start: i, end: i });
+  });
+  return (
+    <div className="flex rounded-xl overflow-hidden border border-gray-200 h-8">
+      {segments.map((seg, si) => {
+        const width = ((seg.end - seg.start + 1) / weeks.length) * 100;
+        const active = selectedWeek >= seg.start && selectedWeek <= seg.end;
+        return (
+          <button key={si} onClick={() => onSelect(seg.start)}
+            style={{ width: `${width}%` }}
+            className={`flex items-center justify-center text-[10px] font-bold text-white transition-opacity ${phaseColour(seg.phase)} ${active ? 'opacity-100' : 'opacity-50'}`}>
+            {seg.phase.split(' ')[0]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Method legend ──────────────────────────────────────────────────────────
+
+function MethodLegend() {
+  return (
+    <Card className="p-4 mb-5">
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Method legend</p>
+      <div className="flex flex-wrap gap-2">
+        <MethodTag type="concentric" />
+        <MethodTag type="eccentric" />
+        <MethodTag type="isometric" />
+        <MethodTag type="reactive" />
+      </div>
+      <div className="flex flex-wrap gap-2 mt-2">
+        <IntentTag intent="explosive" />
+        <IntentTag intent="maximal" />
+        <IntentTag intent="controlled" />
+        <IntentTag intent="submaximal" />
+      </div>
+      <p className="text-xs text-gray-400 mt-2">⏱ Tempo = eccentric-pause-concentric-pause (seconds). "x" = as fast as possible.</p>
     </Card>
   );
 }
@@ -192,6 +298,7 @@ function SessionCard({ session }: { session: ProgrammeSession }) {
 
 export function GeneratedProgramme({ programme, onBack, onRebuild }: Props) {
   const [selectedWeek, setSelectedWeek] = useState(0);
+  const [showExplanation, setShowExplanation] = useState(false);
   const week = programme.weeks[selectedWeek];
 
   return (
@@ -203,16 +310,14 @@ export function GeneratedProgramme({ programme, onBack, onRebuild }: Props) {
         </button>
       }
       rightAction={
-        <button
-          onClick={onRebuild}
-          className="text-xs font-semibold text-brand-600 px-2 py-1 rounded-lg bg-brand-50"
-        >
+        <button onClick={onRebuild}
+          className="text-xs font-semibold text-brand-600 px-2 py-1 rounded-lg bg-brand-50">
           Rebuild
         </button>
       }
     >
       {/* ── Programme header ── */}
-      <Card className="p-5 mb-5">
+      <Card className="p-5 mb-4">
         <h1 className="text-lg font-bold text-gray-900 leading-tight mb-2">{programme.title}</h1>
         <ReadinessBadge level={programme.readinessLevel} score={programme.readinessScore} />
         <p className="text-sm text-gray-600 mt-3 leading-relaxed">{programme.summary}</p>
@@ -224,13 +329,38 @@ export function GeneratedProgramme({ programme, onBack, onRebuild }: Props) {
         </div>
       </Card>
 
-      {/* ── Phase timeline ── */}
+      {/* ── Coach explanation (collapsible) ── */}
+      <Card className="mb-5 overflow-hidden">
+        <button
+          className="w-full text-left p-4 flex items-center justify-between"
+          onClick={() => setShowExplanation(e => !e)}
+        >
+          <div className="flex items-center gap-2">
+            <BookOpen size={16} className="text-brand-500" />
+            <span className="text-sm font-bold text-gray-800">Coach's Explanation</span>
+          </div>
+          {showExplanation ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+        </button>
+        {showExplanation && (
+          <div className="px-4 pb-4 border-t border-gray-100">
+            {programme.coachExplanation.split('\n\n').map((para, i) => (
+              <p key={i} className="text-sm text-gray-700 leading-relaxed mt-3">{para}</p>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* ── Phase bar ── */}
       <div className="mb-5">
         <div className="flex items-center gap-2 mb-2">
           <TrendingUp size={14} className="text-gray-500" />
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Phases</span>
         </div>
-        <PhaseBar weeks={programme.weeks.map(w => w.phase)} selectedWeek={selectedWeek} onSelect={setSelectedWeek} />
+        <PhaseBar
+          weeks={programme.weeks.map(w => w.phase)}
+          selectedWeek={selectedWeek}
+          onSelect={setSelectedWeek}
+        />
       </div>
 
       {/* ── Week selector ── */}
@@ -241,30 +371,20 @@ export function GeneratedProgramme({ programme, onBack, onRebuild }: Props) {
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
           {programme.weeks.map((w, i) => (
-            <button
-              key={i}
-              onClick={() => setSelectedWeek(i)}
+            <button key={i} onClick={() => setSelectedWeek(i)}
               className={`flex-shrink-0 flex flex-col items-center px-3 py-2.5 rounded-xl border-2 transition-all min-w-[56px] ${
-                i === selectedWeek
-                  ? 'border-brand-500 bg-brand-50'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
-              }`}
-            >
-              <span className={`text-xs font-bold ${i === selectedWeek ? 'text-brand-600' : 'text-gray-700'}`}>
-                Wk {w.weekNumber}
-              </span>
-              <span className={`text-[10px] font-medium mt-0.5 ${phaseTextColour(w.phase)}`}>
-                {w.phase.split(' ')[0]}
-              </span>
+                i === selectedWeek ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'
+              }`}>
+              <span className={`text-xs font-bold ${i === selectedWeek ? 'text-brand-600' : 'text-gray-700'}`}>Wk {w.weekNumber}</span>
+              <span className={`text-[10px] font-medium mt-0.5 ${phaseTextColour(w.phase)}`}>{w.phase.split(' ')[0]}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── Current week detail ── */}
+      {/* ── Week detail ── */}
       {week && (
         <div>
-          {/* Week header */}
           <Card className="p-4 mb-4">
             <div className="flex items-center gap-2 mb-1">
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full text-white ${phaseColour(week.phase)}`}>
@@ -275,56 +395,13 @@ export function GeneratedProgramme({ programme, onBack, onRebuild }: Props) {
             <p className="text-xs text-gray-500 leading-relaxed">{week.phaseGoal}</p>
           </Card>
 
-          {/* Sessions */}
-          {week.sessions.map((session, i) => (
-            <SessionCard key={i} session={session} />
-          ))}
+          <MethodLegend />
+
+          {week.sessions.map((session, i) => <SessionCard key={i} session={session} />)}
         </div>
       )}
 
       <div className="h-6" />
     </Layout>
-  );
-}
-
-// ── Phase bar ──────────────────────────────────────────────────────────────
-
-function PhaseBar({
-  weeks,
-  selectedWeek,
-  onSelect,
-}: {
-  weeks: string[];
-  selectedWeek: number;
-  onSelect: (i: number) => void;
-}) {
-  // Group consecutive same-phase weeks
-  const segments: { phase: string; start: number; end: number }[] = [];
-  weeks.forEach((p, i) => {
-    const last = segments[segments.length - 1];
-    if (last && last.phase === p) {
-      last.end = i;
-    } else {
-      segments.push({ phase: p, start: i, end: i });
-    }
-  });
-
-  return (
-    <div className="flex rounded-xl overflow-hidden border border-gray-200 h-8">
-      {segments.map((seg, si) => {
-        const width = ((seg.end - seg.start + 1) / weeks.length) * 100;
-        const active = selectedWeek >= seg.start && selectedWeek <= seg.end;
-        return (
-          <button
-            key={si}
-            onClick={() => onSelect(seg.start)}
-            style={{ width: `${width}%` }}
-            className={`flex items-center justify-center text-[10px] font-bold text-white transition-opacity ${phaseColour(seg.phase)} ${active ? 'opacity-100' : 'opacity-50'}`}
-          >
-            {seg.phase.split(' ')[0]}
-          </button>
-        );
-      })}
-    </div>
   );
 }

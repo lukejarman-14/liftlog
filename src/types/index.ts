@@ -234,9 +234,17 @@ export type PrimaryGoal = 'speed' | 'strength' | 'power' | 'endurance' | 'injury
 export type MatchDayPref = 'saturday' | 'sunday' | 'midweek';
 export type Weakness = 'speed' | 'strength' | 'endurance' | 'power' | 'agility' | 'injury_prone';
 export type InjuryArea = 'hamstring' | 'ankle' | 'knee' | 'groin' | 'calf' | 'back' | 'shoulder';
+export type PlayStyle = 'box-to-box' | 'direct' | 'technical' | 'physical' | 'press-heavy' | 'counter-attack';
+export type FVEmphasis = 'speed' | 'strength' | 'balanced';
+// 4-band readiness: 1–3 low, 4–6 moderate, 7–8 high, 9–10 elite
+export type ReadinessLevel = 'elite' | 'high' | 'moderate' | 'low';
+export type MethodType = 'concentric' | 'eccentric' | 'isometric' | 'reactive' | 'mixed';
+export type IntensityIntent = 'explosive' | 'maximal' | 'controlled' | 'moderate' | 'submaximal' | 'reactive';
 
 export interface ProgrammeInputs {
   position: 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST';
+  secondaryPosition?: 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST';
+  playStyle: PlayStyle;
   experienceYears: '<1' | '1-3' | '3-5' | '5+';
   sessionsPerWeek: 2 | 3 | 4;
   primaryGoal: PrimaryGoal;
@@ -246,6 +254,7 @@ export interface ProgrammeInputs {
   injuryHistory: InjuryArea[];
   readiness: { sleep: number; fatigue: number; soreness: number; stress: number };
   gymAccess: 'full' | 'basic' | 'none';
+  fvEmphasis: FVEmphasis;
 }
 
 export interface ProgrammeExercise {
@@ -254,11 +263,15 @@ export interface ProgrammeExercise {
   reps: string;
   rest: string;
   intensity?: string;
+  tempo?: string;           // e.g. "3-0-1-0" (eccentric-pause-concentric-pause)
+  methodType?: MethodType;
+  intensityIntent?: IntensityIntent;
   cue: string;
 }
 
 export interface SessionBlock {
   title: string;
+  methodFocus?: string;     // e.g. "Eccentric loading — hamstring resilience"
   exercises: ProgrammeExercise[];
 }
 
@@ -268,6 +281,7 @@ export interface ProgrammeSession {
   objective: string;
   readinessNote: string;
   durationMin: number;
+  fvProfile: string;        // e.g. "Speed end of F-V curve — low load, maximum velocity"
   blocks: SessionBlock[];
 }
 
@@ -283,8 +297,9 @@ export interface GeneratedProgramme {
   createdAt: number;
   title: string;
   summary: string;
+  coachExplanation: string;  // Why this plan is structured this way
   readinessScore: number;
-  readinessLevel: 'high' | 'moderate' | 'low';
+  readinessLevel: ReadinessLevel;
   readinessGuidance: string;
   durationWeeks: number;
   inputs: ProgrammeInputs;

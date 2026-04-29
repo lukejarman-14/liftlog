@@ -1,43 +1,71 @@
 /**
- * AI Programme Generator
- * Produces individualised, periodised football S&C programmes.
- * Deterministic: same inputs → same programme (week-seeded variation only).
+ * AI Programme Generator v2
+ * Elite football S&C — individualised, periodised, force-velocity aligned.
+ * Deterministic: identical inputs → identical programme.
  */
 
 import {
   GeneratedProgramme, ProgrammeInputs, ProgrammeWeek, ProgrammeSession,
-  ProgrammeExercise,
+  ProgrammeExercise, ReadinessLevel, MethodType, IntensityIntent,
 } from '../types';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function ex(
-  name: string, sets: string, reps: string, rest: string, cue: string, intensity?: string,
+  name: string,
+  sets: string,
+  reps: string,
+  rest: string,
+  cue: string,
+  opts?: {
+    intensity?: string;
+    tempo?: string;
+    methodType?: MethodType;
+    intensityIntent?: IntensityIntent;
+  },
 ): ProgrammeExercise {
-  return { name, sets, reps, rest, cue, ...(intensity ? { intensity } : {}) };
+  return { name, sets, reps, rest, cue, ...opts };
 }
 
-// ── Readiness ──────────────────────────────────────────────────────────────
+// ── Readiness — 4-band ─────────────────────────────────────────────────────
+// score = mean of (sleep + inverted_fatigue + inverted_soreness + inverted_stress) / 4
 
 export function calcReadiness(r: ProgrammeInputs['readiness']): {
   score: number;
-  level: 'high' | 'moderate' | 'low';
+  level: ReadinessLevel;
   guidance: string;
+  volumeMultiplier: number;   // applied to set counts
+  intensityNote: string;      // appended to exercise intensity labels
 } {
-  const score = Math.round(
-    ((r.sleep + (10 - r.fatigue) + (10 - r.soreness) + (10 - r.stress)) / 4) * 10,
-  ) / 10;
+  const raw = (r.sleep + (10 - r.fatigue) + (10 - r.soreness) + (10 - r.stress)) / 4;
+  const score = Math.round(raw * 10) / 10;
 
-  const level = score >= 7.5 ? 'high' : score >= 5 ? 'moderate' : 'low';
-
-  const guidance =
-    level === 'high'
-      ? 'High readiness. Push hard today — add an optional bonus set to main lifts if you feel strong through the session.'
-      : level === 'moderate'
-      ? 'Moderate readiness. Programme as written. Monitor RPE set-to-set; back off if effort jumps unexpectedly.'
-      : 'Low readiness. Intensity reduced ~25%. Focus on movement quality — strength gains come back quickly. No sessions are skipped, only adjusted.';
-
-  return { score, level, guidance };
+  if (score >= 9) {
+    return {
+      score, level: 'elite', volumeMultiplier: 1.2,
+      guidance: 'Elite readiness. Add a bonus set to every main compound. Chase a PB on your primary lift today — conditions are as good as it gets.',
+      intensityNote: '+5% above prescribed',
+    };
+  }
+  if (score >= 7) {
+    return {
+      score, level: 'high', volumeMultiplier: 1.0,
+      guidance: 'High readiness. Execute the programme as written. Push hard on the big sets — this is the day to drive adaptation.',
+      intensityNote: 'as prescribed',
+    };
+  }
+  if (score >= 4) {
+    return {
+      score, level: 'moderate', volumeMultiplier: 0.85,
+      guidance: 'Moderate readiness. Complete the programme — reduce load by ~10% on main compounds. Monitor RPE and back off if effort spikes unexpectedly.',
+      intensityNote: '−10% load',
+    };
+  }
+  return {
+    score, level: 'low', volumeMultiplier: 0.70,
+    guidance: 'Low readiness. Reduce sets by 1 and drop intensity ~20–25%. Movement quality is the goal today. Strength comes back fast — consistency matters more than grinding today.',
+    intensityNote: '−20–25% load, technique focus',
+  };
 }
 
 // ── Duration from experience ───────────────────────────────────────────────
@@ -46,17 +74,29 @@ function durationWeeks(exp: string): number {
   return exp === '<1' ? 6 : exp === '1-3' ? 8 : exp === '3-5' ? 10 : 12;
 }
 
-// ── Phase for week ─────────────────────────────────────────────────────────
+// ── Phase ──────────────────────────────────────────────────────────────────
 
 function getPhase(week: number, total: number): { phase: string; phaseGoal: string } {
   const p = week / total;
-  if (p <= 0.25) return { phase: 'Foundation', phaseGoal: 'Establish movement quality, build aerobic base, reinforce injury resilience across all physical qualities.' };
-  if (p <= 0.50) return { phase: 'Build', phaseGoal: 'Increase load and position-specific demands. Accelerate adaptation with progressive overload on all main lifts.' };
-  if (p <= 0.75) return { phase: 'Strength & Power', phaseGoal: 'Peak force production. High neural demand sessions. Maximum velocity and explosive power are the priority.' };
-  return { phase: 'Peak', phaseGoal: 'Transfer gym strength to pitch. Reduce volume, maximise intensity. Arrive at every match sharper than the week before.' };
+  if (p <= 0.25) return {
+    phase: 'Foundation',
+    phaseGoal: 'Establish movement quality, build structural resilience, and set a baseline for all physical qualities.',
+  };
+  if (p <= 0.50) return {
+    phase: 'Build',
+    phaseGoal: 'Drive progressive overload. Increase positional demands. Accelerate strength and speed adaptation.',
+  };
+  if (p <= 0.75) return {
+    phase: 'Strength & Power',
+    phaseGoal: 'Peak force production and explosive output. High neural demand. Maximum velocity sessions are absolute quality.',
+  };
+  return {
+    phase: 'Peak',
+    phaseGoal: 'Reduce volume, maximise intensity. Transfer gym output to pitch. Arrive at every match sharper than last week.',
+  };
 }
 
-// ── MD day schedule ────────────────────────────────────────────────────────
+// ── MD schedule ────────────────────────────────────────────────────────────
 
 type MdSlot = { mdDay: string; dayOfWeek: string };
 
@@ -83,101 +123,297 @@ function getMdSlots(sessionsPerWeek: number, matchDay: string): MdSlot[] {
   return schedule[sessionsPerWeek] ?? schedule[3];
 }
 
-// ── Warm-up library ────────────────────────────────────────────────────────
+// ── Force-velocity profile per session ────────────────────────────────────
+// MD-4 = strength end (maximal force); MD-3 = speed end (high velocity); MD-2 = middle
 
-const WARMUP_MOBILITY: ProgrammeExercise[] = [
-  ex('Hip 90/90 Mobilisation', '1', '30s each side', '', 'Drive lead knee toward the floor. Breathe into the end range — never force it.'),
-  ex("World's Greatest Stretch", '1', '5 each side', '', 'Lunge forward, rotate thoracic spine, reach ceiling with top arm. Eyes follow.'),
-  ex('Glute Bridge Hold + March', '2', '8 each leg', '30s', 'Full hip extension at top. Pelvis stays level as you march — no rotation.'),
+function getFVProfile(mdDay: string, fvEmphasis: string): {
+  profile: string;
+  loadScheme: 'heavy' | 'moderate' | 'light';
+  repRange: 'low' | 'medium' | 'high';
+} {
+  const isSpeedBias = fvEmphasis === 'speed';
+  const isStrengthBias = fvEmphasis === 'strength';
+
+  if (mdDay === 'MD-4') {
+    if (isSpeedBias)     return { profile: 'Strength-speed — moderate load with explosive intent', loadScheme: 'moderate', repRange: 'medium' };
+    if (isStrengthBias)  return { profile: 'Maximal strength — heavy load, low velocity, peak force production', loadScheme: 'heavy', repRange: 'low' };
+    return { profile: 'Strength-speed — heavy compound work paired with explosive power output', loadScheme: 'heavy', repRange: 'low' };
+  }
+  if (mdDay === 'MD-3') {
+    if (isStrengthBias)  return { profile: 'Speed-strength — moderate load at high velocity to maintain F-V balance', loadScheme: 'moderate', repRange: 'medium' };
+    return { profile: 'Speed end of F-V curve — low load, maximal velocity, elastic energy', loadScheme: 'light', repRange: 'high' };
+  }
+  if (mdDay === 'MD-2') {
+    return { profile: 'Middle of F-V curve — repeated-effort conditioning, moderate output', loadScheme: 'moderate', repRange: 'medium' };
+  }
+  return { profile: 'Neural priming — submaximal load, high intent, low fatigue', loadScheme: 'light', repRange: 'medium' };
+}
+
+// ── Warm-up blocks ─────────────────────────────────────────────────────────
+
+const WARMUP_MOBILITY = [
+  ex('Hip 90/90 Mobilisation', '1', '30s each side', '', 'Drive lead knee toward the floor. Breathe into end range — never force it.',
+    { methodType: 'isometric', intensityIntent: 'controlled' }),
+  ex("World's Greatest Stretch", '1', '5 each side', '', 'Lunge forward, thoracic rotation, reach ceiling. Eyes follow the hand.',
+    { methodType: 'mixed', intensityIntent: 'controlled' }),
+  ex('Glute Bridge Hold + March', '2', '8 each leg', '30s', 'Full hip extension. Pelvis stays level as you march.',
+    { methodType: 'isometric', intensityIntent: 'controlled', tempo: '1-2-1-0' }),
 ];
 
-const WARMUP_NEURAL: ProgrammeExercise[] = [
-  ex('Lateral Band Walk', '2', '15 steps each way', '30s', 'Feet stay hip-width. Keep tension throughout — knees tracking over toes.'),
-  ex('A-Skip', '2', '2 × 20m', '30s', 'Drive knee to hip height, claw foot back down. Tall posture, relaxed shoulders.'),
-  ex('High Knees', '2', '20m', '20s', 'Punch knees up fast, land on the ball of the foot. Rapid arm action.'),
+const WARMUP_NEURAL = [
+  ex('Lateral Band Walk', '2', '15 steps each way', '30s', 'Feet hip-width. Constant band tension. Knees track over toes.',
+    { methodType: 'concentric', intensityIntent: 'moderate' }),
+  ex('A-Skip', '2', '2 × 20m', '30s', 'Knee to hip height. Claw foot back down. Tall posture, relaxed shoulders.',
+    { intensityIntent: 'moderate' }),
+  ex('High Knees', '2', '20m', '20s', 'Punch knees fast. Land ball of foot. Rapid arm action.',
+    { intensityIntent: 'moderate' }),
 ];
 
-const WARMUP_SPEED: ProgrammeExercise[] = [
-  ex('Butt Kicks', '2', '20m', '20s', 'Heel contacts glute. Keep hips tall — don\'t hinge forward.'),
-  ex('Build-Up Sprint (60→80→90%)', '3', '30m', '60s', 'Smooth progression. No flying start. Feel rhythm and posture build naturally.'),
+const WARMUP_SPEED = [
+  ex('Butt Kicks', '2', '20m', '20s', 'Heel to glute. Hips tall — no forward hinge.',
+    { intensityIntent: 'moderate' }),
+  ex('Build-Up Sprint 60→80→90%', '3', '30m', '60s', 'Smooth ramp. Feel rhythm build. No flying start.',
+    { intensityIntent: 'submaximal' }),
 ];
 
-const WARMUP_STRENGTH: ProgrammeExercise[] = [
-  ex('Ankle Circles + Eccentric Calf Raise', '1', '10 each direction', '', 'Full dorsiflexion range. Slow 3s on the calf lowering.'),
-  ex('Goblet Squat (Bodyweight)', '2', '10', '30s', 'Elbows inside knees at bottom. Drive knees out. Full depth — chest tall.'),
-  ex('Band Pull-Apart', '2', '15', '20s', 'Retract scapulae. Thumbs point behind you at full range.'),
+const WARMUP_STRENGTH = [
+  ex('Ankle Circles + Eccentric Calf Raise', '1', '10 each direction', '', 'Full dorsiflexion range. 3s lowering on the calf.',
+    { methodType: 'eccentric', intensityIntent: 'controlled', tempo: '3-0-1-0' }),
+  ex('Goblet Squat (Bodyweight)', '2', '10', '30s', 'Elbows inside knees at the bottom. Drive knees out. Full depth.',
+    { methodType: 'concentric', intensityIntent: 'controlled', tempo: '3-0-1-0' }),
+  ex('Band Pull-Apart', '2', '15', '20s', 'Retract scapulae. Thumbs pointing back at full range.',
+    { methodType: 'concentric', intensityIntent: 'moderate' }),
 ];
 
-// ── Strength library ───────────────────────────────────────────────────────
+// ── Strength library — by phase × gym access × load scheme ────────────────
 
-const STRENGTH: Record<string, Record<string, ProgrammeExercise[]>> = {
+type GymKey = 'full' | 'basic' | 'none';
+type LoadKey = 'heavy' | 'moderate';
+
+const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeExercise[]>>> = {
   Foundation: {
-    full: [
-      ex('Back Squat', '4', '8', '2:30', 'Bar high on traps. Knees track toes. Controlled 3s descent, explosive up.', '65% 1RM'),
-      ex('Romanian Deadlift', '3', '10', '2:00', 'Hinge at the hip with soft knees. Hamstring tension before reversing. Bar stays close.', '60% 1RM'),
-      ex('Dumbbell Split Squat', '3', '8 each', '90s', 'Front shin vertical. Drive through heel. Rear knee skims the floor.'),
-    ],
-    basic: [
-      ex('Goblet Squat', '4', '10', '2:00', 'Heavy DB held at chest. Full depth. Drive knees out. 3s descent.'),
-      ex('Single-Leg Romanian Deadlift', '3', '8 each', '90s', 'Load the standing hip. Neutral spine throughout. Reach back foot for balance.'),
-      ex('Reverse Lunge', '3', '10 each', '90s', 'Long step back. Rear knee to just above floor. Drive front heel to stand.'),
-    ],
-    none: [
-      ex('Pistol Squat Progression (Box)', '3', '6 each', '2:00', 'Use a low box. Drive heel into surface. Controlled descent — no collapse.'),
-      ex('Single-Leg RDL (Bodyweight)', '3', '10 each', '90s', 'Arms forward for counterbalance. Flat back. Slow and controlled.'),
-      ex('Walking Lunge', '3', '12 each', '90s', 'Long stride. Front knee doesn\'t pass toe. Drive tall at the top of each step.'),
-    ],
+    full: {
+      heavy: [
+        ex('Back Squat', '4', '6', '3:00', 'Bar high on traps. Controlled 3s descent. Explosive drive from the hole.',
+          { intensity: '70% 1RM', tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Romanian Deadlift', '3', '8', '2:00', 'Hinge at hip with soft knees. Feel hamstring tension load. Bar close to body.',
+          { intensity: '60% 1RM', tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Dumbbell Split Squat', '3', '8 each', '90s', 'Front shin vertical. Drive through heel. Rear knee skims the floor.',
+          { tempo: '2-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+      ],
+      moderate: [
+        ex('Back Squat', '3', '8', '2:30', 'Full depth. 3s descent. Consistent bar path each rep.',
+          { intensity: '65% 1RM', tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('Romanian Deadlift', '3', '10', '2:00', 'Hinge deep. Neutral spine throughout. Hamstring-led.',
+          { intensity: '55% 1RM', tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Dumbbell Split Squat', '3', '10 each', '90s', 'Long stance. Control the descent.',
+          { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ],
+    },
+    basic: {
+      heavy: [
+        ex('Goblet Squat', '4', '8', '2:30', 'Full depth. Drive knees out. 3s descent.',
+          { tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Single-Leg Romanian Deadlift', '3', '8 each', '90s', 'Load the standing hip. Neutral spine. Reach back foot for balance.',
+          { tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Reverse Lunge (Heavy DB)', '3', '8 each', '90s', 'Long step back. Rear knee near floor. Drive front heel to stand.',
+          { tempo: '2-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+      ],
+      moderate: [
+        ex('Goblet Squat', '3', '10', '2:00', 'Full depth. 3s descent. Chest tall.',
+          { tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('Single-Leg RDL', '3', '10 each', '90s', 'Reach forward. Flat back. Feel the hamstring.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'moderate' }),
+        ex('DB Walking Lunge', '3', '12 each', '90s', 'Long stride. Front knee tracks over second toe.',
+          { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ],
+    },
+    none: {
+      heavy: [
+        ex('Pistol Squat Progression (Box)', '3', '6 each', '2:00', 'Low box. Drive heel into surface. No collapse.',
+          { tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Single-Leg RDL (Bodyweight)', '3', '10 each', '90s', 'Arms forward as counterbalance. Slow and controlled.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Walking Lunge', '3', '12 each', '90s', 'Long stride. Drive tall at the top.',
+          { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ],
+      moderate: [
+        ex('Pistol Squat Progression', '3', '8 each', '2:00', 'Box support if needed. Controlled descent.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'moderate' }),
+        ex('Single-Leg RDL (BW)', '3', '12 each', '90s', 'Slow and deliberate. Feel the hip hinge.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'moderate' }),
+        ex('Nordic Hamstring Curl', '3', '4', '3:00', 'Fight the fall. 4s eccentric. Catch at 45°.',
+          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+      ],
+    },
   },
   Build: {
-    full: [
-      ex('Back Squat', '4', '6', '3:00', 'Brace hard pre-descent. Hit depth. Explode from the hole — accelerate through sticking point.', '72% 1RM'),
-      ex('Trap Bar Deadlift', '3', '5', '3:00', 'Flat back, hips hinge. Drive the floor away. Hips and knees lock simultaneously.', '75% 1RM'),
-      ex('Bulgarian Split Squat', '3', '6 each', '2:00', 'Rear foot elevated on bench. Vertical torso. Drive front heel with intent.', 'Heavy DB'),
-    ],
-    basic: [
-      ex('Goblet Squat', '4', '8', '2:30', 'Full depth. Explosive concentric — keep chest tall.', 'Heavy DB'),
-      ex('Single-Leg RDL', '3', '8 each', '2:00', 'Maximise time under tension. 3s lower, 1s hold.', 'Moderate DB'),
-      ex('DB Walking Lunge', '3', '10 each', '2:00', 'Long stride. Power through the front heel.', 'Moderate DB'),
-    ],
-    none: [
-      ex('Pistol Squat', '3', '5 each', '2:30', 'Full depth. Fingertip support only if needed.'),
-      ex('Nordic Hamstring Curl', '3', '5', '3:00', 'Fight the fall. 4s eccentric. Catch at 45°. Partner or anchored.'),
-      ex('Step-Up (High Box)', '3', '8 each', '2:00', 'Drive through the working leg only — no push from back foot.'),
-    ],
+    full: {
+      heavy: [
+        ex('Back Squat', '4', '5', '3:30', 'Brace hard. Hit depth. Accelerate through sticking point aggressively.',
+          { intensity: '78% 1RM', tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Trap Bar Deadlift', '4', '4', '3:30', 'Optimal hip position. Drive the floor away. Hips and knees lock simultaneously.',
+          { intensity: '80% 1RM', tempo: '1-0-1-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Bulgarian Split Squat', '3', '5 each', '2:30', 'Rear foot elevated. Vertical torso. Drive front heel with intent.',
+          { intensity: 'Heavy DB', tempo: '2-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+      ],
+      moderate: [
+        ex('Back Squat', '3', '6', '3:00', 'Consistent depth. Controlled descent. Explosive up.',
+          { intensity: '72% 1RM', tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Trap Bar Deadlift', '3', '5', '3:00', 'Flat back. Drive floor away. Smooth bar path.',
+          { intensity: '72% 1RM', tempo: '1-0-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Bulgarian Split Squat', '3', '6 each', '2:00', 'Drive through heel. Rear knee doesn\'t touch floor on the way up.',
+          { intensity: 'Moderate DB', tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ],
+    },
+    basic: {
+      heavy: [
+        ex('DB Hang Clean + Press', '4', '4', '3:00', 'Hinge and pull. High elbows. Press at the top.',
+          { methodType: 'concentric', intensityIntent: 'explosive' }),
+        ex('Heavy DB RDL', '4', '5', '2:30', 'Maximize hamstring tension. 3s lower.',
+          { intensity: 'Heavy DB', tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Single-Leg RDL to Knee Drive', '3', '5 each', '2:00', 'RDL down, explosive knee drive up. Two actions, one movement.',
+          { methodType: 'mixed', intensityIntent: 'explosive' }),
+      ],
+      moderate: [
+        ex('DB Squat', '3', '8', '2:30', 'Full depth. Explode from bottom.',
+          { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('DB RDL', '3', '8', '2:00', 'Hinge deep. Hamstring-led return.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'moderate' }),
+        ex('DB Reverse Lunge', '3', '8 each', '2:00', 'Long step. Control the descent.',
+          { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ],
+    },
+    none: {
+      heavy: [
+        ex('Pistol Squat', '3', '5 each', '2:30', 'Full depth. 3s down. Fingertip support only if needed.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Nordic Hamstring Curl', '3', '5', '3:00', '4s eccentric. Catch at 45°. Partner-anchored.',
+          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Step-Up (High Box)', '3', '6 each', '2:00', 'Drive through working leg only. No push from back foot.',
+          { methodType: 'concentric', intensityIntent: 'controlled' }),
+      ],
+      moderate: [
+        ex('Pistol Squat Progression', '3', '6 each', '2:30', 'Box support if needed. Building depth.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'moderate' }),
+        ex('Nordic Hamstring Curl', '3', '4', '3:00', '4s down. Partner or door.',
+          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Jump Squat (BW)', '3', '6', '2:00', 'Full squat, max upward intent. Land and reset.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ],
+    },
   },
   'Strength & Power': {
-    full: [
-      ex('Back Squat', '5', '3', '4:00', 'Maximal intent on every rep. Fast descent, explosive concentric. Full recovery.', '82–87% 1RM'),
-      ex('Power Clean', '4', '3', '3:00', 'Hook grip. Violent triple extension. High elbows in the catch — rack position.', '75% 1RM'),
-      ex('Hex Bar Deadlift', '4', '4', '3:30', 'Optimal hip position. Accelerate aggressively through the pull.', '80% 1RM'),
-    ],
-    basic: [
-      ex('DB Hang Snatch', '4', '4 each', '3:00', 'Hinge and pull. Drive elbow high. Lock out overhead — stable shoulder.', 'Challenging'),
-      ex('DB Jump Squat', '3', '5', '3:00', 'Full squat depth. Explode upward. Absorb the landing — hips, knees, ankles.'),
-      ex('Single-Leg RDL', '4', '6 each', '2:00', 'Heavy. Maximum hip load. Don\'t rotate the spine.', 'Heavy DB'),
-    ],
-    none: [
-      ex('Broad Jump', '4', '4', '3:00', 'Max horizontal distance. Stick the landing. Full reset before each rep.'),
-      ex('Nordic Hamstring Curl', '4', '5', '3:30', 'Resist the fall hard. 4s down. Build tensile strength in the hamstring.'),
-      ex('Depth Drop → Vertical Jump', '3', '4', '3:00', 'Step off (not jump). Minimise ground contact. Reactive vertical rebound.'),
-    ],
+    full: {
+      heavy: [
+        ex('Back Squat', '5', '3', '4:00', 'Maximum neural drive every rep. Treat it like a max.',
+          { intensity: '85–88% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Power Clean', '4', '3', '3:30', 'Hook grip. Violent triple extension. High elbows in the catch.',
+          { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'explosive' }),
+        ex('Hex Bar Deadlift', '4', '3', '3:30', 'Optimal hip position. Accelerate through the whole pull.',
+          { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ],
+      moderate: [
+        ex('Back Squat', '4', '4', '3:30', 'High intent. Every rep is technically sound and fast.',
+          { intensity: '80% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Power Clean', '3', '3', '3:00', 'Speed is the goal. Technical mastery at this load.',
+          { intensity: '72% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'explosive' }),
+        ex('Hex Bar Deadlift', '3', '4', '3:00', 'Drive through with intent. Bar doesn\'t decelerate.',
+          { intensity: '75% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ],
+    },
+    basic: {
+      heavy: [
+        ex('DB Hang Snatch', '4', '4 each', '3:00', 'Hinge and pull. Drive elbow high. Stable overhead lock.',
+          { methodType: 'concentric', intensityIntent: 'explosive' }),
+        ex('DB Jump Squat', '4', '4', '3:00', 'Full depth. Explode upward. Absorb the landing — hips, knees, ankles.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Heavy Single-Leg RDL', '4', '5 each', '2:30', 'Maximum hip load. No spinal rotation.',
+          { intensity: 'Heavy DB', tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+      ],
+      moderate: [
+        ex('DB Hang Snatch', '3', '4 each', '2:30', 'Smooth hinge-pull-lock sequence.',
+          { methodType: 'concentric', intensityIntent: 'explosive' }),
+        ex('DB Jump Squat', '3', '4', '2:30', 'Explosive up. Controlled landing.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Single-Leg RDL', '3', '6 each', '2:00', 'Controlled eccentric. Hamstring-led.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+      ],
+    },
+    none: {
+      heavy: [
+        ex('Broad Jump', '4', '4', '3:00', 'Max horizontal. Stick the landing. Full reset before each rep.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Nordic Hamstring Curl', '4', '5', '3:30', '4s down. Build tensile hamstring strength.',
+          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Depth Drop → Vertical Jump', '3', '4', '3:00', 'Step off. Minimise ground contact. Reactive vertical rebound.',
+          { methodType: 'reactive', intensityIntent: 'reactive' }),
+      ],
+      moderate: [
+        ex('Broad Jump', '3', '4', '2:30', 'Max horizontal distance. Land and hold.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Nordic Hamstring Curl', '3', '4', '3:00', '4s eccentric. Technique is the priority.',
+          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Plyometric Step-Up', '3', '5 each', '2:00', 'Drive upward explosively. Land soft.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ],
+    },
   },
   Peak: {
-    full: [
-      ex('Back Squat', '3', '3', '4:00', 'Every rep is treated as a max. Maximum neural drive. Full recovery is non-negotiable.', '90–95% 1RM'),
-      ex('Power Clean', '4', '2', '4:00', 'Speed is the goal. Aggressive enough to be technical, heavy enough to matter.', '78% 1RM'),
-      ex('Jump Squat', '4', '4', '3:00', 'Maximum intent upward. Land and fully reset — not a plyometric bounce.', '30% 1RM'),
-    ],
-    basic: [
-      ex('DB Jump Squat', '4', '4', '3:00', 'Explosive off floor. Stick the landing through full foot. No rushing.'),
-      ex('Heavy DB RDL', '4', '5', '3:00', 'Maximise hamstring tension. Slow, controlled bar path.', 'Heavy DB'),
-      ex('Depth Drop → Jump', '3', '5', '3:00', 'Step off box. Minimum ground contact time. React and express power upward.'),
-    ],
-    none: [
-      ex('Plyometric Push-Up', '3', '6', '3:00', 'Explosive push — leave the ground. Soft landing. Repeat with full intent.'),
-      ex('Depth Drop', '4', '5', '3:00', 'Step off, minimal contact, maximum vertical jump. Reactive neural output.'),
-      ex('Bounding Sprint', '4', '30m', '90s', 'Aggressive push-off. Maximise stride length. Drive arms hard.'),
-    ],
+    full: {
+      heavy: [
+        ex('Back Squat', '4', '2', '4:00', 'Treat every rep as a maximum. Maximum neural drive. Non-negotiable rest.',
+          { intensity: '90–95% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Power Clean', '4', '2', '4:00', 'Speed over load. Aggressive enough to matter. Technically perfect.',
+          { intensity: '80% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'explosive' }),
+        ex('Jump Squat', '4', '4', '3:00', 'Maximum intent upward. Land and fully reset.',
+          { intensity: '30% 1RM', methodType: 'reactive', intensityIntent: 'explosive' }),
+      ],
+      moderate: [
+        ex('Back Squat', '3', '3', '4:00', 'High quality, full recovery, max intent.',
+          { intensity: '87% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Power Clean', '3', '2', '3:30', 'Velocity is the stimulus. Perfect technique.',
+          { intensity: '75% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'explosive' }),
+        ex('Jump Squat', '3', '4', '3:00', 'Explosive. Land and reset.',
+          { intensity: '30% 1RM', methodType: 'reactive', intensityIntent: 'explosive' }),
+      ],
+    },
+    basic: {
+      heavy: [
+        ex('DB Jump Squat', '4', '4', '3:00', 'Maximum expression. Absorb the landing fully.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Heavy DB RDL', '4', '4', '3:00', 'Full eccentric load. Hamstring-led.',
+          { intensity: 'Heavy DB', tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Depth Drop → Jump', '3', '4', '3:00', 'Step off box. Minimise contact. Express reactive power.',
+          { methodType: 'reactive', intensityIntent: 'reactive' }),
+      ],
+      moderate: [
+        ex('DB Jump Squat', '3', '4', '2:30', 'Explosive up. Controlled landing.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('DB RDL', '3', '5', '2:30', 'Slow eccentric. Hamstring load.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Box Jump', '3', '4', '2:30', 'Step down. Full reset. Max intent each rep.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ],
+    },
+    none: {
+      heavy: [
+        ex('Plyometric Push-Up', '3', '5', '3:00', 'Explosive push — leave the ground. Soft landing.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Depth Drop', '4', '4', '3:00', 'Step off. Minimise contact. Max vertical.',
+          { methodType: 'reactive', intensityIntent: 'reactive' }),
+        ex('Bounding Sprint', '4', '30m', '90s', 'Max push-off. Stride length. Arms drive hard.',
+          { methodType: 'concentric', intensityIntent: 'explosive' }),
+      ],
+      moderate: [
+        ex('Squat Jump', '3', '5', '2:30', 'Full depth. Max intent upward.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Nordic Hamstring Curl', '3', '4', '3:00', '4s eccentric. Quality above everything.',
+          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Broad Jump', '3', '4', '2:30', 'Max horizontal. Stick the landing.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ],
+    },
   },
 };
 
@@ -185,116 +421,202 @@ const STRENGTH: Record<string, Record<string, ProgrammeExercise[]>> = {
 
 const UPPER: Record<string, ProgrammeExercise[]> = {
   Foundation: [
-    ex('DB Bench Press', '3', '10', '2:00', 'Retract shoulder blades. Controlled descent. Explosive push.', '60% effort'),
-    ex('DB Row', '3', '10', '2:00', 'Hinge 45°. Pull elbow to hip. Squeeze lat at top.', '60% effort'),
-    ex('DB Shoulder Press', '3', '10', '90s', 'Neutral spine. No arching. Full lockout overhead.', 'Moderate'),
+    ex('DB Bench Press', '3', '10', '2:00', 'Retract shoulder blades. Controlled descent. Explosive push.',
+      { intensity: '60% effort', tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+    ex('DB Row', '3', '10', '2:00', 'Hinge 45°. Pull elbow to hip. Squeeze lat at top.',
+      { tempo: '2-1-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+    ex('DB Shoulder Press', '3', '10', '90s', 'Neutral spine. No arching. Full lockout overhead.',
+      { intensity: 'Moderate', methodType: 'concentric', intensityIntent: 'moderate' }),
   ],
   Build: [
-    ex('Bench Press', '4', '6', '3:00', 'Explosive push. 2–3s controlled descent. Grip just outside shoulder-width.', '72–75% 1RM'),
-    ex('Weighted Pull-Up', '4', '5', '3:00', 'Full ROM — dead hang to chin over bar. Initiate with lats.', 'Add 5–10kg'),
-    ex('Push Press', '3', '5', '2:30', 'Dip and drive hips. Aggressive lockout. Bar path stays over heels.', '75% 1RM'),
+    ex('Bench Press', '4', '5', '3:00', 'Explosive push. 2s controlled descent. Just outside shoulder-width.',
+      { intensity: '75% 1RM', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    ex('Weighted Pull-Up', '4', '4', '3:00', 'Dead hang to chin over bar. Initiate with lats.',
+      { intensity: 'Add 5–10kg', tempo: '1-1-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    ex('Push Press', '3', '4', '2:30', 'Dip and drive hips. Aggressive lockout. Bar over heels.',
+      { intensity: '75% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
   ],
   'Strength & Power': [
-    ex('Bench Press', '4', '4', '3:30', 'Maximum force intent on every rep.', '80–85% 1RM'),
-    ex('Weighted Pull-Up', '4', '4', '3:00', 'Pause 1s at top. Control descent 3s. No kipping.', 'Challenging'),
-    ex('Medicine Ball Chest Pass (Wall)', '3', '6', '90s', 'Drive through the ball explosively. Receive and repeat fast. Max power output.'),
+    ex('Bench Press', '4', '3', '3:30', 'Maximum force intent.',
+      { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ex('Weighted Pull-Up', '4', '3', '3:00', '1s pause at top. 3s descent. No kipping.',
+      { intensity: 'Challenging', tempo: '1-1-x-3', methodType: 'eccentric', intensityIntent: 'maximal' }),
+    ex('Med Ball Chest Pass (Wall)', '3', '6', '90s', 'Drive through ball explosively. Max power output.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
   ],
   Peak: [
-    ex('Bench Press', '3', '3', '4:00', 'Max intent. Treat each rep like a maximum. Full recovery.', '88–92% 1RM'),
-    ex('Weighted Pull-Up', '3', '3', '4:00', 'Explosive concentric. Slow 4s descent.', 'Heavy'),
-    ex('Medicine Ball Slam', '4', '5', '90s', 'Overhead drive then slam with full-body tension.'),
+    ex('Bench Press', '3', '2', '4:00', 'Max intent. Full recovery.',
+      { intensity: '90% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ex('Weighted Pull-Up', '3', '3', '4:00', 'Explosive concentric. 4s descent.',
+      { intensity: 'Heavy', tempo: '1-0-x-4', methodType: 'eccentric', intensityIntent: 'maximal' }),
+    ex('Med Ball Slam', '4', '5', '90s', 'Overhead drive then slam with full-body tension.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
   ],
 };
 
-// ── Speed library ──────────────────────────────────────────────────────────
-
+// ── Speed-acceleration by phase ────────────────────────────────────────────
 
 const SPEED_ACCELERATION: Record<string, ProgrammeExercise[]> = {
   Foundation: [
-    ex('Falling Start', '4', '10m', '2:00', 'Ankle lean, first step drives. Low body angle for first 6 steps.'),
-    ex('Standing Start Sprint', '4', '15m', '2:00', 'Staggered stance. Explode — stay low until 10m.'),
+    ex('Falling Start', '4', '10m', '2:00', 'Ankle lean, first step drives. Low body angle for first 6 steps.',
+      { methodType: 'concentric', intensityIntent: 'submaximal' }),
+    ex('Standing Start Sprint', '4', '15m', '2:00', 'Staggered stance. Explode — stay low until 10m.',
+      { methodType: 'concentric', intensityIntent: 'submaximal' }),
   ],
   Build: [
-    ex('3-Point Start Sprint', '5', '20m', '2:30', 'Rear leg drives. Build body angle progressively. Push into the ground.'),
-    ex('Sprint from Back-Pedal', '4', '5m back → 15m forward', '2:30', 'Back-pedal, plant, drive. Simulate match transition.'),
+    ex('3-Point Start Sprint', '5', '20m', '2:30', 'Rear leg drives. Build body angle progressively. Push into the ground.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
+    ex('Sprint from Back-Pedal', '4', '5m back → 15m fwd', '2:30', 'Back-pedal, plant, drive. Simulate match transition.',
+      { methodType: 'reactive', intensityIntent: 'maximal' }),
   ],
   'Strength & Power': [
-    ex('Resisted Sled Sprint (if available)', '4', '20m', '3:00', '45° lean into the sled. Long, powerful steps. Full extension.', 'Heavy sled'),
-    ex('Flying 10m Sprint', '4', '30m build → 10m fly', '4:00', 'Reach max velocity, hold it. Time the flying 10m.'),
+    ex('Resisted Sled Sprint', '4', '20m', '3:00', '45° lean into sled. Long powerful steps. Full extension.',
+      { intensity: 'Heavy sled', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ex('Flying 10m Sprint', '4', '30m build → 10m fly', '4:00', 'Reach max velocity. Hold it. Time the flying 10m.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
   ],
   Peak: [
-    ex('Flying 20m Sprint', '5', '40m build → 20m fly', '4:30', 'Maximum velocity. Full rest. Quality over quantity every single rep.'),
-    ex('Sprint from Lateral Start', '3', '20m', '3:00', 'Crossover step, drive. Simulate match sprint trigger.'),
+    ex('Flying 20m Sprint', '5', '40m build → 20m fly', '4:30', 'Maximum velocity. Full rest. Quality every rep.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
+    ex('Sprint from Lateral Start', '3', '20m', '3:00', 'Crossover step, drive. Match sprint trigger simulation.',
+      { methodType: 'reactive', intensityIntent: 'maximal' }),
   ],
 };
 
-// ── Position-specific speed ────────────────────────────────────────────────
+// ── Position-specific speed content ───────────────────────────────────────
 
-const POSITION_SPEED: Partial<Record<string, ProgrammeExercise[]>> = {
+type PosKey = 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST';
+
+const POSITION_SPEED: Partial<Record<PosKey, ProgrammeExercise[]>> = {
   GK: [
-    ex('Explosive Lateral Bound + Stabilise', '4', '4 each', '2:00', 'Push off outside foot. Land on inside foot, absorb deeply. Hold 1s. Simulate diving saves.'),
-    ex('Reaction Sprint (Varied Direction)', '4', '10m', '2:00', 'Start in ready position. Sprint on verbal cue — direction varies. React, don\'t anticipate.'),
+    ex('Explosive Lateral Bound + Stabilise', '4', '4 each', '2:00', 'Push off outside foot. Land inside foot, absorb deeply. Simulate diving saves.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ex('Reaction Sprint (Varied Direction)', '4', '10m', '2:00', 'Start in ready position. Sprint on verbal cue — direction varies. React, don\'t anticipate.',
+      { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   CB: [
-    ex('Deceleration Sprint', '4', '30m sprint → hard stop', '3:00', 'Sprint 30m, plant hard, brake. 3–5 step controlled deceleration. Train the braking mechanics.'),
-    ex('Back-Pedal → Forward Sprint', '4', '10m back → 20m fwd', '3:00', 'Track a runner. Transition at hip-turn signal. Explosive change of direction.'),
+    ex('Deceleration Sprint', '4', '30m sprint → hard stop', '3:00', 'Sprint 30m, plant hard, 3–5 step controlled brake. Train braking mechanics.',
+      { methodType: 'eccentric', intensityIntent: 'maximal' }),
+    ex('Back-Pedal → Forward Sprint', '4', '10m back → 20m fwd', '3:00', 'Track a runner. Hip-turn signal. Explosive change of direction.',
+      { methodType: 'reactive', intensityIntent: 'maximal' }),
   ],
   FB: [
-    ex('Sprint + Lateral Shuffle + Sprint', '4', '10m → 10m → 10m', '3:00', 'Match simulation. First sprint, shuffle, close sprint. Quality throughout.'),
-    ex('Repeated 40m Sprint', '5', '40m', '25s', 'Build RSA. 90% each rep. The discipline is the recovery — only 25s rest.'),
+    ex('Sprint + Lateral Shuffle + Sprint', '4', '10m → 10m → 10m', '3:00', 'Match simulation. Sprint, shuffle, close sprint. Quality throughout.',
+      { methodType: 'reactive', intensityIntent: 'maximal' }),
+    ex('Repeated 40m Sprint', '5', '40m', '25s', 'Build RSA. 90% each rep. Discipline is in the short rest.',
+      { methodType: 'concentric', intensityIntent: 'submaximal' }),
   ],
   CM: [
-    ex('Sprint from Jog', '5', '20m', '90s', 'Simulate match sprint — transition from cruising to max effort immediately.'),
-    ex('Box-to-Box Run Simulation', '4', '50m', '60s', '85% effort. Midfield sprint pattern. Controlled deceleration at the end.'),
+    ex('Sprint from Jog', '5', '20m', '90s', 'Simulate match sprint — transition from cruising to max effort.',
+      { methodType: 'reactive', intensityIntent: 'maximal' }),
+    ex('Box-to-Box Run Simulation', '4', '50m', '60s', '85% effort. Midfield sprint pattern. Controlled deceleration.',
+      { methodType: 'concentric', intensityIntent: 'submaximal' }),
   ],
   W: [
-    ex('Flying 20m Sprint', '6', '40m build → 20m fly', '4:00', 'This is your primary weapon. Max velocity every rep. Full rest. Don\'t chase fatigue.'),
-    ex('Curve Sprint', '3', '30m curve', '3:00', 'Simulate wide sprint with inside lean. Maintain speed through the bend.'),
+    ex('Flying 20m Sprint', '6', '40m build → 20m fly', '4:00', 'Your primary weapon. Max velocity every rep. Full rest.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
+    ex('Curve Sprint', '3', '30m curve', '3:00', 'Wide sprint with inside lean. Maintain speed through the bend.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
   ],
   ST: [
-    ex('10m Explosive Burst', '6', '10m', '2:00', 'Match start from varied positions. Max first-step intent. Simulate striker runs.'),
-    ex('Sprint + Jump (Aerial Duel)', '4', '15m sprint → CMJ', '3:00', 'Sprint, jump at cone, land and decelerate. Simulate penalty box action.'),
+    ex('10m Explosive Burst', '6', '10m', '2:00', 'From varied positions. Max first-step intent. Striker run simulation.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ex('Sprint + Jump (Aerial Duel)', '4', '15m sprint → CMJ', '3:00', 'Sprint, jump at cone, land and decelerate. Penalty box simulation.',
+      { methodType: 'mixed', intensityIntent: 'explosive' }),
   ],
 };
 
-// ── Conditioning by position ───────────────────────────────────────────────
+// ── Play-style specific exercises ──────────────────────────────────────────
 
-const CONDITIONING: Record<string, Record<string, ProgrammeExercise>> = {
+const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
+  'box-to-box': [
+    ex('45s AMRAP (Goblet Squat + Lateral Jump + Sprint 10m)', '4', '45s on / 45s off', '45s', 'Simulate box-to-box demands. Quality through fatigue.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+  ],
+  'direct': [
+    ex('Sprint + Controlled Decel + Sprint', '4', '20m + stop + 20m', '3:00', 'Direct play demands. Burst, brake, repeat.',
+      { methodType: 'eccentric', intensityIntent: 'maximal' }),
+  ],
+  'technical': [
+    ex('Lateral Bound + Balance Hold', '3', '5 each', '2:00', 'Multi-directional agility. Stable landing = technical foundation.',
+      { methodType: 'reactive', intensityIntent: 'controlled' }),
+  ],
+  'physical': [
+    ex('Isometric Split Squat Hold', '3', '45s each', '2:00', 'Bottom position hold. Physical duel strength and joint integrity.',
+      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+  ],
+  'press-heavy': [
+    ex('Short Sprint + Recovery Jog Circuit', '5', '10m sprint / 20m jog', 'Continuous', 'Simulate press trigger and recovery. Press-heavy demands.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+  ],
+  'counter-attack': [
+    ex('Acceleration from Set Position', '5', '30m', '3:00', 'From standing or jogging — explosive transition to sprint. Counter-attack simulation.',
+      { methodType: 'reactive', intensityIntent: 'maximal' }),
+  ],
+};
+
+// ── Conditioning by position × phase ──────────────────────────────────────
+
+const CONDITIONING: Record<PosKey, Record<string, ProgrammeExercise>> = {
   GK: {
-    Foundation: ex('Interval Shuttle', '4', '6 × 20m', '2:00 between sets', 'Moderate pace. COD focus. 75% effort.'),
-    Build: ex('HIIT: 15s on / 15s off', '12', 'rounds', 'Self-paced', 'Explosive for 15s, walk 15s. Simulate GK burst demands across a half.'),
-    'Strength & Power': ex('Flying 20m Repeat Sprint', '6', '20m', '30s rest', 'Near-max each rep. GK explosive conditioning — short and sharp.'),
-    Peak: ex('Sprint Finisher', '3', '4 × 10m', '2:00 between sets', 'Sharp, reactive. Quality over quantity.'),
+    Foundation: ex('Interval Shuttle', '4', '6 × 20m', '2:00 between sets', 'Moderate pace. COD focus. 75% effort.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+    Build: ex('HIIT: 15s on / 15s off', '12', 'rounds', 'Self-paced', 'Explosive for 15s, walk 15s.',
+      { methodType: 'mixed', intensityIntent: 'explosive' }),
+    'Strength & Power': ex('Flying 20m Repeat Sprint', '6', '20m', '30s rest', 'Near-max each rep. Short and sharp.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
+    Peak: ex('Sprint Finisher', '3', '4 × 10m', '2:00 between sets', 'Sharp, reactive. Quality over quantity.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
   },
   CB: {
-    Foundation: ex('Deceleration Sprint Drill', '4', '30m sprint → brake', '2:00', 'Sprint 30m, plant and stop. Eccentric knee and hip control. Build braking strength.'),
-    Build: ex('Repeated 30m Sprint', '6', '30m', '30s rest', '85% effort. Develop sprint endurance for tracking and recovery.'),
-    'Strength & Power': ex('High-Intensity Shuttle', '6', '20m', '30s rest', 'Maximum each rep. CB sprint demands.'),
-    Peak: ex('Short Sprint Repeats', '6', '10–20m', '45s rest', 'Sharp. Match intensity. Full recovery between sets.'),
+    Foundation: ex('Deceleration Sprint Drill', '4', '30m sprint → brake', '2:00', 'Sprint 30m, plant and stop. Eccentric knee and hip control.',
+      { methodType: 'eccentric', intensityIntent: 'controlled' }),
+    Build: ex('Repeated 30m Sprint', '6', '30m', '30s rest', '85% effort. Develop sprint endurance.',
+      { methodType: 'concentric', intensityIntent: 'submaximal' }),
+    'Strength & Power': ex('High-Intensity Shuttle', '6', '20m', '30s rest', 'Maximum each rep.',
+      { methodType: 'mixed', intensityIntent: 'maximal' }),
+    Peak: ex('Short Sprint Repeats', '6', '10–20m', '45s rest', 'Sharp. Match intensity.',
+      { methodType: 'concentric', intensityIntent: 'explosive' }),
   },
   FB: {
-    Foundation: ex('Repeated 40m Sprint', '6', '40m', '25s rest', 'Build RSA tolerance. 80% effort. Short rest develops recovery capacity.'),
-    Build: ex('400m Tempo Run', '4', '400m', '90s rest', '75–80% max HR. Aerobic base for high-distance demands.'),
-    'Strength & Power': ex('Shuttle Sprint Repeats', '8', '40m', '20s rest', '90% effort. Full-back sprint frequency training.'),
-    Peak: ex('4×4 Interval', '4', '4 min at 85%', '3:00 rest', 'Simulate extended high-intensity phases. HR above 85%.'),
+    Foundation: ex('Repeated 40m Sprint', '6', '40m', '25s rest', 'Build RSA tolerance. 80% effort.',
+      { methodType: 'concentric', intensityIntent: 'submaximal' }),
+    Build: ex('400m Tempo Run', '4', '400m', '90s rest', '75–80% max HR. Aerobic base.',
+      { methodType: 'concentric', intensityIntent: 'moderate' }),
+    'Strength & Power': ex('Shuttle Sprint Repeats', '8', '40m', '20s rest', '90% effort.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
+    Peak: ex('4×4 Interval', '4', '4 min at 85%', '3:00 rest', 'HR above 85%. Match demand simulation.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
   },
   CM: {
-    Foundation: ex('Tempo Run', '3', '1000m', '2:00 rest', '70% effort — conversational pace. Build the aerobic engine that runs your game.'),
-    Build: ex('4×4 Interval', '4', '4 min at 85%', '3:00 rest', 'The most evidence-based aerobic tool for footballers. HR > 90% for last minute of each rep.'),
-    'Strength & Power': ex('30-15 Fitness Test (Training)', '1', '15 min session', '', '30s at 13–14 km/h, 15s walk. Develop high-intensity repeat capacity. Midfielder gold standard.'),
-    Peak: ex('High-Intensity Shuttle', '6', '20m', '30s rest', 'Maximum each rep. Simulate box-to-box demands.'),
+    Foundation: ex('Tempo Run', '3', '1000m', '2:00 rest', '70% effort — build the aerobic engine.',
+      { methodType: 'concentric', intensityIntent: 'moderate' }),
+    Build: ex('4×4 Interval', '4', '4 min at 85%', '3:00 rest', 'HR > 90% for last minute of each rep.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+    'Strength & Power': ex('30-15 Fitness Test (Training)', '1', '15 min session', '', '30s at 13–14 km/h, 15s walk.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+    Peak: ex('High-Intensity Shuttle', '6', '20m', '30s rest', 'Max each rep. Box-to-box simulation.',
+      { methodType: 'mixed', intensityIntent: 'maximal' }),
   },
   W: {
-    Foundation: ex('Repeated 40m Sprint', '6', '40m', '25s rest', '85% effort. Short rest. Build RSA tolerance — wingers sprint more than anyone.'),
-    Build: ex('Repeated 40m Sprint', '8', '40m', '20s rest', '90% effort. Decrease rest. Higher anaerobic demand for winger-specific RSA.'),
-    'Strength & Power': ex('Flying 30m Repeat Sprint', '6', '30m', '45s rest', 'Max velocity. Near-complete recovery. Train your primary match weapon.'),
-    Peak: ex('Sprint Cluster', '4', '3 × 20m (15s between)', '3:00 between sets', 'Match-like sprint clusters. Explosive quality throughout.'),
+    Foundation: ex('Repeated 40m Sprint', '6', '40m', '25s rest', '85% effort. Build RSA tolerance.',
+      { methodType: 'concentric', intensityIntent: 'submaximal' }),
+    Build: ex('Repeated 40m Sprint', '8', '40m', '20s rest', '90% effort. Higher anaerobic demand.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
+    'Strength & Power': ex('Flying 30m Repeat Sprint', '6', '30m', '45s rest', 'Max velocity. Near-complete recovery.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
+    Peak: ex('Sprint Cluster', '4', '3 × 20m (15s between)', '3:00 between sets', 'Match-like sprint clusters.',
+      { methodType: 'concentric', intensityIntent: 'explosive' }),
   },
   ST: {
-    Foundation: ex('Sprint + Jog Recovery Circuit', '6', '30m sprint / 40m jog', 'Continuous', 'Continuous. Sprint, jog recovery. Builds aerobic capacity for striker work-rate.'),
-    Build: ex('10m Burst Repeats', '10', '10m', '30s rest', '100% intent. Simulate striker sprint demands — explosive bursts with recovery.'),
-    'Strength & Power': ex('Repeated 20m Sprint', '8', '20m', '20s rest', 'Near-maximal. Anaerobic capacity specific to striker runs in behind.'),
-    Peak: ex('Sprint + Jump Finisher', '3', '3 × 15m + CMJ', '3:00 between sets', 'Sprint, sprint, sprint, jump. Penalty box simulation.'),
+    Foundation: ex('Sprint + Jog Recovery Circuit', '6', '30m sprint / 40m jog', 'Continuous', 'Sprint, jog recovery. Builds aerobic base.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+    Build: ex('10m Burst Repeats', '10', '10m', '30s rest', '100% intent. Striker sprint simulation.',
+      { methodType: 'reactive', intensityIntent: 'maximal' }),
+    'Strength & Power': ex('Repeated 20m Sprint', '8', '20m', '20s rest', 'Near-maximal. Anaerobic capacity.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
+    Peak: ex('Sprint + Jump Finisher', '3', '3 × 15m + CMJ', '3:00 between sets', 'Sprint, sprint, sprint, jump. Penalty box.',
+      { methodType: 'mixed', intensityIntent: 'explosive' }),
   },
 };
 
@@ -302,33 +624,50 @@ const CONDITIONING: Record<string, Record<string, ProgrammeExercise>> = {
 
 const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
   speed: [
-    ex('Hip Flexor Sprint Drill', '3', '4 × 20m', '2:00', 'Rapid knee drive. Arms drive speed — pump them with purpose.'),
-    ex('Single-Leg Broad Jump', '3', '5 each', '2:00', 'Push horizontally off one foot. Land controlled. Max distance.'),
-    ex('Resisted Hip Extension (Band)', '3', '12 each', '90s', 'Full hip extension against band. Glute drive. Simulates sprint push-off.'),
+    ex('Hip Flexor Sprint Drill', '3', '4 × 20m', '2:00', 'Rapid knee drive. Arms drive speed.',
+      { methodType: 'concentric', intensityIntent: 'explosive' }),
+    ex('Single-Leg Broad Jump', '3', '5 each', '2:00', 'Push horizontally off one foot. Land controlled. Max distance.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ex('Resisted Hip Extension (Band)', '3', '12 each', '90s', 'Full hip extension against band. Glute drive. Sprint push-off simulation.',
+      { methodType: 'concentric', intensityIntent: 'moderate' }),
   ],
   strength: [
-    ex('Tempo Squat', '4', '5', '3:00', '3s descent, 1s pause at bottom, explosive up. Time under tension is the stimulus.', '70% 1RM'),
-    ex('Eccentric RDL', '3', '8', '2:30', '4s lowering phase. Load the hamstring eccentrically. Control is the whole point.', 'Moderate'),
-    ex('Isometric Split Squat Hold', '3', '40s each', '2:00', 'Bottom position hold. Builds strength and joint stability simultaneously.'),
+    ex('Tempo Squat', '4', '4', '3:00', '3s descent, 1s pause at bottom, explosive up. Time under tension.',
+      { intensity: '70% 1RM', tempo: '3-1-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+    ex('Eccentric RDL', '3', '6', '2:30', '4s lowering. Load the hamstring eccentrically.',
+      { intensity: 'Moderate', tempo: '4-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+    ex('Isometric Split Squat Hold', '3', '40s each', '2:00', 'Bottom position hold. Strength and joint stability.',
+      { tempo: '0-40s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
   ],
   endurance: [
-    ex('Aerobic Threshold Run', '1', '20 min', '', '70% max HR — truly conversational pace. Aerobic base — the engine of your game.'),
-    ex('Cardiac Output Circuit', '3', '5 min', '90s rest', 'Continuous: 1 min jog / 1 min bike / 1 min row / 1 min step / 1 min jump rope. HR 130–150 bpm.'),
+    ex('Aerobic Threshold Run', '1', '20 min', '', '70% max HR — truly conversational pace. Aerobic base.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+    ex('Cardiac Output Circuit', '3', '5 min', '90s rest', '1 min jog / 1 min bike / 1 min row / 1 min step / 1 min jump rope. HR 130–150.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
   ],
   power: [
-    ex('Box Jump', '4', '5', '2:30', 'Step down (don\'t jump down). Reset fully. Maximum upward intent every rep.'),
-    ex('Depth Jump', '3', '4', '3:00', 'Step off box, minimise contact time, jump as high as possible. Reactive power.'),
-    ex('Rotational Med Ball Throw', '3', '6 each', '2:00', 'Hips rotate first, shoulders follow. Explosive release. Simulates striking/turning.'),
+    ex('Box Jump', '4', '5', '2:30', 'Step down (never jump down). Reset fully. Maximum upward intent.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ex('Depth Jump', '3', '4', '3:00', 'Step off box. Minimise contact. Jump as high as possible.',
+      { methodType: 'reactive', intensityIntent: 'reactive' }),
+    ex('Rotational Med Ball Throw', '3', '6 each', '2:00', 'Hips rotate first, shoulders follow. Explosive release.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
   ],
   agility: [
-    ex('5-10-5 Pro Agility Drill', '4', 'Full shuttle', '2:30', 'Centre start. 5m right, 10m left, 5m right. Drive off outside foot each turn.'),
-    ex('T-Drill', '3', 'Full drill', '2:30', 'Sprint, shuffle left, shuffle right, back-pedal. Precise footwork at each cone.'),
-    ex('Reactive Cone Drill (Partner)', '4', '6 reps', '2:00', 'Partner signals direction. React and accelerate. Decision speed is the variable.'),
+    ex('5-10-5 Pro Agility Drill', '4', 'Full shuttle', '2:30', '5m right, 10m left, 5m right. Drive off outside foot each turn.',
+      { methodType: 'reactive', intensityIntent: 'maximal' }),
+    ex('T-Drill', '3', 'Full drill', '2:30', 'Sprint, shuffle left, shuffle right, back-pedal. Precise footwork at each cone.',
+      { methodType: 'reactive', intensityIntent: 'maximal' }),
+    ex('Reactive Cone Drill (Partner)', '4', '6 reps', '2:00', 'Partner signals direction. React and accelerate. Decision speed is the variable.',
+      { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   injury_prone: [
-    ex('Nordic Hamstring Curl', '3', '5', '3:00', 'Gold standard. 4s eccentric. Catch at 45°. Most-evidenced prevention exercise in football.'),
-    ex('Copenhagen Plank', '3', '30s each', '90s', 'Groin-specific. Top foot on bench, pull bottom leg up. Non-negotiable for groin health.'),
-    ex('Single-Leg Balance Reach', '3', '10 each', '60s', 'Reach forward, lateral, diagonal. Challenges ankle stability and proprioception.'),
+    ex('Nordic Hamstring Curl', '3', '5', '3:00', '4s eccentric. Gold standard — non-negotiable for every footballer.',
+      { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+    ex('Copenhagen Plank', '3', '30s each', '90s', 'Groin-specific. Top foot on bench. Pull bottom leg. Most evidenced groin prevention.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+    ex('Single-Leg Balance Reach', '3', '10 each', '60s', 'Reach forward, lateral, diagonal. Ankle stability and proprioception.',
+      { methodType: 'isometric', intensityIntent: 'controlled' }),
   ],
 };
 
@@ -336,39 +675,87 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
 
 const PREHAB: Record<string, ProgrammeExercise[]> = {
   hamstring: [
-    ex('Nordic Hamstring Curl', '3', '5', '3:00', '4s eccentric. Highest-evidence prevention in football. Non-negotiable.'),
-    ex('Eccentric Single-Leg RDL', '2', '8 each', '90s', '4s lowering. Hold at bottom. Eccentric load is the protective stimulus.'),
+    ex('Nordic Hamstring Curl', '3', '5', '3:00', '4s eccentric. Highest-evidence prevention. Non-negotiable.',
+      { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+    ex('Eccentric Single-Leg RDL', '2', '8 each', '90s', '4s lowering. Hold at bottom. Eccentric load is the protective stimulus.',
+      { tempo: '4-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
   ],
   ankle: [
-    ex('Single-Leg Balance (Eyes Closed)', '3', '40s each', '60s', 'Slight knee bend. Challenge with eyes closed when easy. Proprioception training.'),
-    ex('Banded Ankle Dorsiflexion Mob', '2', '10 each', '30s', 'Band pulls heel forward. Drive knee over small toe. Restore lost dorsiflexion range.'),
+    ex('Single-Leg Balance (Eyes Closed)', '3', '40s each', '60s', 'Slight knee bend. Eyes closed when easy. Proprioception training.',
+      { tempo: '0-40s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+    ex('Banded Ankle Dorsiflexion Mob', '2', '10 each', '30s', 'Band pulls heel forward. Drive knee over small toe. Restore dorsiflexion.',
+      { methodType: 'mixed', intensityIntent: 'controlled' }),
   ],
   knee: [
-    ex('Terminal Knee Extension (Band)', '3', '15 each', '60s', 'VMO isolation. Full lockout. Slow and controlled.'),
-    ex('Eccentric Step-Down', '3', '10 each', '90s', 'From step. 4s descent to single-foot landing. Track knee over second toe throughout.'),
+    ex('Terminal Knee Extension (Band)', '3', '15 each', '60s', 'VMO isolation. Full lockout. Slow and controlled.',
+      { tempo: '1-1-3-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+    ex('Eccentric Step-Down', '3', '10 each', '90s', '4s descent to single-foot landing. Track knee over second toe.',
+      { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
   ],
   groin: [
-    ex('Copenhagen Plank', '3', '25s each side', '90s', 'Adductor isolation. Top foot on bench. This is the gold standard for groin prevention.'),
-    ex('Lateral Band Walk', '2', '15 each way', '60s', 'Targets the groin-hip abductor relationship. Controlled. Knees track over toes.'),
+    ex('Copenhagen Plank', '3', '25s each side', '90s', 'Adductor isolation. Top foot on bench. Gold standard for groin prevention.',
+      { tempo: '0-25s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+    ex('Lateral Band Walk', '2', '15 each way', '60s', 'Targets groin–hip abductor relationship. Controlled.',
+      { methodType: 'concentric', intensityIntent: 'moderate' }),
   ],
   calf: [
-    ex('Eccentric Calf Raise (Alfredson)', '3', '12', '60s', 'Raise with both, lower on one. 3s eccentric. Classic protocol — proven for Achilles and calf.'),
-    ex('Soleus Single-Leg Raise (Bent Knee)', '2', '15 each', '60s', 'Knee at 90°. Targets soleus specifically. Slow and deliberate.'),
+    ex('Eccentric Calf Raise (Alfredson)', '3', '12', '60s', 'Raise with both, lower on one. 3s eccentric. Classic protocol.',
+      { tempo: '3-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+    ex('Soleus Raise (Bent Knee)', '2', '15 each', '60s', 'Knee at 90°. Targets soleus. Slow and deliberate.',
+      { tempo: '2-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
   ],
   back: [
-    ex('Dead Bug', '3', '6 each side', '60s', 'Lower back into floor. Extend opposite arm and leg — do NOT lose lumbar position.'),
-    ex('Pallof Press', '3', '10 each side', '60s', 'Anti-rotation. Resist the cable or band. Press and return — body stays square throughout.'),
+    ex('Dead Bug', '3', '6 each side', '60s', 'Lower back into floor. Extend opposite arm and leg — don\'t lose lumbar position.',
+      { methodType: 'isometric', intensityIntent: 'controlled' }),
+    ex('Pallof Press', '3', '10 each side', '60s', 'Anti-rotation. Resist band. Body stays square throughout.',
+      { methodType: 'isometric', intensityIntent: 'controlled' }),
   ],
   shoulder: [
-    ex('Band External Rotation', '3', '15 each', '60s', 'Elbow pinned to side. Rotate outward against band. Slow, intentional movement.'),
-    ex('Y-T-W on Incline Bench', '3', '8 each letter', '60s', 'Scapular control. Light weight or bodyweight. Each rep fully deliberate.'),
+    ex('Band External Rotation', '3', '15 each', '60s', 'Elbow pinned to side. Slow intentional outward rotation.',
+      { tempo: '2-0-2-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+    ex('Y-T-W on Incline Bench', '3', '8 each letter', '60s', 'Scapular control. Light weight. Each rep fully deliberate.',
+      { methodType: 'concentric', intensityIntent: 'controlled' }),
   ],
 };
 
 const DEFAULT_PREHAB: ProgrammeExercise[] = [
-  ex('Nordic Hamstring Curl', '2', '5', '3:00', '4s eccentric. Highest-evidence injury prevention for any footballer. Never skip this.'),
-  ex('Copenhagen Plank', '2', '20s each side', '60s', 'Adductor strength. Essential for groin resilience. Build the hold duration week by week.'),
+  ex('Nordic Hamstring Curl', '2', '5', '3:00', '4s eccentric. Highest-evidence injury prevention for every footballer.',
+    { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+  ex('Copenhagen Plank', '2', '20s each side', '60s', 'Adductor strength. Build the hold week by week.',
+    { tempo: '0-20s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
 ];
+
+// ── Apply readiness — reduce sets and intensity ────────────────────────────
+
+function applyReadiness(
+  exs: ProgrammeExercise[],
+  level: ReadinessLevel,
+  intensityNote: string,
+): ProgrammeExercise[] {
+  if (level === 'elite') {
+    // Add bonus set cue to main sets
+    return exs.map((e, i) => i === 0
+      ? { ...e, sets: String(Number(e.sets) + 1), intensity: e.intensity ? `${e.intensity} (bonus set)` : 'Add 1 bonus set' }
+      : e,
+    );
+  }
+  if (level === 'high') return exs;
+  if (level === 'moderate') {
+    return exs.map(e => ({
+      ...e,
+      intensity: e.intensity ? `${e.intensity} · ${intensityNote}` : intensityNote,
+    }));
+  }
+  // low
+  return exs.map(e => {
+    const setsNum = parseInt(e.sets, 10);
+    return {
+      ...e,
+      sets: (!isNaN(setsNum) && setsNum > 2) ? String(setsNum - 1) : e.sets,
+      intensity: e.intensity ? `${e.intensity} · ${intensityNote}` : intensityNote,
+    };
+  });
+}
 
 // ── Recovery session (MD+1) ────────────────────────────────────────────────
 
@@ -376,24 +763,33 @@ function recoverySession(dow: string): ProgrammeSession {
   return {
     mdDay: 'MD+1',
     dayOfWeek: dow,
-    objective: 'Active recovery — accelerate systemic recovery, restore ROM, prepare the body for the week ahead.',
-    readinessNote: 'MD+1 is always low load regardless of readiness score.',
+    objective: 'Active recovery — flush metabolic waste, restore ROM, prepare for the week ahead.',
+    readinessNote: 'MD+1 is always low load regardless of readiness. Protect your body — gains happen in recovery.',
     durationMin: 35,
+    fvProfile: 'Recovery — no F-V output. Movement only.',
     blocks: [
       {
         title: '🔄 Soft Tissue + Mobility',
+        methodFocus: 'Parasympathetic — connective tissue quality and ROM restoration',
         exercises: [
-          ex('Foam Roll: Quads, Hamstrings, IT Band, Calves', '1', '90s each area', '', 'Slow rolls. Pause on tender spots for 5–10s. No rushing.'),
-          ex('Static Hip Flexor Stretch', '1', '60s each side', '', 'Tall kneeling. Posterior pelvic tilt. Feel front of hip — don\'t arch the back.'),
-          ex('Supine Piriformis Stretch', '1', '60s each side', '', 'Figure-4. Pull knee gently toward opposite shoulder.'),
+          ex('Foam Roll: Quads, Hamstrings, IT Band, Calves', '1', '90s each area', '', 'Slow rolls. Pause on tender spots 5–10s.',
+            { methodType: 'mixed', intensityIntent: 'controlled' }),
+          ex('Static Hip Flexor Stretch', '1', '60s each side', '', 'Tall kneeling. Posterior pelvic tilt. Feel front of hip.',
+            { methodType: 'isometric', intensityIntent: 'controlled' }),
+          ex('Supine Piriformis Stretch', '1', '60s each side', '', 'Figure-4. Pull knee toward opposite shoulder gently.',
+            { methodType: 'isometric', intensityIntent: 'controlled' }),
         ],
       },
       {
         title: '⚡ Light Activation',
+        methodFocus: 'Neural — light concentric to promote blood flow without load',
         exercises: [
-          ex('Glute Bridge (Light)', '2', '15', '30s', 'Blood flow only today. Not a strength exercise — gentle neural activation.'),
-          ex('Band Clamshell', '2', '15 each', '30s', 'Light band. Hip external rotation. Activate without loading.'),
-          ex('20 min Walk, Swim, or Light Bike', '1', 'optional', '', 'Active recovery accelerates clearance of metabolic waste. Recommended if possible.'),
+          ex('Glute Bridge (Light)', '2', '15', '30s', 'Blood flow only. Not a strength exercise.',
+            { methodType: 'concentric', intensityIntent: 'moderate' }),
+          ex('Band Clamshell', '2', '15 each', '30s', 'Light band. Hip external rotation. Activate without loading.',
+            { methodType: 'concentric', intensityIntent: 'moderate' }),
+          ex('20 min Walk, Swim, or Light Bike', '1', 'optional', '', 'Active recovery accelerates clearance. Recommended.',
+            { intensityIntent: 'moderate' }),
         ],
       },
     ],
@@ -402,83 +798,88 @@ function recoverySession(dow: string): ProgrammeSession {
 
 // ── Neural priming session (MD-1) ──────────────────────────────────────────
 
-function primingSession(dow: string, position: string): ProgrammeSession {
+function primingSession(dow: string, position: string, playStyle: string): ProgrammeSession {
   const positionPriming: Partial<Record<string, ProgrammeExercise[]>> = {
-    GK: [ex('Lateral Bound + Stick (3 each)', '3', '3 each way', '2:00', 'Explosive bound. Stick the landing 1s. Prime reaction patterns.')],
-    W: [ex('Block Start Acceleration', '4', '10m', '2:00', 'From 3-point. Max intent. Short and sharp. Fire the neuromuscular system.')],
-    ST: [ex('5m Explosive Burst', '5', '5m', '90s', 'From varied stances. Max first step. Neural sharpness only.')],
+    GK: [ex('Lateral Bound + Stick', '3', '3 each way', '2:00', 'Explosive bound. Stick landing 1s. Prime reaction patterns.',
+      { methodType: 'reactive', intensityIntent: 'explosive' })],
+    W: [ex('Block Start Acceleration', '4', '10m', '2:00', '3-point start. Max intent. Short and sharp. Fire the CNS.',
+      { methodType: 'concentric', intensityIntent: 'explosive' })],
+    ST: [ex('5m Explosive Burst', '5', '5m', '90s', 'From varied stances. Max first step. Neural sharpness only.',
+      { methodType: 'reactive', intensityIntent: 'explosive' })],
   };
+
+  const styleNote = playStyle === 'counter-attack'
+    ? 'Pay particular attention to transition speed — tomorrow\'s game may require explosive acceleration quickly.'
+    : playStyle === 'press-heavy'
+    ? 'Priming mirrors the press demands — short, sharp, full effort, immediate recovery.'
+    : 'Neural priming only. Low volume, maximum quality. Arrive tomorrow sharp, not heavy.';
 
   return {
     mdDay: 'MD-1',
     dayOfWeek: dow,
-    objective: 'Neural priming — activate fast-twitch fibres without accumulating fatigue. Arrive tomorrow sharp, not heavy.',
-    readinessNote: 'MD-1 is always low load — do NOT add volume here regardless of readiness.',
+    objective: `Neural priming — activate fast-twitch fibres without accumulating fatigue. ${styleNote}`,
+    readinessNote: 'MD-1 is always low load. Do NOT add volume regardless of readiness score.',
     durationMin: 30,
+    fvProfile: 'Speed end of F-V curve — submaximal load, maximal intent, zero accumulated fatigue.',
     blocks: [
       {
         title: '🔥 Movement Prep',
+        methodFocus: 'Mobility and CNS ramp — prepare joints and nervous system',
         exercises: [
           ...WARMUP_MOBILITY.slice(0, 2),
-          ex('A-Skip', '2', '20m', '30s', 'Neural warm-up. Crisp mechanics. Light and fast.'),
+          ex('A-Skip', '2', '20m', '30s', 'Neural warm-up. Crisp mechanics. Light and fast.',
+            { intensityIntent: 'moderate' }),
         ],
       },
       {
         title: '⚡ Neural Priming',
+        methodFocus: 'Fast-twitch activation — explosive quality, not conditioning',
         exercises: [
           ...(positionPriming[position] ?? [
-            ex('Build-Up Sprint (60→80→90%)', '4', '30m', '90s', 'Smooth progression. Wake up the nervous system — not a sprint test.'),
-            ex('10m Acceleration Sprint', '3', '10m', '2:00', 'From walking start. Sharp first step. Full rest between reps.'),
+            ex('Build-Up Sprint 60→80→90%', '4', '30m', '90s', 'Smooth ramp. Wake up the nervous system.',
+              { methodType: 'concentric', intensityIntent: 'submaximal' }),
+            ex('10m Acceleration Sprint', '3', '10m', '2:00', 'From walking start. Sharp first step. Full rest.',
+              { methodType: 'concentric', intensityIntent: 'explosive' }),
           ]),
-          ex('CMJ (3 reps)', '1', '3 reps', '2:00', 'Explosive jumps. Rest fully between. Neural activation — not conditioning.'),
+          ex('CMJ × 3 reps', '1', '3 reps', '2:00', 'Explosive jumps. Full rest between. Neural activation — not conditioning.',
+            { methodType: 'reactive', intensityIntent: 'explosive' }),
         ],
       },
       {
         title: '🛡️ Pre-Match Prehab',
+        methodFocus: 'Eccentric and isometric — protect the soft tissue ahead of match demands',
         exercises: [
-          ex('Nordic Hamstring Curl (2 reps — sub-maximal)', '1', '2 reps', '', 'Light activation only. Protect hamstrings for match day.'),
-          ex('Hip 90/90 Mobilisation', '1', '30s each side', '', 'Restore hip ROM before tomorrow\'s game.'),
+          ex('Nordic Hamstring Curl (2 reps — sub-max)', '1', '2 reps', '', 'Light activation only. Protect for match day.',
+            { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'submaximal' }),
+          ex('Hip 90/90 Mobilisation', '1', '30s each side', '', 'Restore hip ROM before tomorrow\'s game.',
+            { methodType: 'isometric', intensityIntent: 'controlled' }),
         ],
       },
     ],
   };
 }
 
-// ── Apply readiness to exercises ───────────────────────────────────────────
+// ── Session objective labels ───────────────────────────────────────────────
 
-function applyReadiness(
-  exs: ProgrammeExercise[],
-  level: 'high' | 'moderate' | 'low',
-): ProgrammeExercise[] {
-  if (level !== 'low') return exs;
-  return exs.map(e => ({
-    ...e,
-    sets: e.sets === '5' ? '3' : e.sets === '4' ? '3' : e.sets,
-    intensity: e.intensity ? `${e.intensity} → reduce to ~75%` : 'Reduce to 70–75% effort',
-  }));
-}
-
-// ── Session objectives ─────────────────────────────────────────────────────
-
-const MD4_OBJECTIVES: Record<string, string> = {
-  Foundation: 'Establish movement patterns and build foundational strength. Quality before load — own every rep.',
-  Build: 'Increase strength load with position-specific power. Push the adaptation — this is where gains are made.',
-  'Strength & Power': 'Peak force production. High neural demand. Maximise every set with full recovery between.',
-  Peak: 'Express strength — high intent, lower volume. Transfer what you\'ve built to pitch performance.',
+const MD4_OBJ: Record<string, string> = {
+  Foundation: 'MD-4 — Establish movement patterns and build foundational strength. Quality before load — own every rep.',
+  Build: 'MD-4 — Increase strength load with position-specific power. Push the adaptation — this is where gains are made.',
+  'Strength & Power': 'MD-4 — Peak force production. High neural demand. Maximise every main set with full recovery between.',
+  Peak: 'MD-4 — Express strength. High intent, reduced volume. Transfer what you\'ve built to pitch.',
 };
 
-const MD3_OBJECTIVES: Record<string, string> = {
-  Foundation: 'Develop acceleration mechanics and position-specific movement patterns.',
-  Build: 'Build max velocity. Position-specific speed at near-maximum effort.',
-  'Strength & Power': 'Peak speed session. Flying sprints. Maximum velocity expression — the quality must be absolute.',
-  Peak: 'Sharpen speed. Low volume, maximum quality. Arrive at match day fast.',
+const MD3_OBJ: Record<string, string> = {
+  Foundation: 'MD-3 — Develop acceleration mechanics and position-specific movement patterns.',
+  Build: 'MD-3 — Build max velocity. Position-specific speed at near-maximum effort.',
+  'Strength & Power': 'MD-3 — Peak speed session. Flying sprints. Maximum velocity expression.',
+  Peak: 'MD-3 — Sharpen speed. Low volume, maximum quality. Arrive sharp.',
 };
 
-const MD2_OBJECTIVES: Record<string, string> = {
-  Foundation: 'Build the aerobic base and reinforce movement quality. Moderate load — productive and controlled.',
-  Build: 'Position-specific conditioning. Develop repeated-effort capacity relevant to your match demands.',
-  'Strength & Power': 'High-intensity conditioning. Push work capacity without accumulating the fatigue that would affect match day.',
-  Peak: 'Sharp, focused conditioning at match intensity. Keep it tight.',
+const MD2_OBJ: Record<string, string> = {
+  Foundation: 'MD-2 — Build aerobic base and reinforce movement quality. Moderate load — productive and controlled.',
+  Build: 'MD-2 — Position-specific conditioning. Develop repeated-effort capacity for match demands.',
+  'Strength & Power': 'MD-2 — High-intensity conditioning. Push work capacity without accumulating fatigue that would affect match day.',
+  Peak: 'MD-2 — Sharp, focused conditioning at match intensity.',
 };
 
 // ── Main session builder ───────────────────────────────────────────────────
@@ -488,21 +889,25 @@ function buildSession(
   inputs: ProgrammeInputs,
   phase: string,
   weekNum: number,
-  readinessLevel: 'high' | 'moderate' | 'low',
+  readiness: { level: ReadinessLevel; volumeMultiplier: number; intensityNote: string },
 ): ProgrammeSession {
   if (slot.mdDay === 'MD+1') return recoverySession(slot.dayOfWeek);
-  if (slot.mdDay === 'MD-1') return primingSession(slot.dayOfWeek, inputs.position);
+  if (slot.mdDay === 'MD-1') return primingSession(slot.dayOfWeek, inputs.position, inputs.playStyle);
 
-  const { position, biggestWeakness, injuryHistory, gymAccess } = inputs;
+  const { position, biggestWeakness, injuryHistory, gymAccess, fvEmphasis } = inputs;
+  const fv = getFVProfile(slot.mdDay, fvEmphasis);
 
-  const strengthLib = STRENGTH[phase] ?? STRENGTH.Build;
-  const strengthEx = strengthLib[gymAccess] ?? strengthLib.basic;
+  // Strength library lookup
+  const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
+  const gymAccessLib = gymLib[gymAccess] ?? gymLib.basic;
+  const strengthEx = gymAccessLib[fv.loadScheme === 'heavy' ? 'heavy' : 'moderate'] ?? gymAccessLib.moderate;
   const upperEx = UPPER[phase] ?? UPPER.Build;
 
-  const posSpeedEx = POSITION_SPEED[position] ?? [];
+  const posKey = position as PosKey;
+  const posSpeedEx = POSITION_SPEED[posKey] ?? [];
   const accelEx = SPEED_ACCELERATION[phase] ?? SPEED_ACCELERATION.Foundation;
-
-  const condEx = CONDITIONING[position]?.[phase] ?? CONDITIONING.CM.Foundation;
+  const condEx = CONDITIONING[posKey]?.[phase] ?? CONDITIONING.CM.Foundation;
+  const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
   const weaknessEx = WEAKNESS_EX[biggestWeakness]?.slice(0, 2) ?? [];
 
   // Prehab selection
@@ -514,136 +919,245 @@ function buildSession(
   if (prehabEx.length === 0) prehabEx.push(...DEFAULT_PREHAB);
 
   const readinessNote =
-    readinessLevel === 'high'
-      ? 'High readiness ✓ — Push hard today. Add a bonus set to your main lifts if you\'re feeling strong through the session.'
-      : readinessLevel === 'moderate'
-      ? 'Moderate readiness — Complete the programme as written. Monitor RPE set-to-set and adjust if effort spikes unexpectedly.'
-      : 'Low readiness — Intensity reduced ~25%. Prioritise quality movement over load today. Strength comes back quickly.';
+    readiness.level === 'elite'
+      ? 'Elite readiness ✦ — Add a bonus set to your main lifts. Chase a PB on your primary compound today.'
+      : readiness.level === 'high'
+      ? 'High readiness ✓ — Execute as written. Push hard on the big sets.'
+      : readiness.level === 'moderate'
+      ? 'Moderate readiness — Reduce load ~10% on main compounds. Monitor RPE set-to-set.'
+      : 'Low readiness — 1 fewer set, −20–25% intensity. Movement quality over load today.';
 
-  // MD-4: Full strength
+  const durationBase = slot.mdDay === 'MD-4' ? 70 : slot.mdDay === 'MD-3' ? 60 : 55;
+  const durationMin = readiness.level === 'low' ? durationBase - 15
+    : readiness.level === 'elite' ? durationBase + 10
+    : durationBase;
+
+  // MD-4: full strength + power + upper + weakness + prehab
   if (slot.mdDay === 'MD-4') {
     return {
-      mdDay: slot.mdDay,
-      dayOfWeek: slot.dayOfWeek,
-      objective: `MD-4 — ${MD4_OBJECTIVES[phase] ?? MD4_OBJECTIVES.Build}`,
-      readinessNote,
-      durationMin: readinessLevel === 'low' ? 50 : 70,
+      mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
+      objective: MD4_OBJ[phase] ?? MD4_OBJ.Build,
+      readinessNote, durationMin,
+      fvProfile: fv.profile,
       blocks: [
-        { title: '🔥 Warm-Up (12 min)', exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 2)] },
-        { title: '💪 Main Strength Block', exercises: applyReadiness(strengthEx, readinessLevel) },
+        {
+          title: '🔥 Warm-Up (12 min)',
+          methodFocus: 'Mobility + concentric ramp — full joint prep before heavy loading',
+          exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 2)],
+        },
+        {
+          title: '💪 Main Strength Block',
+          methodFocus: fv.loadScheme === 'heavy'
+            ? 'Maximal force — strength end of F-V curve. High load, low velocity, peak neural output.'
+            : 'Strength-speed — moderate load with explosive intent. Bridge between strength and power.',
+          exercises: applyReadiness(strengthEx, readiness.level, readiness.intensityNote),
+        },
         {
           title: '⚡ Power Superset',
+          methodFocus: 'Reactive / concentric — post-activation potentiation following strength block',
           exercises: applyReadiness([
-            ex('Jump Squat', '3', '4', '2:30', 'Load 30% bodyweight. Max upward intent. Land and reset — not a bounce.'),
-            ex('Medicine Ball Slam', '3', '5', '90s', 'Absorb overhead, drive down with full-body tension. Aggressive.'),
-          ], readinessLevel),
+            ex('Jump Squat', '3', '4', '2:30', 'Load 30% bodyweight. Max upward intent. Land and reset.',
+              { intensity: '30% BW', methodType: 'reactive', intensityIntent: 'explosive' }),
+            ex('Medicine Ball Slam', '3', '5', '90s', 'Full-body tension. Overhead drive, slam down.',
+              { methodType: 'reactive', intensityIntent: 'explosive' }),
+          ], readiness.level, readiness.intensityNote),
         },
-        { title: '💪 Upper Body Accessory', exercises: applyReadiness(upperEx.slice(0, 2), readinessLevel) },
-        { title: '🎯 Weakness Focus', exercises: weaknessEx },
-        { title: '🛡️ Injury Prevention', exercises: prehabEx },
+        {
+          title: '💪 Upper Body Accessory',
+          methodFocus: 'Concentric + eccentric — upper body strength balance and shoulder integrity',
+          exercises: applyReadiness(upperEx.slice(0, 2), readiness.level, readiness.intensityNote),
+        },
+        ...(playStyleEx.length > 0 ? [{
+          title: '🎮 Play Style Block',
+          methodFocus: `${inputs.playStyle.replace('-', ' ')} specific — translating physical output to your game model`,
+          exercises: playStyleEx,
+        }] : []),
+        {
+          title: '🎯 Weakness Focus',
+          methodFocus: `${biggestWeakness} development — targeted overload of your primary physical gap`,
+          exercises: weaknessEx,
+        },
+        {
+          title: '🛡️ Injury Prevention',
+          methodFocus: 'Eccentric + isometric — structural resilience and prehab loading',
+          exercises: prehabEx,
+        },
       ],
     };
   }
 
-  // MD-3: Speed + strength accessories
+  // MD-3: speed + acceleration + strength accessories + prehab
   if (slot.mdDay === 'MD-3') {
     return {
-      mdDay: slot.mdDay,
-      dayOfWeek: slot.dayOfWeek,
-      objective: `MD-3 — ${MD3_OBJECTIVES[phase] ?? MD3_OBJECTIVES.Build}`,
-      readinessNote,
-      durationMin: readinessLevel === 'low' ? 45 : 60,
+      mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
+      objective: MD3_OBJ[phase] ?? MD3_OBJ.Build,
+      readinessNote, durationMin,
+      fvProfile: fv.profile,
       blocks: [
-        { title: '🔥 Sprint Prep (15 min)', exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_SPEED] },
+        {
+          title: '🔥 Sprint Prep (15 min)',
+          methodFocus: 'CNS ramp — progressive velocity build before maximum-speed work',
+          exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_SPEED],
+        },
         {
           title: '⚡ Acceleration Block',
+          methodFocus: 'Concentric — drive phase mechanics, maximum force application angle',
           exercises: [...accelEx.slice(0, 2), ...(posSpeedEx.slice(0, 1))],
         },
         {
           title: '💪 Strength Accessories',
+          methodFocus: 'Eccentric — unilateral strength and posterior chain maintenance',
           exercises: applyReadiness([
             strengthEx[1] ?? strengthEx[0],
-            ex('Single-Leg Glute Bridge', '3', '15 each', '60s', 'Drive heel through floor. Full hip extension. Pelvis doesn\'t rotate.'),
-          ], readinessLevel),
+            ex('Single-Leg Glute Bridge', '3', '15 each', '60s', 'Drive heel into floor. Full hip extension. Pelvis doesn\'t rotate.',
+              { methodType: 'concentric', intensityIntent: 'moderate' }),
+          ], readiness.level, readiness.intensityNote),
         },
-        { title: '🎯 Weakness Focus', exercises: weaknessEx.slice(0, 1) },
-        { title: '🛡️ Injury Prevention', exercises: prehabEx },
+        {
+          title: '🎯 Weakness Focus',
+          methodFocus: `${biggestWeakness} — maintained at minimum effective dose on speed day`,
+          exercises: weaknessEx.slice(0, 1),
+        },
+        {
+          title: '🛡️ Injury Prevention',
+          methodFocus: 'Eccentric + isometric — protect soft tissue ahead of match week intensification',
+          exercises: prehabEx,
+        },
       ],
     };
   }
 
-  // MD-2: Conditioning + technical speed
+  // MD-2: conditioning + technical speed + weakness + prehab
   if (slot.mdDay === 'MD-2') {
     return {
-      mdDay: slot.mdDay,
-      dayOfWeek: slot.dayOfWeek,
-      objective: `MD-2 — ${MD2_OBJECTIVES[phase] ?? MD2_OBJECTIVES.Build}`,
-      readinessNote,
-      durationMin: readinessLevel === 'low' ? 40 : 55,
+      mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
+      objective: MD2_OBJ[phase] ?? MD2_OBJ.Build,
+      readinessNote, durationMin,
+      fvProfile: fv.profile,
       blocks: [
-        { title: '🔥 Warm-Up (10 min)', exercises: [...WARMUP_MOBILITY.slice(0, 3), ...WARMUP_NEURAL.slice(0, 1)] },
-        { title: '🏃 Conditioning Block', exercises: applyReadiness([condEx], readinessLevel) },
+        {
+          title: '🔥 Warm-Up (10 min)',
+          methodFocus: 'Aerobic ramp — elevate HR progressively before conditioning',
+          exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_NEURAL.slice(0, 2)],
+        },
+        {
+          title: '🏃 Conditioning Block',
+          methodFocus: `Position-specific conditioning — ${posKey} repeated-effort demands`,
+          exercises: applyReadiness([condEx], readiness.level, readiness.intensityNote),
+        },
         {
           title: '⚡ Technical Speed',
+          methodFocus: 'Reactive — position-specific speed patterns and COD at match velocity',
           exercises: posSpeedEx.length > 0 ? posSpeedEx.slice(0, 2) : accelEx.slice(0, 1),
         },
-        { title: '🎯 Weakness Focus', exercises: weaknessEx },
-        { title: '🛡️ Injury Prevention', exercises: prehabEx },
+        {
+          title: '🎯 Weakness Focus',
+          methodFocus: `${biggestWeakness} — conditioning day opportunity to stack additional weakness work`,
+          exercises: weaknessEx,
+        },
+        {
+          title: '🛡️ Injury Prevention',
+          methodFocus: 'Isometric + eccentric — joint integrity maintenance mid-week',
+          exercises: prehabEx,
+        },
       ],
     };
   }
 
   // Fallback
-  return primingSession(slot.dayOfWeek, position);
+  return primingSession(slot.dayOfWeek, position, inputs.playStyle);
 }
 
-// ── Progressive overload note ──────────────────────────────────────────────
+// ── Progression note per week ──────────────────────────────────────────────
 
-function progressNote(week: number): string {
-  if (week <= 2) return 'Establish baseline loads — record everything.';
-  if (week <= 4) return 'Add 2.5–5kg to compound lifts vs last week where technique allows.';
-  if (week <= 8) return 'Push toward technical limit — RPE 8–9 on main sets.';
-  return 'Final phase: reduce sets by 1, increase intensity — peak expression.';
+function progressNote(week: number, fvEmphasis: string): string {
+  const fvHint = fvEmphasis === 'speed'
+    ? 'Prioritise velocity — increase sprint distances rather than load.'
+    : fvEmphasis === 'strength'
+    ? 'Add 2.5–5kg to compound lifts where technique is solid.'
+    : 'Progress both load (compounds) and sprint distances in parallel.';
+  if (week <= 2) return `Record every lift and sprint — baseline data drives all future progression. ${fvHint}`;
+  if (week <= 5) return `${fvHint} RPE 7–8 on main sets.`;
+  if (week <= 9) return `Push toward technical limit — RPE 8–9. ${fvHint}`;
+  return `Final phase: reduce sets by 1, increase intensity. Peak expression — ${fvHint}`;
+}
+
+// ── Coach explanation ──────────────────────────────────────────────────────
+
+function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, readinessLevel: ReadinessLevel): string {
+  const posLabels: Record<string, string> = {
+    GK: 'goalkeeper', CB: 'centre back', FB: 'full back', CM: 'central midfielder', W: 'winger', ST: 'striker',
+  };
+  const goalLabels: Record<string, string> = {
+    speed: 'speed and acceleration', strength: 'maximal strength', power: 'explosive power',
+    endurance: 'endurance capacity', injury_prevention: 'injury prevention',
+  };
+  const fvLabels: Record<string, string> = {
+    speed: 'speed end of the force-velocity curve — sessions use lower loads and higher velocities to maximise rate of force development',
+    strength: 'strength end of the force-velocity curve — heavy compound work drives maximal force production as the primary adaptation',
+    balanced: 'the full force-velocity curve — heavy strength days are paired with speed days to develop both qualities without compromising either',
+  };
+  const pos = posLabels[inputs.position] ?? inputs.position;
+  const goal = goalLabels[inputs.primaryGoal] ?? inputs.primaryGoal;
+  const fvLine = fvLabels[inputs.fvEmphasis];
+  const weaknessLine = inputs.biggestWeakness === 'injury_prone'
+    ? 'Additional injury prevention work is embedded in every session — prehab is treated as non-negotiable, not optional.'
+    : `Your identified weakness — ${inputs.biggestWeakness} — receives prioritised attention in dedicated blocks every session.`;
+  const readinessLine = readinessLevel === 'elite' || readinessLevel === 'high'
+    ? 'Your readiness score is high, so the programme is written at full intensity — take advantage of it.'
+    : readinessLevel === 'moderate'
+    ? 'Your readiness is moderate — loads are slightly adjusted, but every session remains productive.'
+    : 'Your readiness is currently low. Intensity is reduced but no sessions are cut. Consistency through this period builds long-term resilience.';
+  const styleNote = inputs.playStyle
+    ? ` Your ${inputs.playStyle.replace(/-/g, '-')} play style is reflected in position-specific speed patterns and conditioning protocols.`
+    : '';
+
+  return `This ${totalWeeks}-week programme is built for a ${pos} whose primary physical objective is ${goal}. The training sits on ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session follows a three-method structure: concentric work drives force production, eccentric work builds structural resilience and injury tolerance, and isometric work develops joint stability and co-contraction strength — all three qualities are trained in every week.\n\nThe match-day periodisation runs MD-4 → MD-3 → MD-2 → MD-1 → MD: peak loading falls furthest from the match, and fatigue is systematically reduced as match day approaches. MD-3 targets the speed end of the F-V curve, MD-4 the strength end — together they develop the full athletic profile across the week.\n\n${readinessLine}`;
 }
 
 // ── Main export ────────────────────────────────────────────────────────────
 
 export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
-  const { score, level: readinessLevel, guidance: readinessGuidance } = calcReadiness(inputs.readiness);
+  const { score, level: readinessLevel, guidance: readinessGuidance, volumeMultiplier, intensityNote } = calcReadiness(inputs.readiness);
   const totalWeeks = durationWeeks(inputs.experienceYears);
   const slots = getMdSlots(inputs.sessionsPerWeek, inputs.matchDay);
 
   const POSITION_LABELS: Record<string, string> = {
-    GK: 'Goalkeeper', CB: 'Centre Back', FB: 'Full Back',
-    CM: 'Midfielder', W: 'Winger', ST: 'Striker',
+    GK: 'Goalkeeper', CB: 'Centre Back', FB: 'Full Back', CM: 'Midfielder', W: 'Winger', ST: 'Striker',
   };
   const GOAL_LABELS: Record<string, string> = {
     speed: 'Speed & Acceleration', strength: 'Strength', power: 'Explosive Power',
     endurance: 'Endurance', injury_prevention: 'Injury Prevention',
   };
+  const FV_LABELS: Record<string, string> = {
+    speed: 'Speed emphasis', strength: 'Strength emphasis', balanced: 'Balanced F-V',
+  };
 
   const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNum = i + 1;
     const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
-    const sessions = slots.map(slot => buildSession(slot, inputs, phase, weekNum, readinessLevel));
-
+    const sessions = slots.map(slot =>
+      buildSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }),
+    );
     return {
       weekNumber: weekNum,
       phase,
-      phaseGoal: `${phaseGoal} [Week ${weekNum}: ${progressNote(weekNum)}]`,
+      phaseGoal: `${phaseGoal} [Wk ${weekNum}: ${progressNote(weekNum, inputs.fvEmphasis)}]`,
       sessions,
     };
   });
 
   const pos = POSITION_LABELS[inputs.position] ?? inputs.position;
   const goal = GOAL_LABELS[inputs.primaryGoal] ?? inputs.primaryGoal;
+  const fv = FV_LABELS[inputs.fvEmphasis] ?? 'Balanced';
   const matchStr = inputs.matchDay.charAt(0).toUpperCase() + inputs.matchDay.slice(1);
 
   return {
     id: `prog-${Date.now()}`,
     createdAt: Date.now(),
-    title: `${pos} — ${goal} Programme`,
-    summary: `${totalWeeks}-week personalised programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inputs.sessionsPerWeek} sessions/week · Match day: ${matchStr}.`,
+    title: `${pos} — ${goal} · ${fv}`,
+    summary: `${totalWeeks}-week personalised programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inputs.sessionsPerWeek} sessions/week · Match day: ${matchStr} · ${fv}.`,
+    coachExplanation: buildCoachExplanation(inputs, totalWeeks, readinessLevel),
     readinessScore: score,
     readinessLevel,
     readinessGuidance,
