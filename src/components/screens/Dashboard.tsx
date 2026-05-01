@@ -4,13 +4,14 @@ import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { WeeklyCalendar } from '../WeeklyCalendar';
 import { DailyReadinessWidget } from '../DailyReadinessWidget';
-import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan, DailyReadiness } from '../../types';
+import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan, DailyReadiness, GeneratedProgramme } from '../../types';
 import { useStore } from '../../hooks/useStore';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
   templates: WorkoutTemplate[];
   activePlan: ActivePlan | null;
+  activeProgramme: GeneratedProgramme | null;
   profilePicture: string | null;
   todayReadiness: DailyReadiness | null;
   onSaveReadiness: (r: DailyReadiness) => void;
@@ -22,9 +23,10 @@ interface DashboardProps {
 
 function IntensityPrompt({ date, onSave }: {
   date: string;
-  onSave: (intensity: number) => void;
+  onSave: (intensity: number, minutes: number | undefined) => void;
 }) {
   const [selected, setSelected] = useState<number | null>(null);
+  const [minutesStr, setMinutesStr] = useState('');
   const [skipped, setSkipped] = useState(false);
   const d = new Date(date + 'T12:00:00');
   const displayDate = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
@@ -55,7 +57,7 @@ function IntensityPrompt({ date, onSave }: {
     <div className="w-full mb-5 p-4 rounded-2xl border-2 border-brand-200 bg-white shadow-sm">
       <p className="text-sm font-bold text-gray-900 mb-0.5">⚽ How intense was your session?</p>
       <p className="text-xs text-gray-500 mb-3">{displayDate} — Rate to calibrate your recovery load</p>
-      <div className="flex flex-col gap-1.5 mb-4">
+      <div className="flex flex-col gap-1.5 mb-3">
         {LEVELS.map(({ v, label, desc }) => (
           <button
             key={v}
@@ -71,9 +73,23 @@ function IntensityPrompt({ date, onSave }: {
           </button>
         ))}
       </div>
+      <div className="mb-4">
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+          Minutes played (optional)
+        </label>
+        <input
+          type="number"
+          min="1"
+          max="120"
+          value={minutesStr}
+          onChange={e => setMinutesStr(e.target.value)}
+          placeholder="e.g. 90"
+          className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+        />
+      </div>
       <div className="flex gap-2">
         <button
-          onClick={() => { if (selected) onSave(selected); }}
+          onClick={() => { if (selected) onSave(selected, minutesStr ? parseInt(minutesStr, 10) : undefined); }}
           disabled={!selected}
           className="flex-1 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-brand-600 transition-colors"
         >
@@ -90,8 +106,8 @@ function IntensityPrompt({ date, onSave }: {
   );
 }
 
-export function Dashboard({ sessions, activePlan, profilePicture, todayReadiness, onSaveReadiness, onNavigate, onStartWorkout }: DashboardProps) {
-  const { userProfile, getPendingIntensityCheck, saveFootballIntensity } = useStore();
+export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, onSaveReadiness, onNavigate, onStartWorkout }: DashboardProps) {
+  const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
 
   const initials = userProfile
@@ -113,7 +129,7 @@ export function Dashboard({ sessions, activePlan, profilePicture, todayReadiness
 
   return (
     <Layout
-      title="LiftLog"
+      title="VectorFootball"
       leftAction={
         <button
           onClick={() => onNavigate({ screen: 'profile' })}
@@ -148,7 +164,12 @@ export function Dashboard({ sessions, activePlan, profilePicture, todayReadiness
       {pendingIntensityDate && (
         <IntensityPrompt
           date={pendingIntensityDate}
-          onSave={(intensity) => saveFootballIntensity(pendingIntensityDate, intensity)}
+          onSave={(intensity, minutes) => {
+            saveFootballIntensity(pendingIntensityDate, intensity);
+            // update the match entry with minutes if provided
+            const entry = matchEntries.find(e => e.date === pendingIntensityDate);
+            if (entry && minutes) saveMatchEntry({ ...entry, minutes, intensity });
+          }}
         />
       )}
 
@@ -156,6 +177,7 @@ export function Dashboard({ sessions, activePlan, profilePicture, todayReadiness
       <WeeklyCalendar
         sessions={sessions}
         activePlan={activePlan}
+        generatedProgramme={activeProgramme}
         onNavigate={onNavigate}
         onStartWorkout={onStartWorkout}
       />

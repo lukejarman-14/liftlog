@@ -27,6 +27,7 @@ export function useStore() {
   const [performanceEntries, setPerformanceEntries] = useLocalStorage<PerformanceEntry[]>('ll_performance_entries', []);
   const [testSessions, setTestSessions] = useLocalStorage<TestSession[]>('ll_test_sessions', []);
   const [generatedProgrammes, setGeneratedProgrammes] = useLocalStorage<GeneratedProgramme[]>('ll_generated_programmes', []);
+  const [activeProgrammeId, setActiveProgrammeId] = useLocalStorage<string | null>('ll_active_programme_id', null);
   const [dailyReadinessLog, setDailyReadinessLog] = useLocalStorage<DailyReadiness[]>('ll_daily_readiness', []);
   const [footballIntensityLog, setFootballIntensityLog] = useLocalStorage<Record<string, number>>('ll_football_intensity', {});
 
@@ -215,6 +216,8 @@ export function useStore() {
     saveTestSession,
     generatedProgrammes,
     saveGeneratedProgramme,
+    activeProgrammeId,
+    setActiveProgrammeId,
     dailyReadinessLog,
     saveDailyReadiness,
     getTodayReadiness,

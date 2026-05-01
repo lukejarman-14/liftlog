@@ -87,6 +87,7 @@ export default function App() {
   const handleGenerateProgramme = (inputs: ProgrammeInputs) => {
     const programme = generateProgramme(inputs);
     store.saveGeneratedProgramme(programme);
+    store.setActiveProgrammeId(programme.id); // auto-integrate into calendar
     setCurrentProgramme(programme);
     navigate({ screen: 'generated-programme' });
   };
@@ -124,6 +125,9 @@ export default function App() {
           sessions={store.sessions}
           templates={store.templates}
           activePlan={store.activePlan}
+          activeProgramme={store.activeProgrammeId
+            ? store.generatedProgrammes.find(p => p.id === store.activeProgrammeId) ?? null
+            : null}
           profilePicture={store.profilePicture}
           todayReadiness={store.getTodayReadiness()}
           onSaveReadiness={store.saveDailyReadiness}
@@ -257,6 +261,7 @@ export default function App() {
           onBack={() => navigate({ screen: 'plans' })}
           onRebuild={() => navigate({ screen: 'programme-builder' })}
           onStartSession={handleStartWorkout}
+          onStartProgram={() => navigate({ screen: 'dashboard' })}
         />
       )}
 

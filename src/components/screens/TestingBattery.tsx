@@ -879,7 +879,6 @@ function YoyoScreen({
   onSkip: () => void;
 }) {
   const [levelStr, setLevelStr] = useState(draft.attempts[0] ? String(draft.attempts[0]) : '');
-  const [videoStarted, setVideoStarted] = useState(false);
 
   const handleLevelChange = (v: string) => {
     setLevelStr(v);
@@ -916,38 +915,6 @@ function YoyoScreen({
         </div>
       ) : (
         <>
-          {/* YouTube embed */}
-          {!videoStarted ? (
-            <div
-              className="w-full rounded-2xl bg-gray-900 flex flex-col items-center justify-center mb-4 overflow-hidden"
-              style={{ aspectRatio: '16/9' }}
-            >
-              <div className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center mb-3 cursor-pointer"
-                onClick={() => setVideoStarted(true)}>
-                <Play size={24} className="text-white ml-1" />
-              </div>
-              <p className="text-xs text-gray-400">Tap to play Yo-Yo IR1 test audio</p>
-            </div>
-          ) : (
-            <div className="w-full rounded-2xl overflow-hidden mb-4" style={{ aspectRatio: '16/9' }}>
-              <iframe
-                src="https://www.youtube.com/embed/LiVb-BRVkTA?autoplay=1"
-                className="w-full h-full"
-                allowFullScreen
-                allow="autoplay; encrypted-media"
-                title="Yo-Yo IR1 Test"
-              />
-            </div>
-          )}
-          <a
-            href="https://www.youtube.com/results?search_query=yo+yo+intermittent+recovery+test+level+1"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-500 text-center block mb-4"
-          >
-            Find on YouTube if video doesn't load ↗
-          </a>
-
           <ProtocolBox items={TEST_PROTOCOLS.yoyo.protocol} />
 
           <div className="mb-4">

@@ -1,5 +1,5 @@
 import { CheckCircle2, Play, Calendar } from 'lucide-react';
-import { WorkoutSession, ActivePlan, NavState } from '../types';
+import { WorkoutSession, ActivePlan, NavState, GeneratedProgramme } from '../types';
 import {
   POSITION_PLANS,
   POSITION_TEMPLATES,
@@ -8,9 +8,14 @@ import {
   isSameDay,
 } from '../data/positionPlans';
 
+const DAY_NAME_TO_INDEX: Record<string, number> = {
+  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
+};
+
 interface WeeklyCalendarProps {
   sessions: WorkoutSession[];
   activePlan: ActivePlan | null;
+  generatedProgramme?: GeneratedProgramme | null;
   onNavigate: (nav: NavState) => void;
   onStartWorkout: (templateId: string, name: string) => void;
 }
@@ -29,7 +34,7 @@ function dateToStr(d: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-export function WeeklyCalendar({ sessions, activePlan, onNavigate, onStartWorkout }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, onNavigate, onStartWorkout }: WeeklyCalendarProps) {
   const weekDates = getWeekDates(0);
   const today = new Date();
 
@@ -112,6 +117,50 @@ export function WeeklyCalendar({ sessions, activePlan, onNavigate, onStartWorkou
       </div>
 
       {/* Session cards for planned days */}
+      {/* Generated programme sessions (shown when no activePlan) */}
+      {!hasPlan && generatedProgramme && (() => {
+        const week1 = generatedProgramme.weeks[0];
+        if (!week1) return null;
+        return (
+          <div className="flex flex-col gap-2 mb-2">
+            {week1.sessions.map((session, i) => {
+              const dowIndex = DAY_NAME_TO_INDEX[session.dayOfWeek];
+              const date = dowIndex != null ? weekDates[dowIndex] : null;
+              const dateStr = date ? dateToStr(date) : '';
+              const done = dateStr ? completedDates.has(dateStr) : false;
+              const isToday = date ? isSameDay(date, today) : false;
+              const mdDisplay = session.mdDay.replace('MD-', 'MD');
+              return (
+                <div key={i} className={`rounded-2xl border p-3 flex items-center justify-between transition-all ${
+                  done ? 'bg-green-50 border-green-200' :
+                  isToday ? 'bg-brand-50 border-brand-300 shadow-sm' :
+                  'bg-white border-gray-100'
+                }`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700">{mdDisplay}</span>
+                      <span className={`text-xs font-semibold ${isToday ? 'text-brand-500' : 'text-gray-400'}`}>{session.dayOfWeek}</span>
+                    </div>
+                    <div className="text-sm font-semibold text-gray-900 truncate">{session.objective}</div>
+                  </div>
+                  {done
+                    ? <CheckCircle2 size={22} className="text-green-500 ml-3 flex-shrink-0" />
+                    : <button
+                        onClick={() => onNavigate({ screen: 'generated-programme' })}
+                        className={`ml-3 flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                          isToday ? 'bg-brand-500 text-white hover:bg-brand-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}>
+                        <Play size={12} />
+                        View
+                      </button>
+                  }
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {hasPlan && planWeek && planWeek.sessions.length > 0 ? (
         <div className="flex flex-col gap-2">
           {planWeek.sessions.map(planSession => {

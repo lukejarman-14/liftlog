@@ -135,6 +135,7 @@ interface Props {
   onBack: () => void;
   onRebuild: () => void;
   onStartSession: (name: string, exercises: WorkoutExercise[]) => void;
+  onStartProgram: () => void; // activate programme → navigate to dashboard
 }
 
 // ── Readiness badge ────────────────────────────────────────────────────────
@@ -150,7 +151,7 @@ function ReadinessBadge({ level, score }: { level: string; score: number }) {
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold ${s.bg} ${s.text} ${s.border}`}>
       <Zap size={11} />
-      {s.label} · {score}/10
+      {s.label} · {score}/5
     </span>
   );
 }
@@ -276,7 +277,7 @@ function Pill({ label, colour }: { label: string; colour: string }) {
 // ── Block card ─────────────────────────────────────────────────────────────
 
 function BlockCard({ block }: { block: SessionBlock }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   return (
     <Card className="overflow-hidden mb-3">
       <button
@@ -306,20 +307,11 @@ function BlockCard({ block }: { block: SessionBlock }) {
 // ── Session card ───────────────────────────────────────────────────────────
 
 function SessionCard({
-  session, exercises, onStart,
+  session,
 }: {
   session: ProgrammeSession;
-  exercises: Exercise[];
-  onStart: (name: string, exs: WorkoutExercise[]) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const mdDisplay = session.mdDay.replace('MD-', 'MD').replace('MD+', 'MD+');
-
-  const handleStart = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const workoutExs = sessionToWorkoutExercises(session, exercises);
-    onStart(`${mdDisplay} · ${session.dayOfWeek}`, workoutExs);
-  };
 
   return (
     <Card className="mb-4 overflow-hidden">
@@ -345,20 +337,8 @@ function SessionCard({
         </div>
       </button>
 
-      {/* Start button — always visible */}
-      <div className="px-4 pb-3 -mt-1">
-        <button
-          onClick={handleStart}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600 transition-colors active:scale-[0.98]"
-        >
-          <Play size={15} />
-          Start Session
-        </button>
-      </div>
-
       {expanded && (
         <div className="px-4 pb-4 border-t border-gray-100 pt-3">
-          {/* Readiness note */}
           <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
             <Zap size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-amber-800 leading-relaxed">{session.readinessNote}</p>
@@ -442,10 +422,22 @@ function MethodLegend() {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function GeneratedProgramme({ programme, exercises, onBack, onRebuild, onStartSession }: Props) {
+export function GeneratedProgramme({ programme, exercises, onBack, onRebuild, onStartSession, onStartProgram }: Props) {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [showExplanation, setShowExplanation] = useState(false);
   const week = programme.weeks[selectedWeek];
+
+  const handleStartProgram = () => {
+    // Start week 1, session 1 as the first workout
+    const firstSession = programme.weeks[0]?.sessions[0];
+    if (firstSession) {
+      const workoutExs = sessionToWorkoutExercises(firstSession, exercises);
+      const mdDisplay = firstSession.mdDay.replace('MD-', 'MD');
+      onStartSession(`${mdDisplay} · ${firstSession.dayOfWeek}`, workoutExs);
+    } else {
+      onStartProgram();
+    }
+  };
 
   return (
     <Layout
@@ -474,6 +466,15 @@ export function GeneratedProgramme({ programme, exercises, onBack, onRebuild, on
           </div>
         </div>
       </Card>
+
+      {/* ── Start Program button ── */}
+      <button
+        onClick={handleStartProgram}
+        className="w-full mb-5 flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md active:scale-[0.98]"
+      >
+        <Play size={18} />
+        Start Program
+      </button>
 
       {/* ── Coach explanation (collapsible) ── */}
       <Card className="mb-5 overflow-hidden">
@@ -543,8 +544,15 @@ export function GeneratedProgramme({ programme, exercises, onBack, onRebuild, on
 
           <MethodLegend />
 
+          <div className="flex items-center gap-2 mb-3">
+            <Calendar size={14} className="text-gray-500" />
+            <h3 className="text-sm font-bold text-gray-700">
+              Week {week.weekNumber} Sessions
+            </h3>
+          </div>
+
           {week.sessions.map((session, i) => (
-            <SessionCard key={i} session={session} exercises={exercises} onStart={onStartSession} />
+            <SessionCard key={i} session={session} />
           ))}
         </div>
       )}

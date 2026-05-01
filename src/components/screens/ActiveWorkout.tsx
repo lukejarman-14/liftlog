@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp,
-  Trophy, Clock, PlayCircle, BookOpen, Lightbulb, MapPin, ChevronRight,
+  Trophy, Clock, BookOpen, Lightbulb, MapPin, ChevronRight,
   TrendingUp, TrendingDown,
 } from 'lucide-react';
 import { Layout } from '../Layout';
@@ -11,7 +11,6 @@ import { RpeSelector } from '../ui/RpeSelector';
 import { useTimer } from '../../hooks/useTimer';
 import { useStore } from '../../hooks/useStore';
 import { WorkoutSession, SessionExercise, CompletedSet, NavState, MeasureType } from '../../types';
-import { EXERCISE_VIDEOS } from '../../data/exerciseVideos';
 import { EXERCISE_DESCRIPTIONS } from '../../data/exerciseDescriptions';
 import { intraSessionSuggestion, interSessionBaseline } from '../../lib/rpeProgression';
 
@@ -138,12 +137,11 @@ function RpeSuggestionBanner({
 
 // ── Tutorial panel ─────────────────────────────────────────────────────────
 
-function TutorialPanel({ exerciseId, exerciseName }: { exerciseId: string; exerciseName: string }) {
+function TutorialPanel({ exerciseId, exerciseName: _exerciseName }: { exerciseId: string; exerciseName: string }) {
   const [open, setOpen] = useState(false);
-  const hasVideo = !!EXERCISE_VIDEOS[exerciseId];
   const desc = EXERCISE_DESCRIPTIONS[exerciseId];
 
-  if (!hasVideo && !desc) return null;
+  if (!desc) return null;
 
   return (
     <div className="border-t border-gray-100 mt-1">
@@ -151,9 +149,9 @@ function TutorialPanel({ exerciseId, exerciseName }: { exerciseId: string; exerc
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors"
       >
-        <PlayCircle size={14} className="text-brand-400 flex-shrink-0" />
+        <BookOpen size={14} className="text-brand-400 flex-shrink-0" />
         <span className="text-xs font-semibold text-brand-500 flex-1">
-          {open ? 'Hide tutorial' : 'Show tutorial & how-to'}
+          {open ? 'Hide coaching notes' : 'Show coaching notes'}
         </span>
         {open
           ? <ChevronUp size={13} className="text-gray-400" />
@@ -162,23 +160,6 @@ function TutorialPanel({ exerciseId, exerciseName }: { exerciseId: string; exerc
 
       {open && (
         <div className="px-4 pb-4 bg-gray-50/60">
-          {hasVideo && (
-            <div className="mb-3">
-              <div className="flex items-center gap-1.5 mb-2">
-                <PlayCircle size={12} className="text-brand-500" />
-                <span className="text-xs font-semibold text-gray-600">Demo Video</span>
-              </div>
-              <div className="relative w-full rounded-xl overflow-hidden" style={{ paddingBottom: '56.25%' }}>
-                <iframe
-                  className="absolute inset-0 w-full h-full"
-                  src={`https://www.youtube.com/embed/${EXERCISE_VIDEOS[exerciseId]}?rel=0&modestbranding=1`}
-                  title={`${exerciseName} demonstration`}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            </div>
-          )}
           {desc && (
             <>
               <div className="flex items-center gap-1.5 mb-2">

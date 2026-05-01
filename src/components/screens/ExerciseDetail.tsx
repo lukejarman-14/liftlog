@@ -1,4 +1,4 @@
-import { TrendingUp, Dumbbell, PlayCircle, BookOpen, Lightbulb, MapPin } from 'lucide-react';
+import { TrendingUp, Dumbbell, BookOpen, Lightbulb, MapPin } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -7,7 +7,6 @@ import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Exercise, WorkoutSession, NavState, MeasureType, CompletedSet } from '../../types';
-import { EXERCISE_VIDEOS } from '../../data/exerciseVideos';
 import { EXERCISE_DESCRIPTIONS } from '../../data/exerciseDescriptions';
 import { CATEGORY_COLORS } from '../../data/exercises';
 
@@ -35,7 +34,7 @@ interface ChartPoint {
   sets: number;
 }
 
-export function ExerciseDetail({ exercise, sessions, showTutorials, onNavigate, onBack }: ExerciseDetailProps) {
+export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: ExerciseDetailProps) {
   const exerciseSessions = sessions
     .filter(s => s.exercises.some(e => e.exerciseId === exercise.id))
     .sort((a, b) => a.startTime - b.startTime);
@@ -58,8 +57,7 @@ export function ExerciseDetail({ exercise, sessions, showTutorials, onNavigate, 
   const totalSets = allSets.length;
   const totalVolume = allSets.reduce((acc, s) => acc + s.reps * s.weight, 0);
 
-  const desc = showTutorials ? EXERCISE_DESCRIPTIONS[exercise.id] : undefined;
-  const hasVideo = showTutorials && !!EXERCISE_VIDEOS[exercise.id];
+  const desc = EXERCISE_DESCRIPTIONS[exercise.id];
 
   return (
     <Layout title={exercise.name} onBack={onBack}>
@@ -73,25 +71,6 @@ export function ExerciseDetail({ exercise, sessions, showTutorials, onNavigate, 
         ))}
         <span className="text-xs text-gray-400 ml-auto">Rest: {exercise.defaultRestSeconds}s</span>
       </div>
-
-      {/* Demo video */}
-      {hasVideo && (
-        <Card className="mb-5 overflow-hidden">
-          <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-            <PlayCircle size={15} className="text-brand-500" />
-            <span className="text-sm font-semibold text-gray-700">Exercise Demo</span>
-          </div>
-          <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-            <iframe
-              className="absolute inset-0 w-full h-full"
-              src={`https://www.youtube.com/embed/${EXERCISE_VIDEOS[exercise.id]}?rel=0&modestbranding=1`}
-              title={`${exercise.name} demonstration`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        </Card>
-      )}
 
       {/* How to do it */}
       {desc && (

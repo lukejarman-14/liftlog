@@ -141,9 +141,9 @@ export function Onboarding({ onComplete, onStartBattery }: OnboardingProps) {
             <div className="w-20 h-20 rounded-3xl bg-brand-500 flex items-center justify-center mb-6 shadow-lg">
               <Dumbbell size={36} className="text-white" />
             </div>
-            <h1 className="text-3xl font-extrabold text-gray-900 mb-2">LiftLog</h1>
+            <h1 className="text-3xl font-extrabold text-gray-900 mb-2">VectorFootball</h1>
             <p className="text-gray-500 text-base mb-8 max-w-xs leading-relaxed">
-              Your football-specific training tracker. Build strength, speed, and resilience — tailored to your position.
+              Elite football S&C — personalised to your position, match schedule, and readiness.
             </p>
             <button
               onClick={() => setStep(1)}
@@ -151,7 +151,7 @@ export function Onboarding({ onComplete, onStartBattery }: OnboardingProps) {
             >
               Get Started <ChevronRight size={18} />
             </button>
-            <p className="text-xs text-gray-400 mt-4">Takes about 2 minutes · Free forever</p>
+            <p className="text-xs text-gray-400 mt-4">Takes about 2 minutes</p>
           </div>
         )}
 
