@@ -122,11 +122,11 @@ export interface ActivePlan {
 
 export interface DailyReadiness {
   date: string;           // YYYY-MM-DD
-  sleep: number;          // 1–10
-  fatigue: number;        // 1–10
-  soreness: number;       // 1–10
-  stress: number;         // 1–10
-  score: number;          // computed 0–10
+  sleep: number;          // 1–5 (5=best)
+  fatigue: number;        // 1–5 (1=best, 5=worst)
+  soreness: number;       // 1–5 (1=best, 5=worst)
+  stress: number;         // 1–5 (1=best, 5=worst)
+  score: number;          // computed 1–5
   level: 'elite' | 'high' | 'moderate' | 'low';
   completedAt: number;    // timestamp
 }
@@ -212,6 +212,8 @@ export interface MatchEntry {
   date: string;          // YYYY-MM-DD
   type: MatchEntryType;
   label?: string;        // optional e.g. "League vs City"
+  minutes?: number;      // minutes played (for load adjustment, 1–90+)
+  intensity?: number;    // post-session intensity rating 1–5
 }
 
 export type LoadDay = 'MD' | 'MD-1' | 'MD-2' | 'MD-3' | 'MD+1' | 'MD+2' | 'free';

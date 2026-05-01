@@ -1,7 +1,7 @@
 /**
  * ProgrammeHub — the Plans tab.
- * Primary entry: Build My Programme (AI generator).
- * Secondary: history of generated programmes.
+ * Primary entry: Build My Program (AI generator).
+ * Secondary: history of generated programs.
  */
 
 import { Zap, Clock, ChevronRight, RefreshCw } from 'lucide-react';
@@ -37,7 +37,7 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, onNavigate, onV
   const expWeeks: Record<string, string> = { '<1': '6', '1-3': '8', '3-5': '10', '5+': '12' };
 
   return (
-    <Layout title="My Programme">
+    <Layout title="My Program">
       {/* ── Primary CTA ── */}
       <button
         onClick={() => onNavigate({ screen: 'programme-builder' })}
@@ -46,7 +46,7 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, onNavigate, onV
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Zap size={20} className="text-yellow-300" />
-            <span className="font-bold text-lg">Build My Programme</span>
+            <span className="font-bold text-lg">Build My Program</span>
           </div>
           <ChevronRight size={20} className="text-white/70" />
         </div>
@@ -60,10 +60,10 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, onNavigate, onV
         </div>
       </button>
 
-      {/* ── Previous programmes ── */}
+      {/* ── Previous programs ── */}
       {generatedProgrammes.length > 0 ? (
         <div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Previous Programmes</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Previous Programs</p>
           <div className="flex flex-col gap-3">
             {generatedProgrammes.map(prog => {
               const levelStyle = LEVEL_COLOURS[prog.readinessLevel] ?? LEVEL_COLOURS.high;
@@ -98,8 +98,8 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, onNavigate, onV
       ) : (
         <Card className="p-5 text-center">
           <RefreshCw size={28} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-sm font-semibold text-gray-600">No programmes yet</p>
-          <p className="text-xs text-gray-400 mt-1">Build your first programme above — it takes about 60 seconds.</p>
+          <p className="text-sm font-semibold text-gray-600">No programs yet</p>
+          <p className="text-xs text-gray-400 mt-1">Build your first program above — it takes about 60 seconds.</p>
         </Card>
       )}
 

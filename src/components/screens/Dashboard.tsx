@@ -1,12 +1,11 @@
-import { Dumbbell, Plus, TrendingUp, Clock, Flame, Calendar } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, TrendingUp, CalendarDays, AlertTriangle } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
 import { WeeklyCalendar } from '../WeeklyCalendar';
 import { DailyReadinessWidget } from '../DailyReadinessWidget';
 import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan, DailyReadiness } from '../../types';
 import { useStore } from '../../hooks/useStore';
-import { getTodayProfile } from '../../lib/loadManagement';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
@@ -19,31 +18,85 @@ interface DashboardProps {
   onStartWorkout: (templateId: string, name: string) => void;
 }
 
-function formatDuration(ms: number) {
-  const mins = Math.floor(ms / 60000);
-  if (mins < 60) return `${mins}m`;
-  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+// ── Football session intensity prompt ──────────────────────────────────────
+
+function IntensityPrompt({ date, onSave }: {
+  date: string;
+  onSave: (intensity: number) => void;
+}) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const [skipped, setSkipped] = useState(false);
+  const d = new Date(date + 'T12:00:00');
+  const displayDate = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+
+  if (skipped) {
+    return (
+      <div className="w-full mb-5 p-4 rounded-2xl border-2 border-orange-200 bg-orange-50">
+        <div className="flex items-start gap-2">
+          <AlertTriangle size={16} className="text-orange-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-orange-700">Load adjustment skipped</p>
+            <p className="text-xs text-orange-600 mt-0.5">Without your session intensity, recovery load guidance may be less accurate. Rate it next time for best results.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const LEVELS = [
+    { v: 1, label: 'Very Easy', desc: 'Hardly any effort' },
+    { v: 2, label: 'Easy', desc: 'Light session / warm-up' },
+    { v: 3, label: 'Moderate', desc: 'Standard match / training' },
+    { v: 4, label: 'Hard', desc: 'Intense, demanding session' },
+    { v: 5, label: 'Max Effort', desc: 'Exhausting — left everything' },
+  ];
+
+  return (
+    <div className="w-full mb-5 p-4 rounded-2xl border-2 border-brand-200 bg-white shadow-sm">
+      <p className="text-sm font-bold text-gray-900 mb-0.5">⚽ How intense was your session?</p>
+      <p className="text-xs text-gray-500 mb-3">{displayDate} — Rate to calibrate your recovery load</p>
+      <div className="flex flex-col gap-1.5 mb-4">
+        {LEVELS.map(({ v, label, desc }) => (
+          <button
+            key={v}
+            onClick={() => setSelected(v)}
+            className={`w-full text-left px-3 py-2.5 rounded-xl border-2 transition-all ${
+              selected === v
+                ? 'border-brand-500 bg-brand-50 text-brand-700'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <span className="font-semibold text-sm">{v} — {label}</span>
+            <span className="text-xs text-gray-400 ml-2">{desc}</span>
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => { if (selected) onSave(selected); }}
+          disabled={!selected}
+          className="flex-1 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-brand-600 transition-colors"
+        >
+          Save
+        </button>
+        <button
+          onClick={() => setSkipped(true)}
+          className="px-4 py-2.5 border border-gray-200 text-gray-500 rounded-xl text-sm hover:bg-gray-50 transition-colors"
+        >
+          Skip
+        </button>
+      </div>
+    </div>
+  );
 }
 
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-}
+export function Dashboard({ sessions, activePlan, profilePicture, todayReadiness, onSaveReadiness, onNavigate, onStartWorkout }: DashboardProps) {
+  const { userProfile, getPendingIntensityCheck, saveFootballIntensity } = useStore();
+  const pendingIntensityDate = getPendingIntensityCheck();
 
-function totalVolume(session: WorkoutSession) {
-  return session.exercises.reduce((acc, ex) =>
-    acc + ex.sets.reduce((s, set) => s + set.reps * set.weight, 0), 0);
-}
-
-export function Dashboard({ sessions, templates, activePlan, profilePicture, todayReadiness, onSaveReadiness, onNavigate, onStartWorkout }: DashboardProps) {
-  const { getExercise, userProfile, matchEntries } = useStore();
-  const recent = [...sessions].sort((a, b) => b.startTime - a.startTime).slice(0, 5);
-  const todayProfile = getTodayProfile(matchEntries);
+  const initials = userProfile
+    ? `${userProfile.firstName.charAt(0)}${userProfile.lastName.charAt(0)}`.toUpperCase()
+    : '?';
 
   const thisWeekSessions = sessions.filter(s => {
     const d = new Date(s.date);
@@ -54,11 +107,9 @@ export function Dashboard({ sessions, templates, activePlan, profilePicture, tod
     return d >= weekStart;
   });
 
-  const totalWeekVolume = thisWeekSessions.reduce((acc, s) => acc + totalVolume(s), 0);
-
-  const initials = userProfile
-    ? `${userProfile.firstName.charAt(0)}${userProfile.lastName.charAt(0)}`.toUpperCase()
-    : '?';
+  const totalWeekVolume = thisWeekSessions.reduce((acc, s) =>
+    acc + s.exercises.reduce((a, ex) =>
+      a + ex.sets.reduce((sv, set) => sv + set.reps * set.weight, 0), 0), 0);
 
   return (
     <Layout
@@ -84,151 +135,56 @@ export function Dashboard({ sessions, templates, activePlan, profilePicture, tod
         </button>
       }
     >
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <Card className="p-4 text-center">
-          <div className="text-2xl font-bold text-brand-500">{thisWeekSessions.length}</div>
-          <div className="text-xs text-gray-500 mt-0.5">This week</div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-2xl font-bold text-brand-500">{sessions.length}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Total</div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-2xl font-bold text-brand-500">
-            {totalWeekVolume >= 1000 ? `${(totalWeekVolume / 1000).toFixed(1)}k` : totalWeekVolume}
-          </div>
-          <div className="text-xs text-gray-500 mt-0.5">Vol (kg)</div>
-        </Card>
-      </div>
-
-      {/* Today's Training Load */}
+      {/* Edit Calendar button */}
       <button
         onClick={() => onNavigate({ screen: 'load-calendar' })}
-        className={`w-full mb-5 p-4 rounded-2xl border-2 text-left transition-all ${todayProfile.borderColour} ${todayProfile.bgColour} hover:opacity-90`}
+        className="w-full mb-5 py-3 px-4 rounded-2xl border-2 border-brand-200 bg-brand-50 text-brand-700 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-brand-100 transition-colors"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">{todayProfile.emoji}</span>
-            <span className={`text-sm font-bold ${todayProfile.textColour}`}>
-              Today — {todayProfile.label}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            {todayProfile.volumeMultiplier > 0 && (
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${todayProfile.bgColour} ${todayProfile.borderColour} ${todayProfile.textColour}`}>
-                {Math.round(todayProfile.volumeMultiplier * 100)}% load
-              </span>
-            )}
-            <Calendar size={14} className={todayProfile.textColour} />
-          </div>
-        </div>
-        <p className={`text-xs leading-relaxed ${todayProfile.textColour} opacity-80`}>
-          {todayProfile.guidance}
-        </p>
+        <CalendarDays size={16} />
+        Edit Match Calendar
       </button>
+
+      {/* Post-football session intensity check */}
+      {pendingIntensityDate && (
+        <IntensityPrompt
+          date={pendingIntensityDate}
+          onSave={(intensity) => saveFootballIntensity(pendingIntensityDate, intensity)}
+        />
+      )}
+
+      {/* Weekly Calendar */}
+      <WeeklyCalendar
+        sessions={sessions}
+        activePlan={activePlan}
+        onNavigate={onNavigate}
+        onStartWorkout={onStartWorkout}
+      />
 
       {/* Daily readiness check-in */}
       <DailyReadinessWidget existing={todayReadiness} onSave={onSaveReadiness} />
 
-      {/* Weekly calendar */}
-      <WeeklyCalendar sessions={sessions} activePlan={activePlan} onNavigate={onNavigate} onStartWorkout={onStartWorkout} />
-
-      {/* Quick start */}
+      {/* Progress section */}
       <section className="mb-6">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Start</h2>
-        <Button fullWidth size="lg" onClick={() => onNavigate({ screen: 'workout-builder' })}>
-          <Dumbbell size={18} />
-          Start New Workout
-        </Button>
-        {templates.length > 0 && (
-          <div className="grid grid-cols-1 gap-2 mt-3">
-            {templates.slice(0, 3).map(t => (
-              <Card
-                key={t.id}
-                className="p-3 flex items-center justify-between"
-                onClick={() => onNavigate({ screen: 'workout-builder', templateId: t.id })}
-              >
-                <div>
-                  <div className="font-medium text-gray-900 text-sm">{t.name}</div>
-                  <div className="text-xs text-gray-400">{t.exercises.length} exercises</div>
-                </div>
-                <Flame size={16} className="text-brand-400" />
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Recent workouts */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Recent</h2>
-          {sessions.length > 5 && (
-            <button
-              onClick={() => onNavigate({ screen: 'history' })}
-              className="text-xs text-brand-500 font-medium"
-            >
-              View all
-            </button>
-          )}
-        </div>
-
-        {recent.length === 0 ? (
-          <Card className="p-8 text-center">
-            <Dumbbell size={32} className="mx-auto text-gray-300 mb-2" />
-            <p className="text-gray-500 text-sm">No workouts yet.</p>
-            <p className="text-gray-400 text-xs mt-1">Start your first one above!</p>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+          <TrendingUp size={14} />
+          Progress
+        </h2>
+        <div className="grid grid-cols-3 gap-3">
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-brand-500">{thisWeekSessions.length}</div>
+            <div className="text-xs text-gray-500 mt-0.5">This week</div>
           </Card>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {recent.map(session => {
-              const duration = session.endTime
-                ? formatDuration(session.endTime - session.startTime)
-                : null;
-              const vol = totalVolume(session);
-              return (
-                <Card
-                  key={session.id}
-                  className="p-4"
-                  onClick={() => onNavigate({ screen: 'history', sessionId: session.id })}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="font-semibold text-gray-900">{session.name}</div>
-                      <div className="text-xs text-gray-400">{formatDate(session.date)}</div>
-                    </div>
-                    {duration && (
-                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <Clock size={12} />
-                        {duration}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {session.exercises.slice(0, 4).map(ex => {
-                      const exercise = getExercise(ex.exerciseId);
-                      return exercise ? (
-                        <span key={ex.exerciseId} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                          {exercise.name}
-                        </span>
-                      ) : null;
-                    })}
-                    {session.exercises.length > 4 && (
-                      <span className="text-xs text-gray-400">+{session.exercises.length - 4} more</span>
-                    )}
-                  </div>
-                  {vol > 0 && (
-                    <div className="flex items-center gap-1 mt-2 text-xs text-brand-500 font-medium">
-                      <TrendingUp size={12} />
-                      {vol >= 1000 ? `${(vol / 1000).toFixed(1)}k` : vol} kg total volume
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        )}
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-brand-500">{sessions.length}</div>
+            <div className="text-xs text-gray-500 mt-0.5">Total</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-brand-500">
+              {totalWeekVolume >= 1000 ? `${(totalWeekVolume / 1000).toFixed(1)}k` : totalWeekVolume}
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">Vol (kg)</div>
+          </Card>
+        </div>
       </section>
     </Layout>
   );

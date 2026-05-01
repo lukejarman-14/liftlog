@@ -27,8 +27,9 @@ function ex(
   return { name, sets, reps, rest, cue, ...opts };
 }
 
-// ── Readiness — 4-band ─────────────────────────────────────────────────────
+// ── Readiness — 4-band (1–5 scale) ────────────────────────────────────────
 // score = mean of (sleep + inverted_fatigue + inverted_soreness + inverted_stress) / 4
+// sleep: 1=poor → 5=excellent  |  fatigue/soreness/stress: 1=none → 5=severe
 
 export function calcReadiness(r: ProgrammeInputs['readiness']): {
   score: number;
@@ -37,27 +38,27 @@ export function calcReadiness(r: ProgrammeInputs['readiness']): {
   volumeMultiplier: number;   // applied to set counts
   intensityNote: string;      // appended to exercise intensity labels
 } {
-  const raw = (r.sleep + (10 - r.fatigue) + (10 - r.soreness) + (10 - r.stress)) / 4;
+  const raw = (r.sleep + (6 - r.fatigue) + (6 - r.soreness) + (6 - r.stress)) / 4;
   const score = Math.round(raw * 10) / 10;
 
-  if (score >= 9) {
+  if (score >= 4.5) {
     return {
       score, level: 'elite', volumeMultiplier: 1.2,
       guidance: 'Elite readiness. Add a bonus set to every main compound. Chase a PB on your primary lift today — conditions are as good as it gets.',
       intensityNote: '+5% above prescribed',
     };
   }
-  if (score >= 7) {
+  if (score >= 3.5) {
     return {
       score, level: 'high', volumeMultiplier: 1.0,
-      guidance: 'High readiness. Execute the programme as written. Push hard on the big sets — this is the day to drive adaptation.',
+      guidance: 'High readiness. Execute the program as written. Push hard on the big sets — this is the day to drive adaptation.',
       intensityNote: 'as prescribed',
     };
   }
-  if (score >= 4) {
+  if (score >= 2.5) {
     return {
       score, level: 'moderate', volumeMultiplier: 0.85,
-      guidance: 'Moderate readiness. Complete the programme — reduce load by ~10% on main compounds. Monitor RPE and back off if effort spikes unexpectedly.',
+      guidance: 'Moderate readiness. Complete the program — reduce load by ~10% on main compounds. Monitor RPE and back off if effort spikes unexpectedly.',
       intensityNote: '−10% load',
     };
   }

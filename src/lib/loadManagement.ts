@@ -122,6 +122,36 @@ export function getTodayProfile(matchEntries: MatchEntry[]): LoadProfile {
 }
 
 /**
+ * Returns load profiles for every day in a given calendar month.
+ * dayOfWeek: 0=Mon … 6=Sun (ISO week order)
+ */
+export function getMonthProfiles(
+  matchEntries: MatchEntry[],
+  year: number,
+  month: number, // 0-indexed
+): Array<{ date: string; dayNum: number; dayOfWeek: number; isToday: boolean; profile: LoadProfile; matchEntry?: MatchEntry; trainingEntry?: MatchEntry }> {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  return Array.from({ length: daysInMonth }, (_, i) => {
+    const d = new Date(year, month, i + 1);
+    const dateStr = d.toISOString().split('T')[0];
+    const matchEntry = matchEntries.find(e => e.date === dateStr && e.type === 'match');
+    const trainingEntry = matchEntries.find(e => e.date === dateStr && e.type === 'team_training');
+    return {
+      date: dateStr,
+      dayNum: d.getDate(),
+      dayOfWeek: (d.getDay() + 6) % 7, // 0=Mon, 6=Sun
+      isToday: dateStr === todayStr,
+      profile: PROFILES[classifyDay(dateStr, matchEntries)],
+      matchEntry,
+      trainingEntry,
+    };
+  });
+}
+
+/**
  * Returns load profiles for each day of a two-week window
  * starting from the Monday of the current week.
  */

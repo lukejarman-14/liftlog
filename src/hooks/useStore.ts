@@ -28,6 +28,7 @@ export function useStore() {
   const [testSessions, setTestSessions] = useLocalStorage<TestSession[]>('ll_test_sessions', []);
   const [generatedProgrammes, setGeneratedProgrammes] = useLocalStorage<GeneratedProgramme[]>('ll_generated_programmes', []);
   const [dailyReadinessLog, setDailyReadinessLog] = useLocalStorage<DailyReadiness[]>('ll_daily_readiness', []);
+  const [footballIntensityLog, setFootballIntensityLog] = useLocalStorage<Record<string, number>>('ll_football_intensity', {});
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));
@@ -82,6 +83,24 @@ export function useStore() {
   const getTodayReadiness = (): DailyReadiness | null => {
     const today = new Date().toISOString().split('T')[0];
     return dailyReadinessLog.find(r => r.date === today) ?? null;
+  };
+
+  // Football session intensity
+  const saveFootballIntensity = (date: string, intensity: number) =>
+    setFootballIntensityLog(prev => ({ ...prev, [date]: intensity }));
+
+  /** Returns the date of the most recent match/team_training entry (within 3 days)
+   *  that has no intensity rating yet, or null if nothing pending. */
+  const getPendingIntensityCheck = (): string | null => {
+    const today = new Date();
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const hasEntry = matchEntries.some(e => e.date === dateStr && (e.type === 'match' || e.type === 'team_training'));
+      if (hasEntry && footballIntensityLog[dateStr] == null) return dateStr;
+    }
+    return null;
   };
 
   const exercises = [...DEFAULT_EXERCISES, ...customExercises];
@@ -199,5 +218,8 @@ export function useStore() {
     dailyReadinessLog,
     saveDailyReadiness,
     getTodayReadiness,
+    footballIntensityLog,
+    saveFootballIntensity,
+    getPendingIntensityCheck,
   };
 }

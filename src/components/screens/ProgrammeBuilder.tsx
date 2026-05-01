@@ -97,10 +97,10 @@ function ReadinessSlider({
   label: string; description: string; value: number;
   onChange: (v: number) => void; inverted?: boolean;
 }) {
-  const dots = Array.from({ length: 10 }, (_, i) => i + 1);
+  const dots = Array.from({ length: 5 }, (_, i) => i + 1);
   const colour = inverted
-    ? value <= 3 ? 'bg-green-500' : value <= 6 ? 'bg-yellow-500' : 'bg-red-500'
-    : value >= 8 ? 'bg-green-500' : value >= 5 ? 'bg-yellow-500' : 'bg-red-500';
+    ? value <= 2 ? 'bg-green-500' : value <= 3 ? 'bg-yellow-500' : 'bg-red-500'
+    : value >= 4 ? 'bg-green-500' : value >= 3 ? 'bg-yellow-500' : 'bg-red-500';
   return (
     <div className="mb-5">
       <div className="flex items-center justify-between mb-1">
@@ -165,7 +165,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   // Step 3 — Injuries
   const [injuryHistory, setInjuryHistory] = useState<InjuryArea[]>([]);
   // Step 4 — Readiness
-  const [readiness, setReadiness] = useState({ sleep: 7, fatigue: 4, soreness: 4, stress: 4 });
+  const [readiness, setReadiness] = useState({ sleep: 4, fatigue: 2, soreness: 2, stress: 2 });
 
   const toggleSecondary = (v: string) => {
     if (v === primaryGoal) return;
@@ -202,7 +202,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
 
   return (
     <Layout
-      title="Build My Programme"
+      title="Build My Program"
       leftAction={
         <button onClick={step === 0 ? onBack : () => setStep(s => s - 1)} className="p-1 -ml-1 text-gray-600">
           <ChevronLeft size={24} />
@@ -286,10 +286,17 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
               ))}
             </div>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-700 mb-2">Play style</p>
-            <ChipSelector options={PLAY_STYLE_OPTS} selected={playStyle} onToggle={setPlayStyle} />
-          </div>
+          {primaryPos !== 'GK' && (
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Play style</p>
+              <ChipSelector options={PLAY_STYLE_OPTS} selected={playStyle} onToggle={setPlayStyle} />
+            </div>
+          )}
+          {primaryPos === 'GK' && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+              <p className="text-xs text-blue-700 font-medium">Goalkeeper-specific training selected. Play style not applicable — GK programme uses dedicated shot-stopping, distribution and footwork blocks.</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -358,16 +365,16 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           <Card className="p-4 bg-gray-50 mt-2 mb-6">
             <div className="flex gap-3 flex-wrap">
               {[
-                { label: '9–10 Elite', colour: 'text-emerald-600' },
-                { label: '7–8 High', colour: 'text-green-600' },
-                { label: '4–6 Moderate', colour: 'text-yellow-600' },
-                { label: '1–3 Low', colour: 'text-red-500' },
+                { label: '4.5–5 Elite', colour: 'text-emerald-600' },
+                { label: '3.5–4.4 High', colour: 'text-green-600' },
+                { label: '2.5–3.4 Moderate', colour: 'text-yellow-600' },
+                { label: '1–2.4 Low', colour: 'text-red-500' },
               ].map(b => <span key={b.label} className={`text-xs font-semibold ${b.colour}`}>{b.label}</span>)}
             </div>
           </Card>
           <Button fullWidth size="lg" onClick={handleGenerate}>
             <Zap size={18} />
-            Generate My Programme
+            Generate My Program
           </Button>
           <p className="text-center text-xs text-gray-400 mt-2 pb-6">
             {expWeeks[userProfile.experienceYears] ?? '8'} weeks · {sessionsPerWeek} sessions/week

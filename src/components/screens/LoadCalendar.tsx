@@ -1,88 +1,92 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Calendar, Info } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { useStore } from '../../hooks/useStore';
 import { MatchEntry, NavState } from '../../types';
-import { getTwoWeekProfiles, getTodayProfile, LoadProfile } from '../../lib/loadManagement';
+import { classifyDay, getLoadProfile, getMonthProfiles } from '../../lib/loadManagement';
 
 interface LoadCalendarProps {
   onNavigate: (nav: NavState) => void;
   onBack: () => void;
 }
 
-// ── Load badge ─────────────────────────────────────────────────────────────
+// ── Month calendar grid ────────────────────────────────────────────────────
 
-function LoadBadge({ profile, small = false }: { profile: LoadProfile; small?: boolean }) {
-  if (profile.day === 'free' && !profile.shortLabel) {
-    return small ? null : <span className="text-xs text-gray-300">—</span>;
-  }
-  return (
-    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md border ${profile.bgColour} ${profile.textColour} ${profile.borderColour}`}>
-      {profile.shortLabel || profile.emoji}
-    </span>
-  );
-}
-
-// ── Calendar grid ──────────────────────────────────────────────────────────
-
-function CalendarGrid({
-  weekOffset,
+function MonthlyCalendarGrid({
+  year,
+  month,
   matchEntries,
-  onToggleMatch,
+  onSelectDay,
 }: {
-  weekOffset: number;
+  year: number;
+  month: number;
   matchEntries: MatchEntry[];
-  onToggleMatch: (dateStr: string) => void;
+  onSelectDay: (date: string) => void;
 }) {
-  const allDays = getTwoWeekProfiles(matchEntries);
-  // weekOffset 0 = current week (days 0–6), 1 = next week (days 7–13)
-  const days = allDays.slice(weekOffset * 7, weekOffset * 7 + 7);
+  const days = getMonthProfiles(matchEntries, year, month);
+  const firstDow = days[0]?.dayOfWeek ?? 0; // 0=Mon padding cells
+
+  const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  // Pad cells before first day of month
+  const paddingCells = Array(firstDow).fill(null);
+  const allCells = [...paddingCells, ...days];
+  // Pad to complete last row
+  while (allCells.length % 7 !== 0) allCells.push(null);
 
   return (
-    <div className="grid grid-cols-7 gap-1.5">
-      {days.map(({ date, dayLabel, dayNum, isToday, profile }) => {
-        const matchEntry = matchEntries.find(e => e.date === date && e.type === 'match');
-        const trainingEntry = matchEntries.find(e => e.date === date && e.type === 'team_training');
-
-        return (
-          <button
-            key={date}
-            onClick={() => onToggleMatch(date)}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${
-              isToday
-                ? 'border-brand-400 bg-brand-50'
-                : matchEntry
-                ? 'border-red-300 bg-red-50'
-                : trainingEntry
-                ? 'border-blue-300 bg-blue-50'
-                : 'border-gray-100 bg-white hover:border-gray-200'
-            }`}
-          >
-            <span className={`text-xs font-semibold ${isToday ? 'text-brand-600' : 'text-gray-400'}`}>
-              {dayLabel}
-            </span>
-            <span className={`text-sm font-bold ${
-              isToday ? 'text-brand-600' :
-              matchEntry ? 'text-red-600' :
-              trainingEntry ? 'text-blue-600' :
-              'text-gray-700'
-            }`}>
-              {dayNum}
-            </span>
-            {matchEntry && <span className="text-xs">⚽</span>}
-            {trainingEntry && !matchEntry && <span className="text-xs">🏃</span>}
-            {!matchEntry && !trainingEntry && (
-              <LoadBadge profile={profile} small />
-            )}
-          </button>
-        );
-      })}
+    <div>
+      <div className="grid grid-cols-7 mb-2">
+        {DAY_HEADERS.map((d, i) => (
+          <div key={i} className="text-center text-xs font-semibold text-gray-400 py-1">{d}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {allCells.map((cell, i) => {
+          if (!cell) return <div key={i} className="aspect-square" />;
+          const { date, dayNum, isToday, profile, matchEntry, trainingEntry } = cell;
+          return (
+            <button
+              key={date}
+              onClick={() => onSelectDay(date)}
+              className={`aspect-square flex flex-col items-center justify-center rounded-lg text-xs transition-all ${
+                isToday ? 'ring-2 ring-brand-500' : ''
+              } ${
+                matchEntry
+                  ? 'bg-red-50 border border-red-300'
+                  : trainingEntry
+                  ? 'bg-blue-50 border border-blue-300'
+                  : profile.day !== 'free'
+                  ? `${profile.bgColour} border ${profile.borderColour}`
+                  : 'bg-white border border-gray-100 hover:bg-gray-50'
+              }`}
+            >
+              <span className={`font-bold leading-none mb-0.5 ${
+                isToday ? 'text-brand-600' :
+                matchEntry ? 'text-red-700' :
+                trainingEntry ? 'text-blue-700' :
+                profile.day !== 'free' ? profile.textColour :
+                'text-gray-700'
+              }`}>
+                {dayNum}
+              </span>
+              {matchEntry && <span className="text-[9px] leading-none">⚽</span>}
+              {!matchEntry && trainingEntry && <span className="text-[9px] leading-none">🏃</span>}
+              {!matchEntry && !trainingEntry && profile.day !== 'free' && (
+                <span className={`text-[8px] font-bold leading-none ${profile.textColour}`}>
+                  {profile.shortLabel}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-// ── Toggle modal ───────────────────────────────────────────────────────────
+// ── Day modal ──────────────────────────────────────────────────────────────
 
 function DayModal({
   dateStr,
@@ -99,9 +103,13 @@ function DayModal({
 }) {
   const existing = matchEntries.find(e => e.date === dateStr);
   const [label, setLabel] = useState(existing?.label ?? '');
+  const [minutes, setMinutes] = useState<string>(existing?.minutes?.toString() ?? '');
 
   const d = new Date(dateStr + 'T12:00:00');
   const displayDate = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const loadDay = classifyDay(dateStr, matchEntries);
+  const loadProfile = getLoadProfile(loadDay);
 
   const handleSave = (type: MatchEntry['type']) => {
     const entry: MatchEntry = {
@@ -109,6 +117,7 @@ function DayModal({
       date: dateStr,
       type,
       label: label.trim() || undefined,
+      minutes: minutes ? parseInt(minutes, 10) : undefined,
     };
     onSave(entry);
     onClose();
@@ -122,10 +131,18 @@ function DayModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl mb-4">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-1">
           <Calendar size={16} className="text-brand-500" />
           <h3 className="font-bold text-gray-900">{displayDate}</h3>
         </div>
+
+        {/* Show load profile for this day */}
+        {loadDay !== 'free' && (
+          <div className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg mb-4 flex items-center gap-1.5 border ${loadProfile.bgColour} ${loadProfile.textColour} ${loadProfile.borderColour}`}>
+            <span>{loadProfile.emoji}</span>
+            <span>{loadProfile.label} — {loadProfile.shortLabel}</span>
+          </div>
+        )}
 
         {existing && (
           <div className={`text-xs font-semibold px-2 py-1 rounded-full mb-4 w-max ${
@@ -136,7 +153,7 @@ function DayModal({
           </div>
         )}
 
-        <div className="mb-4">
+        <div className="mb-3">
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
             Label (optional)
           </label>
@@ -146,6 +163,22 @@ function DayModal({
             placeholder="e.g. League vs City FC"
             className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
+        </div>
+
+        <div className="mb-4">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+            Minutes played (optional)
+          </label>
+          <input
+            type="number"
+            min="1"
+            max="120"
+            value={minutes}
+            onChange={e => setMinutes(e.target.value)}
+            placeholder="e.g. 90"
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          />
+          <p className="text-xs text-gray-400 mt-1">Used to auto-adjust recovery session load</p>
         </div>
 
         <div className="flex flex-col gap-2 mb-3">
@@ -184,104 +217,184 @@ function DayModal({
   );
 }
 
+// ── Periodisation explanations ─────────────────────────────────────────────
+
+const PERIOD_INFO = [
+  {
+    label: 'MD-3', emoji: '💪', colour: 'bg-blue-50 border-blue-200 text-blue-800',
+    title: '3 Days Before Match — Full Load',
+    bullets: [
+      'Maximum training stimulus — heavy compound lifts, full volume',
+      'Sufficient recovery time before match day (72 h)',
+      'Target: strength and power adaptations',
+      'Conditioning runs and high-speed work permitted',
+    ],
+  },
+  {
+    label: 'MD-2', emoji: '⚡', colour: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+    title: '2 Days Before Match — Moderate Load',
+    bullets: [
+      'Power work is fine — explosive lifts, jumps, sprint technique',
+      'Avoid high-rep conditioning or AMRAP sets',
+      'Cap volume: 3–4 sets per exercise maximum',
+      'Focus on neural activation, not muscle fatigue',
+    ],
+  },
+  {
+    label: 'MD-1', emoji: '🔥', colour: 'bg-orange-50 border-orange-200 text-orange-800',
+    title: 'Day Before Match — Low Load',
+    bullets: [
+      'Neural priming only — 2–3 short acceleration sprints',
+      'Light plyometrics (box jumps, broad jumps) at low volume',
+      'No barbell work, no conditioning runs',
+      'Goal: feel sharp and fresh for tomorrow',
+    ],
+  },
+  {
+    label: 'MD', emoji: '⚽', colour: 'bg-red-50 border-red-200 text-red-800',
+    title: 'Match Day — No Gym',
+    bullets: [
+      'Dynamic activation only if desired (10 min)',
+      'No loaded exercises — conserve all energy for the match',
+      'Pre-match nutrition and sleep are the priority',
+    ],
+  },
+  {
+    label: 'MD+1', emoji: '🛌', colour: 'bg-purple-50 border-purple-200 text-purple-800',
+    title: 'Day After Match — Active Recovery',
+    bullets: [
+      'Flush out metabolic waste — walk, swim, light cycle',
+      'No loaded exercises or high-intensity work',
+      'Mobility and soft-tissue work (foam roll, stretch)',
+      'Hydration and nutrition replenishment priority',
+    ],
+  },
+  {
+    label: 'MD+2', emoji: '🔄', colour: 'bg-indigo-50 border-indigo-200 text-indigo-800',
+    title: '2 Days After Match — Reload',
+    bullets: [
+      'Begin rebuilding at 60–70% normal intensity',
+      'Keep volume low: 2–3 sets per exercise',
+      'Eccentric-focused movements to restore muscle resilience',
+      'Monitor RPE — if soreness is high, stay conservative',
+    ],
+  },
+  {
+    label: 'MD+3', emoji: '🏋️', colour: 'bg-teal-50 border-teal-200 text-teal-800',
+    title: '3 Days After Match — Return to Load',
+    bullets: [
+      'Full programme can resume if well recovered',
+      'This often aligns with MD-3 of the next match week',
+      'Good day for heavy compound work and high volume',
+      'Monitor for residual fatigue before pushing hard',
+    ],
+  },
+];
+
+function PeriodisationGuide() {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="mb-6">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between p-4 rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Info size={16} className="text-brand-500" />
+          <span className="text-sm font-semibold text-gray-800">Periodisation Guide</span>
+        </div>
+        <ChevronRight size={16} className={`text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="mt-2 flex flex-col gap-3">
+          {PERIOD_INFO.map(item => (
+            <div key={item.label} className={`p-4 rounded-2xl border ${item.colour}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-base">{item.emoji}</span>
+                <span className="text-xs font-extrabold tracking-wide">{item.label}</span>
+                <span className="text-xs font-semibold">{item.title}</span>
+              </div>
+              <ul className="space-y-1">
+                {item.bullets.map((b, i) => (
+                  <li key={i} className="text-xs flex gap-2">
+                    <span className="mt-0.5 flex-shrink-0">•</span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────
 
 export function LoadCalendar({ onNavigate: _onNavigate, onBack }: LoadCalendarProps) {
   const { matchEntries, saveMatchEntry, deleteMatchEntry } = useStore();
-  const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const todayProfile = getTodayProfile(matchEntries);
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
 
-  const handleToggle = (dateStr: string) => {
-    setSelectedDate(dateStr);
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
+    else setViewMonth(m => m - 1);
   };
 
-  // Upcoming matches (next 14 days)
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
+    else setViewMonth(m => m + 1);
+  };
+
+  // Upcoming events (next 30 days)
   const upcoming = matchEntries
     .filter(e => {
       const d = new Date(e.date + 'T12:00:00');
-      const today = new Date();
       const diff = (d.getTime() - today.getTime()) / 86400000;
-      return diff >= -1 && diff <= 14;
+      return diff >= -1 && diff <= 30;
     })
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <Layout title="Match Load" onBack={onBack}>
 
-      {/* Today's load card */}
-      <Card className={`p-4 mb-5 border-2 ${todayProfile.borderColour} ${todayProfile.bgColour}`}>
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-lg">{todayProfile.emoji}</span>
-              <span className={`text-sm font-bold ${todayProfile.textColour}`}>
-                Today — {todayProfile.label}
-              </span>
-            </div>
-            <p className={`text-xs leading-relaxed ${todayProfile.textColour} opacity-80`}>
-              {todayProfile.guidance}
-            </p>
-          </div>
-          {todayProfile.volumeMultiplier > 0 && (
-            <div className={`text-center px-2.5 py-1.5 rounded-xl ${todayProfile.bgColour} border ${todayProfile.borderColour}`}>
-              <div className={`text-base font-extrabold ${todayProfile.textColour}`}>
-                {Math.round(todayProfile.volumeMultiplier * 100)}%
-              </div>
-              <div className="text-xs text-gray-400">load</div>
-            </div>
-          )}
-        </div>
-        {todayProfile.sessionFocus !== todayProfile.guidance && (
-          <div className={`mt-2 pt-2 border-t ${todayProfile.borderColour}`}>
-            <p className={`text-xs ${todayProfile.textColour} opacity-70 leading-relaxed`}>
-              {todayProfile.sessionFocus}
-            </p>
-          </div>
-        )}
-      </Card>
-
-      {/* Calendar header */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-700">
-          {weekOffset === 0 ? 'This Week' : 'Next Week'}
-        </h2>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setWeekOffset(0)}
-            disabled={weekOffset === 0}
-            className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <button
-            onClick={() => setWeekOffset(1)}
-            disabled={weekOffset === 1}
-            className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
+      {/* Month navigation */}
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={prevMonth} className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50">
+          <ChevronLeft size={16} />
+        </button>
+        <h2 className="text-base font-bold text-gray-900">{MONTHS[viewMonth]} {viewYear}</h2>
+        <button onClick={nextMonth} className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50">
+          <ChevronRight size={16} />
+        </button>
       </div>
 
-      {/* Calendar grid */}
+      {/* Monthly calendar grid */}
       <Card className="p-3 mb-4">
-        <CalendarGrid
-          weekOffset={weekOffset}
+        <MonthlyCalendarGrid
+          year={viewYear}
+          month={viewMonth}
           matchEntries={matchEntries}
-          onToggleMatch={handleToggle}
+          onSelectDay={setSelectedDate}
         />
       </Card>
 
       {/* Legend */}
       <div className="flex flex-wrap gap-2 mb-5">
         {[
-          { label: 'MD-3', desc: 'Full load', col: 'bg-blue-50 text-blue-700 border-blue-200' },
-          { label: 'MD-2', desc: 'Moderate', col: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-          { label: 'MD-1', desc: 'Low load', col: 'bg-orange-50 text-orange-700 border-orange-200' },
+          { label: 'MD3', desc: 'Full load', col: 'bg-blue-50 text-blue-700 border-blue-200' },
+          { label: 'MD2', desc: 'Moderate', col: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+          { label: 'MD1', desc: 'Low load', col: 'bg-orange-50 text-orange-700 border-orange-200' },
           { label: 'MD', desc: 'Match', col: 'bg-red-50 text-red-700 border-red-200' },
           { label: 'MD+1', desc: 'Recovery', col: 'bg-purple-50 text-purple-700 border-purple-200' },
+          { label: 'MD+2', desc: 'Reload', col: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
         ].map(item => (
           <div key={item.label} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-semibold ${item.col}`}>
             {item.label}
@@ -290,15 +403,13 @@ export function LoadCalendar({ onNavigate: _onNavigate, onBack }: LoadCalendarPr
         ))}
       </div>
 
-      {/* Tap to add reminder */}
-      <div className="text-xs text-gray-400 text-center mb-5 flex items-center justify-center gap-1.5">
-        <Plus size={11} />
+      <div className="text-xs text-gray-400 text-center mb-5">
         Tap any day to mark a match or team training session
       </div>
 
       {/* Upcoming events */}
       {upcoming.length > 0 && (
-        <section>
+        <section className="mb-6">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Upcoming</h3>
           <div className="flex flex-col gap-2">
             {upcoming.map(entry => {
@@ -313,7 +424,10 @@ export function LoadCalendar({ onNavigate: _onNavigate, onBack }: LoadCalendarPr
                         {entry.type === 'match' ? 'Match' : 'Team Training'}
                         {entry.label && <span className="font-normal text-gray-500"> — {entry.label}</span>}
                       </div>
-                      <div className="text-xs text-gray-400">{label}</div>
+                      <div className="text-xs text-gray-400">
+                        {label}
+                        {entry.minutes && <span className="ml-2 text-brand-500">{entry.minutes} min</span>}
+                      </div>
                     </div>
                   </div>
                   <button
@@ -328,6 +442,9 @@ export function LoadCalendar({ onNavigate: _onNavigate, onBack }: LoadCalendarPr
           </div>
         </section>
       )}
+
+      {/* Periodisation guide */}
+      <PeriodisationGuide />
 
       {/* Day modal */}
       {selectedDate && (

@@ -9,7 +9,7 @@ interface NavigationProps {
 const navItems = [
   { screen: 'dashboard' as Screen, label: 'Home', icon: LayoutDashboard },
   { screen: 'plans' as Screen, label: 'Plans', icon: Map },
-  { screen: 'workout-builder' as Screen, label: 'Workout', icon: Dumbbell },
+  { screen: 'workout-builder' as Screen, label: 'Quick Workout', icon: Dumbbell },
   { screen: 'exercise-library' as Screen, label: 'Exercises', icon: BookOpen },
   { screen: 'history' as Screen, label: 'History', icon: History },
 ];

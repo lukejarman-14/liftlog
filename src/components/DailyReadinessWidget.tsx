@@ -1,11 +1,12 @@
 /**
  * DailyReadinessWidget — compact daily check-in that lives on the Dashboard.
+ * 1–5 scale for all inputs.
  * Shows a summary card if today's readiness is already recorded;
- * otherwise shows 4 quick-tap sliders (1–10) to capture it.
+ * otherwise shows a "Start" CTA that expands to the quick-tap sliders.
  */
 
 import { useState } from 'react';
-import { Zap, Check } from 'lucide-react';
+import { Zap, Check, PlayCircle } from 'lucide-react';
 import { DailyReadiness } from '../types';
 import { calcReadiness } from '../lib/programmeGenerator';
 
@@ -21,17 +22,17 @@ const LEVEL_CONFIG = {
   low:      { bg: 'bg-red-500',     light: 'bg-red-50 border-red-200',         text: 'text-red-700',     label: 'Low' },
 };
 
-// Quick-tap row: 1–10 dots
+// Quick-tap row: 1–5 dots
 function QuickSlider({
   label, value, onChange, inverted,
 }: { label: string; value: number; onChange: (v: number) => void; inverted?: boolean }) {
   const dotColour = (d: number) => {
     const isActive = d === value;
     if (!isActive) return 'bg-gray-200';
-    const good = inverted ? d <= 4 : d >= 7;
-    const bad = inverted ? d >= 7 : d <= 4;
+    const good = inverted ? d <= 2 : d >= 4;
+    const bad  = inverted ? d >= 4 : d <= 2;
     if (good) return 'bg-green-500';
-    if (bad) return 'bg-red-500';
+    if (bad)  return 'bg-red-500';
     return 'bg-yellow-400';
   };
 
@@ -39,15 +40,19 @@ function QuickSlider({
     <div>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-semibold text-gray-600">{label}</span>
-        <span className="text-xs font-bold text-gray-700">{value}/10</span>
+        <span className="text-xs font-bold text-gray-700">{value}/5</span>
       </div>
-      <div className="flex gap-1">
-        {Array.from({ length: 10 }, (_, i) => i + 1).map(d => (
+      <div className="flex gap-1.5">
+        {Array.from({ length: 5 }, (_, i) => i + 1).map(d => (
           <button
             key={d}
             onClick={() => onChange(d)}
-            className={`flex-1 h-6 rounded transition-all ${dotColour(d)} ${d === value ? 'scale-110' : 'hover:opacity-70'}`}
-          />
+            className={`flex-1 h-8 rounded-lg text-xs font-bold transition-all ${dotColour(d)} ${
+              d === value ? 'scale-110 shadow-sm text-white' : 'text-gray-400 hover:opacity-70'
+            }`}
+          >
+            {d}
+          </button>
         ))}
       </div>
     </div>
@@ -56,11 +61,11 @@ function QuickSlider({
 
 export function DailyReadinessWidget({ existing, onSave }: Props) {
   const [open, setOpen] = useState(false);
-  const [sleep, setSleep] = useState(7);
-  const [fatigue, setFatigue] = useState(4);
-  const [soreness, setSoreness] = useState(4);
-  const [stress, setStress] = useState(4);
-  const [saved, setSaved] = useState(false);
+  const [sleep, setSleep]     = useState(4);
+  const [fatigue, setFatigue] = useState(2);
+  const [soreness, setSoreness] = useState(2);
+  const [stress, setStress]   = useState(2);
+  const [saved, setSaved]     = useState(false);
 
   const handleSave = () => {
     const raw = calcReadiness({ sleep, fatigue, soreness, stress });
@@ -80,42 +85,58 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
   if (existing && !saved) {
     const cfg = LEVEL_CONFIG[existing.level] ?? LEVEL_CONFIG.high;
     return (
-      <div className={`w-full mb-5 p-4 rounded-2xl border ${cfg.light} flex items-center justify-between`}>
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${cfg.bg}`}>
-            <Zap size={18} className="text-white" />
+      <div className={`w-full mb-5 p-4 rounded-2xl border ${cfg.light}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${cfg.bg}`}>
+              <Zap size={18} className="text-white" />
+            </div>
+            <div>
+              <p className={`text-sm font-bold ${cfg.text}`}>{cfg.label} Readiness · {existing.score}/5</p>
+              <p className="text-xs text-gray-500">Today's check-in complete</p>
+            </div>
           </div>
-          <div>
-            <p className={`text-sm font-bold ${cfg.text}`}>{cfg.label} Readiness · {existing.score}/10</p>
-            <p className="text-xs text-gray-500">Today's check-in complete</p>
-          </div>
+          <button
+            onClick={() => setOpen(o => !o)}
+            className="text-xs text-gray-400 underline"
+          >
+            Edit
+          </button>
         </div>
-        <button
-          onClick={() => setOpen(o => !o)}
-          className="text-xs text-gray-400 underline"
-        >
-          Edit
-        </button>
-        {open && <ReadinessForm sleep={sleep} fatigue={fatigue} soreness={soreness} stress={stress} setSleep={setSleep} setFatigue={setFatigue} setSoreness={setSoreness} setStress={setStress} onSave={handleSave} />}
+        {open && (
+          <div className="mt-4 border-t border-gray-100 pt-4">
+            <ReadinessForm
+              sleep={sleep} fatigue={fatigue} soreness={soreness} stress={stress}
+              setSleep={setSleep} setFatigue={setFatigue} setSoreness={setSoreness} setStress={setStress}
+              onSave={handleSave}
+            />
+          </div>
+        )}
       </div>
     );
   }
 
-  // Not yet logged
+  // Not yet logged — collapsed CTA with prominent Start button
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full mb-5 p-4 rounded-2xl border-2 border-dashed border-gray-200 bg-white flex items-center gap-3 text-left hover:border-brand-300 transition-colors"
-      >
-        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-          <Zap size={18} className="text-gray-400" />
+      <div className="w-full mb-5 rounded-2xl border-2 border-dashed border-gray-200 bg-white overflow-hidden">
+        <div className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+            <Zap size={18} className="text-gray-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-700">How are you feeling today?</p>
+            <p className="text-xs text-gray-400">Log your daily readiness in 30 seconds</p>
+          </div>
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors flex-shrink-0"
+          >
+            <PlayCircle size={15} />
+            Start
+          </button>
         </div>
-        <div>
-          <p className="text-sm font-semibold text-gray-700">How are you feeling today?</p>
-          <p className="text-xs text-gray-400">Tap to log your daily readiness</p>
-        </div>
-      </button>
+      </div>
     );
   }
 
@@ -124,6 +145,7 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
       <div className="flex items-center gap-2 mb-4">
         <Zap size={16} className="text-brand-500" />
         <p className="text-sm font-bold text-brand-700">Daily Readiness Check-in</p>
+        <button onClick={() => setOpen(false)} className="ml-auto text-xs text-gray-400">✕</button>
       </div>
       <ReadinessForm
         sleep={sleep} fatigue={fatigue} soreness={soreness} stress={stress}
