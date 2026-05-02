@@ -208,7 +208,7 @@ function DayModal({
 
         <button
           onClick={onClose}
-          className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 text-center"
+          className="w-full py-3 rounded-xl border-2 border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"
         >
           Cancel
         </button>

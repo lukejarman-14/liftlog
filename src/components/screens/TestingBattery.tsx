@@ -915,6 +915,22 @@ function YoyoScreen({
         </div>
       ) : (
         <>
+          {/* Reliable YouTube embed — nocookie domain, lazy loading */}
+          <div className="mb-5">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Test demonstration</p>
+            <div className="relative w-full rounded-2xl overflow-hidden bg-gray-900" style={{ paddingBottom: '56.25%' }}>
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src="https://www.youtube-nocookie.com/embed/kN4a3bVvRCE?rel=0&modestbranding=1"
+                title="Yo-Yo Intermittent Recovery Test IR1 demonstration"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                loading="lazy"
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">Yo-Yo IR1 test protocol demonstration. Use this to understand shuttle distances and pacing.</p>
+          </div>
+
           <ProtocolBox items={TEST_PROTOCOLS.yoyo.protocol} />
 
           <div className="mb-4">

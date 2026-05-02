@@ -1,11 +1,11 @@
 import { useRef } from 'react';
 import {
   Camera, Mail, User, Shield, Calendar, Target, Dumbbell,
-  LogOut, PlayCircle, ChevronRight, Activity, Zap,
+  LogOut, ChevronRight, Activity, Zap,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
-import { UserProfile, UserSettings } from '../../types';
+import { UserProfile } from '../../types';
 import { BaselineData } from '../../hooks/useStore';
 import { GRADE_LABELS, GRADE_COLOURS } from '../../data/testingBattery';
 
@@ -13,10 +13,8 @@ interface ProfileProps {
   userProfile: UserProfile;
   profilePicture: string | null;
   totalSessions: number;
-  settings: UserSettings;
   baseline: BaselineData | null;
   onSetProfilePicture: (pic: string | null) => void;
-  onUpdateSettings: (partial: Partial<UserSettings>) => void;
   onStartBattery: () => void;
   onResetProfile: () => void;
   onBack: () => void;
@@ -46,56 +44,10 @@ function getInitials(first: string, last: string) {
   return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
 }
 
-// ── Toggle switch ──────────────────────────────────────────────────────────
-function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
-  return (
-    <button
-      onClick={onToggle}
-      aria-pressed={enabled}
-      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-        enabled ? 'bg-brand-500' : 'bg-gray-200'
-      }`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-          enabled ? 'translate-x-6' : 'translate-x-1'
-        }`}
-      />
-    </button>
-  );
-}
-
-// ── Setting row ────────────────────────────────────────────────────────────
-function SettingRow({
-  icon,
-  label,
-  description,
-  enabled,
-  onToggle,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  description: string;
-  enabled: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-3 py-3">
-      <div className="w-8 h-8 rounded-xl bg-brand-50 flex items-center justify-center flex-shrink-0 text-brand-500">
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-gray-800">{label}</div>
-        <div className="text-xs text-gray-400 leading-snug mt-0.5">{description}</div>
-      </div>
-      <Toggle enabled={enabled} onToggle={onToggle} />
-    </div>
-  );
-}
 
 export function Profile({
   userProfile, profilePicture, totalSessions,
-  settings, baseline, onSetProfilePicture, onUpdateSettings,
+  baseline, onSetProfilePicture,
   onStartBattery, onResetProfile, onBack,
 }: ProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -308,27 +260,14 @@ export function Profile({
 
       {/* ── Settings ──────────────────────────────────────────────────── */}
       <Card className="p-4 mb-4">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Settings &amp; Preferences</h3>
-        <p className="text-xs text-gray-400 mb-3">More settings will be added here over time.</p>
-
-        <div className="divide-y divide-gray-100">
-          <SettingRow
-            icon={<PlayCircle size={15} />}
-            label="Tutorial videos &amp; explanations"
-            description="Show demo videos and step-by-step how-to guides inside each exercise during a workout and in exercise detail"
-            enabled={settings.showTutorialVideos}
-            onToggle={() => onUpdateSettings({ showTutorialVideos: !settings.showTutorialVideos })}
-          />
-
-          {/* Placeholder rows so user can see the pattern — easy to wire up */}
-          <div className="flex items-center gap-3 py-3 opacity-40 pointer-events-none">
-            <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
-              <ChevronRight size={14} className="text-gray-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-gray-800">More settings coming soon</div>
-              <div className="text-xs text-gray-400">Rest timer sounds, units, theme…</div>
-            </div>
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Settings</h3>
+        <div className="flex items-center gap-3 py-3 opacity-50 pointer-events-none">
+          <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+            <ChevronRight size={14} className="text-gray-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-gray-800">More settings coming soon</div>
+            <div className="text-xs text-gray-400">Rest timer sounds, units, notifications and more.</div>
           </div>
         </div>
       </Card>

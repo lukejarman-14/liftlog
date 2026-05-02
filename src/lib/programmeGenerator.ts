@@ -133,19 +133,19 @@ function getFVProfile(mdDay: string): {
   repRange: 'low' | 'medium' | 'high';
 } {
   if (mdDay === 'MD-4') return {
-    profile: 'Strength end of F-V curve — heavy compound work paired with explosive power output',
+    profile: 'Heavy strength day. High load, low reps, explosive intent on every rep.',
     loadScheme: 'heavy', repRange: 'low',
   };
   if (mdDay === 'MD-3') return {
-    profile: 'Speed end of F-V curve — low load, maximal velocity, elastic energy',
+    profile: 'Speed day. Light load, maximal velocity. Quality over quantity.',
     loadScheme: 'light', repRange: 'high',
   };
   if (mdDay === 'MD-2') return {
-    profile: 'Middle of F-V curve — repeated-effort conditioning, moderate output',
+    profile: 'Conditioning day. Moderate effort, low-impact cross-training only.',
     loadScheme: 'moderate', repRange: 'medium',
   };
   return {
-    profile: 'Neural priming — submaximal load, high intent, zero accumulated fatigue',
+    profile: 'Neural priming. Short, sharp, high-quality output. No fatigue accumulation.',
     loadScheme: 'light', repRange: 'medium',
   };
 }
@@ -937,24 +937,24 @@ function primingSession(dow: string, position: string, playStyle: string): Progr
 // ── Session objective labels ───────────────────────────────────────────────
 
 const MD4_OBJ: Record<string, string> = {
-  Foundation: 'MD-4 — Establish movement patterns and build foundational strength. Quality before load — own every rep.',
-  Build: 'MD-4 — Increase strength load with position-specific power. Push the adaptation — this is where gains are made.',
-  'Strength & Power': 'MD-4 — Peak force production. High neural demand. Maximise every main set with full recovery between.',
-  Peak: 'MD-4 — Express strength. High intent, reduced volume. Transfer what you\'ve built to pitch.',
+  Foundation: 'Strength day. Establish movement patterns and build your foundational base. Focus on quality, not just load.',
+  Build: 'Strength day. Increase load with position-specific power work. This is where your main physical gains are made.',
+  'Strength & Power': 'Strength day. Peak force production. High neural demand. Take full rest between every main set.',
+  Peak: 'Strength day. Express the strength you have built. High intent, reduced volume.',
 };
 
 const MD3_OBJ: Record<string, string> = {
-  Foundation: 'MD-3 — Develop acceleration mechanics and position-specific movement patterns.',
-  Build: 'MD-3 — Build max velocity. Position-specific speed at near-maximum effort.',
-  'Strength & Power': 'MD-3 — Peak speed session. Flying sprints. Maximum velocity expression.',
-  Peak: 'MD-3 — Sharpen speed. Low volume, maximum quality. Arrive sharp.',
+  Foundation: 'Speed day. Develop your acceleration mechanics and position-specific movement patterns.',
+  Build: 'Speed day. Build maximum velocity. Position-specific sprinting at near-maximum effort.',
+  'Strength & Power': 'Speed day. Peak sprint session. Flying sprints and maximum velocity work.',
+  Peak: 'Speed day. Sharpen your speed. Low volume, high quality. Stay fresh.',
 };
 
 const MD2_OBJ: Record<string, string> = {
-  Foundation: 'MD-2 — Build aerobic base and reinforce movement quality. Moderate load — productive and controlled.',
-  Build: 'MD-2 — Position-specific conditioning. Develop repeated-effort capacity for match demands.',
-  'Strength & Power': 'MD-2 — High-intensity conditioning. Push work capacity without accumulating fatigue that would affect match day.',
-  Peak: 'MD-2 — Sharp, focused conditioning at match intensity.',
+  Foundation: 'Conditioning day. Build your aerobic base and reinforce movement quality. Moderate effort throughout.',
+  Build: 'Conditioning day. Position-specific aerobic work. Build repeated-effort capacity for match demands.',
+  'Strength & Power': 'Conditioning day. Develop your work capacity without leaving fatigue that carries into match day.',
+  Peak: 'Conditioning day. Short, sharp and focused. Stay crisp.',
 };
 
 // ── Main session builder ───────────────────────────────────────────────────
@@ -1180,7 +1180,7 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
     ? ` Your ${inputs.playStyle.replace(/-/g, '-')} play style is reflected in position-specific speed patterns and conditioning protocols.`
     : '';
 
-  return `This ${totalWeeks}-week programme is built for a ${pos} whose primary physical objective is ${goal}. The training covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session follows a three-method structure: concentric work drives force production, eccentric work builds structural resilience and injury tolerance, and isometric work develops joint stability and co-contraction strength — all three qualities are trained every week.\n\nThe match-day periodisation runs MD4 → MD3 → MD2 → MD1 → MD: peak loading falls furthest from the match, and fatigue is systematically reduced as match day approaches. MD3 targets the speed end of the F-V curve, MD4 the strength end — together they develop the full athletic profile across the week.\n\n${readinessLine}`;
+  return `This ${totalWeeks}-week programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session uses a three-method structure. Concentric work builds force production, eccentric work creates structural resilience and reduces injury risk, and isometric work develops joint stability. All three are trained throughout the programme.\n\nSessions are structured around your match schedule. The heaviest training falls furthest from match day, and load is progressively reduced as the game approaches. This protects performance on the pitch while ensuring consistent physical development across the week.\n\n${readinessLine}`;
 }
 
 // ── Main export ────────────────────────────────────────────────────────────

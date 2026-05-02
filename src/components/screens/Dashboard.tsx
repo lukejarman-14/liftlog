@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Plus, TrendingUp, CalendarDays, AlertTriangle } from 'lucide-react';
+import { Plus, CalendarDays, AlertTriangle } from 'lucide-react';
 import { Layout } from '../Layout';
-import { Card } from '../ui/Card';
+
 import { WeeklyCalendar } from '../WeeklyCalendar';
 import { DailyReadinessWidget } from '../DailyReadinessWidget';
 import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan, DailyReadiness, GeneratedProgramme } from '../../types';
@@ -115,19 +115,6 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
     ? `${userProfile.firstName.charAt(0)}${userProfile.lastName.charAt(0)}`.toUpperCase()
     : '?';
 
-  const thisWeekSessions = sessions.filter(s => {
-    const d = new Date(s.date);
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
-    weekStart.setHours(0, 0, 0, 0);
-    return d >= weekStart;
-  });
-
-  const totalWeekVolume = thisWeekSessions.reduce((acc, s) =>
-    acc + s.exercises.reduce((a, ex) =>
-      a + ex.sets.reduce((sv, set) => sv + set.reps * set.weight, 0), 0), 0);
-
   // Progression bar: derive current week / total weeks
   let progWeek: number | null = null;
   let progTotal: number | null = null;
@@ -220,29 +207,6 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
       {/* Daily readiness check-in */}
       <DailyReadinessWidget existing={todayReadiness} onSave={onSaveReadiness} />
 
-      {/* Progress section */}
-      <section className="mb-6">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <TrendingUp size={14} />
-          Progress
-        </h2>
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-brand-500">{thisWeekSessions.length}</div>
-            <div className="text-xs text-gray-500 mt-0.5">This week</div>
-          </Card>
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-brand-500">{sessions.length}</div>
-            <div className="text-xs text-gray-500 mt-0.5">Total</div>
-          </Card>
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-brand-500">
-              {totalWeekVolume >= 1000 ? `${(totalWeekVolume / 1000).toFixed(1)}k` : totalWeekVolume}
-            </div>
-            <div className="text-xs text-gray-500 mt-0.5">Vol (kg)</div>
-          </Card>
-        </div>
-      </section>
     </Layout>
   );
 }

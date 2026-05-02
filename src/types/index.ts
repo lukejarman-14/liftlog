@@ -154,6 +154,10 @@ export interface UserProfile {
   goals: string[];           // e.g. ['speed', 'strength', 'endurance']
   gymAccess: 'full' | 'basic' | 'none';
   completedAt: number;       // timestamp
+  // Optional profile details collected during onboarding
+  heightCm?: number;
+  weightKg?: number;
+  gender?: 'male' | 'female' | 'other';
 }
 
 // ── Fitness Baseline / Testing Battery ───────────────────────────────────

@@ -78,12 +78,6 @@ export default function App() {
     navigate({ screen: 'dashboard' });
   };
 
-  const handleStartBattery = (profile: UserProfile, recommendedPlanId: string) => {
-    store.setUserProfile(profile);
-    activatePlan(recommendedPlanId);
-    navigate({ screen: 'testing-battery' });
-  };
-
   const handleGenerateProgramme = (inputs: ProgrammeInputs) => {
     const programme = generateProgramme(inputs);
     store.saveGeneratedProgramme(programme);
@@ -110,7 +104,6 @@ export default function App() {
     return (
       <Onboarding
         onComplete={handleOnboardingComplete}
-        onStartBattery={handleStartBattery}
       />
     );
   }
@@ -214,10 +207,8 @@ export default function App() {
           userProfile={store.userProfile}
           profilePicture={store.profilePicture}
           totalSessions={store.sessions.length}
-          settings={store.userSettings}
           baseline={store.baseline}
           onSetProfilePicture={store.setProfilePicture}
-          onUpdateSettings={store.updateSettings}
           onStartBattery={() => navigate({ screen: 'testing-battery' })}
           onResetProfile={() => {
             store.setUserProfile(null);
