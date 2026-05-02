@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp, Save, BookMarked, User } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp, BookMarked, User } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -111,6 +111,105 @@ function ExercisePicker({
   );
 }
 
+// ── Rest picker (scroll-wheel drum) ───────────────────────────────────────
+
+const MIN_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const SEC_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+const ITEM_H = 40;
+
+function DrumColumn({
+  options, value, onChange, label,
+}: { options: number[]; value: number; onChange: (v: number) => void; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const isMounting = useRef(true);
+
+  useEffect(() => {
+    const idx = options.indexOf(value);
+    if (ref.current && idx >= 0) {
+      ref.current.scrollTop = idx * ITEM_H;
+    }
+    // After mount, allow scroll events
+    const t = setTimeout(() => { isMounting.current = false; }, 100);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const commit = () => {
+    if (!ref.current) return;
+    const idx = Math.round(ref.current.scrollTop / ITEM_H);
+    const clamped = Math.max(0, Math.min(options.length - 1, idx));
+    ref.current.scrollTop = clamped * ITEM_H;
+    onChange(options[clamped]);
+  };
+
+  const handleScroll = () => {
+    if (isMounting.current) return;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(commit, 120);
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div
+        ref={ref}
+        onScroll={handleScroll}
+        style={{
+          height: ITEM_H * 3,
+          overflowY: 'scroll',
+          scrollSnapType: 'y mandatory',
+          WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'],
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        } as React.CSSProperties}
+        className="[&::-webkit-scrollbar]:hidden"
+      >
+        <div style={{ height: ITEM_H }} />
+        {options.map(o => (
+          <div
+            key={o}
+            style={{ height: ITEM_H, scrollSnapAlign: 'center' }}
+            className={`flex items-center justify-center text-xl font-bold cursor-pointer select-none ${
+              o === value ? 'text-brand-600' : 'text-gray-300'
+            }`}
+            onClick={() => {
+              onChange(o);
+              const idx = options.indexOf(o);
+              if (ref.current) ref.current.scrollTop = idx * ITEM_H;
+            }}
+          >
+            {String(o).padStart(2, '0')}
+          </div>
+        ))}
+        <div style={{ height: ITEM_H }} />
+      </div>
+      <span className="text-xs text-gray-400 font-medium">{label}</span>
+    </div>
+  );
+}
+
+function RestPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const mins = Math.floor(value / 60);
+  const rawSecs = value % 60;
+  const secs = SEC_OPTIONS.includes(rawSecs) ? rawSecs : Math.round(rawSecs / 5) * 5 % 60;
+
+  return (
+    <div className="col-span-2">
+      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Rest</label>
+      <div className="relative flex items-center justify-center bg-gray-50 rounded-xl border border-gray-200 py-2 gap-4">
+        {/* Selection highlight */}
+        <div
+          className="absolute left-4 right-4 h-10 bg-brand-50 border-y border-brand-200 rounded-lg pointer-events-none"
+          style={{ top: '50%', transform: 'translateY(-50%)' }}
+        />
+        <DrumColumn options={MIN_OPTIONS} value={mins} onChange={m => onChange(m * 60 + secs)} label="min" />
+        <span className="text-2xl font-bold text-gray-300 mb-5 z-10">:</span>
+        <DrumColumn options={SEC_OPTIONS} value={secs} onChange={s => onChange(mins * 60 + s)} label="sec" />
+      </div>
+    </div>
+  );
+}
+
 // ── Single exercise row in the builder ────────────────────────────────────
 
 function ExerciseRow({
@@ -165,11 +264,9 @@ function ExerciseRow({
             value={item.targetWeight}
             onChange={e => onChange({ ...item, targetWeight: parseFloat(e.target.value) || 0 })}
           />
-          <Input
-            label="Rest (seconds)"
-            type="number" min="0" step="5"
+          <RestPicker
             value={item.restSeconds}
-            onChange={e => onChange({ ...item, restSeconds: parseInt(e.target.value) || 0 })}
+            onChange={secs => onChange({ ...item, restSeconds: secs })}
           />
         </div>
       )}
@@ -354,6 +451,12 @@ export function WorkoutBuilder({
   const [showPicker, setShowPicker] = useState(false);
   const [showSave, setShowSave] = useState(false);
   const [saveNameInput, setSaveNameInput] = useState('');
+  const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
+  const [pendingTab, setPendingTab] = useState<Tab | null>(null);
+
+  // Track saved state: items are "dirty" if they exist and differ from last save
+  const savedItemsRef = useRef<string>(JSON.stringify(initial?.exercises ?? []));
+  const isDirty = items.length > 0 && JSON.stringify(items) !== savedItemsRef.current;
 
   const selectedIds = items.map(i => i.exerciseId);
 
@@ -392,8 +495,19 @@ export function WorkoutBuilder({
       exercises: items,
       createdAt: initial?.createdAt ?? Date.now(),
     });
+    savedItemsRef.current = JSON.stringify(items);
     setShowSave(false);
     setSaveNameInput('');
+  };
+
+  // Intercept tab change when dirty
+  const handleTabChange = (nextTab: Tab) => {
+    if (tab === 'build' && isDirty && nextTab !== 'build') {
+      setPendingTab(nextTab);
+      setShowUnsavedPrompt(true);
+    } else {
+      setTab(nextTab);
+    }
   };
 
   const tabs: { id: Tab; label: string; icon: typeof BookMarked }[] = [
@@ -408,10 +522,13 @@ export function WorkoutBuilder({
         tab === 'build' && items.length > 0 ? (
           <button
             onClick={() => setShowSave(true)}
-            className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
-            title="Save as template"
+            className={`px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors ${
+              isDirty
+                ? 'bg-brand-500 text-white hover:bg-brand-600'
+                : 'text-gray-400 hover:text-gray-600 border border-gray-200'
+            }`}
           >
-            <Save size={18} />
+            Save
           </button>
         ) : undefined
       }
@@ -422,7 +539,7 @@ export function WorkoutBuilder({
           {tabs.map(({ id, label }) => (
             <button
               key={id}
-              onClick={() => setTab(id)}
+              onClick={() => handleTabChange(id)}
               className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${
                 tab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
               }`}
@@ -461,7 +578,7 @@ export function WorkoutBuilder({
         <>
           {/* Back link */}
           <button
-            onClick={() => setTab('programs')}
+            onClick={() => handleTabChange('programs')}
             className="text-sm text-brand-500 font-medium mb-4 flex items-center gap-1"
           >
             ← Back to programs
@@ -531,6 +648,38 @@ export function WorkoutBuilder({
             <div className="flex gap-3 mt-4">
               <Button variant="secondary" fullWidth onClick={() => setShowSave(false)}>Cancel</Button>
               <Button fullWidth onClick={handleSaveTemplate}>Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unsaved changes prompt */}
+      {showUnsavedPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+            <h2 className="font-bold text-gray-900 mb-2">Unsaved workout</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              You have {items.length} exercise{items.length !== 1 ? 's' : ''} in your current workout. Save it as a template first?
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button fullWidth onClick={() => {
+                setShowUnsavedPrompt(false);
+                setShowSave(true);
+              }}>
+                Save template
+              </Button>
+              <Button variant="secondary" fullWidth onClick={() => {
+                setShowUnsavedPrompt(false);
+                if (pendingTab) { setTab(pendingTab); setPendingTab(null); }
+              }}>
+                Discard &amp; leave
+              </Button>
+              <button
+                onClick={() => { setShowUnsavedPrompt(false); setPendingTab(null); }}
+                className="text-sm text-gray-400 py-1"
+              >
+                Stay here
+              </button>
             </div>
           </div>
         </div>

@@ -292,6 +292,7 @@ function SetRow({
                   type="number" value={weight} min="0" step="0.5"
                   disabled={!isInteractive}
                   onChange={e => setWeight(parseFloat(e.target.value) || 0)}
+                  onFocus={e => e.target.select()}
                   className="w-16 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50"
                 />
                 <button
@@ -316,6 +317,7 @@ function SetRow({
                   type="number" value={reps} min="1"
                   disabled={!isInteractive}
                   onChange={e => setReps(parseInt(e.target.value) || 1)}
+                  onFocus={e => e.target.select()}
                   className="w-12 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50"
                 />
                 <button
@@ -338,6 +340,7 @@ function SetRow({
               </button>
               <input type="number" value={reps} min="1" disabled={!isInteractive}
                 onChange={e => setReps(parseInt(e.target.value) || 1)}
+                onFocus={e => e.target.select()}
                 className="w-14 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50" />
               <button disabled={!isInteractive} onClick={() => setReps(r => r + 1)}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
@@ -355,6 +358,7 @@ function SetRow({
               </button>
               <input type="number" value={weight} min="0" step={step} disabled={!isInteractive}
                 onChange={e => setWeight(parseFloat(e.target.value) || 0)}
+                onFocus={e => e.target.select()}
                 className="w-20 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50" />
               <button disabled={!isInteractive} onClick={() => setWeight(w => parseFloat((w + step).toFixed(2)))}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">

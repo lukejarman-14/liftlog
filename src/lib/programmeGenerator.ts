@@ -558,68 +558,142 @@ const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
 
 // ── Conditioning by position × phase ──────────────────────────────────────
 
+// Running-based conditioning — MD-2 uses CONDITIONING_MD2 (low-impact bike/pool).
+// This table provides the run-based exercises for standalone conditioning sessions
+// and is consumed by getRunCondEx() below.
 const CONDITIONING: Record<PosKey, Record<string, ProgrammeExercise>> = {
   GK: {
-    Foundation: ex('Interval Shuttle', '4', '6 × 20m', '2:00 between sets', 'Moderate pace. COD focus. 75% effort.',
+    Foundation: ex('Interval Shuttle', '4', '6 × 20m', '2:00 between sets', 'Moderate pace. COD focus. 75% max effort.',
       { methodType: 'mixed', intensityIntent: 'moderate' }),
-    Build: ex('HIIT: 15s on / 15s off', '12', 'rounds', 'Self-paced', 'Explosive for 15s, walk 15s.',
+    Build: ex('10s Sprint / 20s Walk Intervals', '1', '8 rounds (4 min total)', '3:00 after all rounds', 'Max intent each 10s sprint. Full walk recovery. Short, sharp, anaerobic.',
       { methodType: 'mixed', intensityIntent: 'explosive' }),
-    'Strength & Power': ex('Flying 20m Repeat Sprint', '6', '20m', '30s rest', 'Near-max each rep. Short and sharp.',
+    'Strength & Power': ex('Flying 20m Repeat Sprint', '6', '20m', '30s rest', 'Near-max each rep. Rolling start — hit top speed inside 20m.',
       { methodType: 'concentric', intensityIntent: 'maximal' }),
-    Peak: ex('Sprint Finisher', '3', '4 × 10m', '2:00 between sets', 'Sharp, reactive. Quality over quantity.',
+    Peak: ex('Sprint Finisher', '3', '4 × 10m', '2:00 between sets', 'Sharp, reactive. 100% intent every rep. Quality over quantity.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
   },
   CB: {
-    Foundation: ex('Deceleration Sprint Drill', '4', '30m sprint → brake', '2:00', 'Sprint 30m, plant and stop. Eccentric knee and hip control.',
+    Foundation: ex('Deceleration Sprint Drill', '4', '30m sprint → brake', '2:00', 'Sprint 30m, plant and brake hard. Focus: eccentric knee and hip control at high speed.',
       { methodType: 'eccentric', intensityIntent: 'controlled' }),
-    Build: ex('Repeated 30m Sprint', '6', '30m', '30s rest', '85% effort. Develop sprint endurance.',
+    Build: ex('Repeated 30m Sprint', '6', '30m', '30s rest', '85% effort. Sprint, walk back, repeat. Build repeated sprint ability.',
       { methodType: 'concentric', intensityIntent: 'submaximal' }),
-    'Strength & Power': ex('High-Intensity Shuttle', '6', '20m', '30s rest', 'Maximum each rep.',
+    'Strength & Power': ex('High-Intensity 20m Shuttle', '6', '20m', '30s rest', '100% effort each rep. Max deceleration at turn. Short rest — build lactate tolerance.',
       { methodType: 'mixed', intensityIntent: 'maximal' }),
-    Peak: ex('Short Sprint Repeats', '6', '10–20m', '45s rest', 'Sharp. Match intensity.',
+    Peak: ex('Short Sprint Repeats', '6', '10–20m', '45s rest', '95–100% effort. Sharp and reactive. Match sprint intensity.',
       { methodType: 'concentric', intensityIntent: 'explosive' }),
   },
   FB: {
-    Foundation: ex('Repeated 40m Sprint', '6', '40m', '25s rest', 'Build RSA tolerance. 80% effort.',
+    Foundation: ex('Repeated 40m Sprint', '6', '40m', '25s rest', '80% effort. Build repeated sprint tolerance. Walk back is rest.',
       { methodType: 'concentric', intensityIntent: 'submaximal' }),
-    Build: ex('400m Tempo Run', '4', '400m', '90s rest', '75–80% max HR. Aerobic base.',
+    Build: ex('400m Tempo Run', '4', '400m', '90s rest', '75–80% max HR. Hold pace each rep. Aerobic base for full-back distances.',
       { methodType: 'concentric', intensityIntent: 'moderate' }),
-    'Strength & Power': ex('Shuttle Sprint Repeats', '8', '40m', '20s rest', '90% effort.',
+    'Strength & Power': ex('Shuttle Sprint Repeats', '8', '40m', '20s rest', '90% effort. Short rest demands high aerobic power. Full-back endurance capacity.',
       { methodType: 'concentric', intensityIntent: 'maximal' }),
-    Peak: ex('4×4 Interval', '4', '4 min at 85%', '3:00 rest', 'HR above 85%. Match demand simulation.',
+    Peak: ex('4×4 Interval', '4', '4 min at 85% max HR', '3:00 rest', 'HR above 85% for full interval. Match demand simulation for wide players.',
       { methodType: 'mixed', intensityIntent: 'submaximal' }),
   },
   CM: {
-    Foundation: ex('Tempo Run', '3', '1000m', '2:00 rest', '70% effort — build the aerobic engine.',
+    Foundation: ex('Aerobic Tempo Run', '3', '1000m', '2:00 rest', '70% effort — conversational pace. Build the aerobic engine.',
       { methodType: 'concentric', intensityIntent: 'moderate' }),
-    Build: ex('4×4 Interval', '4', '4 min at 85%', '3:00 rest', 'HR > 90% for last minute of each rep.',
+    Build: ex('4×4 Interval Run', '4', '4 min at 85% max HR', '3:00 rest', 'HR > 90% for last minute of each rep. CM aerobic-anaerobic base.',
       { methodType: 'mixed', intensityIntent: 'submaximal' }),
-    'Strength & Power': ex('30-15 Fitness Test (Training)', '1', '15 min session', '', '30s at 13–14 km/h, 15s walk.',
+    'Strength & Power': ex('30-15 Intermittent Fitness Protocol', '1', '12 min continuous', '', 'Run 30s at 13–14 km/h, walk 15s. Repeat for 12 min. Classic box-to-box conditioning.',
       { methodType: 'mixed', intensityIntent: 'submaximal' }),
-    Peak: ex('High-Intensity Shuttle', '6', '20m', '30s rest', 'Max each rep. Box-to-box simulation.',
+    Peak: ex('High-Intensity 20m Shuttle', '6', '20m', '30s rest', 'Max each rep. Box-to-box simulation. Fully explosive transitions.',
       { methodType: 'mixed', intensityIntent: 'maximal' }),
   },
   W: {
-    Foundation: ex('Repeated 40m Sprint', '6', '40m', '25s rest', '85% effort. Build RSA tolerance.',
+    Foundation: ex('Repeated 40m Sprint', '6', '40m', '25s rest', '85% effort. Build RSA tolerance. Walk back = rest.',
       { methodType: 'concentric', intensityIntent: 'submaximal' }),
-    Build: ex('Repeated 40m Sprint', '8', '40m', '20s rest', '90% effort. Higher anaerobic demand.',
+    Build: ex('Repeated 40m Sprint', '8', '40m', '20s rest', '90% effort. Higher anaerobic demand. Winger repeat-sprint profile.',
       { methodType: 'concentric', intensityIntent: 'maximal' }),
-    'Strength & Power': ex('Flying 30m Repeat Sprint', '6', '30m', '45s rest', 'Max velocity. Near-complete recovery.',
+    'Strength & Power': ex('Flying 30m Repeat Sprint', '6', '30m', '45s rest', 'Max velocity. Near-complete recovery. Winger speed endurance.',
       { methodType: 'concentric', intensityIntent: 'maximal' }),
-    Peak: ex('Sprint Cluster', '4', '3 × 20m (15s between)', '3:00 between sets', 'Match-like sprint clusters.',
+    Peak: ex('Sprint Cluster', '4', '3 × 20m (15s between)', '3:00 between sets', 'Match-like sprint clusters. Maximal intent every rep.',
       { methodType: 'concentric', intensityIntent: 'explosive' }),
   },
   ST: {
-    Foundation: ex('Sprint + Jog Recovery Circuit', '6', '30m sprint / 40m jog', 'Continuous', 'Sprint, jog recovery. Builds aerobic base.',
+    Foundation: ex('Sprint + Jog Recovery Circuit', '6', '30m sprint / 40m jog recovery', 'Continuous circuit', 'Sprint the 30m, jog 40m recovery. Builds aerobic base without full rest.',
       { methodType: 'mixed', intensityIntent: 'moderate' }),
-    Build: ex('10m Burst Repeats', '10', '10m', '30s rest', '100% intent. Striker sprint simulation.',
+    Build: ex('10m Burst Repeats', '10', '10m', '30s rest', '100% intent every rep. Explosive first step. Striker penalty-area sprint simulation.',
       { methodType: 'reactive', intensityIntent: 'maximal' }),
-    'Strength & Power': ex('Repeated 20m Sprint', '8', '20m', '20s rest', 'Near-maximal. Anaerobic capacity.',
+    'Strength & Power': ex('Repeated 20m Sprint', '8', '20m', '20s rest', 'Near-maximal. Short rest. Anaerobic capacity — peak box arrival speed.',
       { methodType: 'concentric', intensityIntent: 'maximal' }),
-    Peak: ex('Sprint + Jump Finisher', '3', '3 × 15m + CMJ', '3:00 between sets', 'Sprint, sprint, sprint, jump. Penalty box.',
+    Peak: ex('Sprint + Jump Finisher', '3', '3 × 15m then CMJ', '3:00 between sets', 'Three sprints then a max CMJ. Striker match-day movement pattern.',
       { methodType: 'mixed', intensityIntent: 'explosive' }),
   },
 };
+
+// ── Low-impact cross-training conditioning (MD-2) ─────────────────────────
+// Used 2 days before match. Bike / pool / ergometer only.
+// Goal: maintain aerobic sharpness without loading the running muscles.
+const CONDITIONING_MD2: Record<PosKey, Record<string, ProgrammeExercise>> = {
+  GK: {
+    Foundation: ex('Stationary Bike: Aerobic Ride', '1', '15 min at 65% max HR', '', 'Steady, comfortable pace. HR 120–135. Active recovery — flush legs without loading them.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+    Build: ex('Stationary Bike: 20s Sprint / 40s Easy', '6', 'rounds (6 min total)', '3:00 after all rounds', '20s maximum effort, 40s easy pedalling. Non-impact explosive stimulus.',
+      { methodType: 'mixed', intensityIntent: 'explosive' }),
+    'Strength & Power': ex('Stationary Bike: Tempo Effort', '3', '3 min at 80% max HR', '90s rest', 'Sustained effort. HR 140–155. Aerobic power stimulus — zero ground impact.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+    Peak: ex('Stationary Bike: Activation Ride', '1', '10 min at 70% max HR', '', 'Light spin — elevate HR, prime legs. HR 130–145. No fatigue.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+  },
+  CB: {
+    Foundation: ex('Cycle Ergometer: Steady Aerobic', '1', '20 min at 65% max HR', '', 'Moderate pace. HR 115–130. Zero joint impact — preserve legs for match.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+    Build: ex('Cycle Ergometer: 30s On / 30s Off', '8', 'rounds (8 min total)', '3:00 after all rounds', '30s hard (HR > 85%), 30s easy spin. Non-impact lactate work.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+    'Strength & Power': ex('Cycle Ergometer: Threshold Intervals', '4', '4 min at 85% max HR', '2:00 rest', 'Sustained hard effort. Non-running aerobic output. Avoid impact.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+    Peak: ex('Cycle Ergometer: Flush Spin', '1', '12 min at 60% max HR', '', 'Easy spin. Metabolic flush. HR < 125. Zero fatigue.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+  },
+  FB: {
+    Foundation: ex('Pool Running or Light Swim', '1', '20 min continuous', '', 'Buoyancy eliminates ground impact. HR 120–135. Full-back aerobic maintenance.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+    Build: ex('Stationary Bike: 45s Hard / 15s Easy', '6', 'rounds (6 min total)', '3:00 after all rounds', '45s strong effort (HR 140–155), 15s easy. Aerobic power without impact.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+    'Strength & Power': ex('Cycle Ergometer: Tempo Ride', '1', '18 min at 75–80% max HR', '', 'Consistent tempo effort. HR 140–155. Aerobic base — no running load.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+    Peak: ex('Stationary Bike: Activation', '1', '10 min at 65% max HR', '', 'Easy priming spin. HR 120–130. Preserve full-back legs — match tomorrow.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+  },
+  CM: {
+    Foundation: ex('Cycle Ergometer: Aerobic Base', '1', '20 min at 65–70% max HR', '', 'Conversational effort on the bike. HR 120–135. Maintains aerobic base without running volume.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+    Build: ex('Stationary Bike: 30s Sprint / 30s Recovery', '8', 'rounds (8 min total)', '3:00 after all rounds', '30s maximal effort, 30s easy. Box-to-box aerobic-anaerobic stimulus — no impact.',
+      { methodType: 'mixed', intensityIntent: 'explosive' }),
+    'Strength & Power': ex('Cycle Ergometer: Threshold Intervals', '4', '4 min at 85% max HR', '2:00 rest', '30-15 equivalent output on the bike. HR > 85%. Non-impact.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+    Peak: ex('Cycle Ergometer: Flush Ride', '1', '12 min at 60% max HR', '', 'Easy spin. Legs loose and fresh. HR < 120. CM match-day readiness.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+  },
+  W: {
+    Foundation: ex('Stationary Bike: Aerobic Ride', '1', '15 min at 65% max HR', '', 'Steady effort. HR 120–130. Maintain aerobic sharpness — protect winger legs.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+    Build: ex('Stationary Bike: 15s Sprint / 45s Recovery', '8', 'rounds (8 min total)', '3:00 after all rounds', '15s all-out sprint cadence, 45s easy spin. Winger burst pattern — zero impact.',
+      { methodType: 'mixed', intensityIntent: 'explosive' }),
+    'Strength & Power': ex('Stationary Bike: Speed-Endurance', '3', '2 min at 85% max HR', '90s rest', 'Sustained hard effort. HR > 85%. Non-running speed-endurance stimulus.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+    Peak: ex('Stationary Bike: Activation', '1', '8 min at 60% max HR', '', 'Light spin. Legs primed, not taxed. HR 115–125. Winger freshness preserved.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+  },
+  ST: {
+    Foundation: ex('Cycle Ergometer: Steady Ride', '1', '15 min at 65% max HR', '', 'Easy, comfortable effort. HR 115–130. Aerobic maintenance — striker legs stay fresh.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+    Build: ex('Stationary Bike: 10s Max / 50s Easy', '8', 'rounds (8 min total)', '3:00 after all rounds', '10s maximal sprint cadence, 50s easy spin. Mirrors striker sprint pattern — no impact.',
+      { methodType: 'mixed', intensityIntent: 'explosive' }),
+    'Strength & Power': ex('Cycle Ergometer: Power Intervals', '4', '3 min at 80% max HR', '90s rest', 'Strong, sustained effort. HR 140–155. Anaerobic capacity — non-impact.',
+      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+    Peak: ex('Stationary Bike: Flush Spin', '1', '10 min at 60% max HR', '', 'Easy spin to flush legs. HR < 120. Striker freshness for match — no fatigue.',
+      { methodType: 'mixed', intensityIntent: 'moderate' }),
+  },
+};
+
+/** Returns run-based conditioning for a position/phase (for reference / future standalone sessions). */
+export function getRunCondEx(posKey: PosKey, phase: string): ProgrammeExercise {
+  return CONDITIONING[posKey]?.[phase] ?? CONDITIONING.CM.Foundation;
+}
 
 // ── Weakness exercises ─────────────────────────────────────────────────────
 
@@ -789,7 +863,7 @@ function recoverySession(dow: string): ProgrammeSession {
             { methodType: 'concentric', intensityIntent: 'moderate' }),
           ex('Band Clamshell', '2', '15 each', '30s', 'Light band. Hip external rotation. Activate without loading.',
             { methodType: 'concentric', intensityIntent: 'moderate' }),
-          ex('20 min Walk, Swim, or Light Bike', '1', 'optional', '', 'Active recovery accelerates clearance. Recommended.',
+          ex('Light Bike or Walk', '1', '20 min at 55–65% max HR', '', 'HR below 130 bpm throughout. Active recovery — promotes blood flow without adding fatigue.',
             { intensityIntent: 'moderate' }),
         ],
       },
@@ -907,7 +981,7 @@ function buildSession(
   const posKey = position as PosKey;
   const posSpeedEx = POSITION_SPEED[posKey] ?? [];
   const accelEx = SPEED_ACCELERATION[phase] ?? SPEED_ACCELERATION.Foundation;
-  const condEx = CONDITIONING[posKey]?.[phase] ?? CONDITIONING.CM.Foundation;
+  const condExMD2 = CONDITIONING_MD2[posKey]?.[phase] ?? CONDITIONING_MD2.CM.Foundation;
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
   const weaknessEx = WEAKNESS_EX[biggestWeakness]?.slice(0, 2) ?? [];
 
@@ -1028,37 +1102,39 @@ function buildSession(
     };
   }
 
-  // MD-2: conditioning + technical speed + weakness + prehab
+  // MD-2: LOW-IMPACT cross-training + technical speed + weakness + prehab
+  // Science: 2 days before match → must avoid muscular fatigue carryover.
+  // Bike / pool / ergometer only — maintains aerobic sharpness without loading sprint muscles.
   if (slot.mdDay === 'MD-2') {
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
-      objective: MD2_OBJ[phase] ?? MD2_OBJ.Build,
-      readinessNote, durationMin,
-      fvProfile: fv.profile,
+      objective: (MD2_OBJ[phase] ?? MD2_OBJ.Build) + ' Low-impact cross-training only — protect legs for match day.',
+      readinessNote: readinessNote + ' MD-2: bike or pool conditioning only. No running.',
+      durationMin, fvProfile: fv.profile,
       blocks: [
         {
           title: '🔥 Warm-Up (10 min)',
-          methodFocus: 'Aerobic ramp — elevate HR progressively before conditioning',
+          methodFocus: 'Aerobic ramp — elevate HR progressively, minimal impact',
           exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_NEURAL.slice(0, 2)],
         },
         {
-          title: '🏃 Conditioning Block',
-          methodFocus: `Position-specific conditioning — ${posKey} repeated-effort demands`,
-          exercises: applyReadiness([condEx], readiness.level, readiness.intensityNote),
+          title: '🚴 Low-Impact Conditioning',
+          methodFocus: 'Bike / pool — maintain aerobic sharpness without fatigue carryover into match',
+          exercises: applyReadiness([condExMD2], readiness.level, readiness.intensityNote),
         },
         {
-          title: '⚡ Technical Speed',
-          methodFocus: 'Reactive — position-specific speed patterns and COD at match velocity',
-          exercises: posSpeedEx.length > 0 ? posSpeedEx.slice(0, 2) : accelEx.slice(0, 1),
+          title: '⚡ Technical Speed (Low Volume)',
+          methodFocus: 'Reactive — position-specific patterns at match velocity. Max 2 exercises, full recovery. MD-2: volume halved.',
+          exercises: (posSpeedEx.length > 0 ? posSpeedEx.slice(0, 1) : accelEx.slice(0, 1)),
         },
         {
-          title: '🎯 Weakness Focus',
-          methodFocus: `${biggestWeakness} — conditioning day opportunity to stack additional weakness work`,
-          exercises: weaknessEx,
+          title: '🎯 Weakness Focus (Maintenance)',
+          methodFocus: `${biggestWeakness} — 1 exercise only. Maintain stimulus, do not accumulate fatigue before match.`,
+          exercises: weaknessEx.slice(0, 1),
         },
         {
           title: '🛡️ Injury Prevention',
-          methodFocus: 'Isometric + eccentric — joint integrity maintenance mid-week',
+          methodFocus: 'Isometric + eccentric — joint integrity maintenance 2 days before match',
           exercises: prehabEx,
         },
       ],

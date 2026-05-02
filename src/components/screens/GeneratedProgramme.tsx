@@ -221,13 +221,18 @@ function IntentTag({ intent }: { intent?: string }) {
 function ExerciseRow({ exercise }: { exercise: ProgrammeExercise }) {
   const [open, setOpen] = useState(false);
   const { name, sets, reps, rest, intensity, tempo, methodType, intensityIntent, cue } = exercise;
+  const isIsometric = methodType === 'isometric';
   return (
     <div className="border-b border-gray-100 last:border-0">
       <button className="w-full text-left py-3 px-3 flex items-start justify-between" onClick={() => setOpen(o => !o)}>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-900 leading-tight">{name}</p>
           <div className="flex gap-1.5 mt-1.5 flex-wrap items-center">
-            <Pill label={`${sets} × ${reps}`} colour="bg-brand-100 text-brand-700" />
+            <Pill
+              label={`${sets} × ${reps}`}
+              colour={isIsometric ? 'bg-purple-100 text-purple-700' : 'bg-brand-100 text-brand-700'}
+            />
+            {isIsometric && <Pill label="⏸ hold" colour="bg-purple-50 text-purple-600" />}
             {rest && <Pill label={`${rest} rest`} colour="bg-gray-100 text-gray-600" />}
             {intensity && <Pill label={intensity} colour="bg-orange-100 text-orange-600" />}
             {tempo && <Pill label={`⏱ ${tempo}`} colour="bg-indigo-50 text-indigo-600" />}

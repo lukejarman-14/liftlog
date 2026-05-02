@@ -6,6 +6,7 @@ import { WeeklyCalendar } from '../WeeklyCalendar';
 import { DailyReadinessWidget } from '../DailyReadinessWidget';
 import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan, DailyReadiness, GeneratedProgramme } from '../../types';
 import { useStore } from '../../hooks/useStore';
+import { POSITION_PLANS, getCurrentPlanWeek } from '../../data/positionPlans';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
@@ -127,6 +128,24 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
     acc + s.exercises.reduce((a, ex) =>
       a + ex.sets.reduce((sv, set) => sv + set.reps * set.weight, 0), 0), 0);
 
+  // Progression bar: derive current week / total weeks
+  let progWeek: number | null = null;
+  let progTotal: number | null = null;
+  let progLabel = '';
+  if (activeProgramme) {
+    progTotal = activeProgramme.durationWeeks;
+    const weeksSinceCreated = Math.floor((Date.now() - activeProgramme.createdAt) / (7 * 24 * 60 * 60 * 1000));
+    progWeek = Math.min(weeksSinceCreated + 1, progTotal);
+    progLabel = activeProgramme.summary.split('·')[0].trim();
+  } else if (activePlan) {
+    const plan = POSITION_PLANS.find(p => p.id === activePlan.planId);
+    if (plan) {
+      progTotal = plan.weeks.length;
+      progWeek = Math.min(getCurrentPlanWeek(activePlan.startDate) + 1, progTotal);
+      progLabel = plan.shortName;
+    }
+  }
+
   return (
     <Layout
       title="VectorFootball"
@@ -181,6 +200,22 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         onNavigate={onNavigate}
         onStartWorkout={onStartWorkout}
       />
+
+      {/* Plan / Programme progression bar */}
+      {progWeek !== null && progTotal !== null && (
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-gray-500 truncate max-w-[70%]">{progLabel}</span>
+            <span className="text-xs font-bold text-brand-600 flex-shrink-0">Week {progWeek} / {progTotal}</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-brand-500 rounded-full transition-all duration-500"
+              style={{ width: `${(progWeek / progTotal) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Daily readiness check-in */}
       <DailyReadinessWidget existing={todayReadiness} onSave={onSaveReadiness} />
