@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useStore } from './hooks/useStore';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/screens/Dashboard';
@@ -9,6 +9,7 @@ import { ActiveWorkout } from './components/screens/ActiveWorkout';
 import { History } from './components/screens/History';
 import { PlanDetail } from './components/screens/PlanDetail';
 import { Onboarding } from './components/screens/Onboarding';
+import { Login } from './components/screens/Login';
 import { Profile } from './components/screens/Profile';
 import { NavState, WorkoutExercise, WorkoutSession, UserProfile, TestSession } from './types';
 import { POSITION_TEMPLATES } from './data/positionPlans';
@@ -20,14 +21,61 @@ import { GeneratedProgramme } from './components/screens/GeneratedProgramme';
 import { ProgrammeHub } from './components/screens/ProgrammeHub';
 import { generateProgramme } from './lib/programmeGenerator';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
+import {
+  isSupabaseConfigured,
+  cloudSignOut,
+  cloudSaveData,
+  getExistingSession,
+} from './lib/cloudSync';
 
 export default function App() {
   const store = useStore();
   const [nav, setNav] = useState<NavState>({ screen: 'dashboard' });
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [currentProgramme, setCurrentProgramme] = useState<GPType | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // While checking for an existing Supabase session, show nothing to avoid flash
+  const [sessionChecking, setSessionChecking] = useState(isSupabaseConfigured);
 
-  const navigate = useCallback((next: NavState) => setNav(next), []);
+  const cloudUserIdRef = useRef<string | null>(null);
+
+  // ── On mount: restore existing Supabase session ────────────────────────────
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    getExistingSession().then(userId => {
+      if (userId) {
+        cloudUserIdRef.current = userId;
+        setIsAuthenticated(true);
+      }
+      setSessionChecking(false);
+    });
+  }, []);
+
+  // ── Periodic background sync (every 2 min while authenticated) ────────────
+  useEffect(() => {
+    if (!isAuthenticated || !isSupabaseConfigured) return;
+    const id = setInterval(() => {
+      if (cloudUserIdRef.current) cloudSaveData(cloudUserIdRef.current);
+    }, 120_000);
+    return () => clearInterval(id);
+  }, [isAuthenticated]);
+
+  // ── Save to cloud before page unload ──────────────────────────────────────
+  useEffect(() => {
+    if (!isAuthenticated || !isSupabaseConfigured) return;
+    const handler = () => {
+      if (cloudUserIdRef.current) cloudSaveData(cloudUserIdRef.current);
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isAuthenticated]);
+
+  const navigate = useCallback((next: NavState) => {
+    setNav(next);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [nav.screen]);
 
   const handleStartWorkout = (name: string, items: WorkoutExercise[]) => {
     const session: WorkoutSession = {
@@ -56,7 +104,6 @@ export default function App() {
     setNav({ screen: 'dashboard' });
   };
 
-  // Directly starts a position-plan session from a template ID
   const handleStartTemplate = (templateId: string, name: string) => {
     const template = POSITION_TEMPLATES.find(t => t.id === templateId);
     if (template) handleStartWorkout(name || template.name, template.exercises);
@@ -72,16 +119,21 @@ export default function App() {
     store.setActivePlan({ planId, startDate: startDate.toISOString().split('T')[0] });
   };
 
-  const handleOnboardingComplete = (profile: UserProfile, recommendedPlanId: string) => {
+  const handleOnboardingComplete = (
+    profile: UserProfile,
+    recommendedPlanId: string,
+    userId?: string,
+  ) => {
     store.setUserProfile(profile);
     activatePlan(recommendedPlanId);
+    if (userId) cloudUserIdRef.current = userId;
     navigate({ screen: 'dashboard' });
   };
 
   const handleGenerateProgramme = (inputs: ProgrammeInputs) => {
     const programme = generateProgramme(inputs);
     store.saveGeneratedProgramme(programme);
-    store.setActiveProgrammeId(programme.id); // auto-integrate into calendar
+    store.setActiveProgrammeId(programme.id);
     setCurrentProgramme(programme);
     navigate({ screen: 'generated-programme' });
   };
@@ -99,11 +151,56 @@ export default function App() {
     navigate({ screen: 'dashboard' });
   };
 
-  // Show onboarding for new users
+  const handleLogout = async () => {
+    // Save current data to cloud before logging out
+    if (isSupabaseConfigured && cloudUserIdRef.current) {
+      await cloudSaveData(cloudUserIdRef.current);
+      await cloudSignOut();
+    }
+    cloudUserIdRef.current = null;
+    setIsAuthenticated(false);
+  };
+
+  // ── Auth guards ────────────────────────────────────────────────────────────
+
+  // While checking for Supabase session, show a minimal loading state
+  if (sessionChecking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-4 border-brand-200 border-t-brand-500 animate-spin" />
+      </div>
+    );
+  }
+
   if (!store.userProfile) {
     return (
       <Onboarding
-        onComplete={handleOnboardingComplete}
+        onComplete={(profile, planId, userId) => {
+          handleOnboardingComplete(profile, planId, userId);
+          setIsAuthenticated(true);
+        }}
+        onLoginSuccess={(userId) => {
+          if (userId) cloudUserIdRef.current = userId;
+          setIsAuthenticated(true);
+        }}
+      />
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Login
+        profile={store.userProfile}
+        onLogin={(userId) => {
+          if (userId) cloudUserIdRef.current = userId;
+          setIsAuthenticated(true);
+        }}
+        onForgotPassword={() => {
+          if (window.confirm('This will reset all your data and return you to setup. Are you sure?')) {
+            store.clearAll();
+            setIsAuthenticated(false);
+          }
+        }}
       />
     );
   }
@@ -123,9 +220,11 @@ export default function App() {
             : null}
           profilePicture={store.profilePicture}
           todayReadiness={store.getTodayReadiness()}
+          exercises={store.exercises}
           onSaveReadiness={store.saveDailyReadiness}
           onNavigate={navigate}
           onStartWorkout={handleStartTemplate}
+          onStartProgrammeSession={handleStartWorkout}
         />
       )}
 
@@ -181,13 +280,14 @@ export default function App() {
         />
       )}
 
-      {/* Plans tab → Programme Hub */}
       {screen === 'plans' && store.userProfile && (
         <ProgrammeHub
           userProfile={store.userProfile}
           generatedProgrammes={store.generatedProgrammes}
+          activeProgrammeId={store.activeProgrammeId}
           onNavigate={navigate}
           onViewProgramme={handleViewProgramme}
+          onDeleteProgramme={store.deleteGeneratedProgramme}
         />
       )}
 
@@ -214,6 +314,17 @@ export default function App() {
             store.setUserProfile(null);
             navigate({ screen: 'dashboard' });
           }}
+          onChangePassword={(newHash) => {
+            if (store.userProfile) {
+              store.setUserProfile({ ...store.userProfile, passwordHash: newHash });
+            }
+          }}
+          onUpdateProfile={(updates) => {
+            if (store.userProfile) {
+              store.setUserProfile({ ...store.userProfile, ...updates });
+            }
+          }}
+          onLogout={handleLogout}
           onBack={() => navigate({ screen: 'dashboard' })}
         />
       )}
@@ -233,6 +344,9 @@ export default function App() {
         <LoadCalendar
           onNavigate={navigate}
           onBack={() => navigate({ screen: 'dashboard' })}
+          activeProgramme={store.activeProgrammeId
+            ? store.generatedProgrammes.find(p => p.id === store.activeProgrammeId) ?? null
+            : null}
         />
       )}
 
@@ -244,17 +358,37 @@ export default function App() {
         />
       )}
 
-
-      {screen === 'generated-programme' && currentProgramme && (
-        <GeneratedProgramme
-          programme={currentProgramme}
-          exercises={store.exercises}
-          onBack={() => navigate({ screen: 'plans' })}
-          onRebuild={() => navigate({ screen: 'programme-builder' })}
-          onStartSession={handleStartWorkout}
-          onStartProgram={() => navigate({ screen: 'dashboard' })}
-        />
-      )}
+      {screen === 'generated-programme' && (() => {
+        const prog = currentProgramme
+          ?? (store.activeProgrammeId
+            ? store.generatedProgrammes.find(p => p.id === store.activeProgrammeId) ?? null
+            : null);
+        if (!prog) return null;
+        return (
+          <GeneratedProgramme
+            programme={prog}
+            isActive={store.activeProgrammeId === prog.id}
+            onBack={() => navigate({ screen: 'dashboard' })}
+            onRebuild={() => navigate({ screen: 'programme-builder' })}
+            onApply={() => {
+              store.setActiveProgrammeId(prog.id);
+              setCurrentProgramme(prog);
+              navigate({ screen: 'dashboard' });
+            }}
+            onDeactivate={() => store.setActiveProgrammeId(null)}
+            onSaveReorder={(weekIdx, newSessions) => {
+              const updated = {
+                ...prog,
+                weeks: prog.weeks.map((w, i) =>
+                  i === weekIdx ? { ...w, sessions: newSessions } : w
+                ),
+              };
+              store.saveGeneratedProgramme(updated);
+              setCurrentProgramme(updated);
+            }}
+          />
+        );
+      })()}
 
       {!fullScreens.includes(screen) && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />

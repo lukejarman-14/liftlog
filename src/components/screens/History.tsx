@@ -4,7 +4,7 @@ import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { WorkoutSession, NavState, MeasureType, CompletedSet } from '../../types';
 import { useStore } from '../../hooks/useStore';
-import { sessionAvgRpe, RPE_LABELS } from '../../lib/rpeProgression';
+import { sessionAvgRpe, RIR_LABELS } from '../../lib/rpeProgression';
 import { GRADE_LABELS, GRADE_COLOURS } from '../../data/testingBattery';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────
@@ -35,11 +35,12 @@ function totalVolume(session: WorkoutSession) {
     acc + ex.sets.reduce((s, set) => s + set.reps * set.weight, 0), 0);
 }
 
-function getRpeColour(rpe: number): string {
-  if (rpe <= 4) return 'text-green-600 bg-green-50';
-  if (rpe <= 6) return 'text-yellow-600 bg-yellow-50';
-  if (rpe <= 8) return 'text-orange-600 bg-orange-50';
-  return 'text-red-600 bg-red-50';
+// RIR: lower = harder. 0 = max effort (red), 4 = easy (green)
+function getRirColour(rir: number): string {
+  if (rir === 0) return 'text-red-600 bg-red-50';
+  if (rir === 1) return 'text-orange-600 bg-orange-50';
+  if (rir === 2) return 'text-yellow-600 bg-yellow-50';
+  return 'text-green-600 bg-green-50';
 }
 
 // ── Session card ───────────────────────────────────────────────────────────
@@ -88,8 +89,8 @@ function SessionCard({ session, onDelete, onNavigate }: {
           <span className="text-xs text-gray-400">{session.exercises.length} exercises</span>
           <span className="text-xs text-gray-400">{allSets.length} sets</span>
           {avgRpe !== null && (
-            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${getRpeColour(avgRpe)}`}>
-              RPE {avgRpe} avg
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${getRirColour(Math.round(avgRpe))}`}>
+              {avgRpe} RIR avg
             </span>
           )}
         </div>
@@ -121,7 +122,7 @@ function SessionCard({ session, onDelete, onNavigate }: {
                     {ex.sets.map((set, i) => (
                       <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                         {formatSetChip(set, exercise.measureType ?? 'strength', exercise.unit)}
-                        {set.rpe && <span className="text-gray-400 ml-1">@{set.rpe}</span>}
+                        {set.rir !== undefined && <span className="text-gray-400 ml-1">@ {set.rir} RIR</span>}
                       </span>
                     ))}
                   </div>
@@ -297,15 +298,15 @@ function WeekSummary({ sessions }: { sessions: WorkoutSession[] }) {
           {avgRpe !== null ? (
             <>
               <div className={`text-2xl font-extrabold ${
-                avgRpe <= 6 ? 'text-green-500' : avgRpe <= 8 ? 'text-orange-500' : 'text-red-500'
+                avgRpe >= 3 ? 'text-green-500' : avgRpe >= 2 ? 'text-yellow-500' : avgRpe >= 1 ? 'text-orange-500' : 'text-red-500'
               }`}>{avgRpe}</div>
-              <div className="text-xs text-gray-400">avg RPE</div>
-              <div className="text-xs text-gray-400 mt-0.5 truncate">{RPE_LABELS[Math.round(avgRpe)]}</div>
+              <div className="text-xs text-gray-400">avg RIR</div>
+              <div className="text-xs text-gray-400 mt-0.5 truncate">{RIR_LABELS[Math.round(avgRpe)]}</div>
             </>
           ) : (
             <>
               <div className="text-2xl font-extrabold text-gray-300">—</div>
-              <div className="text-xs text-gray-400">avg RPE</div>
+              <div className="text-xs text-gray-400">avg RIR</div>
             </>
           )}
         </div>

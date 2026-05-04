@@ -3,7 +3,7 @@
  * Pre-fills position, experience, gym access from UserProfile. FV always balanced.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Zap, Target, Activity, Brain, Check, User } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -151,9 +151,13 @@ function ChipSelector<T extends string>({
 export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   const [step, setStep] = useState(0);
 
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [step]);
+
   // Step 0 — Schedule
   const [sessionsPerWeek, setSessionsPerWeek] = useState<2 | 3 | 4>(3);
   const [matchDay, setMatchDay] = useState<MatchDayPref>('saturday');
+  const [hasSecondMatchDay, setHasSecondMatchDay] = useState(false);
+  const [secondMatchDay, setSecondMatchDay] = useState<MatchDayPref>('midweek');
   // Step 1 — Position & play style
   const [primaryPos, setPrimaryPos] = useState<string>(userProfile.position);
   const [secondaryPos, setSecondaryPos] = useState<string>('');
@@ -185,6 +189,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
       primaryGoal,
       secondaryGoals,
       matchDay,
+      secondMatchDay: hasSecondMatchDay ? secondMatchDay : undefined,
       biggestWeakness,
       injuryHistory,
       readiness,
@@ -247,6 +252,33 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-2">Match day</p>
             <ChipSelector options={MATCH_DAY_OPTS} selected={matchDay} onToggle={setMatchDay} />
+          </div>
+          <div>
+            <button
+              onClick={() => setHasSecondMatchDay(v => !v)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all ${
+                hasSecondMatchDay
+                  ? 'border-brand-500 bg-brand-50 text-brand-700'
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <span className="text-sm font-semibold">We sometimes play twice a week</span>
+              <span className={`w-5 h-5 rounded flex items-center justify-center border-2 flex-shrink-0 ${
+                hasSecondMatchDay ? 'bg-brand-500 border-brand-500' : 'border-gray-300'
+              }`}>
+                {hasSecondMatchDay && <Check size={12} className="text-white" />}
+              </span>
+            </button>
+            {hasSecondMatchDay && (
+              <div className="mt-3">
+                <p className="text-sm font-semibold text-gray-700 mb-2">Second match day</p>
+                <ChipSelector
+                  options={MATCH_DAY_OPTS.filter(o => o.value !== matchDay)}
+                  selected={secondMatchDay !== matchDay ? secondMatchDay : MATCH_DAY_OPTS.find(o => o.value !== matchDay)?.value ?? 'midweek'}
+                  onToggle={setSecondMatchDay}
+                />
+              </div>
+            )}
           </div>
           <Card className="p-4 bg-blue-50 border-blue-200">
             <p className="text-xs text-blue-700 font-medium">Using your profile</p>

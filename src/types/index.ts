@@ -7,10 +7,10 @@ export type ExerciseCategory =
   | 'Core'
   | 'Cardio'
   | 'Full Body'
-  | 'Olympic'
   | 'Isometric'
   | 'Plyometrics'
-  | 'Speed & Agility'
+  | 'Speed'
+  | 'Agility'
   | 'Eccentric'
   | 'Conditioning'
   | 'Testing';
@@ -44,6 +44,8 @@ export interface Exercise {
   muscleGroups: string[];
   measureType?: MeasureType;   // defaults to 'strength' when absent
   unit?: string;               // display label override e.g. 's', 'm', 'cm', 'N/kg'
+  suggestedRir?: number;       // 0–4 recommended RIR for this exercise
+  secondaryCategory?: ExerciseCategory;  // optional second category label
   isCustom?: boolean;
 }
 
@@ -53,7 +55,7 @@ export interface WorkoutExercise {
   targetReps: number;
   targetWeight: number;
   restSeconds: number;
-  targetRpe?: number;    // 1–10, target RPE for this exercise
+  targetRir?: number;    // 0–4, target Reps in Reserve (0 = max, 4 = very easy)
 }
 
 export interface WorkoutTemplate {
@@ -67,7 +69,7 @@ export interface CompletedSet {
   reps: number;
   weight: number;
   completedAt: number;
-  rpe?: number;          // 1–10, Rate of Perceived Exertion (actual)
+  rir?: number;          // 0–4, Reps in Reserve actually achieved
 }
 
 export interface SessionExercise {
@@ -76,7 +78,7 @@ export interface SessionExercise {
   targetReps: number;
   targetWeight: number;
   restSeconds: number;
-  targetRpe?: number;    // carried from WorkoutExercise
+  targetRir?: number;    // carried from WorkoutExercise
   sets: CompletedSet[];
 }
 
@@ -154,6 +156,7 @@ export interface UserProfile {
   goals: string[];           // e.g. ['speed', 'strength', 'endurance']
   gymAccess: 'full' | 'basic' | 'none';
   completedAt: number;       // timestamp
+  passwordHash?: string;     // SHA-256 hex of password (local auth only)
   // Optional profile details collected during onboarding
   heightCm?: number;
   weightKg?: number;
@@ -269,6 +272,7 @@ export interface ProgrammeInputs {
   primaryGoal: PrimaryGoal;
   secondaryGoals: string[];
   matchDay: MatchDayPref;
+  secondMatchDay?: MatchDayPref;
   biggestWeakness: Weakness;
   injuryHistory: InjuryArea[];
   readiness: { sleep: number; fatigue: number; soreness: number; stress: number };

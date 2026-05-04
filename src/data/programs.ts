@@ -226,51 +226,6 @@ export const BUILT_IN_PROGRAMS: Program[] = [
     ],
   },
   {
-    name: 'Olympic Lifting',
-    description: 'Technical Olympic lifting sessions. Focus on form before loading.',
-    templates: [
-      {
-        id: 'oly-clean-focus',
-        name: 'Clean Session',
-        description: 'Power clean and jerk focused',
-        program: 'Olympic Lifting',
-        exercises: [
-          ex('hang-power-clean', 5, 3, 50, 180),
-          ex('power-clean',      5, 3, 55, 180),
-          ex('clean-and-jerk',   4, 2, 60, 240),
-          ex('clean-pull',       3, 5, 80, 180),
-          ex('front-squat',      3, 5, 70, 180),
-        ],
-      },
-      {
-        id: 'oly-snatch-focus',
-        name: 'Snatch Session',
-        description: 'Snatch variations and support work',
-        program: 'Olympic Lifting',
-        exercises: [
-          ex('hang-power-snatch', 5, 3, 40, 180),
-          ex('power-snatch',      5, 3, 45, 180),
-          ex('squat-snatch',      4, 2, 50, 240),
-          ex('snatch-pull',       3, 5, 70, 180),
-          ex('overhead-squat',    3, 5, 40, 180),
-        ],
-      },
-      {
-        id: 'oly-full',
-        name: 'Full Olympic Session',
-        description: 'Both lifts plus accessory',
-        program: 'Olympic Lifting',
-        exercises: [
-          ex('power-clean',       4, 3, 55, 180),
-          ex('power-snatch',      4, 3, 45, 180),
-          ex('clean-and-jerk',    3, 2, 60, 240),
-          ex('overhead-squat',    3, 5, 40, 150),
-          ex('front-squat',       3, 5, 70, 180),
-        ],
-      },
-    ],
-  },
-  {
     name: 'Plyometric Power',
     description: 'Explosive power and speed development. Low reps, full recovery.',
     templates: [
@@ -280,38 +235,40 @@ export const BUILT_IN_PROGRAMS: Program[] = [
         description: 'Jumps, bounds and sprints',
         program: 'Plyometric Power',
         exercises: [
+          ex('sprint',        5, 1, 0, 180),
           ex('box-jump',      4, 5, 0, 120),
           ex('depth-jump',    3, 5, 0, 120),
           ex('broad-jump',    4, 5, 0, 120),
-          ex('jump-squat',    3, 8, 0, 90),
+          ex('hurdle-hop',    3, 8, 0, 90),
           ex('skater-jump',   3, 8, 0, 90),
-          ex('sprint',        6, 1, 0, 180),
         ],
       },
       {
         id: 'plyo-upper',
-        name: 'Upper Body Power',
-        description: 'Explosive pushing and throwing',
+        name: 'Reactive Power',
+        description: 'Reactive drop jumps, bounding and tendon stiffness work',
         program: 'Plyometric Power',
         exercises: [
-          ex('plyo-push-up',    4, 8, 0, 90),
-          ex('clapping-push-up',3, 6, 0, 120),
-          ex('med-ball-slam',   4, 8, 6, 90),
-          ex('med-ball-throw',  4, 8, 4, 90),
+          ex('reactive-drop-jump', 4, 5, 0, 150),
+          ex('lateral-box-jump',   4, 8, 0, 90),
+          ex('bounding',           4, 8, 0, 120),
+          ex('lateral-bound',      3, 8, 0, 90),
+          ex('pogo-jump',          3, 20, 0, 60),
+          ex('ankle-hop',          3, 20, 0, 60),
         ],
       },
       {
         id: 'plyo-full',
         name: 'Full Body Power',
-        description: 'Total body explosiveness',
+        description: 'Total body explosiveness — sprints, jumps, bounds',
         program: 'Plyometric Power',
         exercises: [
-          ex('box-jump',        4, 5, 0, 120),
-          ex('plyo-push-up',    4, 8, 0, 90),
-          ex('med-ball-slam',   4, 8, 6, 90),
-          ex('tuck-jump',       3, 8, 0, 90),
-          ex('broad-jump',      3, 5, 0, 120),
           ex('sprint',          4, 1, 0, 180),
+          ex('box-jump',        4, 5, 0, 120),
+          ex('depth-jump',      3, 5, 0, 150),
+          ex('approach-jump',   3, 5, 0, 120),
+          ex('hurdle-hop',      3, 8, 0, 90),
+          ex('broad-jump',      3, 5, 0, 120),
         ],
       },
     ],
@@ -368,79 +325,85 @@ export const BUILT_IN_PROGRAMS: Program[] = [
 export const FOOTBALL_PROGRAMS: Program[] = [
   {
     name: 'Footballer Weekly Sessions',
-    description: '3 complete sessions per week. Each follows the same proven order: Plyometrics → Strength → Eccentric → Isometric → Conditioning. Rotate through all three across the week.',
+    description: '3 complete sessions per week. Each follows the HPP hierarchy: Max Velocity → Max Strength → Tendon Stiffness → Eccentric → Isometric → Conditioning. Rotate through all three across the week.',
     sport: 'football',
     templates: [
       {
         id: 'fb-weekly-session1',
         name: 'Session 1 — Lower Power',
-        description: 'Horizontal power, squat-based strength, hamstring and adductor resilience, quad isometrics, then repeated sprints.',
+        description: 'Broad jumps, squat-based strength, tendon stiffness plyos, hamstring eccentrics, hip isometrics, then repeated sprints.',
         program: 'Footballer Weekly Sessions',
         exercises: [
-          // Plyometrics
+          // 1 — Max Velocity
           ex('broad-jump',           4, 5,  0,   120),
-          ex('lateral-bound',        3, 8,  0,   90),
           ex('box-jump',             3, 5,  0,   120),
-          // Strength
+          // 2 — Max Strength
           ex('squat',                4, 6,  85,  240),
           ex('rdl',                  3, 8,  70,  180),
           ex('hip-thrust',           3, 10, 80,  120),
-          // Eccentric
-          ex('eccentric-nordic',     3, 6,  0,   120),
+          // 3 — Tendon Stiffness
+          ex('lateral-bound',        3, 8,  0,   90),
+          ex('pogo-jump',            3, 20, 0,   60),
+          // 4 — Eccentric
+          ex('eccentric-nordic',     3, 2,  0,   120),
           ex('eccentric-calf-raise', 3, 12, 0,   90),
-          // Isometric
-          ex('spanish-squat',        3, 1,  0,   60),
-          ex('glute-bridge-hold',    2, 1,  0,   60),
-          // Conditioning
+          // 5 — Isometric
+          ex('glute-bridge-hold',    3, 1,  0,   60),
+          ex('wall-sit',             2, 1,  0,   60),
+          // 6 — Conditioning
           ex('repeated-sprint',      6, 1,  0,   30),
         ],
       },
       {
         id: 'fb-weekly-session2',
         name: 'Session 2 — Upper & Reactive',
-        description: 'Reactive plyometrics, upper body strength, eccentric hip and shoulder work, core isometrics, then interval conditioning.',
+        description: 'Jumps, upper body strength, reactive tendon stiffness plyos, hamstring/calf eccentrics, core isometrics, then interval conditioning.',
         program: 'Footballer Weekly Sessions',
         exercises: [
-          // Plyometrics
-          ex('reactive-drop-jump',   4, 5,  0,   120),
-          ex('pogo-jump',            3, 20, 0,   60),
-          ex('reactive-45-cut',      3, 8,  0,   90),
-          // Strength
+          // 1 — Max Velocity
+          ex('approach-jump',        3, 5,  0,   120),
+          ex('box-jump',             3, 5,  0,   120),
+          // 2 — Max Strength
           ex('bench-press',          4, 6,  70,  180),
           ex('barbell-row',          4, 6,  60,  180),
           ex('ohp',                  3, 8,  45,  150),
           ex('pull-up',              3, 8,  0,   120),
-          // Eccentric
-          ex('eccentric-hip-adductor', 3, 10, 0, 90),
-          ex('eccentric-step-down',  3, 10, 0,   90),
-          // Isometric
+          // 3 — Tendon Stiffness
+          ex('reactive-drop-jump',   3, 5,  0,   150),
+          ex('pogo-jump',            3, 20, 0,   60),
+          // 4 — Eccentric
+          ex('eccentric-sl-rdl',     3, 8,  0,   90),
+          ex('eccentric-calf-raise', 3, 12, 0,   90),
+          // 5 — Isometric
           ex('dead-hang',            3, 1,  0,   60),
           ex('side-plank',           2, 1,  0,   60),
-          // Conditioning
+          // 6 — Conditioning
           ex('hiit-run',             8, 1,  0,   30),
         ],
       },
       {
         id: 'fb-weekly-session3',
         name: 'Session 3 — Full Body Power',
-        description: 'Vertical jump and sprint plyometrics, Olympic-based strength, full posterior chain eccentrics, full-body isometrics, then match-tempo conditioning.',
+        description: 'Sprints, drop jumps, full posterior chain, lateral tendon stiffness, eccentric circuit, core isometrics, then match-tempo conditioning.',
         program: 'Footballer Weekly Sessions',
         exercises: [
-          // Plyometrics
+          // 1 — Max Velocity
+          ex('sprint',               4, 1,  0,   180),
           ex('depth-jump',           4, 5,  0,   150),
           ex('approach-jump',        3, 5,  0,   120),
-          ex('sprint',               4, 1,  0,   180),
-          // Strength
-          ex('power-clean',          4, 3,  65,  180),
+          // 2 — Max Strength
           ex('deadlift',             3, 5,  100, 240),
           ex('front-squat',          3, 6,  65,  180),
-          // Eccentric
-          ex('eccentric-sl-rdl',     3, 8,  0,   90),
-          ex('eccentric-psoas',      3, 10, 0,   90),
-          // Isometric
+          // 3 — Tendon Stiffness
+          ex('lateral-bound',        3, 8,  0,   90),
+          ex('skater-jump',          3, 10, 0,   90),
+          // 4 — Eccentric
+          ex('eccentric-nordic',     3, 2,  0,   120),
+          ex('eccentric-calf-raise', 3, 12, 0,   90),
+          // 5 — Isometric
           ex('copenhagen-plank',     3, 1,  0,   60),
-          ex('hollow-hold',          2, 1,  0,   60),
-          // Conditioning
+          ex('glute-bridge-hold',    2, 1,  0,   60),
+          // 6 — Conditioning
           ex('shuttle-run',          5, 1,  0,   60),
         ],
       },
@@ -470,11 +433,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Acceleration mechanics, horizontal bounding, sprint starts.',
         program: 'Football Plyometrics',
         exercises: [
+          ex('sprint',         6, 1,  0, 180),
           ex('broad-jump',     5, 5,  0, 120),
           ex('lateral-bound',  4, 8,  0, 90),
           ex('bounding',       4, 8,  0, 120),
-          ex('jump-squat',     4, 6,  0, 90),
-          ex('sprint',         6, 1,  0, 180),
+          ex('hurdle-hop',     3, 8,  0, 90),
         ],
       },
       {
@@ -486,22 +449,22 @@ export const FOOTBALL_PROGRAMS: Program[] = [
           ex('box-jump',       4, 5,  0, 120),
           ex('depth-jump',     4, 5,  0, 150),
           ex('approach-jump',  4, 5,  0, 120),
-          ex('tuck-jump',      3, 8,  0, 90),
+          ex('hurdle-hop',     3, 8,  0, 90),
           ex('single-leg-hop', 3, 8,  0, 90),
         ],
       },
       {
         id: 'fb-plyo-reactive',
-        name: 'Reactive & COD — Change of Direction',
-        description: 'Reactive cuts, lateral quickness and deceleration under fatigue.',
+        name: 'Reactive Tendon Stiffness',
+        description: 'Reactive ground contact, lateral stiffness and ankle spring — builds the elastic energy system.',
         program: 'Football Plyometrics',
         exercises: [
-          ex('reactive-45-cut',  4, 8,  0, 90),
-          ex('lateral-shuffle',  4, 20, 0, 60),
-          ex('deceleration-drill',4,6,  0, 90),
-          ex('skater-jump',      4, 10, 0, 90),
-          ex('hurdle-hop',       3, 8,  0, 90),
-          ex('lateral-box-jump', 3, 8,  0, 90),
+          ex('reactive-drop-jump', 4, 5,  0, 150),
+          ex('lateral-box-jump',   4, 8,  0, 90),
+          ex('skater-jump',        4, 10, 0, 90),
+          ex('lateral-bound',      3, 8,  0, 90),
+          ex('pogo-jump',          3, 20, 0, 60),
+          ex('ankle-hop',          3, 20, 0, 60),
         ],
       },
     ],
@@ -545,12 +508,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Low reps, explosive intent. Convert strength into speed and power on the pitch.',
         program: 'Football Strength',
         exercises: [
-          ex('power-clean',  5, 3,  70,  180),
-          ex('jump-squat',   5, 4,  30,  120),
-          ex('squat',        4, 3,  95,  240),
-          ex('hip-thrust',   4, 5,  100, 120),
+          ex('sprint',       4, 1,  0,   180),
           ex('box-jump',     4, 5,  0,   120),
           ex('broad-jump',   3, 5,  0,   120),
+          ex('squat',        4, 3,  95,  240),
+          ex('hip-thrust',   4, 5,  100, 120),
         ],
       },
       {
@@ -595,8 +557,8 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Nordic-based eccentric loading. Run 2–3x per week year-round.',
         program: 'Injury Prevention',
         exercises: [
-          ex('eccentric-nordic',   4, 6,  0, 120),
-          ex('eccentric-sl-rdl',   3, 8,  0, 90),
+          ex('eccentric-nordic',   3, 2,  0, 120),
+          ex('eccentric-calf-raise', 3, 12, 0, 90),
           ex('rdl',                3, 10, 50, 90),
           ex('hip-thrust',         3, 10, 60, 90),
           ex('glute-bridge-hold',  3, 1,  0, 60),
@@ -610,9 +572,8 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         exercises: [
           ex('copenhagen-adductor',  4, 8,  0, 90),
           ex('copenhagen-plank',     3, 1,  0, 60),
-          ex('eccentric-hip-adductor',3,10, 0, 90),
-          ex('adductor-squeeze',     3, 1,  0, 45),
           ex('lateral-band-walk',    3, 20, 0, 60),
+          ex('side-plank',           3, 1,  0, 60),
         ],
       },
       {
@@ -621,12 +582,12 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Quad dominance and VMO activation. Good for ACL prevention and return to play.',
         program: 'Injury Prevention',
         exercises: [
-          ex('eccentric-step-down', 4, 10, 0, 90),
           ex('reverse-nordic',      3, 8,  0, 90),
-          ex('spanish-squat',       3, 1,  0, 60),
+          ex('eccentric-sl-rdl',    3, 8,  0, 90),
           ex('leg-extension',       3, 15, 30, 60),
           ex('single-leg-hop',      3, 8,  0, 90),
           ex('lunge',               3, 12, 20, 90),
+          ex('wall-sit',            3, 1,  0, 60),
         ],
       },
       {
@@ -636,7 +597,6 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         program: 'Injury Prevention',
         exercises: [
           ex('eccentric-calf-raise', 4, 15, 0, 90),
-          ex('eccentric-soleus',     4, 15, 0, 90),
           ex('calf-raise-hold',      3, 1,  0, 45),
           ex('pogo-jump',            3, 20, 0, 60),
           ex('ankle-hop',            3, 20, 0, 60),
@@ -645,13 +605,13 @@ export const FOOTBALL_PROGRAMS: Program[] = [
       {
         id: 'fb-inj-hip-flexor',
         name: 'Hip Flexor Protocol',
-        description: 'Psoas and hip flexor eccentric loading. Reduces strain from repeated kicking.',
+        description: 'Hip flexor and glute eccentric/isometric loading. Reduces strain from repeated kicking.',
         program: 'Injury Prevention',
         exercises: [
-          ex('eccentric-psoas',      4, 10, 0, 90),
+          ex('eccentric-sl-rdl',     4, 8,  0, 90),
           ex('iso-lunge-hold',       3, 1,  0, 60),
-          ex('band-hip-abduction',   3, 15, 0, 60),
           ex('hanging-leg-raise',    3, 12, 0, 60),
+          ex('glute-bridge-hold',    3, 1,  0, 60),
           ex('plank',                3, 1,  0, 60),
         ],
       },
@@ -661,12 +621,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'All-round daily injury prevention. 20 minutes, 3–5x per week.',
         program: 'Injury Prevention',
         exercises: [
-          ex('eccentric-nordic',     2, 5,  0, 120),
+          ex('eccentric-nordic',     3, 2,  0, 120),
           ex('copenhagen-adductor',  2, 8,  0, 90),
           ex('eccentric-calf-raise', 2, 12, 0, 90),
-          ex('eccentric-step-down',  2, 10, 0, 60),
-          ex('band-hip-abduction',   2, 15, 0, 60),
           ex('copenhagen-plank',     2, 1,  0, 60),
+          ex('side-plank',           2, 1,  0, 60),
         ],
       },
     ],
@@ -788,7 +747,7 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         program: 'Football Conditioning',
         exercises: [
           ex('hiit-run',     10, 1, 0, 30),
-          ex('agility-circuit', 3, 1, 0, 90),
+          ex('shuttle-run',   3, 1, 0, 90),
         ],
       },
       {
@@ -811,7 +770,6 @@ export const FOOTBALL_PROGRAMS: Program[] = [
           ex('hiit-run',        6, 1, 0, 30),
           ex('repeated-sprint', 6, 1, 0, 30),
           ex('ssg-simulation',  2, 1, 0, 180),
-          ex('agility-circuit', 2, 1, 0, 90),
         ],
       },
       {
@@ -822,7 +780,7 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         exercises: [
           ex('tempo-run',       3, 1, 0, 90),
           ex('shuttle-run',     4, 1, 0, 60),
-          ex('agility-circuit', 2, 1, 0, 90),
+          ex('repeated-sprint', 3, 1, 0, 60),
         ],
       },
     ],

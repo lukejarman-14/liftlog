@@ -3,12 +3,45 @@ import { ChevronLeft, ChevronRight, Trash2, Calendar, Info } from 'lucide-react'
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { useStore } from '../../hooks/useStore';
-import { MatchEntry, NavState } from '../../types';
+import { MatchEntry, NavState, GeneratedProgramme } from '../../types';
 import { classifyDay, getLoadProfile, getMonthProfiles } from '../../lib/loadManagement';
+
+// ── Programme session date helpers ─────────────────────────────────────────
+
+const DOW_INDEX: Record<string, number> = {
+  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
+  Friday: 4, Saturday: 5, Sunday: 6,
+};
+
+/** Returns the Monday of the week containing `ts` */
+function getStartMonday(ts: number): Date {
+  const d = new Date(ts);
+  const dow = d.getDay(); // 0=Sun
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Maps all programme session days to actual YYYY-MM-DD date strings */
+function getProgrammeDates(programme: GeneratedProgramme): Map<string, string> {
+  const monday = getStartMonday(programme.createdAt);
+  const map = new Map<string, string>(); // date → objective label
+  programme.weeks.forEach((week, wi) => {
+    week.sessions.forEach(session => {
+      const dayIdx = DOW_INDEX[session.dayOfWeek] ?? 0;
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + wi * 7 + dayIdx);
+      const dateStr = d.toISOString().split('T')[0];
+      map.set(dateStr, session.objective);
+    });
+  });
+  return map;
+}
 
 interface LoadCalendarProps {
   onNavigate: (nav: NavState) => void;
   onBack: () => void;
+  activeProgramme?: GeneratedProgramme | null;
 }
 
 // ── Month calendar grid ────────────────────────────────────────────────────
@@ -17,11 +50,13 @@ function MonthlyCalendarGrid({
   year,
   month,
   matchEntries,
+  programmeDates,
   onSelectDay,
 }: {
   year: number;
   month: number;
   matchEntries: MatchEntry[];
+  programmeDates: Map<string, string>;
   onSelectDay: (date: string) => void;
 }) {
   const days = getMonthProfiles(matchEntries, year, month);
@@ -46,6 +81,7 @@ function MonthlyCalendarGrid({
         {allCells.map((cell, i) => {
           if (!cell) return <div key={i} className="aspect-square" />;
           const { date, dayNum, isToday, profile, matchEntry, trainingEntry } = cell;
+          const hasProgrammeSession = programmeDates.has(date);
           return (
             <button
               key={date}
@@ -57,6 +93,8 @@ function MonthlyCalendarGrid({
                   ? 'bg-red-50 border border-red-300'
                   : trainingEntry
                   ? 'bg-blue-50 border border-blue-300'
+                  : hasProgrammeSession
+                  ? `${profile.day !== 'free' ? profile.bgColour : 'bg-brand-50'} border ${profile.day !== 'free' ? profile.borderColour : 'border-brand-200'}`
                   : profile.day !== 'free'
                   ? `${profile.bgColour} border ${profile.borderColour}`
                   : 'bg-white border border-gray-100 hover:bg-gray-50'
@@ -66,6 +104,7 @@ function MonthlyCalendarGrid({
                 isToday ? 'text-brand-600' :
                 matchEntry ? 'text-red-700' :
                 trainingEntry ? 'text-blue-700' :
+                hasProgrammeSession && profile.day === 'free' ? 'text-brand-600' :
                 profile.day !== 'free' ? profile.textColour :
                 'text-gray-700'
               }`}>
@@ -73,7 +112,10 @@ function MonthlyCalendarGrid({
               </span>
               {matchEntry && <span className="text-[9px] leading-none">⚽</span>}
               {!matchEntry && trainingEntry && <span className="text-[9px] leading-none">🏃</span>}
-              {!matchEntry && !trainingEntry && profile.day !== 'free' && (
+              {!matchEntry && !trainingEntry && hasProgrammeSession && (
+                <span className="text-[9px] leading-none">💪</span>
+              )}
+              {!matchEntry && !trainingEntry && !hasProgrammeSession && profile.day !== 'free' && (
                 <span className={`text-[8px] font-bold leading-none ${profile.textColour}`}>
                   {profile.shortLabel}
                 </span>
@@ -94,12 +136,14 @@ function DayModal({
   onSave,
   onDelete,
   onClose,
+  programmeObjective,
 }: {
   dateStr: string;
   matchEntries: MatchEntry[];
   onSave: (entry: MatchEntry) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
+  programmeObjective?: string;
 }) {
   const existing = matchEntries.find(e => e.date === dateStr);
   const [label, setLabel] = useState(existing?.label ?? '');
@@ -130,7 +174,8 @@ function DayModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl mb-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl mb-4 max-h-[90vh] overflow-y-auto">
+        <div className="p-5">
         <div className="flex items-center gap-2 mb-1">
           <Calendar size={16} className="text-brand-500" />
           <h3 className="font-bold text-gray-900">{displayDate}</h3>
@@ -138,9 +183,20 @@ function DayModal({
 
         {/* Show load profile for this day */}
         {loadDay !== 'free' && (
-          <div className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg mb-4 flex items-center gap-1.5 border ${loadProfile.bgColour} ${loadProfile.textColour} ${loadProfile.borderColour}`}>
+          <div className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg mb-3 flex items-center gap-1.5 border ${loadProfile.bgColour} ${loadProfile.textColour} ${loadProfile.borderColour}`}>
             <span>{loadProfile.emoji}</span>
             <span>{loadProfile.label} — {loadProfile.shortLabel}</span>
+          </div>
+        )}
+
+        {/* Programme session scheduled this day */}
+        {programmeObjective && (
+          <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-brand-50 border border-brand-200 mb-3">
+            <span className="text-base leading-none">💪</span>
+            <div>
+              <p className="text-xs font-bold text-brand-700">Programme Session</p>
+              <p className="text-xs text-brand-600 mt-0.5">{programmeObjective}</p>
+            </div>
           </div>
         )}
 
@@ -212,6 +268,7 @@ function DayModal({
         >
           Cancel
         </button>
+        </div>
       </div>
     </div>
   );
@@ -276,7 +333,7 @@ const PERIOD_INFO = [
       'Begin rebuilding at 60–70% normal intensity',
       'Keep volume low: 2–3 sets per exercise',
       'Eccentric-focused movements to restore muscle resilience',
-      'Monitor RPE — if soreness is high, stay conservative',
+      'Monitor RIR — if soreness is high, stay conservative',
     ],
   },
   {
@@ -333,8 +390,9 @@ function PeriodisationGuide() {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
-export function LoadCalendar({ onNavigate: _onNavigate, onBack }: LoadCalendarProps) {
+export function LoadCalendar({ onNavigate: _onNavigate, onBack, activeProgramme }: LoadCalendarProps) {
   const { matchEntries, saveMatchEntry, deleteMatchEntry } = useStore();
+  const programmeDates = activeProgramme ? getProgrammeDates(activeProgramme) : new Map<string, string>();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const today = new Date();
@@ -382,6 +440,7 @@ export function LoadCalendar({ onNavigate: _onNavigate, onBack }: LoadCalendarPr
           year={viewYear}
           month={viewMonth}
           matchEntries={matchEntries}
+          programmeDates={programmeDates}
           onSelectDay={setSelectedDate}
         />
       </Card>
@@ -401,6 +460,11 @@ export function LoadCalendar({ onNavigate: _onNavigate, onBack }: LoadCalendarPr
             <span className="font-normal opacity-70">{item.desc}</span>
           </div>
         ))}
+        {programmeDates.size > 0 && (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-semibold bg-brand-50 text-brand-700 border-brand-200">
+            💪 <span className="font-normal opacity-70">Programme</span>
+          </div>
+        )}
       </div>
 
       <div className="text-xs text-gray-400 text-center mb-5">
@@ -454,6 +518,7 @@ export function LoadCalendar({ onNavigate: _onNavigate, onBack }: LoadCalendarPr
           onSave={saveMatchEntry}
           onDelete={deleteMatchEntry}
           onClose={() => setSelectedDate(null)}
+          programmeObjective={programmeDates.get(selectedDate)}
         />
       )}
     </Layout>

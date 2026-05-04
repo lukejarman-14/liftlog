@@ -2,35 +2,35 @@ import { Exercise } from '../types';
 
 export const DEFAULT_EXERCISES: Exercise[] = [
   // Chest
-  { id: 'bench-press', name: 'Bench Press', category: 'Chest', defaultRestSeconds: 180, muscleGroups: ['Pectorals', 'Triceps', 'Front Delts'] },
-  { id: 'incline-bench', name: 'Incline Bench Press', category: 'Chest', defaultRestSeconds: 180, muscleGroups: ['Upper Pectorals', 'Triceps'] },
-  { id: 'decline-bench', name: 'Decline Bench Press', category: 'Chest', defaultRestSeconds: 180, muscleGroups: ['Lower Pectorals', 'Triceps'] },
+  { id: 'bench-press', suggestedRir: 2, name: 'Bench Press', category: 'Chest', defaultRestSeconds: 180, muscleGroups: ['Pectorals', 'Triceps', 'Front Delts'] },
+  { id: 'incline-bench', suggestedRir: 2, name: 'Incline Bench Press', category: 'Chest', defaultRestSeconds: 180, muscleGroups: ['Upper Pectorals', 'Triceps'] },
+  { id: 'decline-bench', suggestedRir: 2, name: 'Decline Bench Press', category: 'Chest', defaultRestSeconds: 180, muscleGroups: ['Lower Pectorals', 'Triceps'] },
   { id: 'db-fly', name: 'Dumbbell Fly', category: 'Chest', defaultRestSeconds: 90, muscleGroups: ['Pectorals'] },
   { id: 'cable-crossover', name: 'Cable Crossover', category: 'Chest', defaultRestSeconds: 60, muscleGroups: ['Pectorals'] },
   { id: 'push-up', name: 'Push Up', category: 'Chest', defaultRestSeconds: 60, muscleGroups: ['Pectorals', 'Triceps'] },
   { id: 'chest-dip', name: 'Chest Dip', category: 'Chest', defaultRestSeconds: 90, muscleGroups: ['Pectorals', 'Triceps'] },
 
   // Back
-  { id: 'deadlift', name: 'Deadlift', category: 'Back', defaultRestSeconds: 240, muscleGroups: ['Erectors', 'Glutes', 'Hamstrings', 'Traps'] },
-  { id: 'pull-up', name: 'Pull Up', category: 'Back', defaultRestSeconds: 120, muscleGroups: ['Lats', 'Biceps'] },
-  { id: 'chin-up', name: 'Chin Up', category: 'Back', defaultRestSeconds: 120, muscleGroups: ['Lats', 'Biceps'] },
-  { id: 'barbell-row', name: 'Barbell Row', category: 'Back', defaultRestSeconds: 180, muscleGroups: ['Lats', 'Rhomboids', 'Biceps'] },
+  { id: 'deadlift', suggestedRir: 1, name: 'Deadlift', category: 'Back', defaultRestSeconds: 240, muscleGroups: ['Erectors', 'Glutes', 'Hamstrings', 'Traps'] },
+  { id: 'pull-up', suggestedRir: 2, name: 'Pull Up', category: 'Back', defaultRestSeconds: 120, muscleGroups: ['Lats', 'Biceps'] },
+  { id: 'chin-up', suggestedRir: 2, name: 'Chin Up', category: 'Back', defaultRestSeconds: 120, muscleGroups: ['Lats', 'Biceps'] },
+  { id: 'barbell-row', suggestedRir: 2, name: 'Barbell Row', category: 'Back', defaultRestSeconds: 180, muscleGroups: ['Lats', 'Rhomboids', 'Biceps'] },
   { id: 'cable-row', name: 'Seated Cable Row', category: 'Back', defaultRestSeconds: 90, muscleGroups: ['Lats', 'Rhomboids'] },
   { id: 'lat-pulldown', name: 'Lat Pulldown', category: 'Back', defaultRestSeconds: 90, muscleGroups: ['Lats', 'Biceps'] },
   { id: 'face-pull', name: 'Face Pull', category: 'Back', defaultRestSeconds: 60, muscleGroups: ['Rear Delts', 'Rhomboids', 'Rotator Cuff'] },
   { id: 'db-row', name: 'Dumbbell Row', category: 'Back', defaultRestSeconds: 90, muscleGroups: ['Lats', 'Rhomboids'] },
 
   // Shoulders
-  { id: 'ohp', name: 'Overhead Press', category: 'Shoulders', defaultRestSeconds: 180, muscleGroups: ['Front Delts', 'Lateral Delts', 'Triceps'] },
-  { id: 'db-ohp', name: 'Dumbbell Shoulder Press', category: 'Shoulders', defaultRestSeconds: 120, muscleGroups: ['Front Delts', 'Lateral Delts'] },
+  { id: 'ohp', suggestedRir: 2, name: 'Overhead Press', category: 'Shoulders', defaultRestSeconds: 180, muscleGroups: ['Front Delts', 'Lateral Delts', 'Triceps'] },
+  { id: 'db-ohp', suggestedRir: 2, name: 'Dumbbell Shoulder Press', category: 'Shoulders', defaultRestSeconds: 120, muscleGroups: ['Front Delts', 'Lateral Delts'] },
   { id: 'lateral-raise', name: 'Lateral Raise', category: 'Shoulders', defaultRestSeconds: 60, muscleGroups: ['Lateral Delts'] },
   { id: 'front-raise', name: 'Front Raise', category: 'Shoulders', defaultRestSeconds: 60, muscleGroups: ['Front Delts'] },
   { id: 'rear-delt-fly', name: 'Rear Delt Fly', category: 'Shoulders', defaultRestSeconds: 60, muscleGroups: ['Rear Delts'] },
   { id: 'shrug', name: 'Barbell Shrug', category: 'Shoulders', defaultRestSeconds: 90, muscleGroups: ['Traps'] },
 
   // Arms
-  { id: 'barbell-curl', name: 'Barbell Curl', category: 'Arms', defaultRestSeconds: 90, muscleGroups: ['Biceps'] },
-  { id: 'db-curl', name: 'Dumbbell Curl', category: 'Arms', defaultRestSeconds: 90, muscleGroups: ['Biceps'] },
+  { id: 'barbell-curl', suggestedRir: 1, name: 'Barbell Curl', category: 'Arms', defaultRestSeconds: 90, muscleGroups: ['Biceps'] },
+  { id: 'db-curl', suggestedRir: 1, name: 'Dumbbell Curl', category: 'Arms', defaultRestSeconds: 90, muscleGroups: ['Biceps'] },
   { id: 'hammer-curl', name: 'Hammer Curl', category: 'Arms', defaultRestSeconds: 90, muscleGroups: ['Biceps', 'Brachialis'] },
   { id: 'preacher-curl', name: 'Preacher Curl', category: 'Arms', defaultRestSeconds: 90, muscleGroups: ['Biceps'] },
   { id: 'tricep-pushdown', name: 'Tricep Pushdown', category: 'Arms', defaultRestSeconds: 60, muscleGroups: ['Triceps'] },
@@ -39,14 +39,14 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'close-grip-bench', name: 'Close Grip Bench Press', category: 'Arms', defaultRestSeconds: 120, muscleGroups: ['Triceps', 'Pectorals'] },
 
   // Legs
-  { id: 'squat', name: 'Back Squat', category: 'Legs', defaultRestSeconds: 240, muscleGroups: ['Quads', 'Glutes', 'Hamstrings'] },
-  { id: 'front-squat', name: 'Front Squat', category: 'Legs', defaultRestSeconds: 240, muscleGroups: ['Quads', 'Core'] },
-  { id: 'leg-press', name: 'Leg Press', category: 'Legs', defaultRestSeconds: 180, muscleGroups: ['Quads', 'Glutes'] },
-  { id: 'rdl', name: 'Romanian Deadlift', category: 'Legs', defaultRestSeconds: 180, muscleGroups: ['Hamstrings', 'Glutes'] },
-  { id: 'leg-curl', name: 'Leg Curl', category: 'Legs', defaultRestSeconds: 90, muscleGroups: ['Hamstrings'] },
+  { id: 'squat', suggestedRir: 1, name: 'Back Squat', category: 'Legs', defaultRestSeconds: 240, muscleGroups: ['Quads', 'Glutes', 'Hamstrings'] },
+  { id: 'front-squat', suggestedRir: 1, name: 'Front Squat', category: 'Legs', defaultRestSeconds: 240, muscleGroups: ['Quads', 'Core'] },
+  { id: 'leg-press', suggestedRir: 2, name: 'Leg Press', category: 'Legs', defaultRestSeconds: 180, muscleGroups: ['Quads', 'Glutes'] },
+  { id: 'rdl', suggestedRir: 2, name: 'Romanian Deadlift', category: 'Legs', defaultRestSeconds: 180, muscleGroups: ['Hamstrings', 'Glutes'] },
+  { id: 'leg-curl', suggestedRir: 1, name: 'Leg Curl', category: 'Legs', defaultRestSeconds: 90, muscleGroups: ['Hamstrings'] },
   { id: 'leg-extension', name: 'Leg Extension', category: 'Legs', defaultRestSeconds: 90, muscleGroups: ['Quads'] },
-  { id: 'lunge', name: 'Lunge', category: 'Legs', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes'] },
-  { id: 'hip-thrust', name: 'Hip Thrust', category: 'Legs', defaultRestSeconds: 120, muscleGroups: ['Glutes'] },
+  { id: 'lunge', suggestedRir: 2, name: 'Lunge', category: 'Legs', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes'] },
+  { id: 'hip-thrust', suggestedRir: 2, name: 'Hip Thrust', category: 'Legs', defaultRestSeconds: 120, muscleGroups: ['Glutes'] },
   { id: 'calf-raise', name: 'Calf Raise', category: 'Legs', defaultRestSeconds: 60, muscleGroups: ['Calves'] },
 
   // Core
@@ -68,53 +68,33 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'burpee', name: 'Burpee', category: 'Full Body', defaultRestSeconds: 60, muscleGroups: ['Full Body'] },
   { id: 'kettlebell-swing', name: 'Kettlebell Swing', category: 'Full Body', defaultRestSeconds: 90, muscleGroups: ['Glutes', 'Hamstrings', 'Core'] },
 
-  // Olympic
-  { id: 'power-clean', name: 'Power Clean', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Full Body', 'Traps', 'Glutes'] },
-  { id: 'hang-power-clean', name: 'Hang Power Clean', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Traps', 'Glutes', 'Hamstrings'] },
-  { id: 'squat-clean', name: 'Squat Clean', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Full Body', 'Quads', 'Glutes'] },
-  { id: 'hang-clean', name: 'Hang Clean', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Traps', 'Glutes', 'Hamstrings'] },
-  { id: 'clean-and-jerk', name: 'Clean & Jerk', category: 'Olympic', defaultRestSeconds: 240, muscleGroups: ['Full Body', 'Shoulders', 'Traps'] },
-  { id: 'power-snatch', name: 'Power Snatch', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Full Body', 'Shoulders', 'Traps'] },
-  { id: 'hang-power-snatch', name: 'Hang Power Snatch', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Traps', 'Shoulders', 'Glutes'] },
-  { id: 'squat-snatch', name: 'Squat Snatch', category: 'Olympic', defaultRestSeconds: 240, muscleGroups: ['Full Body', 'Quads', 'Shoulders'] },
-  { id: 'hang-snatch', name: 'Hang Snatch', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Traps', 'Shoulders', 'Hamstrings'] },
-  { id: 'split-jerk', name: 'Split Jerk', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Shoulders', 'Triceps', 'Legs'] },
-  { id: 'push-jerk', name: 'Push Jerk', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Shoulders', 'Triceps', 'Quads'] },
-  { id: 'overhead-squat', name: 'Overhead Squat', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Quads', 'Shoulders', 'Core'] },
-  { id: 'clean-pull', name: 'Clean Pull', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Traps', 'Glutes', 'Hamstrings'] },
-  { id: 'snatch-pull', name: 'Snatch Pull', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Traps', 'Glutes', 'Hamstrings'] },
-  { id: 'muscle-snatch', name: 'Muscle Snatch', category: 'Olympic', defaultRestSeconds: 120, muscleGroups: ['Shoulders', 'Traps'] },
-  { id: 'snatch-balance', name: 'Snatch Balance', category: 'Olympic', defaultRestSeconds: 180, muscleGroups: ['Shoulders', 'Quads', 'Core'] },
 
   // Legs — Nordic Curl
-  { id: 'nordic-curl', name: 'Nordic Curl', category: 'Legs', defaultRestSeconds: 120, muscleGroups: ['Hamstrings', 'Glutes'] },
+  { id: 'nordic-curl', suggestedRir: 2, name: 'Nordic Curl', category: 'Legs', defaultRestSeconds: 120, muscleGroups: ['Hamstrings', 'Glutes'] },
 
   // ── FOOTBALL SPECIFIC ────────────────────────────────────────────────────
 
   // Eccentric — injury prevention fundamentals
   { id: 'eccentric-nordic', name: 'Eccentric Nordic Curl', category: 'Eccentric', defaultRestSeconds: 120, muscleGroups: ['Hamstrings'], measureType: 'reps' },
   { id: 'eccentric-calf-raise', name: 'Eccentric Calf Raise', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Gastrocnemius'], measureType: 'reps' },
-  { id: 'eccentric-soleus', name: 'Eccentric Soleus Raise', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Soleus'], measureType: 'reps' },
-  { id: 'eccentric-step-down', name: 'Eccentric Step Down', category: 'Eccentric', defaultRestSeconds: 60, muscleGroups: ['Quads', 'VMO'], measureType: 'reps' },
   { id: 'eccentric-sl-rdl', name: 'Eccentric Single Leg RDL', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Hamstrings', 'Glutes'], measureType: 'reps' },
-  { id: 'eccentric-hip-adductor', name: 'Eccentric Hip Adductor', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Adductors'], measureType: 'reps' },
-  { id: 'eccentric-psoas', name: 'Eccentric Hip Flexor Lower', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Hip Flexors'], measureType: 'reps' },
   { id: 'copenhagen-adductor', name: 'Copenhagen Adductor', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Adductors', 'Core'] },
-  { id: 'spanish-squat', name: 'Spanish Squat (Isometric)', category: 'Eccentric', defaultRestSeconds: 60, muscleGroups: ['Quads', 'VMO'], measureType: 'time', unit: 's' },
-  { id: 'band-hip-abduction', name: 'Band Hip Abduction Walk', category: 'Eccentric', defaultRestSeconds: 60, muscleGroups: ['Glute Med', 'Hip Abductors'], measureType: 'reps' },
-  { id: 'adductor-squeeze', name: 'Adductor Squeeze Hold', category: 'Eccentric', defaultRestSeconds: 45, muscleGroups: ['Adductors'], measureType: 'time', unit: 's' },
   { id: 'reverse-nordic', name: 'Reverse Nordic Curl', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Hip Flexors'], measureType: 'reps' },
 
-  // Speed & Agility
-  { id: 'pogo-jump', name: 'Pogo Jump', category: 'Speed & Agility', defaultRestSeconds: 60, muscleGroups: ['Calves', 'Achilles'], measureType: 'reps' },
-  { id: 'ankle-hop', name: 'Ankle Hop', category: 'Speed & Agility', defaultRestSeconds: 60, muscleGroups: ['Calves', 'Achilles'], measureType: 'reps' },
-  { id: 'lateral-bound', name: 'Lateral Bound', category: 'Speed & Agility', defaultRestSeconds: 90, muscleGroups: ['Glutes', 'Adductors', 'Calves'], measureType: 'reps' },
-  { id: 'reactive-drop-jump', name: 'Reactive Drop Jump', category: 'Speed & Agility', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Calves', 'Glutes'], measureType: 'reps' },
-  { id: 'deceleration-drill', name: 'Deceleration Drill', category: 'Speed & Agility', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Hamstrings', 'Glutes'], measureType: 'reps' },
-  { id: 'lateral-shuffle', name: 'Lateral Shuffle', category: 'Speed & Agility', defaultRestSeconds: 60, muscleGroups: ['Glutes', 'Adductors'], measureType: 'reps' },
-  { id: 'approach-jump', name: 'Approach Jump', category: 'Speed & Agility', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Calves', 'Glutes'], measureType: 'reps' },
-  { id: 'reactive-45-cut', name: '45° Reactive Cut', category: 'Speed & Agility', defaultRestSeconds: 90, muscleGroups: ['Glutes', 'Quads', 'Ankles'], measureType: 'reps' },
-  { id: 'pro-agility', name: 'Pro Agility (5-10-5)', category: 'Speed & Agility', defaultRestSeconds: 120, muscleGroups: ['Full Body'], measureType: 'time', unit: 's' },
+  // Speed
+  { id: 'pogo-jump', name: 'Pogo Jump', category: 'Speed', defaultRestSeconds: 60, muscleGroups: ['Calves', 'Achilles'], measureType: 'reps' },
+  { id: 'ankle-hop', name: 'Ankle Hop', category: 'Speed', defaultRestSeconds: 60, muscleGroups: ['Calves', 'Achilles'], measureType: 'reps' },
+  { id: 'reactive-drop-jump', name: 'Reactive Drop Jump', category: 'Speed', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Calves', 'Glutes'], measureType: 'reps' },
+  { id: 'approach-jump', name: 'Approach Jump', category: 'Speed', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Calves', 'Glutes'], measureType: 'reps' },
+
+  // Agility
+  { id: 'deceleration-drill', name: 'Deceleration Drill', category: 'Agility', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Hamstrings', 'Glutes'], measureType: 'reps' },
+  { id: 'lateral-shuffle', name: 'Lateral Shuffle', category: 'Agility', defaultRestSeconds: 60, muscleGroups: ['Glutes', 'Adductors'], measureType: 'reps' },
+  { id: 'reactive-45-cut', name: '45° Reactive Cut', category: 'Agility', defaultRestSeconds: 90, muscleGroups: ['Glutes', 'Quads', 'Ankles'], measureType: 'reps' },
+  { id: 'pro-agility', name: 'Pro Agility (5-10-5)', category: 'Agility', defaultRestSeconds: 120, muscleGroups: ['Full Body'], measureType: 'time', unit: 's' },
+
+  // Speed + Agility
+  { id: 'lateral-bound', name: 'Lateral Bound', category: 'Speed', secondaryCategory: 'Agility', defaultRestSeconds: 90, muscleGroups: ['Glutes', 'Adductors', 'Calves'], measureType: 'reps' },
 
   // Conditioning
   { id: 'aerobic-threshold-run', name: 'Aerobic Threshold Run', category: 'Conditioning', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'], measureType: 'time', unit: 'min' },
@@ -124,14 +104,13 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'shuttle-run', name: 'Shuttle Run (5-10-5m)', category: 'Conditioning', defaultRestSeconds: 45, muscleGroups: ['Full Body', 'Cardiovascular'], measureType: 'time', unit: 's' },
   { id: 'ssg-simulation', name: 'SSG Simulation Run', category: 'Conditioning', defaultRestSeconds: 180, muscleGroups: ['Cardiovascular', 'Full Body'], measureType: 'time', unit: 'min' },
   { id: 'lactate-threshold-run', name: 'Lactate Threshold Run', category: 'Conditioning', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'], measureType: 'time', unit: 'min' },
-  { id: 'agility-circuit', name: 'Agility Circuit', category: 'Conditioning', defaultRestSeconds: 90, muscleGroups: ['Full Body', 'Cardiovascular'], measureType: 'time', unit: 's' },
 
-  // Testing — Sprint
-  { id: 'test-5m-sprint', name: '5m Sprint', category: 'Testing', defaultRestSeconds: 180, muscleGroups: ['Acceleration'], measureType: 'time', unit: 's' },
-  { id: 'test-10m-sprint', name: '10m Sprint', category: 'Testing', defaultRestSeconds: 180, muscleGroups: ['Acceleration'], measureType: 'time', unit: 's' },
-  { id: 'test-20m-sprint', name: '20m Sprint', category: 'Testing', defaultRestSeconds: 180, muscleGroups: ['Max Velocity'], measureType: 'time', unit: 's' },
-  { id: 'test-30m-sprint', name: '30m Sprint', category: 'Testing', defaultRestSeconds: 180, muscleGroups: ['Max Velocity'], measureType: 'time', unit: 's' },
-  { id: 'test-40m-sprint', name: '40m Sprint', category: 'Testing', defaultRestSeconds: 240, muscleGroups: ['Max Velocity'], measureType: 'time', unit: 's' },
+  // Testing — Sprint (also Speed)
+  { id: 'test-5m-sprint', name: '5m Sprint', category: 'Testing', secondaryCategory: 'Speed', defaultRestSeconds: 180, muscleGroups: ['Acceleration'], measureType: 'time', unit: 's' },
+  { id: 'test-10m-sprint', name: '10m Sprint', category: 'Testing', secondaryCategory: 'Speed', defaultRestSeconds: 180, muscleGroups: ['Acceleration'], measureType: 'time', unit: 's' },
+  { id: 'test-20m-sprint', name: '20m Sprint', category: 'Testing', secondaryCategory: 'Speed', defaultRestSeconds: 180, muscleGroups: ['Max Velocity'], measureType: 'time', unit: 's' },
+  { id: 'test-30m-sprint', name: '30m Sprint', category: 'Testing', secondaryCategory: 'Speed', defaultRestSeconds: 180, muscleGroups: ['Max Velocity'], measureType: 'time', unit: 's' },
+  { id: 'test-40m-sprint', name: '40m Sprint', category: 'Testing', secondaryCategory: 'Speed', defaultRestSeconds: 240, muscleGroups: ['Max Velocity'], measureType: 'time', unit: 's' },
 
   // Testing — Jump
   { id: 'test-cmj', name: 'Countermovement Jump (CMJ)', category: 'Testing', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'], measureType: 'height', unit: 'cm' },
@@ -142,10 +121,10 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'test-triple-broad', name: 'Triple Broad Jump', category: 'Testing', defaultRestSeconds: 180, muscleGroups: ['Full Body'], measureType: 'distance', unit: 'm' },
   { id: 'test-lateral-jump', name: 'Lateral Jump (5 hops)', category: 'Testing', defaultRestSeconds: 120, muscleGroups: ['Adductors', 'Glutes'], measureType: 'distance', unit: 'm' },
 
-  // Testing — Agility / COD
-  { id: 'test-505', name: '505 COD Test', category: 'Testing', defaultRestSeconds: 180, muscleGroups: ['Quads', 'Glutes', 'Ankles'], measureType: 'time', unit: 's' },
-  { id: 'test-t-test', name: 'T-Test (Agility)', category: 'Testing', defaultRestSeconds: 180, muscleGroups: ['Full Body', 'Agility'], measureType: 'time', unit: 's' },
-  { id: 'test-illinois', name: 'Illinois Agility Test', category: 'Testing', defaultRestSeconds: 180, muscleGroups: ['Full Body', 'Agility'], measureType: 'time', unit: 's' },
+  // Testing — Agility / COD (also Agility)
+  { id: 'test-505', name: '505 COD Test', category: 'Testing', secondaryCategory: 'Agility', defaultRestSeconds: 180, muscleGroups: ['Quads', 'Glutes', 'Ankles'], measureType: 'time', unit: 's' },
+  { id: 'test-t-test', name: 'T-Test (Agility)', category: 'Testing', secondaryCategory: 'Agility', defaultRestSeconds: 180, muscleGroups: ['Full Body'], measureType: 'time', unit: 's' },
+  { id: 'test-illinois', name: 'Illinois Agility Test', category: 'Testing', secondaryCategory: 'Agility', defaultRestSeconds: 180, muscleGroups: ['Full Body'], measureType: 'time', unit: 's' },
 
   // Testing — Fitness
   { id: 'test-yoyo-ir1', name: 'Yo-Yo IR1', category: 'Testing', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular', 'Aerobic Capacity'], measureType: 'score', unit: 'level' },
@@ -165,34 +144,24 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   // Isometric
   { id: 'wall-sit', name: 'Wall Sit', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Quads', 'Glutes'] },
   { id: 'side-plank', name: 'Side Plank', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Obliques', 'Core'] },
-  { id: 'hollow-hold', name: 'Hollow Hold', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Abs', 'Hip Flexors'] },
   { id: 'superman-hold', name: 'Superman Hold', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Erectors', 'Glutes'] },
   { id: 'dead-hang', name: 'Dead Hang', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Lats', 'Grip', 'Shoulders'] },
-  { id: 'l-sit', name: 'L-Sit', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Abs', 'Hip Flexors', 'Triceps'] },
   { id: 'copenhagen-plank', name: 'Copenhagen Plank', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Adductors', 'Obliques', 'Core'] },
   { id: 'iso-squat-hold', name: 'Isometric Squat Hold', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Quads', 'Glutes'] },
   { id: 'iso-lunge-hold', name: 'Isometric Lunge Hold', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Quads', 'Glutes'] },
-  { id: 'iso-bicep-curl', name: 'Isometric Bicep Curl', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Biceps'] },
-  { id: 'iso-chest-squeeze', name: 'Isometric Chest Squeeze', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Pectorals'] },
   { id: 'iso-row', name: 'Isometric Row Hold', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Lats', 'Rhomboids'] },
   { id: 'glute-bridge-hold', name: 'Glute Bridge Hold', category: 'Isometric', defaultRestSeconds: 60, muscleGroups: ['Glutes', 'Hamstrings'] },
   { id: 'calf-raise-hold', name: 'Calf Raise Hold', category: 'Isometric', defaultRestSeconds: 45, muscleGroups: ['Calves'] },
 
   // Plyometrics
   { id: 'box-jump', name: 'Box Jump', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes', 'Calves'] },
-  { id: 'depth-jump', name: 'Depth Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'] },
+  { id: 'depth-jump', name: 'Drop Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'] },
   { id: 'broad-jump', name: 'Broad Jump', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes', 'Hamstrings'] },
-  { id: 'jump-squat', name: 'Jump Squat', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes', 'Calves'] },
-  { id: 'tuck-jump', name: 'Tuck Jump', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Hip Flexors', 'Calves'] },
   { id: 'lateral-box-jump', name: 'Lateral Box Jump', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Glutes', 'Adductors', 'Calves'] },
   { id: 'single-leg-hop', name: 'Single Leg Hop', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes', 'Calves'] },
   { id: 'hurdle-hop', name: 'Hurdle Hop', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes', 'Calves'] },
   { id: 'skater-jump', name: 'Skater Jump', category: 'Plyometrics', defaultRestSeconds: 60, muscleGroups: ['Glutes', 'Adductors', 'Calves'] },
   { id: 'bounding', name: 'Bounding', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Hamstrings', 'Glutes', 'Calves'] },
-  { id: 'plyo-push-up', name: 'Plyometric Push Up', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Pectorals', 'Triceps', 'Shoulders'] },
-  { id: 'clapping-push-up', name: 'Clapping Push Up', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Pectorals', 'Triceps'] },
-  { id: 'med-ball-slam', name: 'Med Ball Slam', category: 'Plyometrics', defaultRestSeconds: 60, muscleGroups: ['Full Body', 'Core'] },
-  { id: 'med-ball-throw', name: 'Med Ball Chest Throw', category: 'Plyometrics', defaultRestSeconds: 60, muscleGroups: ['Pectorals', 'Triceps', 'Core'] },
   { id: 'sprint', name: 'Sprint', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Hamstrings', 'Calves'] },
 ];
 
@@ -205,10 +174,10 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Core:        'bg-orange-100 text-orange-700',
   Cardio:      'bg-pink-100 text-pink-700',
   'Full Body': 'bg-teal-100 text-teal-700',
-  Olympic:          'bg-indigo-100 text-indigo-700',
   Isometric:        'bg-cyan-100 text-cyan-700',
   Plyometrics:      'bg-lime-100 text-lime-700',
-  'Speed & Agility':'bg-emerald-100 text-emerald-700',
+  Speed:            'bg-emerald-100 text-emerald-700',
+  Agility:          'bg-teal-100 text-teal-800',
   Eccentric:        'bg-violet-100 text-violet-700',
   Conditioning:     'bg-rose-100 text-rose-700',
   Testing:          'bg-sky-100 text-sky-700',

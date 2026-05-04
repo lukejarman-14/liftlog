@@ -74,6 +74,12 @@ export function useStore() {
       return [programme, ...filtered].slice(0, 10);
     });
 
+  const deleteGeneratedProgramme = (id: string) => {
+    setGeneratedProgrammes(prev => prev.filter(p => p.id !== id));
+    // If the deleted programme was active, clear it
+    setActiveProgrammeId(prev => (prev === id ? null : prev));
+  };
+
   // Daily readiness
   const saveDailyReadiness = (entry: DailyReadiness) =>
     setDailyReadinessLog(prev => {
@@ -216,6 +222,7 @@ export function useStore() {
     saveTestSession,
     generatedProgrammes,
     saveGeneratedProgramme,
+    deleteGeneratedProgramme,
     activeProgrammeId,
     setActiveProgrammeId,
     dailyReadinessLog,
@@ -224,5 +231,21 @@ export function useStore() {
     footballIntensityLog,
     saveFootballIntensity,
     getPendingIntensityCheck,
+    clearAll: () => {
+      setUserProfile(null);
+      setCustomExercises([]);
+      setTemplates([]);
+      setSessions([]);
+      setActivePlan(null);
+      setProfilePicture(null);
+      setBaselineRaw(null);
+      setMatchEntries([]);
+      setPerformanceEntries([]);
+      setTestSessions([]);
+      setGeneratedProgrammes([]);
+      setActiveProgrammeId(null);
+      setDailyReadinessLog([]);
+      setFootballIntensityLog({});
+    },
   };
 }

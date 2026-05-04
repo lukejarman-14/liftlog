@@ -12,8 +12,8 @@ import { BUILT_IN_PROGRAMS, FOOTBALL_PROGRAMS, BuiltInTemplate, Program } from '
 
 const CATEGORIES: ExerciseCategory[] = [
   'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Cardio', 'Full Body',
-  'Olympic', 'Isometric', 'Plyometrics',
-  'Speed & Agility', 'Eccentric', 'Conditioning', 'Testing',
+  'Isometric', 'Plyometrics',
+  'Speed', 'Agility', 'Eccentric', 'Conditioning', 'Testing',
 ];
 
 interface WorkoutBuilderProps {
@@ -81,7 +81,7 @@ function ExercisePicker({
             ))}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
+        <div className="flex-1 overflow-y-auto px-4 pb-24">
           {filtered.map(ex => {
             const isAdded = selected.includes(ex.id);
             return (
@@ -118,8 +118,8 @@ const SEC_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 const ITEM_H = 40;
 
 function DrumColumn({
-  options, value, onChange, label,
-}: { options: number[]; value: number; onChange: (v: number) => void; label: string }) {
+  options, value, onChange,
+}: { options: number[]; value: number; onChange: (v: number) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const isMounting = useRef(true);
@@ -129,7 +129,6 @@ function DrumColumn({
     if (ref.current && idx >= 0) {
       ref.current.scrollTop = idx * ITEM_H;
     }
-    // After mount, allow scroll events
     const t = setTimeout(() => { isMounting.current = false; }, 100);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,40 +149,37 @@ function DrumColumn({
   };
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <div
-        ref={ref}
-        onScroll={handleScroll}
-        style={{
-          height: ITEM_H * 3,
-          overflowY: 'scroll',
-          scrollSnapType: 'y mandatory',
-          WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'],
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-        } as React.CSSProperties}
-        className="[&::-webkit-scrollbar]:hidden"
-      >
-        <div style={{ height: ITEM_H }} />
-        {options.map(o => (
-          <div
-            key={o}
-            style={{ height: ITEM_H, scrollSnapAlign: 'center' }}
-            className={`flex items-center justify-center text-xl font-bold cursor-pointer select-none ${
-              o === value ? 'text-brand-600' : 'text-gray-300'
-            }`}
-            onClick={() => {
-              onChange(o);
-              const idx = options.indexOf(o);
-              if (ref.current) ref.current.scrollTop = idx * ITEM_H;
-            }}
-          >
-            {String(o).padStart(2, '0')}
-          </div>
-        ))}
-        <div style={{ height: ITEM_H }} />
-      </div>
-      <span className="text-xs text-gray-400 font-medium">{label}</span>
+    <div
+      ref={ref}
+      onScroll={handleScroll}
+      style={{
+        height: ITEM_H * 3,
+        overflowY: 'scroll',
+        scrollSnapType: 'y mandatory',
+        WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'],
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+      } as React.CSSProperties}
+      className="[&::-webkit-scrollbar]:hidden"
+    >
+      <div style={{ height: ITEM_H }} />
+      {options.map(o => (
+        <div
+          key={o}
+          style={{ height: ITEM_H, scrollSnapAlign: 'center' }}
+          className={`flex items-center justify-center text-xl font-bold cursor-pointer select-none ${
+            o === value ? 'text-brand-600' : 'text-gray-300'
+          }`}
+          onClick={() => {
+            onChange(o);
+            const idx = options.indexOf(o);
+            if (ref.current) ref.current.scrollTop = idx * ITEM_H;
+          }}
+        >
+          {String(o).padStart(2, '0')}
+        </div>
+      ))}
+      <div style={{ height: ITEM_H }} />
     </div>
   );
 }
@@ -193,18 +189,41 @@ function RestPicker({ value, onChange }: { value: number; onChange: (v: number) 
   const rawSecs = value % 60;
   const secs = SEC_OPTIONS.includes(rawSecs) ? rawSecs : Math.round(rawSecs / 5) * 5 % 60;
 
+  // Highlight sits on the middle slot: slots are 0→ITEM_H, ITEM_H→2*ITEM_H, 2*ITEM_H→3*ITEM_H
+  const highlightTop = ITEM_H; // second slot (index 1)
+
   return (
     <div className="col-span-2">
       <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Rest</label>
-      <div className="relative flex items-center justify-center bg-gray-50 rounded-xl border border-gray-200 py-2 gap-4">
-        {/* Selection highlight */}
-        <div
-          className="absolute left-4 right-4 h-10 bg-brand-50 border-y border-brand-200 rounded-lg pointer-events-none"
-          style={{ top: '50%', transform: 'translateY(-50%)' }}
-        />
-        <DrumColumn options={MIN_OPTIONS} value={mins} onChange={m => onChange(m * 60 + secs)} label="min" />
-        <span className="text-2xl font-bold text-gray-300 mb-5 z-10">:</span>
-        <DrumColumn options={SEC_OPTIONS} value={secs} onChange={s => onChange(mins * 60 + s)} label="sec" />
+      <div className="bg-gray-50 rounded-xl border border-gray-200 px-4 pt-2 pb-2">
+        {/* Relative wrapper so highlight is positioned against the drum area */}
+        <div className="relative flex items-start justify-center">
+          {/* Highlight bar — spans full width at the centre drum slot */}
+          <div
+            className="absolute left-0 right-0 bg-brand-50 border-y border-brand-200 rounded-lg pointer-events-none z-10"
+            style={{ top: highlightTop, height: ITEM_H }}
+          />
+
+          {/* Min column */}
+          <div className="flex flex-col items-center flex-1 z-20">
+            <DrumColumn options={MIN_OPTIONS} value={mins} onChange={m => onChange(m * 60 + secs)} />
+            <span className="text-xs text-gray-400 font-medium mt-1">min</span>
+          </div>
+
+          {/* Colon — height matches drum area so items-center lands at the right row */}
+          <div
+            className="flex items-center justify-center flex-shrink-0 z-20"
+            style={{ height: ITEM_H * 3, width: 24 }}
+          >
+            <span className="text-2xl font-bold text-gray-300">:</span>
+          </div>
+
+          {/* Sec column */}
+          <div className="flex flex-col items-center flex-1 z-20">
+            <DrumColumn options={SEC_OPTIONS} value={secs} onChange={s => onChange(mins * 60 + s)} />
+            <span className="text-xs text-gray-400 font-medium mt-1">sec</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -223,7 +242,11 @@ function ExerciseRow({
   onChange: (updated: WorkoutExercise) => void;
   onRemove: () => void;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  // Local string state so fields can be blank while typing (same as weight)
+  const [setsStr,   setSetsStr]   = useState(item.targetSets   > 0 ? String(item.targetSets)   : '');
+  const [repsStr,   setRepsStr]   = useState(item.targetReps   > 0 ? String(item.targetReps)   : '');
+  const [weightStr, setWeightStr] = useState(item.targetWeight > 0 ? String(item.targetWeight) : '');
 
   return (
     <Card className="overflow-hidden">
@@ -249,20 +272,41 @@ function ExerciseRow({
           <Input
             label="Sets"
             type="number" min="1" max="20"
-            value={item.targetSets}
-            onChange={e => onChange({ ...item, targetSets: parseInt(e.target.value) || 1 })}
+            value={setsStr}
+            placeholder="3"
+            onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
+            onChange={e => setSetsStr(e.target.value)}
+            onBlur={() => {
+              const v = parseInt(setsStr) || 3;
+              setSetsStr(String(v));
+              onChange({ ...item, targetSets: v });
+            }}
           />
           <Input
             label="Reps"
             type="number" min="1" max="100"
-            value={item.targetReps}
-            onChange={e => onChange({ ...item, targetReps: parseInt(e.target.value) || 1 })}
+            value={repsStr}
+            placeholder="10"
+            onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
+            onChange={e => setRepsStr(e.target.value)}
+            onBlur={() => {
+              const v = parseInt(repsStr) || 10;
+              setRepsStr(String(v));
+              onChange({ ...item, targetReps: v });
+            }}
           />
           <Input
             label="Weight (kg)"
             type="number" min="0" step="0.5"
-            value={item.targetWeight}
-            onChange={e => onChange({ ...item, targetWeight: parseFloat(e.target.value) || 0 })}
+            value={weightStr}
+            placeholder="0"
+            onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
+            onChange={e => setWeightStr(e.target.value)}
+            onBlur={() => {
+              const v = parseFloat(weightStr) || 0;
+              setWeightStr(v > 0 ? String(v) : '');
+              onChange({ ...item, targetWeight: v });
+            }}
           />
           <RestPicker
             value={item.restSeconds}
@@ -332,14 +376,11 @@ type ProgramTab = 'football' | 'general';
 
 function ProgramsBrowser({ onLoad }: { onLoad: (t: BuiltInTemplate) => void }) {
   const [programTab, setProgramTab] = useState<ProgramTab>('football');
-  const [openProgram, setOpenProgram] = useState<string | null>(FOOTBALL_PROGRAMS[0]?.name ?? null);
+  const [openProgram, setOpenProgram] = useState<string | null>(null);
 
   const handleTabChange = (tab: ProgramTab) => {
     setProgramTab(tab);
-    setOpenProgram(tab === 'football'
-      ? FOOTBALL_PROGRAMS[0]?.name ?? null
-      : BUILT_IN_PROGRAMS[0]?.name ?? null
-    );
+    setOpenProgram(null);
   };
 
   return (
@@ -453,6 +494,8 @@ export function WorkoutBuilder({
   const [saveNameInput, setSaveNameInput] = useState('');
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const [pendingTab, setPendingTab] = useState<Tab | null>(null);
+  // Tracks the ID of the template currently being edited (set when loading from My Templates)
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(initial?.id ?? null);
 
   // Track saved state: items are "dirty" if they exist and differ from last save
   const savedItemsRef = useRef<string>(JSON.stringify(initial?.exercises ?? []));
@@ -460,9 +503,11 @@ export function WorkoutBuilder({
 
   const selectedIds = items.map(i => i.exerciseId);
 
-  const loadTemplate = (t: { name: string; exercises: WorkoutExercise[] }) => {
+  const loadTemplate = (t: { id?: string; name: string; exercises: WorkoutExercise[] }) => {
     setName(t.name);
     setItems(t.exercises);
+    setEditingTemplateId(t.id ?? null);
+    savedItemsRef.current = JSON.stringify(t.exercises);
     setTab('build');
   };
 
@@ -487,14 +532,30 @@ export function WorkoutBuilder({
     setItems(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const handleSaveTemplate = () => {
-    const templateName = saveNameInput.trim() || name.trim() || 'My Workout';
+  // Overwrite the template currently being edited (same ID)
+  const handleSave = () => {
+    const templateName = name.trim() || 'My Workout';
+    const existingTemplate = editingTemplateId ? templates.find(t => t.id === editingTemplateId) : null;
     onSaveTemplate({
-      id: initial?.id ?? `template-${Date.now()}`,
+      id: editingTemplateId ?? `template-${Date.now()}`,
       name: templateName,
       exercises: items,
-      createdAt: initial?.createdAt ?? Date.now(),
+      createdAt: existingTemplate?.createdAt ?? Date.now(),
     });
+    savedItemsRef.current = JSON.stringify(items);
+  };
+
+  // Save as a brand-new template (always new ID)
+  const handleSaveAs = () => {
+    const templateName = saveNameInput.trim() || name.trim() || 'My Workout';
+    const newId = `template-${Date.now()}`;
+    onSaveTemplate({
+      id: newId,
+      name: templateName,
+      exercises: items,
+      createdAt: Date.now(),
+    });
+    setEditingTemplateId(newId);
     savedItemsRef.current = JSON.stringify(items);
     setShowSave(false);
     setSaveNameInput('');
@@ -520,16 +581,32 @@ export function WorkoutBuilder({
       title="Workout"
       rightAction={
         tab === 'build' && items.length > 0 ? (
-          <button
-            onClick={() => setShowSave(true)}
-            className={`px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors ${
-              isDirty
-                ? 'bg-brand-500 text-white hover:bg-brand-600'
-                : 'text-gray-400 hover:text-gray-600 border border-gray-200'
-            }`}
-          >
-            Save
-          </button>
+          <div className="flex items-center gap-1.5">
+            {editingTemplateId && (
+              <button
+                onClick={() => setShowSave(true)}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors"
+              >
+                Save As
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (editingTemplateId) {
+                  handleSave();
+                } else {
+                  setShowSave(true);
+                }
+              }}
+              className={`px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors ${
+                isDirty
+                  ? 'bg-brand-500 text-white hover:bg-brand-600'
+                  : 'text-gray-400 hover:text-gray-600 border border-gray-200'
+              }`}
+            >
+              Save
+            </button>
+          </div>
         ) : undefined
       }
     >
@@ -590,6 +667,7 @@ export function WorkoutBuilder({
               placeholder="Workout name (e.g. Push Day)"
               value={name}
               onChange={e => setName(e.target.value)}
+              onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
             />
           </div>
 
@@ -617,8 +695,11 @@ export function WorkoutBuilder({
 
           {/* Start button */}
           {items.length > 0 && (
-            <Button fullWidth size="lg" onClick={() => onStart(name.trim() || 'Workout', items)}>
-              Start Workout
+            <Button fullWidth size="lg" onClick={() => {
+              handleSave();
+              onStart(name.trim() || 'My Workout', items);
+            }}>
+              Save &amp; Start
             </Button>
           )}
         </>
@@ -638,16 +719,18 @@ export function WorkoutBuilder({
       {showSave && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
-            <h2 className="font-bold text-gray-900 mb-4">Save to My Templates</h2>
+            <h2 className="font-bold text-gray-900 mb-1">Save As New Template</h2>
+            <p className="text-xs text-gray-400 mb-4">Creates a new template — existing one is unchanged.</p>
             <Input
-              placeholder="Template name"
+              placeholder="New template name"
               value={saveNameInput || name}
               onChange={e => setSaveNameInput(e.target.value)}
               autoFocus
+              onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
             />
             <div className="flex gap-3 mt-4">
-              <Button variant="secondary" fullWidth onClick={() => setShowSave(false)}>Cancel</Button>
-              <Button fullWidth onClick={handleSaveTemplate}>Save</Button>
+              <Button variant="secondary" fullWidth onClick={() => { setShowSave(false); setSaveNameInput(''); }}>Cancel</Button>
+              <Button fullWidth onClick={handleSaveAs}>Save As</Button>
             </div>
           </div>
         </div>

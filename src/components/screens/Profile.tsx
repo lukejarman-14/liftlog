@@ -1,8 +1,10 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   Camera, Mail, User, Shield, Calendar, Target, Dumbbell,
-  LogOut, ChevronRight, Activity, Zap,
+  LogOut, ChevronRight, Activity, Zap, Lock, Eye, EyeOff, Check,
+  Ruler, Weight, Download,
 } from 'lucide-react';
+import { exportData } from '../../lib/dataSync';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { UserProfile } from '../../types';
@@ -17,7 +19,246 @@ interface ProfileProps {
   onSetProfilePicture: (pic: string | null) => void;
   onStartBattery: () => void;
   onResetProfile: () => void;
+  onChangePassword: (newHash: string) => void;
+  onUpdateProfile: (updates: Partial<UserProfile>) => void;
+  onLogout: () => void;
   onBack: () => void;
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function ChangePasswordModal({
+  currentHash,
+  onSave,
+  onClose,
+}: {
+  currentHash?: string;
+  onSave: (newHash: string) => void;
+  onClose: () => void;
+}) {
+  const [currentPw,  setCurrentPw]  = useState('');
+  const [newPw,      setNewPw]      = useState('');
+  const [confirmPw,  setConfirmPw]  = useState('');
+  const [showCur,    setShowCur]    = useState(false);
+  const [showNew,    setShowNew]    = useState(false);
+  const [error,      setError]      = useState('');
+  const [success,    setSuccess]    = useState(false);
+  const [loading,    setLoading]    = useState(false);
+
+  const passwordStrong = newPw.length >= 8;
+  const passwordsMatch = newPw === confirmPw && confirmPw !== '';
+
+  const handleSave = async () => {
+    setError('');
+    if (!passwordStrong) { setError('New password must be at least 8 characters.'); return; }
+    if (!passwordsMatch) { setError('New passwords do not match.'); return; }
+    setLoading(true);
+    // Verify current password
+    if (currentHash) {
+      const curHash = await hashPassword(currentPw);
+      if (curHash !== currentHash) {
+        setError('Current password is incorrect.');
+        setLoading(false);
+        return;
+      }
+    }
+    const newHash = await hashPassword(newPw);
+    setSuccess(true);
+    setTimeout(() => { onSave(newHash); onClose(); }, 800);
+    setLoading(false);
+  };
+
+  const inputCls = (err = false) =>
+    `w-full px-4 py-3 rounded-xl border ${err ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'} bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 pr-11`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center">
+            <Lock size={16} className="text-brand-600" />
+          </div>
+          <h3 className="font-bold text-gray-900">Change Password</h3>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {currentHash && (
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Current Password</label>
+              <div className="relative">
+                <input value={currentPw} onChange={e => { setCurrentPw(e.target.value); setError(''); }}
+                  type={showCur ? 'text' : 'password'} placeholder="Enter current password"
+                  autoComplete="current-password" className={inputCls(!!error && !currentPw)} />
+                <button type="button" onClick={() => setShowCur(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  {showCur ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">New Password</label>
+            <div className="relative">
+              <input value={newPw} onChange={e => { setNewPw(e.target.value); setError(''); }}
+                type={showNew ? 'text' : 'password'} placeholder="Min. 8 characters"
+                autoComplete="new-password" className={inputCls(newPw !== '' && !passwordStrong)} />
+              <button type="button" onClick={() => setShowNew(p => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {newPw !== '' && (
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <div className={`h-1 flex-1 rounded-full ${passwordStrong ? 'bg-green-400' : 'bg-red-300'}`} />
+                <span className={`text-xs font-medium ${passwordStrong ? 'text-green-600' : 'text-red-400'}`}>
+                  {passwordStrong ? 'Strong enough' : 'Too short'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Confirm New Password</label>
+            <div className="relative">
+              <input value={confirmPw} onChange={e => { setConfirmPw(e.target.value); setError(''); }}
+                type="password" placeholder="Re-enter new password"
+                autoComplete="new-password" className={inputCls(confirmPw !== '' && !passwordsMatch)} />
+              {confirmPw !== '' && passwordsMatch && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500"><Check size={15} /></div>
+              )}
+            </div>
+            {confirmPw !== '' && !passwordsMatch && (
+              <p className="text-xs text-red-400 mt-1">Passwords don't match</p>
+            )}
+          </div>
+
+          {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+          {success && (
+            <div className="flex items-center justify-center gap-2 text-green-600 text-sm font-semibold">
+              <Check size={16} /> Password updated!
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose}
+            className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={loading || success || !newPw || !confirmPw || (!!currentHash && !currentPw)}
+            className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
+              loading || success || !newPw || !confirmPw
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-brand-500 text-white hover:bg-brand-600'
+            }`}>
+            {loading ? 'Saving…' : 'Save Password'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function EditMetricsModal({
+  currentHeight,
+  currentWeight,
+  onSave,
+  onClose,
+}: {
+  currentHeight?: number;
+  currentWeight?: number;
+  onSave: (heightCm?: number, weightKg?: number) => void;
+  onClose: () => void;
+}) {
+  const [heightStr, setHeightStr] = useState(currentHeight ? String(currentHeight) : '');
+  const [weightStr, setWeightStr] = useState(currentWeight ? String(currentWeight) : '');
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    const h = heightStr ? parseFloat(heightStr) : undefined;
+    const w = weightStr ? parseFloat(weightStr) : undefined;
+    setSaved(true);
+    setTimeout(() => { onSave(h, w); onClose(); }, 600);
+  };
+
+  const inputCls = `w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-400`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center">
+            <Ruler size={16} className="text-brand-600" />
+          </div>
+          <h3 className="font-bold text-gray-900">Body Metrics</h3>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+              Height (cm)
+            </label>
+            <input
+              value={heightStr}
+              onChange={e => setHeightStr(e.target.value)}
+              type="number"
+              min="100"
+              max="230"
+              placeholder="e.g. 180"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+              Weight (kg)
+            </label>
+            <input
+              value={weightStr}
+              onChange={e => setWeightStr(e.target.value)}
+              type="number"
+              min="30"
+              max="200"
+              placeholder="e.g. 75"
+              className={inputCls}
+            />
+          </div>
+
+          {saved && (
+            <div className="flex items-center justify-center gap-2 text-green-600 text-sm font-semibold">
+              <Check size={16} /> Saved!
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saved}
+            className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
+              saved ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-brand-500 text-white hover:bg-brand-600'
+            }`}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 
@@ -48,9 +289,11 @@ function getInitials(first: string, last: string) {
 export function Profile({
   userProfile, profilePicture, totalSessions,
   baseline, onSetProfilePicture,
-  onStartBattery, onResetProfile, onBack,
+  onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onLogout, onBack,
 }: ProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showChangePw,    setShowChangePw]    = useState(false);
+  const [showEditMetrics, setShowEditMetrics] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -258,27 +501,96 @@ export function Profile({
         )}
       </Card>
 
-      {/* ── Settings ──────────────────────────────────────────────────── */}
+      {/* ── Body Metrics ──────────────────────────────────────────────── */}
       <Card className="p-4 mb-4">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Settings</h3>
-        <div className="flex items-center gap-3 py-3 opacity-50 pointer-events-none">
-          <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
-            <ChevronRight size={14} className="text-gray-400" />
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Body Metrics</h3>
+          <button
+            onClick={() => setShowEditMetrics(true)}
+            className="text-xs font-semibold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-full hover:bg-brand-100 transition-colors"
+          >
+            Edit
+          </button>
+        </div>
+        <div className="flex gap-4">
+          <div className="flex items-center gap-2 flex-1">
+            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <Ruler size={14} className="text-blue-600" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-400">Height</div>
+              <div className="text-sm font-bold text-gray-800">
+                {userProfile.heightCm ? `${userProfile.heightCm} cm` : <span className="text-gray-400 font-normal">Not set</span>}
+              </div>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-gray-800">More settings coming soon</div>
-            <div className="text-xs text-gray-400">Rest timer sounds, units, notifications and more.</div>
+          <div className="flex items-center gap-2 flex-1">
+            <div className="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+              <Weight size={14} className="text-green-600" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-400">Weight</div>
+              <div className="text-sm font-bold text-gray-800">
+                {userProfile.weightKg ? `${userProfile.weightKg} kg` : <span className="text-gray-400 font-normal">Not set</span>}
+              </div>
+            </div>
           </div>
         </div>
+      </Card>
+
+      {/* ── Settings ──────────────────────────────────────────────────── */}
+      <Card className="p-4 mb-4">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Data &amp; Backup</h3>
+
+        <button
+          onClick={() => exportData()}
+          className="w-full text-left py-3 flex items-center justify-between gap-2 hover:opacity-80 transition-opacity"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
+              <Download size={14} className="text-brand-600" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-gray-800">Export My Data</div>
+              <div className="text-xs text-gray-400">Download a backup file — restore on any device</div>
+            </div>
+          </div>
+          <ChevronRight size={14} className="text-gray-300 flex-shrink-0" />
+        </button>
       </Card>
 
       {/* ── Account ───────────────────────────────────────────────────── */}
       <Card className="p-4 mb-8">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account</h3>
+
+        {/* Change Password */}
+        <button
+          onClick={() => setShowChangePw(true)}
+          className="w-full text-left text-sm text-gray-600 py-2.5 flex items-center justify-between gap-2 hover:text-gray-900"
+        >
+          <div className="flex items-center gap-2">
+            <Lock size={15} className="text-gray-400" />
+            Change Password
+          </div>
+          <ChevronRight size={14} className="text-gray-300" />
+        </button>
+
+        {/* Log Out */}
+        <button
+          onClick={onLogout}
+          className="w-full text-left text-sm text-gray-600 py-2.5 flex items-center justify-between gap-2 hover:text-gray-900 border-t border-gray-100"
+        >
+          <div className="flex items-center gap-2">
+            <LogOut size={15} className="text-gray-400" />
+            Log Out
+          </div>
+          <ChevronRight size={14} className="text-gray-300" />
+        </button>
+
         {profilePicture && (
           <button
             onClick={() => onSetProfilePicture(null)}
-            className="w-full text-left text-sm text-gray-600 py-2.5 flex items-center gap-2 hover:text-gray-900"
+            className="w-full text-left text-sm text-gray-600 py-2.5 flex items-center gap-2 hover:text-gray-900 border-t border-gray-100"
           >
             <Camera size={15} className="text-gray-400" />
             Remove profile photo
@@ -286,16 +598,32 @@ export function Profile({
         )}
         <button
           onClick={() => {
-            if (window.confirm('This will reset your profile and show the onboarding again. Your workout history will be kept. Continue?')) {
+            if (window.confirm('⚠️ This will permanently delete your account and ALL data (workouts, programmes, history). This cannot be undone. Continue?')) {
               onResetProfile();
             }
           }}
           className="w-full text-left text-sm text-red-500 py-2.5 flex items-center gap-2 hover:text-red-600 border-t border-gray-100 mt-1 pt-3"
         >
-          <LogOut size={15} />
-          Reset profile &amp; restart onboarding
+          Delete Account &amp; All Data
         </button>
       </Card>
+
+      {showChangePw && (
+        <ChangePasswordModal
+          currentHash={userProfile.passwordHash}
+          onSave={onChangePassword}
+          onClose={() => setShowChangePw(false)}
+        />
+      )}
+
+      {showEditMetrics && (
+        <EditMetricsModal
+          currentHeight={userProfile.heightCm}
+          currentWeight={userProfile.weightKg}
+          onSave={(h, w) => onUpdateProfile({ heightCm: h, weightKg: w })}
+          onClose={() => setShowEditMetrics(false)}
+        />
+      )}
     </Layout>
   );
 }

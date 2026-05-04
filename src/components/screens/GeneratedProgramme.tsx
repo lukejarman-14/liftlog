@@ -3,139 +3,24 @@
  * Shows force-velocity profile, method tags, tempo, intensity intent, and coach explanation.
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
-  ChevronLeft, ChevronDown, ChevronUp,
-  Zap, Shield, Clock, Calendar, TrendingUp, BookOpen, Play,
+  ChevronLeft, ChevronDown, ChevronUp, ChevronRight,
+  Zap, Shield, Clock, TrendingUp, BookOpen, Play, X, GripVertical, AlertTriangle,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import {
   GeneratedProgramme as GPType, ProgrammeSession, SessionBlock, ProgrammeExercise,
-  WorkoutExercise, Exercise,
 } from '../../types';
-
-// ── Exercise name → library ID mapping ────────────────────────────────────
-
-const NAME_TO_ID: Record<string, string> = {
-  'back squat': 'squat',
-  'front squat': 'front-squat',
-  'romanian deadlift': 'rdl',
-  'rdl': 'rdl',
-  'trap bar deadlift': 'deadlift',
-  'hex bar deadlift': 'deadlift',
-  'deadlift': 'deadlift',
-  'power clean': 'power-clean',
-  'hang power clean': 'hang-power-clean',
-  'hang clean': 'hang-clean',
-  'hang snatch': 'hang-snatch',
-  'bench press': 'bench-press',
-  'db bench press': 'db-bench',
-  'pull-up': 'pull-up',
-  'weighted pull-up': 'pull-up',
-  'push press': 'ohp',
-  'overhead press': 'ohp',
-  'dumbbell shoulder press': 'db-ohp',
-  'db shoulder press': 'db-ohp',
-  'dumbbell row': 'db-row',
-  'db row': 'db-row',
-  'goblet squat': 'squat',
-  'bulgarian split squat': 'lunge',
-  'split squat': 'lunge',
-  'reverse lunge': 'lunge',
-  'lunge': 'lunge',
-  'hip thrust': 'hip-thrust',
-  'glute bridge': 'hip-thrust',
-  'calf raise': 'calf-raise',
-  'plank': 'plank',
-  'kettlebell swing': 'kettlebell-swing',
-  'jump squat': 'squat',
-  'box jump': 'squat',
-  'broad jump': 'squat',
-  'nordic hamstring curl': 'leg-curl',
-  'leg curl': 'leg-curl',
-};
-
-function parseRest(rest: string): number {
-  if (!rest) return 90;
-  const m = rest.match(/(\d+):(\d+)/);
-  if (m) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-  const s = rest.match(/(\d+)\s*s/);
-  if (s) return parseInt(s[1], 10);
-  const min = rest.match(/(\d+)\s*min/);
-  if (min) return parseInt(min[1], 10) * 60;
-  const plain = rest.match(/^(\d+)$/);
-  if (plain) return parseInt(plain[1], 10);
-  return 90;
-}
-
-function parseReps(reps: string): number {
-  const n = parseInt(reps, 10);
-  return isNaN(n) ? 8 : Math.min(n, 20);
-}
-
-function parseSets(sets: string): number {
-  const n = parseInt(sets, 10);
-  return isNaN(n) ? 3 : Math.min(n, 6);
-}
-
-/** Convert programme session exercises to WorkoutExercise[] using library ID lookup */
-function sessionToWorkoutExercises(session: ProgrammeSession, exercises: Exercise[]): WorkoutExercise[] {
-  const all: ProgrammeExercise[] = session.blocks
-    .filter(b => !b.title.includes('Warm-Up') && !b.title.includes('warm-up'))
-    .flatMap(b => b.exercises);
-
-  const result: WorkoutExercise[] = [];
-  const used = new Set<string>();
-
-  for (const pe of all) {
-    const key = pe.name.toLowerCase().split('(')[0].trim();
-    let id: string | undefined;
-
-    // Direct lookup
-    id = NAME_TO_ID[key];
-
-    // Partial match fallback
-    if (!id) {
-      for (const [pattern, mappedId] of Object.entries(NAME_TO_ID)) {
-        if (key.includes(pattern) || pattern.includes(key.split(' ')[0])) {
-          id = mappedId;
-          break;
-        }
-      }
-    }
-
-    // Library scan fallback
-    if (!id) {
-      const found = exercises.find(e =>
-        e.name.toLowerCase().includes(key.split(' ')[0]) ||
-        key.includes(e.name.toLowerCase().split(' ')[0]),
-      );
-      id = found?.id;
-    }
-
-    if (id && !used.has(id) && exercises.find(e => e.id === id)) {
-      used.add(id);
-      result.push({
-        exerciseId: id,
-        targetSets: parseSets(pe.sets),
-        targetReps: parseReps(pe.reps),
-        targetWeight: 0,
-        restSeconds: parseRest(pe.rest),
-      });
-    }
-  }
-
-  return result.slice(0, 8); // cap at 8 exercises
-}
 
 interface Props {
   programme: GPType;
-  exercises: Exercise[];
+  isActive: boolean;
   onBack: () => void;
   onRebuild: () => void;
-  onStartSession: (name: string, exercises: WorkoutExercise[]) => void;
-  onStartProgram: () => void; // activate programme → navigate to dashboard
+  onApply: () => void;      // set as active + navigate to dashboard
+  onDeactivate: () => void; // remove from active (setActiveProgrammeId null)
 }
 
 // ── Readiness badge ────────────────────────────────────────────────────────
@@ -309,49 +194,43 @@ function BlockCard({ block }: { block: SessionBlock }) {
   );
 }
 
-// ── Session card ───────────────────────────────────────────────────────────
+// ── Session preview modal ──────────────────────────────────────────────────
 
-function SessionCard({
-  session,
-}: {
+export function SessionPreviewModal({ session, onClose }: {
   session: ProgrammeSession;
+  onClose: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
   return (
-    <Card className="mb-4 overflow-hidden">
-      <button
-        className="w-full text-left p-4 flex items-start justify-between"
-        onClick={() => setExpanded(e => !e)}
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-t-3xl max-h-[88vh] flex flex-col z-10">
+        {/* sticky header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 sticky top-0 bg-white rounded-t-3xl">
+          <div className="flex items-center gap-2 flex-wrap">
             <MdBadge mdDay={session.mdDay} />
-            <span className="text-sm font-semibold text-gray-700">{session.dayOfWeek}</span>
+            <span className="text-sm font-bold text-gray-900">{session.dayOfWeek}</span>
             <div className="flex items-center gap-1 text-xs text-gray-400">
               <Clock size={11} /> {session.durationMin} min
             </div>
           </div>
-          <p className="text-sm text-gray-600 leading-snug mt-1">{session.objective}</p>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-100 transition-colors">
+            <X size={20} className="text-gray-500" />
+          </button>
+        </div>
+        {/* scrollable body */}
+        <div className="overflow-y-auto p-4 pb-8">
+          <p className="text-sm font-semibold text-gray-800 mb-2 leading-snug">{session.objective}</p>
           {session.fvProfile && (
-            <p className="text-xs text-indigo-600 font-medium mt-1.5">⚡ {session.fvProfile}</p>
+            <p className="text-xs text-indigo-600 font-medium mb-3">⚡ {session.fvProfile}</p>
           )}
-        </div>
-        <div className="ml-3 text-gray-400 flex-shrink-0 mt-1">
-          {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="px-4 pb-4 border-t border-gray-100 pt-3">
           <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
             <Zap size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-amber-800 leading-relaxed">{session.readinessNote}</p>
           </div>
           {session.blocks.map((block, i) => <BlockCard key={i} block={block} />)}
         </div>
-      )}
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -366,38 +245,151 @@ function phaseColour(phase: string) {
     default: return 'bg-gray-500';
   }
 }
-function phaseTextColour(phase: string) {
-  switch (phase) {
-    case 'Foundation': return 'text-blue-700';
-    case 'Build': return 'text-purple-700';
-    case 'Strength & Power': return 'text-orange-700';
-    case 'Peak': return 'text-red-700';
-    default: return 'text-gray-700';
-  }
-}
+// ── Week accordion ─────────────────────────────────────────────────────────
 
-// ── Phase bar ──────────────────────────────────────────────────────────────
+function WeekAccordion({
+  week,
+  defaultOpen,
+  onPreview,
+  onReorderSessions,
+}: {
+  week: import('../../types').ProgrammeWeek;
+  defaultOpen: boolean;
+  onPreview: (s: ProgrammeSession) => void;
+  onReorderSessions: (newSessions: ProgrammeSession[]) => void;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [sessions, setSessions] = useState<ProgrammeSession[]>(week.sessions);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const [pendingOrder, setPendingOrder] = useState<ProgrammeSession[] | null>(null);
+  const [showWarn, setShowWarn] = useState(false);
+  const dragNode = useRef<HTMLDivElement | null>(null);
 
-function PhaseBar({ weeks, selectedWeek, onSelect }: { weeks: string[]; selectedWeek: number; onSelect: (i: number) => void }) {
-  const segments: { phase: string; start: number; end: number }[] = [];
-  weeks.forEach((p, i) => {
-    const last = segments[segments.length - 1];
-    if (last && last.phase === p) last.end = i;
-    else segments.push({ phase: p, start: i, end: i });
-  });
+  const handleDragStart = (i: number, el: HTMLDivElement) => {
+    setDragIdx(i);
+    dragNode.current = el;
+    el.style.opacity = '0.4';
+  };
+
+  const handleDragEnd = (el: HTMLDivElement) => {
+    el.style.opacity = '1';
+    setDragIdx(null);
+    setOverIdx(null);
+  };
+
+  const handleDrop = (toIdx: number) => {
+    if (dragIdx === null || dragIdx === toIdx) return;
+    const next = [...sessions];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setPendingOrder(next);
+    setShowWarn(true);
+  };
+
+  const confirmReorder = () => {
+    if (!pendingOrder) return;
+    setSessions(pendingOrder);
+    onReorderSessions(pendingOrder);
+    setPendingOrder(null);
+    setShowWarn(false);
+  };
+
+  const cancelReorder = () => {
+    setPendingOrder(null);
+    setShowWarn(false);
+  };
+
   return (
-    <div className="flex rounded-xl overflow-hidden border border-gray-200 h-8">
-      {segments.map((seg, si) => {
-        const width = ((seg.end - seg.start + 1) / weeks.length) * 100;
-        const active = selectedWeek >= seg.start && selectedWeek <= seg.end;
-        return (
-          <button key={si} onClick={() => onSelect(seg.start)}
-            style={{ width: `${width}%` }}
-            className={`flex items-center justify-center text-[10px] font-bold text-white transition-opacity ${phaseColour(seg.phase)} ${active ? 'opacity-100' : 'opacity-50'}`}>
-            {seg.phase.split(' ')[0]}
-          </button>
-        );
-      })}
+    <div className="mb-3">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all ${
+          open ? 'border-brand-300 bg-brand-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0 ${phaseColour(week.phase)}`}>
+            {week.phase.split(' ')[0]}
+          </span>
+          <span className="text-sm font-bold text-gray-800">Week {week.weekNumber}</span>
+          <span className="text-xs text-gray-400 flex-shrink-0">· {sessions.length} sessions</span>
+        </div>
+        {open ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />}
+      </button>
+
+      {open && (
+        <div className="mt-1.5 flex flex-col gap-1.5 pl-1">
+          <p className="text-xs text-gray-400 pl-2 pb-0.5">Hold and drag ☰ to reorder sessions</p>
+          {sessions.map((session, i) => (
+            <div
+              key={`${session.mdDay}-${i}`}
+              draggable
+              onDragStart={e => handleDragStart(i, e.currentTarget as HTMLDivElement)}
+              onDragEnd={e => handleDragEnd(e.currentTarget as HTMLDivElement)}
+              onDragOver={e => { e.preventDefault(); setOverIdx(i); }}
+              onDrop={() => handleDrop(i)}
+              className={`flex items-center gap-2 bg-white border rounded-xl transition-all ${
+                overIdx === i && dragIdx !== i
+                  ? 'border-brand-400 bg-brand-50 scale-[1.01]'
+                  : 'border-gray-100'
+              }`}
+            >
+              {/* Drag handle */}
+              <div className="pl-2 py-3 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-400 flex-shrink-0">
+                <GripVertical size={16} />
+              </div>
+              {/* Session info — tappable */}
+              <button
+                onClick={() => onPreview(session)}
+                className="flex-1 text-left flex items-center gap-3 py-3 pr-3 min-w-0"
+              >
+                <MdBadge mdDay={session.mdDay} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-xs text-gray-500">{session.dayOfWeek}</span>
+                    <span className="text-xs text-gray-300">·</span>
+                    <span className="text-xs text-gray-400 flex items-center gap-0.5">
+                      <Clock size={10} />{session.durationMin}m
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-800 truncate leading-snug">{session.objective}</p>
+                </div>
+                <ChevronRight size={14} className="text-gray-300 flex-shrink-0" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Reorder warning modal */}
+      {showWarn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={18} className="text-amber-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-base mb-1">Reorder sessions?</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  This may affect your progress as the plan has been built around certain game days. Training load and recovery windows are designed for the original order.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={cancelReorder}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button onClick={confirmReorder}
+                className="flex-1 py-3 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600">
+                Reorder Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -427,22 +419,25 @@ function MethodLegend() {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function GeneratedProgramme({ programme, exercises, onBack, onRebuild, onStartSession, onStartProgram }: Props) {
-  const [selectedWeek, setSelectedWeek] = useState(0);
+export function GeneratedProgramme({ programme, isActive, onBack, onRebuild, onApply, onDeactivate, onSaveReorder }: Props & { onSaveReorder?: (weekIdx: number, newSessions: ProgrammeSession[]) => void }) {
   const [showExplanation, setShowExplanation] = useState(false);
-  const week = programme.weeks[selectedWeek];
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [previewSession, setPreviewSession] = useState<ProgrammeSession | null>(null);
 
-  const handleStartProgram = () => {
-    // Start week 1, session 1 as the first workout
-    const firstSession = programme.weeks[0]?.sessions[0];
-    if (firstSession) {
-      const workoutExs = sessionToWorkoutExercises(firstSession, exercises);
-      const mdDisplay = firstSession.mdDay.replace('MD-', 'MD');
-      onStartSession(`${mdDisplay} · ${firstSession.dayOfWeek}`, workoutExs);
-    } else {
-      onStartProgram();
-    }
-  };
+  // Default-open the current week
+  const currentWeekIdx = (() => {
+    const start = (() => {
+      const d = new Date(programme.createdAt);
+      const dow = d.getDay();
+      d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+      d.setHours(0, 0, 0, 0);
+      return d;
+    })();
+    const now = new Date();
+    const nowMon = (() => { const d = new Date(now); const dow = d.getDay(); d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)); d.setHours(0,0,0,0); return d; })();
+    const diff = Math.floor((nowMon.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    return Math.max(0, Math.min(diff, programme.durationWeeks - 1));
+  })();
 
   return (
     <Layout
@@ -472,14 +467,61 @@ export function GeneratedProgramme({ programme, exercises, onBack, onRebuild, on
         </div>
       </Card>
 
-      {/* ── Start Program button ── */}
-      <button
-        onClick={handleStartProgram}
-        className="w-full mb-5 flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md active:scale-[0.98]"
-      >
-        <Play size={18} />
-        Start Program
-      </button>
+      {/* ── Apply / End Plan button ── */}
+      {isActive ? (
+        <button
+          onClick={() => setShowEndModal(true)}
+          className="w-full mb-5 flex items-center justify-center gap-2 py-4 rounded-2xl bg-red-500 text-white font-bold text-base hover:bg-red-600 transition-colors shadow-md active:scale-[0.98]"
+        >
+          End Plan
+        </button>
+      ) : (
+        <div className="flex gap-3 mb-5">
+          <button
+            onClick={onBack}
+            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl border-2 border-gray-200 text-gray-700 font-bold text-base hover:bg-gray-50 transition-colors active:scale-[0.98]"
+          >
+            Exit
+          </button>
+          <button
+            onClick={onApply}
+            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md active:scale-[0.98]"
+          >
+            <Play size={18} />
+            Make Active Plan
+          </button>
+        </div>
+      )}
+
+      {/* ── End Plan modal ── */}
+      {showEndModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm mb-2">
+            <h3 className="text-base font-bold text-gray-900 mb-1">End Current Plan?</h3>
+            <p className="text-sm text-gray-500 mb-5">This will remove it from your calendar. What would you like to do next?</p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => { onDeactivate(); setShowEndModal(false); onRebuild(); }}
+                className="w-full py-3 rounded-xl bg-brand-500 text-white font-bold text-sm hover:bg-brand-600 transition-colors"
+              >
+                Build New Programme
+              </button>
+              <button
+                onClick={() => { onDeactivate(); setShowEndModal(false); onBack(); }}
+                className="w-full py-3 rounded-xl border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors"
+              >
+                Exit
+              </button>
+              <button
+                onClick={() => setShowEndModal(false)}
+                className="w-full py-2 text-gray-400 text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Coach explanation (collapsible) ── */}
       <Card className="mb-5 overflow-hidden">
@@ -502,67 +544,32 @@ export function GeneratedProgramme({ programme, exercises, onBack, onRebuild, on
         )}
       </Card>
 
-      {/* ── Phase bar ── */}
-      <div className="mb-5">
-        <div className="flex items-center gap-2 mb-2">
-          <TrendingUp size={14} className="text-gray-500" />
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Phases</span>
-        </div>
-        <PhaseBar
-          weeks={programme.weeks.map(w => w.phase)}
-          selectedWeek={selectedWeek}
-          onSelect={setSelectedWeek}
+      {/* ── All weeks accordion ── */}
+      <div className="flex items-center gap-2 mb-3">
+        <TrendingUp size={14} className="text-gray-500" />
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Programme — {programme.durationWeeks} weeks
+        </span>
+      </div>
+
+      <MethodLegend />
+
+      {programme.weeks.map((week, i) => (
+        <WeekAccordion
+          key={i}
+          week={week}
+          defaultOpen={i === currentWeekIdx}
+          onPreview={setPreviewSession}
+          onReorderSessions={newSessions => onSaveReorder?.(i, newSessions)}
         />
-      </div>
-
-      {/* ── Week selector ── */}
-      <div className="mb-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar size={14} className="text-gray-500" />
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Week</span>
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-          {programme.weeks.map((w, i) => (
-            <button key={i} onClick={() => setSelectedWeek(i)}
-              className={`flex-shrink-0 flex flex-col items-center px-3 py-2.5 rounded-xl border-2 transition-all min-w-[56px] ${
-                i === selectedWeek ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'
-              }`}>
-              <span className={`text-xs font-bold ${i === selectedWeek ? 'text-brand-600' : 'text-gray-700'}`}>Wk {w.weekNumber}</span>
-              <span className={`text-[10px] font-medium mt-0.5 ${phaseTextColour(w.phase)}`}>{w.phase.split(' ')[0]}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Week detail ── */}
-      {week && (
-        <div>
-          <Card className="p-4 mb-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full text-white ${phaseColour(week.phase)}`}>
-                {week.phase}
-              </span>
-              <span className="text-sm font-bold text-gray-700">Week {week.weekNumber}</span>
-            </div>
-            <p className="text-xs text-gray-500 leading-relaxed">{week.phaseGoal}</p>
-          </Card>
-
-          <MethodLegend />
-
-          <div className="flex items-center gap-2 mb-3">
-            <Calendar size={14} className="text-gray-500" />
-            <h3 className="text-sm font-bold text-gray-700">
-              Week {week.weekNumber} Sessions
-            </h3>
-          </div>
-
-          {week.sessions.map((session, i) => (
-            <SessionCard key={i} session={session} />
-          ))}
-        </div>
-      )}
+      ))}
 
       <div className="h-6" />
+
+      {/* ── Session preview modal ── */}
+      {previewSession && (
+        <SessionPreviewModal session={previewSession} onClose={() => setPreviewSession(null)} />
+      )}
     </Layout>
   );
 }

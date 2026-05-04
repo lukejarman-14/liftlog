@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Plus, CalendarDays, AlertTriangle } from 'lucide-react';
+import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap } from 'lucide-react';
 import { Layout } from '../Layout';
 
 import { WeeklyCalendar } from '../WeeklyCalendar';
 import { DailyReadinessWidget } from '../DailyReadinessWidget';
-import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan, DailyReadiness, GeneratedProgramme } from '../../types';
+import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan, DailyReadiness, GeneratedProgramme, Exercise, WorkoutExercise } from '../../types';
 import { useStore } from '../../hooks/useStore';
 import { POSITION_PLANS, getCurrentPlanWeek } from '../../data/positionPlans';
 
@@ -15,9 +15,11 @@ interface DashboardProps {
   activeProgramme: GeneratedProgramme | null;
   profilePicture: string | null;
   todayReadiness: DailyReadiness | null;
+  exercises: Exercise[];
   onSaveReadiness: (r: DailyReadiness) => void;
   onNavigate: (nav: NavState) => void;
   onStartWorkout: (templateId: string, name: string) => void;
+  onStartProgrammeSession: (name: string, items: WorkoutExercise[]) => void;
 }
 
 // ── Football session intensity prompt ──────────────────────────────────────
@@ -107,7 +109,7 @@ function IntensityPrompt({ date, onSave }: {
   );
 }
 
-export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, onSaveReadiness, onNavigate, onStartWorkout }: DashboardProps) {
+export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession }: DashboardProps) {
   const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
 
@@ -150,13 +152,58 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
       }
       rightAction={
         <button
-          onClick={() => onNavigate({ screen: 'workout-builder' })}
-          className="p-2 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors"
+          onClick={() => onNavigate({ screen: 'testing-battery' })}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 border border-brand-200 text-brand-600 text-xs font-semibold rounded-xl hover:bg-brand-100 transition-colors"
         >
-          <Plus size={18} />
+          <Activity size={14} />
+          Take Test
         </button>
       }
     >
+      {/* Current Plan */}
+      {progWeek !== null && progTotal !== null && (
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Current Plan</p>
+          <button
+            onClick={() => onNavigate({ screen: activeProgramme ? 'generated-programme' : 'plans' })}
+            className="w-full flex items-center justify-between p-3 rounded-2xl border border-brand-200 bg-white hover:bg-brand-50 transition-colors"
+          >
+            <div className="text-left min-w-0">
+              <div className="text-sm font-semibold text-gray-900 truncate">{progLabel}</div>
+              <div className="text-xs text-gray-400 mt-0.5">Week {progWeek} of {progTotal}</div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+              <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-brand-500 rounded-full"
+                  style={{ width: `${(progWeek / progTotal) * 100}%` }}
+                />
+              </div>
+              <ChevronRight size={14} className="text-gray-400" />
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Build a Programme CTA — only shown when no active plan/programme */}
+      {!activeProgramme && !activePlan && (
+        <button
+          onClick={() => onNavigate({ screen: 'programme-builder' })}
+          className="w-full mb-4 p-4 rounded-2xl bg-gradient-to-r from-brand-600 to-brand-500 text-white text-left shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <Zap size={16} className="text-yellow-300" />
+              <span className="font-bold text-sm">Build My Programme</span>
+            </div>
+            <ChevronRight size={16} className="text-white/70" />
+          </div>
+          <p className="text-xs text-white/80 leading-snug">
+            Football S&C plan — position-specific, match-day periodised.
+          </p>
+        </button>
+      )}
+
       {/* Edit Calendar button */}
       <button
         onClick={() => onNavigate({ screen: 'load-calendar' })}
@@ -184,25 +231,11 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         sessions={sessions}
         activePlan={activePlan}
         generatedProgramme={activeProgramme}
+        exercises={exercises}
         onNavigate={onNavigate}
         onStartWorkout={onStartWorkout}
+        onStartProgrammeSession={onStartProgrammeSession}
       />
-
-      {/* Plan / Programme progression bar */}
-      {progWeek !== null && progTotal !== null && (
-        <div className="mb-5">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-semibold text-gray-500 truncate max-w-[70%]">{progLabel}</span>
-            <span className="text-xs font-bold text-brand-600 flex-shrink-0">Week {progWeek} / {progTotal}</span>
-          </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand-500 rounded-full transition-all duration-500"
-              style={{ width: `${(progWeek / progTotal) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Daily readiness check-in */}
       <DailyReadinessWidget existing={todayReadiness} onSave={onSaveReadiness} />

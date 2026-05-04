@@ -58,7 +58,7 @@ export function calcReadiness(r: ProgrammeInputs['readiness']): {
   if (score >= 2.5) {
     return {
       score, level: 'moderate', volumeMultiplier: 0.85,
-      guidance: 'Moderate readiness. Complete the program — reduce load by ~10% on main compounds. Monitor RPE and back off if effort spikes unexpectedly.',
+      guidance: 'Moderate readiness. Complete the program — reduce load by ~10% on main compounds. Monitor RIR and back off if effort spikes unexpectedly.',
       intensityNote: '−10% load',
     };
   }
@@ -187,6 +187,9 @@ const WARMUP_STRENGTH = [
 ];
 
 // ── Strength library — by phase × gym access × load scheme ────────────────
+// Science: concentric compound lifts ONLY here. Eccentrics are in ECCENTRIC_BLOCK (always last).
+// Sets: 2–3 max (athlete-specific volume). Load: 80%+ Foundation → 85%+ Build → 88%+ S&P → 90%+ Peak.
+// Bar speed autoregulation: stop any set when velocity drops >20% vs set 1 — that is the daily ceiling.
 
 type GymKey = 'full' | 'basic' | 'none';
 type LoadKey = 'heavy' | 'moderate';
@@ -195,227 +198,292 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
   Foundation: {
     full: {
       heavy: [
-        ex('Back Squat', '4', '6', '3:00', 'Bar high on traps. Controlled 3s descent. Explosive drive from the hole.',
-          { intensity: '70% 1RM', tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
-        ex('Romanian Deadlift', '3', '8', '2:00', 'Hinge at hip with soft knees. Feel hamstring tension load. Bar close to body.',
-          { intensity: '60% 1RM', tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Dumbbell Split Squat', '3', '8 each', '90s', 'Front shin vertical. Drive through heel. Rear knee skims the floor.',
-          { tempo: '2-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Back Squat', '3', '4', '3:00', 'Vertical force developer — knee extensors, quads dominant. Full depth. Explosive concentric. 2–1 RIR: bar moves with intent but not a grind. 4 reps keeps every rep effective.',
+          { intensity: '82% 1RM', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Hip Thrust (Barbell)', '3', '5', '2:30', 'HORIZONTAL force developer — glutes and hamstrings produce the same hip-extension vector as a sprint push-off. Squats train vertical; this trains the motor units that actually accelerate you horizontally. Full extension. 1s hold at top. 2 RIR.',
+          { intensity: '78% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Trap Bar Deadlift', '2', '4', '3:00', 'Hip-hinge — bridges vertical and horizontal patterns. Drive floor away. Hips and shoulders rise simultaneously.',
+          { intensity: '80% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('Back Squat', '3', '8', '2:30', 'Full depth. 3s descent. Consistent bar path each rep.',
-          { intensity: '65% 1RM', tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
-        ex('Romanian Deadlift', '3', '10', '2:00', 'Hinge deep. Neutral spine throughout. Hamstring-led.',
-          { intensity: '55% 1RM', tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Dumbbell Split Squat', '3', '10 each', '90s', 'Long stance. Control the descent.',
-          { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('Back Squat', '3', '5', '2:30', 'Full depth. Consistent bar path. Explosive drive up. 3–2 RIR.',
+          { intensity: '78% 1RM', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Hip Thrust (Barbell)', '2', '5', '2:30', 'Horizontal hip extension. Glute and hamstring motor units used in sprinting. Full extension every rep.',
+          { intensity: '75% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
       ],
     },
     basic: {
       heavy: [
-        ex('Goblet Squat', '4', '8', '2:30', 'Full depth. Drive knees out. 3s descent.',
-          { tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
-        ex('Single-Leg Romanian Deadlift', '3', '8 each', '90s', 'Load the standing hip. Neutral spine. Reach back foot for balance.',
-          { tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Reverse Lunge (Heavy DB)', '3', '8 each', '90s', 'Long step back. Rear knee near floor. Drive front heel to stand.',
-          { tempo: '2-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Heavy DB Goblet Squat', '3', '5', '2:30', 'DB held at chest. Full depth. Drive knees out. Explosive concentric — this is a strength stimulus, not a warm-up.',
+          { intensity: 'Heaviest available DB', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('DB Hip Thrust', '3', '5', '2:30', 'Shoulders on bench. Full hip extension. Squeeze at top. Drive hips explosively.',
+          { intensity: 'Heavy DB on hips', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('DB Romanian Deadlift (Concentric Focus)', '2', '5', '2:00', 'Hinge to mid-shin, then drive hips through powerfully. Focus on the hip extension — not the lowering.',
+          { intensity: 'Heavy DB', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('Goblet Squat', '3', '10', '2:00', 'Full depth. 3s descent. Chest tall.',
-          { tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
-        ex('Single-Leg RDL', '3', '10 each', '90s', 'Reach forward. Flat back. Feel the hamstring.',
-          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'moderate' }),
-        ex('DB Walking Lunge', '3', '12 each', '90s', 'Long stride. Front knee tracks over second toe.',
-          { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('DB Goblet Squat', '3', '6', '2:00', 'Full depth. Explosive up. Chest stays tall.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('DB Hip Thrust', '2', '6', '2:00', 'Full range. Strong hip extension. Controlled.',
+          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
       ],
     },
     none: {
       heavy: [
-        ex('Pistol Squat Progression (Box)', '3', '6 each', '2:00', 'Low box. Drive heel into surface. No collapse.',
-          { tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Single-Leg RDL (Bodyweight)', '3', '10 each', '90s', 'Arms forward as counterbalance. Slow and controlled.',
-          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Walking Lunge', '3', '12 each', '90s', 'Long stride. Drive tall at the top.',
-          { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('Pistol Squat (Box Assisted)', '2', '4 @ 1 RIR', '3:00', 'Box at parallel. Drive through heel. Explosive concentric. No external load — 1 RIR = 1 rep from failure. 4 reps keeps every rep effective — no junk volume.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Single-Leg Hip Thrust', '2', '4 @ 1 RIR', '2:30', 'Shoulders on bench. Non-working leg raised. 1 RIR — with bodyweight, RIR is the load variable. Sprint motor units (glute/ham) trained horizontally. Full hip extension every rep.',
+          { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Step-Up (High Box)', '2', '5 each', '2:00', 'Drive through working leg only. Explosive step. No push from trailing foot.',
+          { methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('Pistol Squat Progression', '3', '8 each', '2:00', 'Box support if needed. Controlled descent.',
-          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'moderate' }),
-        ex('Single-Leg RDL (BW)', '3', '12 each', '90s', 'Slow and deliberate. Feel the hip hinge.',
-          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'moderate' }),
-        ex('Nordic Hamstring Curl', '3', '4', '3:00', 'Fight the fall. 4s eccentric. Catch at 45°.',
-          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Pistol Squat (Box)', '2', '4 @ 2 RIR', '2:30', 'Box for depth reference. 2 RIR — 2 reps from failure. Controlled. With bodyweight, RIR is the intensity variable.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Single-Leg Hip Thrust', '2', '8 each', '90s', 'Full hip extension. If 8 reps feels easy, go to failure on the last set.',
+          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
       ],
     },
   },
   Build: {
     full: {
       heavy: [
-        ex('Back Squat', '4', '5', '3:30', 'Brace hard. Hit depth. Accelerate through sticking point aggressively.',
-          { intensity: '78% 1RM', tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('Trap Bar Deadlift', '4', '4', '3:30', 'Optimal hip position. Drive the floor away. Hips and knees lock simultaneously.',
-          { intensity: '80% 1RM', tempo: '1-0-1-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('Bulgarian Split Squat', '3', '5 each', '2:30', 'Rear foot elevated. Vertical torso. Drive front heel with intent.',
-          { intensity: 'Heavy DB', tempo: '2-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Back Squat', '3', '3', '3:30', 'Vertical force. Brace maximally. Attack depth. Treat every rep as a competition attempt. 2–1 RIR — bar is moving with intent but no grinding.',
+          { intensity: '87% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Sled Push', '3', '20m', '3:00', 'HORIZONTAL force — the most sprint-specific strength exercise available. Drive from a low body angle, powerful hip extension with every step. If you only squat, you never train the motor units used to accelerate horizontally. Load: heavy enough that you cannot run — this is a strength exercise, not conditioning.',
+          { intensity: 'Heavy — controlled push', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Hip Thrust (Barbell)', '2', '4', '2:30', 'Horizontal hip extension. Glute/hamstring motor units = sprint motor units. 1s hold at top. 2 RIR. If bar velocity drops on rep 3, rack and rest.',
+          { intensity: '83% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('Back Squat', '3', '6', '3:00', 'Consistent depth. Controlled descent. Explosive up.',
-          { intensity: '72% 1RM', tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
-        ex('Trap Bar Deadlift', '3', '5', '3:00', 'Flat back. Drive floor away. Smooth bar path.',
-          { intensity: '72% 1RM', tempo: '1-0-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
-        ex('Bulgarian Split Squat', '3', '6 each', '2:00', 'Drive through heel. Rear knee doesn\'t touch floor on the way up.',
-          { intensity: 'Moderate DB', tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('Back Squat', '3', '4', '3:00', 'High intent. Consistent depth. Fast concentric. 3–2 RIR.',
+          { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Sled Push', '2', '20m', '2:30', 'Horizontal force — sprint-specific. Moderate load. Drive hips through on every step.',
+          { intensity: 'Moderate-heavy', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Hip Thrust (Barbell)', '2', '4', '2:30', 'Horizontal hip extension. Glute drive. Full extension.',
+          { intensity: '80% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
       ],
     },
     basic: {
       heavy: [
-        ex('DB Hang Clean + Press', '4', '4', '3:00', 'Hinge and pull. High elbows. Press at the top.',
-          { methodType: 'concentric', intensityIntent: 'explosive' }),
-        ex('Heavy DB RDL', '4', '5', '2:30', 'Maximize hamstring tension. 3s lower.',
-          { intensity: 'Heavy DB', tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Single-Leg RDL to Knee Drive', '3', '5 each', '2:00', 'RDL down, explosive knee drive up. Two actions, one movement.',
-          { methodType: 'mixed', intensityIntent: 'explosive' }),
+        ex('DB Hip Thrust', '3', '5', '2:30', 'Heavy loading on hips. Full extension. Glute drive.',
+          { intensity: 'Heavy DB', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Heavy DB Goblet Squat', '2', '4', '2:30', 'Heaviest available. Explosive drive. Treat as a competition lift.',
+          { intensity: 'Max DB', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('DB Squat', '3', '8', '2:30', 'Full depth. Explode from bottom.',
-          { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
-        ex('DB RDL', '3', '8', '2:00', 'Hinge deep. Hamstring-led return.',
-          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'moderate' }),
-        ex('DB Reverse Lunge', '3', '8 each', '2:00', 'Long step. Control the descent.',
-          { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('DB Goblet Squat', '3', '5', '2:30', 'Full depth. Controlled descent. Explosive up.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('DB Hip Thrust', '2', '6', '2:00', 'Strong hip extension. Consistent.',
+          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
       ],
     },
     none: {
       heavy: [
-        ex('Pistol Squat', '3', '5 each', '2:30', 'Full depth. 3s down. Fingertip support only if needed.',
-          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Nordic Hamstring Curl', '3', '5', '3:00', '4s eccentric. Catch at 45°. Partner-anchored.',
-          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Step-Up (High Box)', '3', '6 each', '2:00', 'Drive through working leg only. No push from back foot.',
-          { methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Pistol Squat', '2', '4 @ 1 RIR', '3:00', 'Full depth. 2s descent. Explosive concentric. 1 RIR — bodyweight max strength requires proximity to failure. 4 reps, all effective. No fingertip support unless essential.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Single-Leg Hip Thrust', '2', '4 @ 1 RIR', '2:30', 'Explosive hip drive. Full extension. 1 RIR — horizontal hip extension at max output. Sprint motor units.',
+          { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Step-Up (High Box)', '2', '5 each', '2:00', 'Drive through working leg only. Max intent.',
+          { methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('Pistol Squat Progression', '3', '6 each', '2:30', 'Box support if needed. Building depth.',
-          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'moderate' }),
-        ex('Nordic Hamstring Curl', '3', '4', '3:00', '4s down. Partner or door.',
-          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Jump Squat (BW)', '3', '6', '2:00', 'Full squat, max upward intent. Land and reset.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Pistol Squat', '2', '4 @ 2 RIR', '2:30', 'Controlled descent. Explosive drive up. 2 RIR.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Single-Leg Hip Thrust', '2', '8 each', '2:00', 'Full hip extension. Go to failure on last set if comfortable.',
+          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
       ],
     },
   },
   'Strength & Power': {
     full: {
       heavy: [
-        ex('Back Squat', '5', '3', '4:00', 'Maximum neural drive every rep. Treat it like a max.',
-          { intensity: '85–88% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('Power Clean', '4', '3', '3:30', 'Hook grip. Violent triple extension. High elbows in the catch.',
-          { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'explosive' }),
-        ex('Hex Bar Deadlift', '4', '3', '3:30', 'Optimal hip position. Accelerate through the whole pull.',
-          { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Back Squat', '3', '2', '4:00', 'Vertical force — peak neural output. Maximum drive every rep. 1 RIR — bar is slow but technically sound. Do not compress rest.',
+          { intensity: '90% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Sled Push (Heavy)', '3', '15m', '3:30', 'Peak horizontal force output. Heaviest load you can push with full hip extension each step. Drive from the hip — this is your sprint acceleration expressed as a strength movement. 1 RIR.',
+          { intensity: 'Maximum controllable load', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Hip Thrust (Barbell)', '2', '3', '3:00', 'Peak horizontal hip extension. 2–1 RIR. If bar doesn\'t move with intent on rep 2, rack and rest. The glute/hamstring motor units here are the same ones producing your sprint peak force.',
+          { intensity: '85% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('Back Squat', '4', '4', '3:30', 'High intent. Every rep is technically sound and fast.',
-          { intensity: '80% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('Power Clean', '3', '3', '3:00', 'Speed is the goal. Technical mastery at this load.',
-          { intensity: '72% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'explosive' }),
-        ex('Hex Bar Deadlift', '3', '4', '3:00', 'Drive through with intent. Bar doesn\'t decelerate.',
-          { intensity: '75% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Back Squat', '3', '3', '3:30', 'High intent. Maximum concentric speed. 2 RIR.',
+          { intensity: '87% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Sled Push', '2', '15m', '3:00', 'Horizontal force. Strong hip extension each step. Moderate-heavy load.',
+          { intensity: 'Moderate-heavy', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Hip Thrust (Barbell)', '2', '3', '2:30', 'Horizontal hip extension. Full extension. 2 RIR.',
+          { intensity: '83% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
     },
     basic: {
       heavy: [
-        ex('DB Hang Snatch', '4', '4 each', '3:00', 'Hinge and pull. Drive elbow high. Stable overhead lock.',
-          { methodType: 'concentric', intensityIntent: 'explosive' }),
-        ex('DB Jump Squat', '4', '4', '3:00', 'Full depth. Explode upward. Absorb the landing — hips, knees, ankles.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
-        ex('Heavy Single-Leg RDL', '4', '5 each', '2:30', 'Maximum hip load. No spinal rotation.',
-          { intensity: 'Heavy DB', tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('DB Split Squat (Heavy)', '3', '4 each', '3:00', 'Rear foot elevated on bench. Heaviest available DB. Drive through front heel. 2–1 RIR. Hip extension at the top — same motor pattern as a sprint push-off.',
+          { intensity: 'Heaviest DB', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('DB Hip Thrust', '3', '4', '2:30', 'Heavy. Full hip extension. Glute drive on every rep.',
+          { intensity: 'Heaviest DB', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('DB Romanian Deadlift (Concentric Focus)', '2', '4', '2:30', 'Hinge to mid-shin, drive hips through powerfully. Focus on the hip extension. 2 RIR.',
+          { intensity: 'Heavy DB', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('DB Hang Snatch', '3', '4 each', '2:30', 'Smooth hinge-pull-lock sequence.',
-          { methodType: 'concentric', intensityIntent: 'explosive' }),
-        ex('DB Jump Squat', '3', '4', '2:30', 'Explosive up. Controlled landing.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
-        ex('Single-Leg RDL', '3', '6 each', '2:00', 'Controlled eccentric. Hamstring-led.',
-          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('DB Split Squat', '3', '5 each', '2:30', 'Rear foot elevated. Full depth. Explosive drive up. 3–2 RIR.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('DB Hip Thrust', '2', '5', '2:00', 'Strong hip extension. Controlled.',
+          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
       ],
     },
     none: {
       heavy: [
-        ex('Broad Jump', '4', '4', '3:00', 'Max horizontal. Stick the landing. Full reset before each rep.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
-        ex('Nordic Hamstring Curl', '4', '5', '3:30', '4s down. Build tensile hamstring strength.',
-          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Depth Drop → Vertical Jump', '3', '4', '3:00', 'Step off. Minimise ground contact. Reactive vertical rebound.',
-          { methodType: 'reactive', intensityIntent: 'reactive' }),
+        ex('Pistol Squat', '3', '4 @ 1 RIR', '3:00', 'Full depth. 2s descent. Explosive concentric. 1 RIR — bodyweight max strength requires proximity to failure. No fingertip support unless essential.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Single-Leg Hip Thrust', '2', '4 @ 1 RIR', '2:30', 'Explosive hip drive. Full extension. 1 RIR — horizontal hip extension at max output.',
+          { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Step-Up (High Box)', '2', '5 each', '2:00', 'Drive through working leg only. Max intent.',
+          { methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('Broad Jump', '3', '4', '2:30', 'Max horizontal distance. Land and hold.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
-        ex('Nordic Hamstring Curl', '3', '4', '3:00', '4s eccentric. Technique is the priority.',
-          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Plyometric Step-Up', '3', '5 each', '2:00', 'Drive upward explosively. Land soft.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Pistol Squat', '2', '4 @ 2 RIR', '2:30', 'Controlled descent. Explosive drive up. 2 RIR.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Single-Leg Hip Thrust', '2', '8 each', '2:00', 'Full hip extension. Go to failure on last set if comfortable.',
+          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
       ],
     },
   },
   Peak: {
     full: {
       heavy: [
-        ex('Back Squat', '4', '2', '4:00', 'Treat every rep as a maximum. Maximum neural drive. Non-negotiable rest.',
-          { intensity: '90–95% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('Power Clean', '4', '2', '4:00', 'Speed over load. Aggressive enough to matter. Technically perfect.',
-          { intensity: '80% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'explosive' }),
-        ex('Jump Squat', '4', '4', '3:00', 'Maximum intent upward. Land and fully reset.',
-          { intensity: '30% 1RM', methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Back Squat', '2', '2', '4:00', 'Express peak vertical strength. Near-maximum. 1–0 RIR. Non-negotiable rest.',
+          { intensity: '93% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Sled Push — Speed Variant', '2', '15m', '4:00', 'Peak-week: moderate load, maximum push speed. Transfer horizontal strength to pitch. Full hip extension every step. Express what you built.',
+          { intensity: 'Moderate — max sprint pace', methodType: 'concentric', intensityIntent: 'explosive' }),
+        ex('Hip Thrust (Barbell)', '2', '3', '3:00', 'Peak horizontal hip extension. 2–1 RIR. Express sprint-specific force.',
+          { intensity: '87% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('Back Squat', '3', '3', '4:00', 'High quality, full recovery, max intent.',
-          { intensity: '87% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('Power Clean', '3', '2', '3:30', 'Velocity is the stimulus. Perfect technique.',
-          { intensity: '75% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'explosive' }),
-        ex('Jump Squat', '3', '4', '3:00', 'Explosive. Land and reset.',
-          { intensity: '30% 1RM', methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Back Squat', '2', '3', '4:00', 'High quality. Full rest. Max intent. 2 RIR.',
+          { intensity: '88% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Hip Thrust (Barbell)', '2', '3', '3:00', 'Peak horizontal hip extension. Quality over volume. 2 RIR.',
+          { intensity: '85% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
     },
     basic: {
       heavy: [
-        ex('DB Jump Squat', '4', '4', '3:00', 'Maximum expression. Absorb the landing fully.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
-        ex('Heavy DB RDL', '4', '4', '3:00', 'Full eccentric load. Hamstring-led.',
-          { intensity: 'Heavy DB', tempo: '3-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Depth Drop → Jump', '3', '4', '3:00', 'Step off box. Minimise contact. Express reactive power.',
-          { methodType: 'reactive', intensityIntent: 'reactive' }),
+        ex('DB Split Squat (Explosive)', '2', '4 each', '3:00', 'Rear foot elevated. Heaviest available DB. Maximum drive through front heel. Express peak strength — 1 RIR.',
+          { intensity: 'Heavy DB', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('DB Hip Thrust', '2', '4', '3:00', 'Heavy. Full hip extension. Peak strength expression.',
+          { intensity: 'Heavy DB', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('DB Jump Squat', '3', '4', '2:30', 'Explosive up. Controlled landing.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
-        ex('DB RDL', '3', '5', '2:30', 'Slow eccentric. Hamstring load.',
-          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Box Jump', '3', '4', '2:30', 'Step down. Full reset. Max intent each rep.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('DB Split Squat', '2', '5 each', '2:30', 'Rear foot elevated. Strong drive. Consistent quality. 2 RIR.',
+          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('DB Hip Thrust', '2', '5', '2:30', 'Strong hip extension. Consistent quality.',
+          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
       ],
     },
     none: {
       heavy: [
-        ex('Plyometric Push-Up', '3', '5', '3:00', 'Explosive push — leave the ground. Soft landing.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
-        ex('Depth Drop', '4', '4', '3:00', 'Step off. Minimise contact. Max vertical.',
-          { methodType: 'reactive', intensityIntent: 'reactive' }),
-        ex('Bounding Sprint', '4', '30m', '90s', 'Max push-off. Stride length. Arms drive hard.',
-          { methodType: 'concentric', intensityIntent: 'explosive' }),
+        ex('Pistol Squat — Max Expression', '2', '3 @ 1 RIR', '3:00', 'Full depth. Explosive concentric. 1 RIR. Express peak bodyweight strength — low volume, maximum quality.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Single-Leg Hip Thrust', '2', '4 @ 1 RIR', '2:30', 'Max hip extension. 1 RIR. Express horizontal strength.',
+          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('Squat Jump', '3', '5', '2:30', 'Full depth. Max intent upward.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
-        ex('Nordic Hamstring Curl', '3', '4', '3:00', '4s eccentric. Quality above everything.',
-          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Broad Jump', '3', '4', '2:30', 'Max horizontal. Stick the landing.',
-          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Pistol Squat', '2', '4 @ 2 RIR', '2:30', 'Controlled descent. Explosive drive. 2 RIR.',
+          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Single-Leg Hip Thrust', '2', '4 @ 1 RIR', '2:00', 'Explosive hip extension. 1 RIR — peak quality.',
+          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
       ],
     },
   },
+};
+
+// ── Max Velocity Block — sprinting & jumping FIRST (fresh CNS required) ────
+// Science: max velocity sprinting and jumping require a completely fresh nervous system.
+// Always immediately after warm-up, BEFORE any heavy strength work.
+// No weighted exercises — sprints and jumps only.
+
+const POWER_PRIMER: Record<GymKey, ProgrammeExercise[]> = {
+  full: [
+    ex('Broad Jump', '3', '4', '3:00', 'Max horizontal displacement. Swing arms. Drive through the hips. Stick the landing. Full reset between reps — this is neural output, not conditioning.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ex('Box Jump', '2', '4', '2:30', 'Step back, drive arms, explode onto the box. Land softly in a partial squat. Step down — do not jump down. Full reset between reps.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
+  ],
+  basic: [
+    ex('Broad Jump', '3', '4', '2:30', 'Max horizontal displacement. Swing arms. Stick landing. Full reset between reps — this is neural output, not conditioning.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ex('Box Jump', '2', '4', '2:30', 'Step back, drive arms, explode onto the box. Land softly in a partial squat. Step down — do not jump down. Full reset between reps.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
+  ],
+  none: [
+    ex('Countermovement Jump', '3', '4', '2:30', 'Arms back, deep dip, drive through ceiling. Max height. 30s between reps — this is neural output, not conditioning.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ex('Broad Jump', '2', '4', '2:30', 'Max horizontal displacement. Swing arms. Stick the landing. Full reset.',
+      { methodType: 'reactive', intensityIntent: 'explosive' }),
+  ],
+};
+
+// ── Tendon & SSC Block — between strength and eccentrics ──────────────────
+// Science: tendon stiffness = heavy slow resistance isometrics + fast reactive plyometrics (short GCT).
+// Placed AFTER strength (not fatigued by strength), BEFORE eccentrics.
+// Heavy isometrics → tendon structural adaptation. Pogo hops → fast SSC tendon spring.
+
+// Tendon physiology: Heavy Slow Resistance (HSR) isometrics → increased tendon stiffness → tendon
+// absorbs more of the sprint/jump load, so the muscle doesn't overwork → reduced patellar + Achilles risk.
+// Two HSR exercises per session: one patellar-tendon dominant (split squat), one Achilles-dominant (calf hold).
+// Pogo hops = fast SSC — trains the tendon spring at match-speed loading rates.
+const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
+  full: [
+    ex('Isometric Split Squat Hold (Heavy)', '3', '45s each leg', '2:00', 'Bottom of split squat — rear knee 2cm from floor. Add load via barbell or heavy DB. Maximum effort throughout — zero relaxing. Patellar tendon HSR: the tendon stiffens under this load so the quadriceps muscle doesn\'t overwork during sprint deceleration.',
+      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Single-Leg Calf Isometric Hold (Heel Raise Position)', '3', '45s each leg', '2:00', 'Rise onto single-leg tiptoe. Hold at the top. Add weight via DB or barbell if available. Maximum effort. Achilles tendon HSR — stiffness adaptation. The tendon absorbs sprint push-off load so the calf muscle doesn\'t overwork over 90 minutes.',
+      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Pogo Hops', '3', '20', '90s', 'Ankles STIFF — no dorsiflexion. Arms punch up. Minimum ground contact time. This is tendon-spring training at match-speed loading rate. Different stimulus from the holds above — the holds build stiffness; pogos train the SSC elastic return.',
+      { methodType: 'reactive', intensityIntent: 'reactive' }),
+  ],
+  basic: [
+    ex('Isometric Split Squat Hold (Heavy DB)', '3', '45s each leg', '2:00', 'Bottom of split squat. Hold heaviest available DB. Maximum effort throughout. Patellar tendon HSR — the tendon stiffens under heavy isometric load so it handles sprint/jump demand instead of the muscle.',
+      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Single-Leg Calf Isometric Hold', '3', '45s each leg', '2:00', 'Single-leg tiptoe hold. Hold heavy DB at side. Maximum effort. Achilles tendon HSR. The stiffer the tendon, the more it acts as a spring — reducing muscle work over the full 90 minutes.',
+      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Pogo Hops', '3', '20', '90s', 'Stiff ankles. Fast ground contacts. Elastic tendon return — train the spring.',
+      { methodType: 'reactive', intensityIntent: 'reactive' }),
+  ],
+  none: [
+    ex('Single-Leg Isometric Wall Sit', '3', '45s each leg', '2:00', 'Single-leg at 60° knee flexion against wall. Back flat. Maximum effort. Patellar tendon HSR at 60° is the clinically-validated loading angle — heavy isometric at this position directly increases patellar tendon stiffness.',
+      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Single-Leg Calf Isometric Hold', '3', '45s each leg', '2:00', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — tendon absorbs sprint load so calf muscle capacity is preserved.',
+      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Pogo Hops', '3', '20', '90s', 'Ankles stiff. Minimum ground contact. Elastic SSC tendon return.',
+      { methodType: 'reactive', intensityIntent: 'reactive' }),
+  ],
+};
+
+// ── Eccentric Block — ALWAYS placed last in every session ────────────────
+// Fascicle length physiology: eccentric contractions lengthen the muscle under tension →
+// individual sarcomeres are trained at a longer length → the muscle can handle a longer stretch
+// before individual sarcomeres "pop" (the mechanism of strain injury at high-speed running).
+// Nordic Curl = highest-evidence fascicle-length exercise. Always included, always last.
+// Eccentric RDL = complements Nordics — adds posterior chain fascicle length at the hip hinge pattern.
+// Copenhagen Plank = adductor eccentric + isometric. Most evidenced groin prevention in football.
+
+const ECCENTRIC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
+  full: [
+    ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s controlled lowering — maximum effort, fight the fall with everything. 2 reps only: every rep must be truly maximal. Physiology: eccentric lengthening increases hamstring fascicle length. Longer fascicles = individual sarcomeres operate over a wider range before failure — the primary mechanism reducing hamstring tear risk at high-speed running. Non-negotiable.',
+      { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'maximal' }),
+    ex('Copenhagen Plank', '2', '25s each side', '90s', 'Top foot on bench, bottom leg free. Adductor eccentric — groin strain prevention. Most evidenced single exercise for groin protection in football. Build hold time by 5s each week.',
+      { tempo: '0-25s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+  ],
+  basic: [
+    ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s controlled lowering. Maximum effort — fight the fall with everything. 2 reps only: each rep fully maximal. Partner anchors feet or secure under heavy furniture. Fascicle length adaptation: longer sarcomere operating range = reduced strain risk at max sprint. Non-negotiable.',
+      { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'maximal' }),
+    ex('Copenhagen Plank', '2', '25s each side', '90s', 'Top foot on bench, hips free. Adductor eccentric + isometric. Groin strain prevention — highest evidence in football. Add 5s per week.',
+      { tempo: '0-25s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+  ],
+  none: [
+    ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s controlled lowering. Maximum effort — fight the fall completely. 2 reps only: each rep truly maximal. Anchor feet under sofa/door or use a partner. Fascicle length adaptation: the primary mechanism reducing hamstring tear risk at high-speed running. Non-negotiable every session.',
+      { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'maximal' }),
+    ex('Copenhagen Plank', '2', '25s each side', '90s', 'Top foot on chair/bench, hips free. Adductor eccentric. Groin prevention. Build 5s per week.',
+      { tempo: '0-25s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+  ],
 };
 
 // ── Upper body ─────────────────────────────────────────────────────────────
@@ -442,16 +510,16 @@ const UPPER: Record<string, ProgrammeExercise[]> = {
       { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ex('Weighted Pull-Up', '4', '3', '3:00', '1s pause at top. 3s descent. No kipping.',
       { intensity: 'Challenging', tempo: '1-1-x-3', methodType: 'eccentric', intensityIntent: 'maximal' }),
-    ex('Med Ball Chest Pass (Wall)', '3', '6', '90s', 'Drive through ball explosively. Max power output.',
-      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ex('Push Press', '3', '4', '90s', 'Dip and drive hips aggressively. Lockout at full extension. Maximum rate of force development.',
+      { intensity: '75% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
   ],
   Peak: [
     ex('Bench Press', '3', '2', '4:00', 'Max intent. Full recovery.',
       { intensity: '90% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ex('Weighted Pull-Up', '3', '3', '4:00', 'Explosive concentric. 4s descent.',
       { intensity: 'Heavy', tempo: '1-0-x-4', methodType: 'eccentric', intensityIntent: 'maximal' }),
-    ex('Med Ball Slam', '4', '5', '90s', 'Overhead drive then slam with full-body tension.',
-      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ex('Push Press', '3', '3', '2:00', 'Explosive dip and drive. Express upper body rate of force development at peak intensity.',
+      { intensity: '80% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
   ],
 };
 
@@ -563,63 +631,451 @@ const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
 // and is consumed by getRunCondEx() below.
 const CONDITIONING: Record<PosKey, Record<string, ProgrammeExercise>> = {
   GK: {
-    Foundation: ex('Interval Shuttle', '4', '6 × 20m', '2:00 between sets', 'Moderate pace. COD focus. 75% max effort.',
+    Foundation: ex(
+      'GK Aerobic Base — Reaction Shuttle Circuit',
+      '4', '6 × 20m shuttles (2 min per set)', '2:00 between sets',
+      `🎯 TARGET: Zone 2 aerobic base | HR 130–150 bpm (65–75% max HR)
+
+SESSION PLAN:
+Set up 3 cones in a line, 10m apart (20m total shuttle).
+
+Each set: jog to cone 2 (10m), change direction, sprint to cone 3 (10m), change direction, jog back. Repeat 6 times continuously.
+
+Pace: 70–75% effort on the sprint legs. You should be breathing hard but able to speak in short sentences. If HR climbs above 155 bpm, slow down slightly on the jog sections.
+
+GK FOCUS: On each direction change, drop your hips and push off the outside foot — mimic a save-and-reset movement. Stay light on your feet.
+
+WHY: Goalkeepers cover 5–6 km per match with frequent short bursts. This builds the aerobic engine that powers your recovery between high-intensity moments.`,
       { methodType: 'mixed', intensityIntent: 'moderate' }),
-    Build: ex('10s Sprint / 20s Walk Intervals', '1', '8 rounds (4 min total)', '3:00 after all rounds', 'Max intent each 10s sprint. Full walk recovery. Short, sharp, anaerobic.',
+
+    Build: ex(
+      'GK Anaerobic Capacity — 10s Max Sprint / 20s Walk',
+      '1', '8 rounds (4 min total)', '3:00 walk after all rounds',
+      `🎯 TARGET: Zone 4–5 anaerobic | HR >85% max HR during sprints
+
+SESSION PLAN:
+Mark a 15m line. Stand behind the line.
+
+Round 1–8: On your go, sprint 15m at 100% effort. Stop. Walk back slowly (10s). Sprint again immediately at the 20s mark.
+
+The sprint must be maximal every rep — if you can't maintain 90%+ effort, extend the walk to 30s for remaining reps.
+
+GK FOCUS: Start each sprint from a realistic GK stance — feet shoulder-width, slight hip hinge, weight on balls of feet. Mirror your starting position from a set-piece or corner.
+
+WHY: A GK's decisive moments are explosive 3–5m dives and reaction saves. Short maximal sprints with full recovery train the phosphocreatine (PCr) system that powers these efforts.`,
       { methodType: 'mixed', intensityIntent: 'explosive' }),
-    'Strength & Power': ex('Flying 20m Repeat Sprint', '6', '20m', '30s rest', 'Near-max each rep. Rolling start — hit top speed inside 20m.',
+
+    'Strength & Power': ex(
+      'GK Speed-Endurance — Flying 20m Repeats',
+      '6', '20m', '45s rest',
+      `🎯 TARGET: Zone 4 speed-endurance | HR 170–185 bpm, partial recovery between reps
+
+SESSION PLAN:
+Set up a 10m run-up and a 20m flying zone (30m total distance).
+
+Reps 1–6: Accelerate over 10m, then hit top speed through the 20m flying zone. Decelerate safely beyond.
+
+Rest = 45s standing rest between each rep. This is deliberate incomplete recovery — training your ability to repeat high-speed efforts.
+
+GK FOCUS: During the flying zone, drive your arms aggressively. A goalkeeper distributing from goal and sprinting to close down crosses needs the ability to reach near-maximum speed in a short time.
+
+WHY: Flying sprints develop maximum velocity while the short rest window trains GK-specific repeated high-speed output.`,
       { methodType: 'concentric', intensityIntent: 'maximal' }),
-    Peak: ex('Sprint Finisher', '3', '4 × 10m', '2:00 between sets', 'Sharp, reactive. 100% intent every rep. Quality over quantity.',
+
+    Peak: ex(
+      'GK CNS Activation — Reactive Short Sprints',
+      '3', '4 × 10m (15s between reps)', '2:30 between sets',
+      `🎯 TARGET: Zone 5 CNS activation | HR >90% during sprints, full rest between sets
+
+SESSION PLAN:
+Mark 10m. Set up a partner or use an audio cue (clap).
+
+Each set: 4 × 10m sprints with 15s rest between reps. 2:30 full rest between the 3 sets.
+
+Trigger: Every sprint starts from a REACTION CUE — partner points left or right, you sprint to a cone 10m in that direction. This makes every rep reactive, not anticipatory.
+
+GK FOCUS: Use your GK drop-step technique — push off the direction foot first, hips open to the line of sprint. Same movement as crossing-ball recovery.
+
+WHY: Low-volume, high-quality CNS priming ahead of match week. Keeps the nervous system sharp without generating fatigue that carries into match day.`,
       { methodType: 'reactive', intensityIntent: 'explosive' }),
   },
+
   CB: {
-    Foundation: ex('Deceleration Sprint Drill', '4', '30m sprint → brake', '2:00', 'Sprint 30m, plant and brake hard. Focus: eccentric knee and hip control at high speed.',
+    Foundation: ex(
+      'CB Aerobic Base — Deceleration Sprint Circuit',
+      '4', '30m sprint + full brake', '2:00 between sets',
+      `🎯 TARGET: Zone 3 aerobic threshold | HR 145–165 bpm (75–82% max HR)
+
+SESSION PLAN:
+Place a cone at 30m. Start from athletic stance behind the start line.
+
+Sprint 30m at 80% effort. At the cone, perform a HARD deceleration — plant your outside foot, drop your hips, stop within 3 steps. Walk back slowly (rest). Repeat 4 × per set, 4 sets total.
+
+The deceleration is the focus. Control the brake aggressively — this is where CB hamstring and knee injuries occur most. Own it.
+
+CB FOCUS: After the plant-and-brake, immediately reset into a defensive stance — chest up, arms out, weight on balls of feet. Mimic the moment you stop a run and face up to an attacker.
+
+WHY: CBs cover 10–11 km per match, often in hard acceleration-deceleration patterns tracking forwards. This builds the aerobic base AND the eccentric deceleration strength you need.`,
       { methodType: 'eccentric', intensityIntent: 'controlled' }),
-    Build: ex('Repeated 30m Sprint', '6', '30m', '30s rest', '85% effort. Sprint, walk back, repeat. Build repeated sprint ability.',
+
+    Build: ex(
+      'CB RSA Development — Repeated 30m Sprints',
+      '6', '30m', '30s rest',
+      `🎯 TARGET: Zone 4 repeated sprint ability | HR 170–185 bpm, incomplete recovery
+
+SESSION PLAN:
+Mark 30m on a pitch or track. Start behind the line.
+
+Sprint 30m at 85–90% effort. Immediately walk back to start (this is your ~25–30s rest, including any dead time). Sprint again. 6 total sprints.
+
+If you fall below 80% effort on reps 5–6, extend rest to 45s. Quality beats volume.
+
+CB FOCUS: On odd reps (1, 3, 5) sprint from a standing start. On even reps (2, 4, 6) sprint from a backward jog → turn cue — mimicking tracking a runner then turning to recover.
+
+WHY: CBs make 25–30 high-intensity efforts per match, many after short recovery periods. This trains repeated sprint ability (RSA) directly.`,
       { methodType: 'concentric', intensityIntent: 'submaximal' }),
-    'Strength & Power': ex('High-Intensity 20m Shuttle', '6', '20m', '30s rest', '100% effort each rep. Max deceleration at turn. Short rest — build lactate tolerance.',
+
+    'Strength & Power': ex(
+      'CB Speed-Endurance — High-Intensity 20m Shuttles',
+      '6', '20m', '30s rest',
+      `🎯 TARGET: Zone 4–5 lactate tolerance | HR 175–190 bpm, very short recovery
+
+SESSION PLAN:
+Place cones 20m apart. Start behind one cone.
+
+Sprint 20m at 100% effort. STOP hard at the cone. Immediately turn and sprint 20m back. That counts as 1 rep. 30s walk rest. Repeat 6 times.
+
+The deceleration at each cone must be aggressive — stop within 3 steps, low hips. This is not a gentle turn-and-jog.
+
+CB FOCUS: Vocalise "hold" to yourself at each deceleration cone — this is the CB's moment of last-ditch defensive recovery where positional discipline decides the outcome.
+
+WHY: Trains lactate tolerance and the eccentric capacity to decelerate at speed — directly transferable to tracking and winning aerial duels at pace.`,
       { methodType: 'mixed', intensityIntent: 'maximal' }),
-    Peak: ex('Short Sprint Repeats', '6', '10–20m', '45s rest', '95–100% effort. Sharp and reactive. Match sprint intensity.',
+
+    Peak: ex(
+      'CB CNS Sharp — Short Sprint Repeats',
+      '6', '10–15m', '45s rest',
+      `🎯 TARGET: Zone 5 max sprint | 100% effort every rep, near-full recovery
+
+SESSION PLAN:
+Use a 10m and 15m cone alternating (odd reps 10m, even reps 15m). 45s walk rest.
+
+Every rep is 100% — first-step explosiveness, upright mechanics, max velocity intent.
+
+Start each sprint from a different stance: set 1 from a stationary defensive position, set 2 from a jogging approach, set 3 from a back-pedal-and-turn.
+
+CB FOCUS: The 10m sprints simulate a CB attacking the ball on a corner. The 15m sprints simulate a recovery run after being caught on the wrong side. Different sprint patterns, same maximal intent.
+
+WHY: Pre-match week activation — maintain sprint quality, zero accumulated fatigue. 6 reps max. Leave feeling sharp, not tired.`,
       { methodType: 'concentric', intensityIntent: 'explosive' }),
   },
+
   FB: {
-    Foundation: ex('Repeated 40m Sprint', '6', '40m', '25s rest', '80% effort. Build repeated sprint tolerance. Walk back is rest.',
+    Foundation: ex(
+      'FB Aerobic Base — Overlapping Run Tempo Circuit',
+      '6', '40m', '25s rest',
+      `🎯 TARGET: Zone 2–3 aerobic base | HR 135–160 bpm (68–80% max HR)
+
+SESSION PLAN:
+Place cones at 0m and 40m. This simulates a full-back overlap — from penalty box to the byline.
+
+Sprint 40m at 78–82% effort (not a max sprint — a strong, controlled drive). Walk back 40m in ~25s. Repeat 6 times.
+
+You should feel comfortably hard — breathing is elevated, not gasping. By rep 6, HR will be in Zone 3. That's the target.
+
+FB FOCUS: On each sprint, hold your sprint line like you're overlapping a winger. Swing your arms across your body in the last 10m — mimic a cross action. The run-to-cross transition is your match movement.
+
+WHY: Full-backs average 12–14 km per match with frequent 40–60m overlap runs. This builds the aerobic base that sustains your energy for the full 90 minutes.`,
       { methodType: 'concentric', intensityIntent: 'submaximal' }),
-    Build: ex('400m Tempo Run', '4', '400m', '90s rest', '75–80% max HR. Hold pace each rep. Aerobic base for full-back distances.',
+
+    Build: ex(
+      'FB Aerobic Threshold — 400m Tempo Runs',
+      '4', '400m', '90s rest',
+      `🎯 TARGET: Zone 3 aerobic threshold | HR 155–170 bpm (78–85% max HR), held for the full 400m
+
+SESSION PLAN:
+Use a 400m track or measure 400m on a pitch (approx 4 widths of a standard pitch).
+
+Run 400m at a controlled, consistent pace — NOT a sprint. Aim for 80–85 seconds per 400m (roughly 5:30–6:00 per km pace). HR should climb to 155–170 bpm and STAY there for the full rep.
+
+90s walk rest between reps. Don't sprint the last 100m of any rep — even pace is the goal.
+
+FB FOCUS: Imagine reps 1–2 as your overlapping runs in the first half. Reps 3–4 as the same runs in the second half when you're fatigued. This is the conditioning that keeps your crosses accurate at minute 80.
+
+WHY: 400m at threshold pace is the gold standard for football endurance. It builds aerobic power at the exact intensity you need for repeat overlapping runs.`,
       { methodType: 'concentric', intensityIntent: 'moderate' }),
-    'Strength & Power': ex('Shuttle Sprint Repeats', '8', '40m', '20s rest', '90% effort. Short rest demands high aerobic power. Full-back endurance capacity.',
+
+    'Strength & Power': ex(
+      'FB RSA Peak — Shuttle Sprint Repeats',
+      '8', '40m', '20s rest',
+      `🎯 TARGET: Zone 4–5 repeated sprint | HR 175–190 bpm, very short incomplete recovery
+
+SESSION PLAN:
+Mark 40m. Sprint 40m at 88–92% effort. Walk back 40m in ~20s (your rest). Immediately sprint again. 8 total reps.
+
+Expected: HR will climb to 175–185 bpm by rep 3 and stay there. This is the goal. You are training your ability to work at high HR without losing sprint quality.
+
+Split your 8 reps: reps 1–4 sprint to the far cone, reps 5–8 alternate sprinting AND backpedalling 10m before turning (mimicking defensive recovery before the next overlap).
+
+FB FOCUS: On rep 8, you should still be producing a genuine sprint, not a jog. If your pace drops more than 15% from rep 1, extend rest to 30s for the final reps.
+
+WHY: Full-backs must overlap repeatedly in both halves. This directly trains the RSA quality that distinguishes elite full-backs.`,
       { methodType: 'concentric', intensityIntent: 'maximal' }),
-    Peak: ex('4×4 Interval', '4', '4 min at 85% max HR', '3:00 rest', 'HR above 85% for full interval. Match demand simulation for wide players.',
+
+    Peak: ex(
+      'FB Pre-Match Sharpener — 4×4 Minute Intervals',
+      '4', '4 min at 85% max HR', '3:00 rest',
+      `🎯 TARGET: Zone 4 VO2max stimulus | HR 170–180 bpm sustained for full 4 minutes
+
+SESSION PLAN:
+4 × 4-minute continuous runs at 85% max HR. 3 minutes active walk rest between intervals.
+
+Pace guide: ~4:00–4:30 per km. After the first 60s, your HR should be climbing toward 170 bpm. Hold that effort for the full 4 minutes.
+
+During the 3-minute rest: walk, do not sit. Keep HR above 120 bpm so you can re-enter the work phase quickly.
+
+Structure each 4-min interval as: 2 min straight run → 30s lateral shuffle left → 30s lateral shuffle right → 1 min straight run. This matches FB movement patterns in possession.
+
+WHY: The 4×4 interval is the most evidence-based protocol for increasing VO2max in footballers. 4 sessions of this protocol have been shown to improve match running distance by 100–150m.`,
       { methodType: 'mixed', intensityIntent: 'submaximal' }),
   },
+
   CM: {
-    Foundation: ex('Aerobic Tempo Run', '3', '1000m', '2:00 rest', '70% effort — conversational pace. Build the aerobic engine.',
+    Foundation: ex(
+      'CM Aerobic Base — Tempo Run 1000m Reps',
+      '3', '1000m', '2:00 rest',
+      `🎯 TARGET: Zone 2 aerobic base | HR 135–155 bpm (68–78% max HR) — conversational pace
+
+SESSION PLAN:
+3 × 1000m at an honest aerobic pace. On a 400m track: 2.5 laps. On a pitch: approx 10 widths.
+
+Target pace: 5:00–5:30 per km (1000m in 5–5:30 minutes). You must be able to speak 5–6 words without gasping. If you can't, you're too fast — slow down.
+
+HR monitor guide: HR should NOT exceed 155 bpm. If it does, reduce pace. This is an aerobic session, not a tempo effort.
+
+2:00 walk rest between reps. During rest, shake out your legs, breathe fully, check HR drops below 130 before starting rep 2 and 3.
+
+CM FOCUS: Midfielders cover 11–13 km per match with the highest aerobic demands on the pitch. This pace represents your 60-minute running average in a game. Own it.
+
+WHY: Zone 2 training builds mitochondrial density and fat oxidation — the foundation of your 90-minute engine. Without this base, your high-intensity capacity has no platform.`,
       { methodType: 'concentric', intensityIntent: 'moderate' }),
-    Build: ex('4×4 Interval Run', '4', '4 min at 85% max HR', '3:00 rest', 'HR > 90% for last minute of each rep. CM aerobic-anaerobic base.',
+
+    Build: ex(
+      'CM VO2max — 4×4 Minute Interval Run',
+      '4', '4 min at 85–90% max HR', '3:00 active rest',
+      `🎯 TARGET: Zone 4–5 VO2max | HR 170–185 bpm for the last 2 minutes of each interval
+
+SESSION PLAN:
+4 × 4-minute intervals at 85–90% max HR. 3 minutes walking rest between intervals.
+
+Pace guide: ~3:30–4:00 per km. In each 4-min interval:
+• First 60s: accelerate to working pace
+• Minutes 1–3: hold the pace, HR climbs to 170–175 bpm
+• Minute 4: HR should be at 175–185 bpm — this is where the adaptation happens
+
+During rest: WALK only, do not sit. HR should drop to ~140 bpm before you start the next rep.
+
+CM FOCUS: Design each interval as a box-to-box simulation. During rep 1: imagine you're pressing from a set piece for 4 minutes. Rep 3: think second-half fatigue — same pace, higher cost. This mental framing trains match-specific conditioning.
+
+WHY: Research shows 4×4 intervals at >85% HRmax improve VO2max by 8–10% in footballers over 8 weeks. VO2max is the strongest predictor of distance covered per match.`,
       { methodType: 'mixed', intensityIntent: 'submaximal' }),
-    'Strength & Power': ex('30-15 Intermittent Fitness Protocol', '1', '12 min continuous', '', 'Run 30s at 13–14 km/h, walk 15s. Repeat for 12 min. Classic box-to-box conditioning.',
+
+    'Strength & Power': ex(
+      'CM Lactate Threshold — 30-15 Intermittent Fitness Protocol',
+      '1', '12 min continuous', '',
+      `🎯 TARGET: Zone 4–5 | HR >85% max HR sustained through work phases, ~145 bpm in recovery
+
+SESSION PLAN (Martin Buchheit's 30-15 IFT protocol):
+Set up two cones 40m apart. The circuit alternates 30s running → 15s walking, continuously for 12 minutes.
+
+Start at 12 km/h for the first 30s run. Every 3 cycles (1.5 min), increase speed by 0.5 km/h.
+
+Cycle structure:
+• 30s RUN at current speed (toward the far cone, turn at 40m, run back)
+• 15s WALK (decelerate, walk toward the far cone — you won't reach it)
+• Repeat immediately
+
+HR guide: Work phases should push HR above 85% (170+ bpm). Walk recovery drops HR to ~145–150 bpm. You never fully recover — that's the point.
+
+CM FOCUS: This is the closest thing to box-to-box midfield conditioning in a structured protocol. The 30s run mirrors a press or recovery run; the 15s walk mirrors a reset before the next defensive action.
+
+WHY: The 30-15 IFT is the most football-specific aerobic conditioning protocol in sports science. It matches the actual work-to-rest ratio of a central midfielder in a high-pressing system.`,
       { methodType: 'mixed', intensityIntent: 'submaximal' }),
-    Peak: ex('High-Intensity 20m Shuttle', '6', '20m', '30s rest', 'Max each rep. Box-to-box simulation. Fully explosive transitions.',
+
+    Peak: ex(
+      'CM Match-Day Prep — Box-to-Box Sprint Simulation',
+      '6', '20m', '30s rest',
+      `🎯 TARGET: Zone 5 | 100% effort each rep, near-full recovery — CNS priming not conditioning
+
+SESSION PLAN:
+Mark 20m. Stand at one end.
+
+Sprint 20m at 100% effort. Decelerate hard at the cone. 30s walk rest. Sprint back. That's 2 reps. Total: 6 reps (3 each direction).
+
+Effort: every rep is 100%. HR will peak at 180–190+ bpm during reps, then drop fully during rest. This is maximal CNS activation, not conditioning.
+
+If your last rep isn't as fast as rep 1 within 5%, you're not recovering enough — extend rest to 45s.
+
+CM FOCUS: Before each sprint, tap the cone with your hand as if playing a pass. Sprint out of a passing action — the most common way CMs enter sprinting actions in matches.
+
+WHY: Low-volume, high-quality. This is match-week sharpening. 6 reps at full intent prime your nervous system without creating fatigue that carries into the game.`,
       { methodType: 'mixed', intensityIntent: 'maximal' }),
   },
+
   W: {
-    Foundation: ex('Repeated 40m Sprint', '6', '40m', '25s rest', '85% effort. Build RSA tolerance. Walk back = rest.',
+    Foundation: ex(
+      'Winger RSA Base — Repeated 40m Sprints',
+      '6', '40m', '25s rest',
+      `🎯 TARGET: Zone 3–4 | HR 155–175 bpm (78–88% max HR), 25s incomplete recovery
+
+SESSION PLAN:
+Place cones at 0m and 40m on the touchline or sideline. This distance simulates a winger's channel run.
+
+Sprint 40m at 82–85% effort. Walk back 40m in ~25s. Immediately sprint again. 6 total reps.
+
+Monitor your effort: reps 1–3 will feel easy. Reps 4–6 are where the conditioning stimulus is. Don't go all-out on rep 1 — you'll crater by rep 5.
+
+WINGER FOCUS: On reps 1, 3, 5 (odd): sprint down a straight channel — left foot dominant if you're a right-footed left winger, or vice versa. On reps 2, 4, 6 (even): curve your sprint from the centre toward the touchline, as if receiving a ball in behind the full-back.
+
+WHY: Wingers perform 25–35 high-speed runs per match, often with only 30–45s recovery. Repeated sprint ability (RSA) is your most critical physical quality.`,
       { methodType: 'concentric', intensityIntent: 'submaximal' }),
-    Build: ex('Repeated 40m Sprint', '8', '40m', '20s rest', '90% effort. Higher anaerobic demand. Winger repeat-sprint profile.',
+
+    Build: ex(
+      'Winger RSA Development — Progressive 40m Sprint Repeats',
+      '8', '40m', '20s rest',
+      `🎯 TARGET: Zone 4–5 | HR 175–190 bpm, very short recovery — building lactate tolerance
+
+SESSION PLAN:
+Mark 40m. Sprint 40m at 88–92% effort. Walk back in ~20s. Sprint again. 8 total reps.
+
+Pacing: Reps 1–3: 88% effort. Reps 4–6: 90% effort. Reps 7–8: MAX effort. Finish fast.
+
+Expected HR: will reach 175–180 bpm by rep 3 and stay there. If HR exceeds 188 bpm at rest, extend recovery to 30s.
+
+WINGER FOCUS: Every 2nd rep, execute a step-over body feint at the 20m point — fake inside, burst outside for the final 20m. This simulates beating a full-back. The feint doesn't have to be perfect; the explosive acceleration AFTER it is the goal.
+
+WHY: This session directly trains the anaerobic capacity that powers your repeated dribbling and sprinting bursts. Elite wingers recover to within 90% of their max sprint in under 20 seconds.`,
       { methodType: 'concentric', intensityIntent: 'maximal' }),
-    'Strength & Power': ex('Flying 30m Repeat Sprint', '6', '30m', '45s rest', 'Max velocity. Near-complete recovery. Winger speed endurance.',
+
+    'Strength & Power': ex(
+      'Winger Maximum Velocity — Flying 30m Repeats',
+      '6', '30m flying zone', '60s rest',
+      `🎯 TARGET: Zone 5 maximum velocity | 95–100% top speed, near-full recovery (speed quality first)
+
+SESSION PLAN:
+Set up a 20m run-up and a 30m flying zone (50m total). Start behind the 0m cone.
+
+Reps 1–6: Accelerate over 20m building to top speed, then maintain MAX velocity through the 30m zone. Decelerate safely beyond.
+
+60s full rest between reps — this is about max velocity, not conditioning. Walk, shake out, breathe.
+
+The 30m flying zone should be timed if possible (aim for sub-3.0s for the 30m). Each rep should feel like you're hitting a wall of speed.
+
+WINGER FOCUS: In the flying zone, focus on maximum stride length — drive your arms, stay tall, push the ground away behind you (not down). You are a winger at full pace chasing a through-ball. Nothing in football is faster than this moment.
+
+WHY: Flying sprints train maximum velocity — the top-end speed that separates elite wingers. Most RSA training doesn't reach true max speed; this does.`,
       { methodType: 'concentric', intensityIntent: 'maximal' }),
-    Peak: ex('Sprint Cluster', '4', '3 × 20m (15s between)', '3:00 between sets', 'Match-like sprint clusters. Maximal intent every rep.',
+
+    Peak: ex(
+      'Winger CNS Activation — Sprint Cluster Protocol',
+      '4', '3 × 20m (15s between reps)', '3:00 between sets',
+      `🎯 TARGET: Zone 5 | MAX effort every rep, full set recovery — neural priming
+
+SESSION PLAN:
+3 sprints of 20m with only 15s rest between sprints = 1 cluster. 4 clusters total, 3:00 full walk rest between clusters.
+
+Each sprint: 100% intent. 15s recovery is not enough for full ATP replenishment — you will feel the burn on rep 3 of each cluster. That is normal and intended.
+
+3:00 between clusters is FULL recovery. Do not rush this rest. Walk, breathe, refocus.
+
+WINGER FOCUS: Cluster 1: start from standing. Cluster 2: start from a receiving-a-pass body position (sideways on). Cluster 3: start from a turning-on-the-ball moment (back to direction of sprint → react and go). Cluster 4: full-speed from a standing start.
+
+WHY: Sprint clusters mimic a winger's actual match pattern — 3 high-intensity actions in rapid succession (press, recover, attack) before a longer recovery phase. This is your match rhythm.`,
       { methodType: 'concentric', intensityIntent: 'explosive' }),
   },
+
   ST: {
-    Foundation: ex('Sprint + Jog Recovery Circuit', '6', '30m sprint / 40m jog recovery', 'Continuous circuit', 'Sprint the 30m, jog 40m recovery. Builds aerobic base without full rest.',
+    Foundation: ex(
+      'Striker Aerobic Base — Sprint-Jog Recovery Circuit',
+      '6', '30m sprint + 40m jog recovery', 'Continuous — no full stop',
+      `🎯 TARGET: Zone 2–3 | HR 140–160 bpm sustained throughout the circuit
+
+SESSION PLAN:
+Mark 30m and 40m in a line (70m total from start to end). No full stops — this is continuous.
+
+Sprint 30m at 80% effort → immediately jog 40m recovery → turn at 40m cone → sprint 30m back → jog 40m recovery. That's 1 full round. Complete 6 rounds continuously.
+
+Pace guide: Your 30m sprints should feel strong but not all-out. Your 40m jogs should feel easy — HR will only drop a few beats. The goal is sustained output, not explosive peaks.
+
+HR target: 140–162 bpm throughout. If HR drops below 135 during the jog, increase sprint pace. If HR exceeds 170, slow the jog.
+
+STRIKER FOCUS: On the sprint sections, explode from a stationary position — no running start. Mimic breaking the defensive line from an attacking position. On odd rounds, start with your body facing away from the sprint direction, turn and go.
+
+WHY: Strikers average 2.5–3 km of high-speed running per match with many explosive short sprints. This builds the aerobic platform that sustains your sprint quality deep into games.`,
       { methodType: 'mixed', intensityIntent: 'moderate' }),
-    Build: ex('10m Burst Repeats', '10', '10m', '30s rest', '100% intent every rep. Explosive first step. Striker penalty-area sprint simulation.',
+
+    Build: ex(
+      'Striker Explosive Power — 10m Burst Repeats',
+      '10', '10m', '30s rest',
+      `🎯 TARGET: Zone 4–5 | Maximum explosive power, partial recovery — anaerobic capacity
+
+SESSION PLAN:
+Mark 10m. Start behind the line each rep.
+
+10 reps × 10m sprint at 100% intent. 30s walk rest between reps.
+
+Start from a different position each rep:
+• Rep 1–2: Standing start, facing sprint direction
+• Rep 3–4: Back to sprint direction, react-and-go
+• Rep 5–6: Standing start, slight lean and lean-touch a cone at feet first
+• Rep 7–8: Walking approach 5m then explode at the start line
+• Rep 9–10: Standing start — these should be fastest (you're dialled in now)
+
+Expected HR: 175–190 bpm during reps, drops during 30s rest to ~150 bpm. HR never fully recovers — building lactate tolerance.
+
+STRIKER FOCUS: The first 3 steps decide this sprint. Drive your knee up aggressively, push the ground behind you. This is a striker getting in behind the defensive line — the most valuable 10m in football.
+
+WHY: 10m burst speed is the most decisive physical quality for strikers. Studies show the 80% of goals are preceded by an attacker making a short explosive sprint in the final third.`,
       { methodType: 'reactive', intensityIntent: 'maximal' }),
-    'Strength & Power': ex('Repeated 20m Sprint', '8', '20m', '20s rest', 'Near-maximal. Short rest. Anaerobic capacity — peak box arrival speed.',
+
+    'Strength & Power': ex(
+      'Striker Speed-Endurance — Repeated 20m Sprints',
+      '8', '20m', '20s rest',
+      `🎯 TARGET: Zone 5 anaerobic capacity | Maximum effort, very short recovery — lactate tolerance
+
+SESSION PLAN:
+Mark 20m. Sprint 20m at MAXIMUM effort. Turn and immediately walk back in ~18–20s. Sprint again. 8 total reps.
+
+Each sprint must be genuine max effort. If you cannot maintain 90%+ of your rep 1 pace by rep 6, extend rest to 30s.
+
+The burn you feel from rep 4 onward is lactic acid accumulation. Learning to sprint hard THROUGH this feeling is exactly what this session develops.
+
+STRIKER FOCUS: Odd reps (1, 3, 5, 7): sprint toward goal, mimic arrival at the back post. Even reps (2, 4, 6, 8): sprint at 45°, mimic peeling off the last defender toward the near post. Same effort, different angle — training the explosive patterns you use in the box.
+
+WHY: Strikers need to reach top speed and maintain sprint quality even when fatigued deep in games. Short rest, maximum speed trains both anaerobic capacity and speed-specific fatigue resistance.`,
       { methodType: 'concentric', intensityIntent: 'maximal' }),
-    Peak: ex('Sprint + Jump Finisher', '3', '3 × 15m then CMJ', '3:00 between sets', 'Three sprints then a max CMJ. Striker match-day movement pattern.',
+
+    Peak: ex(
+      'Striker Match-Day Activation — Sprint + Jump Finisher',
+      '3', '3 × 15m sprint then CMJ', '3:00 between sets',
+      `🎯 TARGET: Zone 5 CNS activation | MAX effort every sprint and jump, FULL set recovery
+
+SESSION PLAN:
+Mark 15m. Each set: 3 × 15m sprints (15s walk between sprints), then immediately perform 1 maximal countermovement jump (CMJ) as the set finisher.
+
+Sprint 1: Standing start. Sprint 15m at 100%.
+15s walk rest.
+Sprint 2: Sprint 15m at 100%.
+15s walk rest.
+Sprint 3: Sprint 15m at 100%.
+No rest — immediately jump as high as possible (CMJ).
+Then 3:00 full rest before set 2.
+
+CMJ technique: stand feet hip-width, arms back, dip quickly, drive arms UP explosively, jump for maximum height. Land softly.
+
+STRIKER FOCUS: The 3 sprints + CMJ sequence mimics a striker's match moment: a channel run, a recovery sprint, a final burst — then a jump for a header at the end. Your body should feel primed, not fatigued, after this session.
+
+WHY: This pre-match week activation uses sprint-then-jump post-activation potentiation (PAP). Sprinting before a jump increases jump height by 5–8%. Your nervous system arrives at match day already primed.`,
       { methodType: 'mixed', intensityIntent: 'explosive' }),
   },
 };
@@ -725,7 +1181,7 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
       { methodType: 'reactive', intensityIntent: 'explosive' }),
     ex('Depth Jump', '3', '4', '3:00', 'Step off box. Minimise contact. Jump as high as possible.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
-    ex('Rotational Med Ball Throw', '3', '6 each', '2:00', 'Hips rotate first, shoulders follow. Explosive release.',
+    ex('Bounding', '3', '6 reps', '2:00', 'Alternate-leg bounding. Drive the knee, push the ground back. Max horizontal distance per stride.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
   ],
   agility: [
@@ -737,7 +1193,7 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   injury_prone: [
-    ex('Nordic Hamstring Curl', '3', '5', '3:00', '4s eccentric. Gold standard — non-negotiable for every footballer.',
+    ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s eccentric — maximum effort, 2 reps only. Gold standard — non-negotiable for every footballer.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
     ex('Copenhagen Plank', '3', '30s each', '90s', 'Groin-specific. Top foot on bench. Pull bottom leg. Most evidenced groin prevention.',
       { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
@@ -750,7 +1206,7 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
 
 const PREHAB: Record<string, ProgrammeExercise[]> = {
   hamstring: [
-    ex('Nordic Hamstring Curl', '3', '5', '3:00', '4s eccentric. Highest-evidence prevention. Non-negotiable.',
+    ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s eccentric — maximum effort, 2 reps only. Highest-evidence prevention. Non-negotiable.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
     ex('Eccentric Single-Leg RDL', '2', '8 each', '90s', '4s lowering. Hold at bottom. Eccentric load is the protective stimulus.',
       { tempo: '4-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
@@ -762,22 +1218,22 @@ const PREHAB: Record<string, ProgrammeExercise[]> = {
       { methodType: 'mixed', intensityIntent: 'controlled' }),
   ],
   knee: [
-    ex('Terminal Knee Extension (Band)', '3', '15 each', '60s', 'VMO isolation. Full lockout. Slow and controlled.',
-      { tempo: '1-1-3-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-    ex('Eccentric Step-Down', '3', '10 each', '90s', '4s descent to single-foot landing. Track knee over second toe.',
+    ex('Isometric Wall Sit — Single-Leg at 60°', '3', '45s each', '2:00', '60° knee flexion against wall — single leg. Maximum effort. This is the clinically-validated patellar tendon HSR angle: heavy isometric at 60° directly increases patellar tendon stiffness. The tendon then absorbs more landing/deceleration load so the quad muscle doesn\'t overwork.',
+      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Eccentric Step-Down (4s Lower)', '3', '8 each', '90s', '4s single-leg descent. Knee tracks over second toe. Eccentric quad loading — increases fascicle length. Longer fascicles = individual sarcomeres tolerate more stretch before failure.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
   ],
   groin: [
-    ex('Copenhagen Plank', '3', '25s each side', '90s', 'Adductor isolation. Top foot on bench. Gold standard for groin prevention.',
+    ex('Copenhagen Plank — Eccentric Lower', '3', '6 each side', '2:00', 'Start with hips elevated, top foot on bench. Slowly lower hips over 4s — feel the adductor lengthen eccentrically under load. Return to top. Eccentric variant drives fascicle length adaptation in the adductor, reducing groin strain risk at full stride.',
+      { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+    ex('Copenhagen Plank — Isometric Hold', '2', '25s each side', '90s', 'Top foot on bench. Hold with maximum adductor effort. Groin prevention — isometric complements the eccentric above.',
       { tempo: '0-25s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
-    ex('Lateral Band Walk', '2', '15 each way', '60s', 'Targets groin–hip abductor relationship. Controlled.',
-      { methodType: 'concentric', intensityIntent: 'moderate' }),
   ],
   calf: [
-    ex('Eccentric Calf Raise (Alfredson)', '3', '12', '60s', 'Raise with both, lower on one. 3s eccentric. Classic protocol.',
+    ex('Alfredson Eccentric Calf Protocol', '3', '15', '90s', 'Raise with both, lower on single leg over 3s. Knee straight for gastrocnemius, then repeat with knee bent for soleus. Eccentric loading increases fascicle length AND tendon capacity. If symptomatic (Achilles pain), perform 3×15 twice daily.',
       { tempo: '3-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-    ex('Soleus Raise (Bent Knee)', '2', '15 each', '60s', 'Knee at 90°. Targets soleus. Slow and deliberate.',
-      { tempo: '2-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+    ex('Heavy Single-Leg Calf Isometric Hold', '3', '45s each', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort — add weight via DB if possible. Achilles tendon HSR: heavy slow resistance increases tendon stiffness so the tendon (not the calf muscle) absorbs the sprint push-off load.',
+      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
   ],
   back: [
     ex('Dead Bug', '3', '6 each side', '60s', 'Lower back into floor. Extend opposite arm and leg — don\'t lose lumbar position.',
@@ -793,11 +1249,13 @@ const PREHAB: Record<string, ProgrammeExercise[]> = {
   ],
 };
 
+// Note: Nordics and Copenhagen Plank are in ECCENTRIC_BLOCK (always last in session).
+// DEFAULT_PREHAB covers position-agnostic stability work for athletes with no specific injury history.
 const DEFAULT_PREHAB: ProgrammeExercise[] = [
-  ex('Nordic Hamstring Curl', '2', '5', '3:00', '4s eccentric. Highest-evidence injury prevention for every footballer.',
-    { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-  ex('Copenhagen Plank', '2', '20s each side', '60s', 'Adductor strength. Build the hold week by week.',
-    { tempo: '0-20s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+  ex('Single-Leg Balance (Eyes Closed)', '2', '40s each', '60s', 'Slight knee bend. Eyes closed when stable. Ankle and knee proprioception — foundational for every footballer.',
+    { tempo: '0-40s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+  ex('Pallof Press', '2', '10 each side', '60s', 'Anti-rotation. Resist band. Body stays square. Core stability under lateral load.',
+    { methodType: 'isometric', intensityIntent: 'controlled' }),
 ];
 
 // ── Apply readiness — reduce sets and intensity ────────────────────────────
@@ -892,7 +1350,7 @@ function primingSession(dow: string, position: string, playStyle: string): Progr
   return {
     mdDay: 'MD-1',
     dayOfWeek: dow,
-    objective: `Neural priming — activate fast-twitch fibres without accumulating fatigue. ${styleNote}`,
+    objective: `MD-1 — Neural priming — activate fast-twitch fibres without accumulating fatigue. ${styleNote}`,
     readinessNote: 'MD-1 is always low load. Do NOT add volume regardless of readiness score.',
     durationMin: 30,
     fvProfile: 'Speed end of F-V curve — submaximal load, maximal intent, zero accumulated fatigue.',
@@ -981,6 +1439,7 @@ function buildSession(
   const posKey = position as PosKey;
   const posSpeedEx = POSITION_SPEED[posKey] ?? [];
   const accelEx = SPEED_ACCELERATION[phase] ?? SPEED_ACCELERATION.Foundation;
+  const condExMD3 = CONDITIONING[posKey]?.[phase] ?? CONDITIONING.CM.Foundation;
   const condExMD2 = CONDITIONING_MD2[posKey]?.[phase] ?? CONDITIONING_MD2.CM.Foundation;
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
   const weaknessEx = WEAKNESS_EX[biggestWeakness]?.slice(0, 2) ?? [];
@@ -995,23 +1454,25 @@ function buildSession(
 
   const readinessNote =
     readiness.level === 'elite'
-      ? 'Elite readiness ✦ — Add a bonus set to your main lifts. Chase a PB on your primary compound today.'
+      ? 'Elite readiness ✦ — Add a bonus set. Target 1 RIR on every set. If bar velocity stays fast through all sets, chase a PB. Low-rep high-load: every rep is effective. Conditions are optimal.'
       : readiness.level === 'high'
-      ? 'High readiness ✓ — Execute as written. Push hard on the big sets.'
+      ? 'High readiness ✓ — Execute as written. 2–1 RIR on main sets. Every rep should be hard but technically sound. Autoregulate: stop any set if bar velocity drops >20% vs rep 1. No junk reps.'
       : readiness.level === 'moderate'
-      ? 'Moderate readiness — Reduce load ~10% on main compounds. Monitor RPE set-to-set.'
-      : 'Low readiness — 1 fewer set, −20–25% intensity. Movement quality over load today.';
+      ? 'Moderate readiness — Drop load ~10%. RIR floor 2. If any rep looks like a grind before prescribed reps are done, rack it. 3 quality reps beat 5 junk reps every time.'
+      : 'Low readiness — 1 fewer set, −20–25% intensity. If bar speed deteriorates significantly (rep looks like a grind), end the set. Movement quality and controlled velocity are today\'s goals.';
 
   const durationBase = slot.mdDay === 'MD-4' ? 70 : slot.mdDay === 'MD-3' ? 60 : 55;
   const durationMin = readiness.level === 'low' ? durationBase - 15
     : readiness.level === 'elite' ? durationBase + 10
     : durationBase;
 
-  // MD-4: full strength + power + upper + weakness + prehab
+  // MD-4: Max Velocity (sprints/jumps) → Max Strength → Tendon/SSC → Upper → Weakness → Eccentric (last)
+  // Science: explosive/speed work FIRST (fresh CNS) → strength second → tendon stiffness third → eccentrics ALWAYS last.
   if (slot.mdDay === 'MD-4') {
+    const gymKey = (gymAccess as GymKey) in POWER_PRIMER ? (gymAccess as GymKey) : 'basic';
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
-      objective: MD4_OBJ[phase] ?? MD4_OBJ.Build,
+      objective: `MD-4 — ${MD4_OBJ[phase] ?? MD4_OBJ.Build}`,
       readinessNote, durationMin,
       fvProfile: fv.profile,
       blocks: [
@@ -1021,25 +1482,25 @@ function buildSession(
           exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 2)],
         },
         {
-          title: '💪 Main Strength Block',
+          title: '⚡ Max Velocity — Sprinting & Jumping First',
+          methodFocus: 'Max velocity work ALWAYS first — sprinting and jumping require a completely fresh nervous system. Performed before any strength or loaded work. No weighted exercises in this block.',
+          exercises: POWER_PRIMER[gymKey],
+        },
+        {
+          title: '💪 Max Strength Block',
           methodFocus: fv.loadScheme === 'heavy'
-            ? 'Maximal force — strength end of F-V curve. High load, low velocity, peak neural output.'
-            : 'Strength-speed — moderate load with explosive intent. Bridge between strength and power.',
+            ? 'Maximal force — strength end of F-V curve. 85%+ load, low reps, explosive concentric intent. Bar velocity is your autoregulation signal.'
+            : 'Strength-speed — high load with explosive intent. Autoregulate: stop when bar speed visibly drops >20% vs set 1.',
           exercises: applyReadiness(strengthEx, readiness.level, readiness.intensityNote),
         },
         {
-          title: '⚡ Power Superset',
-          methodFocus: 'Reactive / concentric — post-activation potentiation following strength block',
-          exercises: applyReadiness([
-            ex('Jump Squat', '3', '4', '2:30', 'Load 30% bodyweight. Max upward intent. Land and reset.',
-              { intensity: '30% BW', methodType: 'reactive', intensityIntent: 'explosive' }),
-            ex('Medicine Ball Slam', '3', '5', '90s', 'Full-body tension. Overhead drive, slam down.',
-              { methodType: 'reactive', intensityIntent: 'explosive' }),
-          ], readiness.level, readiness.intensityNote),
+          title: '🦴 Tendon & SSC Block',
+          methodFocus: 'Tendon stiffness — heavy isometrics build tendon structural capacity; fast pogo hops train the stretch-shortening cycle spring. Placed after strength, before eccentrics.',
+          exercises: TENDON_SSC_BLOCK[gymKey],
         },
         {
           title: '💪 Upper Body Accessory',
-          methodFocus: 'Concentric + eccentric — upper body strength balance and shoulder integrity',
+          methodFocus: 'Concentric — upper body strength balance and shoulder integrity',
           exercises: applyReadiness(upperEx.slice(0, 2), readiness.level, readiness.intensityNote),
         },
         ...(playStyleEx.length > 0 ? [{
@@ -1052,20 +1513,31 @@ function buildSession(
           methodFocus: `${biggestWeakness} development — targeted overload of your primary physical gap`,
           exercises: weaknessEx,
         },
-        {
-          title: '🛡️ Injury Prevention',
-          methodFocus: 'Eccentric + isometric — structural resilience and prehab loading',
+        ...(prehabEx.length > 0 && prehabEx !== DEFAULT_PREHAB ? [{
+          title: '🛡️ Joint Prehab',
+          methodFocus: 'Isometric + eccentric — address your specific injury history areas',
           exercises: prehabEx,
+        }] : [{
+          title: '🛡️ Core Stability',
+          methodFocus: 'Anti-rotation and proprioception — foundational stability for every footballer',
+          exercises: DEFAULT_PREHAB,
+        }]),
+        {
+          title: '🔴 Eccentric Block — Always Last',
+          methodFocus: 'Eccentric strength for injury prevention — placed LAST because it generates the most structural stress. Nordic Curl fascicle length adaptation is the primary hamstring strain prevention mechanism.',
+          exercises: ECCENTRIC_BLOCK[gymKey],
         },
       ],
     };
   }
 
-  // MD-3: speed + acceleration + strength accessories + prehab
+  // MD-3: Speed FIRST (fresh CNS) → Conditioning → Tendon/SSC (light) → Eccentric (last)
+  // Science: max velocity requires the freshest possible nervous system — performed before any other work.
   if (slot.mdDay === 'MD-3') {
+    const gymKey = (gymAccess as GymKey) in TENDON_SSC_BLOCK ? (gymAccess as GymKey) : 'basic';
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
-      objective: MD3_OBJ[phase] ?? MD3_OBJ.Build,
+      objective: `MD-3 — ${MD3_OBJ[phase] ?? MD3_OBJ.Build}`,
       readinessNote, durationMin,
       fvProfile: fv.profile,
       blocks: [
@@ -1075,18 +1547,9 @@ function buildSession(
           exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_SPEED],
         },
         {
-          title: '⚡ Acceleration Block',
-          methodFocus: 'Concentric — drive phase mechanics, maximum force application angle',
+          title: '⚡ Max Velocity / Speed — Fresh CNS First',
+          methodFocus: 'Maximum velocity requires a completely fresh nervous system — always performed before any other fatiguing work. This is your primary stimulus today.',
           exercises: [...accelEx.slice(0, 2), ...(posSpeedEx.slice(0, 1))],
-        },
-        {
-          title: '💪 Strength Accessories',
-          methodFocus: 'Eccentric — unilateral strength and posterior chain maintenance',
-          exercises: applyReadiness([
-            strengthEx[1] ?? strengthEx[0],
-            ex('Single-Leg Glute Bridge', '3', '15 each', '60s', 'Drive heel into floor. Full hip extension. Pelvis doesn\'t rotate.',
-              { methodType: 'concentric', intensityIntent: 'moderate' }),
-          ], readiness.level, readiness.intensityNote),
         },
         {
           title: '🎯 Weakness Focus',
@@ -1094,21 +1557,32 @@ function buildSession(
           exercises: weaknessEx.slice(0, 1),
         },
         {
-          title: '🛡️ Injury Prevention',
-          methodFocus: 'Eccentric + isometric — protect soft tissue ahead of match week intensification',
-          exercises: prehabEx,
+          title: '🦴 Tendon Maintenance (1 exercise)',
+          methodFocus: 'Single heavy isometric — maintains tendon stiffness adaptation on speed day without accumulating fatigue',
+          exercises: [TENDON_SSC_BLOCK[gymKey][0]],
+        },
+        {
+          title: '🔴 Eccentric Block',
+          methodFocus: 'Eccentric loading always before conditioning — Nordic Curl fascicle length adaptation is non-negotiable even on speed days.',
+          exercises: ECCENTRIC_BLOCK[gymKey].slice(0, 2),
+        },
+        {
+          title: '🏃 Conditioning — Always Last',
+          methodFocus: 'Aerobic / anaerobic capacity — sport-specific HR zone training. Always performed after eccentric work, never before.',
+          exercises: applyReadiness([condExMD3], readiness.level, readiness.intensityNote),
         },
       ],
     };
   }
 
-  // MD-2: LOW-IMPACT cross-training + technical speed + weakness + prehab
+  // MD-2: LOW-IMPACT cross-training + technical speed + weakness + eccentric (last)
   // Science: 2 days before match → must avoid muscular fatigue carryover.
   // Bike / pool / ergometer only — maintains aerobic sharpness without loading sprint muscles.
   if (slot.mdDay === 'MD-2') {
+    const gymKey = (gymAccess as GymKey) in ECCENTRIC_BLOCK ? (gymAccess as GymKey) : 'basic';
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
-      objective: (MD2_OBJ[phase] ?? MD2_OBJ.Build) + ' Low-impact cross-training only — protect legs for match day.',
+      objective: `MD-2 — ${MD2_OBJ[phase] ?? MD2_OBJ.Build} Low-impact cross-training only — protect legs for match day.`,
       readinessNote: readinessNote + ' MD-2: bike or pool conditioning only. No running.',
       durationMin, fvProfile: fv.profile,
       blocks: [
@@ -1124,7 +1598,7 @@ function buildSession(
         },
         {
           title: '⚡ Technical Speed (Low Volume)',
-          methodFocus: 'Reactive — position-specific patterns at match velocity. Max 2 exercises, full recovery. MD-2: volume halved.',
+          methodFocus: 'Reactive — position-specific patterns at match velocity. Max 1 exercise, full recovery. MD-2: volume is minimal.',
           exercises: (posSpeedEx.length > 0 ? posSpeedEx.slice(0, 1) : accelEx.slice(0, 1)),
         },
         {
@@ -1133,9 +1607,9 @@ function buildSession(
           exercises: weaknessEx.slice(0, 1),
         },
         {
-          title: '🛡️ Injury Prevention',
-          methodFocus: 'Isometric + eccentric — joint integrity maintenance 2 days before match',
-          exercises: prehabEx,
+          title: '🔴 Eccentric Block — Always Last',
+          methodFocus: 'Nordic Curl maintained on MD-2 — 2 sets only. Eccentric stimulus preserved without fatiguing the system before match day.',
+          exercises: ECCENTRIC_BLOCK[gymKey].slice(0, 2),
         },
       ],
     };
@@ -1150,8 +1624,8 @@ function buildSession(
 function progressNote(week: number): string {
   const hint = 'Progress both load (compounds) and sprint distances in parallel.';
   if (week <= 2) return `Record every lift and sprint — baseline data drives all future progression. ${hint}`;
-  if (week <= 5) return `Add 2.5–5kg to main compounds and extend sprint volumes vs last week. RPE 7–8.`;
-  if (week <= 9) return `Push toward technical limit — RPE 8–9. ${hint}`;
+  if (week <= 5) return `Add 2.5–5kg to main compounds and extend sprint volumes vs last week. 3–2 RIR.`;
+  if (week <= 9) return `Push toward technical limit — 2–1 RIR. ${hint}`;
   return 'Final phase: reduce sets by 1, increase intensity. Peak expression — maximise output.';
 }
 
@@ -1179,8 +1653,11 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
   const styleNote = inputs.playStyle
     ? ` Your ${inputs.playStyle.replace(/-/g, '-')} play style is reflected in position-specific speed patterns and conditioning protocols.`
     : '';
+  const doubleGameWeekNote = inputs.secondMatchDay
+    ? `\n\nDouble game week awareness: your schedule includes a second match day (${inputs.secondMatchDay}). On weeks with two games, MD-3 volume is reduced — treat that session as neural priming rather than a loading day. Prioritise recovery between matches: sleep, nutrition, and soft-tissue work take precedence over hitting prescribed sets. If fatigue is high before the second game, drop to the moderate readiness protocol regardless of your score.`
+    : '';
 
-  return `This ${totalWeeks}-week programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session uses a three-method structure. Concentric work builds force production, eccentric work creates structural resilience and reduces injury risk, and isometric work develops joint stability. All three are trained throughout the programme.\n\nSessions are structured around your match schedule. The heaviest training falls furthest from match day, and load is progressively reduced as the game approaches. This protects performance on the pitch while ensuring consistent physical development across the week.\n\n${readinessLine}`;
+  return `This ${totalWeeks}-week programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session uses a three-method structure. Concentric work builds force production, eccentric work creates structural resilience and reduces injury risk, and isometric work develops joint stability. All three are trained throughout the programme.\n\nSessions are structured around your match schedule. The heaviest training falls furthest from match day, and load is progressively reduced as the game approaches. This protects performance on the pitch while ensuring consistent physical development across the week.${doubleGameWeekNote}\n\n${readinessLine}`;
 }
 
 // ── Main export ────────────────────────────────────────────────────────────
@@ -1214,12 +1691,15 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
   const pos = POSITION_LABELS[inputs.position] ?? inputs.position;
   const goal = GOAL_LABELS[inputs.primaryGoal] ?? inputs.primaryGoal;
   const matchStr = inputs.matchDay.charAt(0).toUpperCase() + inputs.matchDay.slice(1);
+  const secondMatchStr = inputs.secondMatchDay
+    ? ` + ${inputs.secondMatchDay.charAt(0).toUpperCase() + inputs.secondMatchDay.slice(1)}`
+    : '';
 
   return {
     id: `prog-${Date.now()}`,
     createdAt: Date.now(),
     title: `${pos} — ${goal}`,
-    summary: `${totalWeeks}-week personalised programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inputs.sessionsPerWeek} sessions/week · Match day: ${matchStr}.`,
+    summary: `${totalWeeks}-week personalised programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inputs.sessionsPerWeek} sessions/week · Match day: ${matchStr}${secondMatchStr}${inputs.secondMatchDay ? ' (double game weeks accounted for)' : ''}.`,
     coachExplanation: buildCoachExplanation(inputs, totalWeeks, readinessLevel),
     readinessScore: score,
     readinessLevel,

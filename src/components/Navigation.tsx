@@ -11,7 +11,7 @@ const navItems = [
   { screen: 'plans' as Screen, label: 'Plans', icon: Map },
   { screen: 'workout-builder' as Screen, label: 'Quick Workout', icon: Dumbbell },
   { screen: 'exercise-library' as Screen, label: 'Exercises', icon: BookOpen },
-  { screen: 'history' as Screen, label: 'History', icon: History },
+  { screen: 'history' as Screen, label: 'History & Tests', icon: History },
 ];
 
 export function Navigation({ current, onNavigate }: NavigationProps) {

@@ -35,11 +35,10 @@ const CATEGORY_COLOURS: Record<string, string> = {
   Eccentric:        'bg-violet-100 text-violet-700',
   Isometric:        'bg-cyan-100 text-cyan-700',
   Conditioning:     'bg-rose-100 text-rose-700',
-  Olympic:          'bg-indigo-100 text-indigo-700',
   Legs:             'bg-green-100 text-green-700',
   Back:             'bg-blue-100 text-blue-700',
   Chest:            'bg-red-100 text-red-700',
-  'Speed & Agility':'bg-emerald-100 text-emerald-700',
+  Speed: 'bg-emerald-100 text-emerald-700', Agility: 'bg-teal-100 text-teal-800',
 };
 
 function formatTarget(sets: number, reps: number, weight: number): string {

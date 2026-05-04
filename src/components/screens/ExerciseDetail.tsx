@@ -66,9 +66,19 @@ export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: Exerc
         <span className={`text-xs px-2 py-1 rounded-full font-medium ${CATEGORY_COLORS[exercise.category]}`}>
           {exercise.category}
         </span>
+        {exercise.secondaryCategory && (
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${CATEGORY_COLORS[exercise.secondaryCategory]}`}>
+            {exercise.secondaryCategory}
+          </span>
+        )}
         {exercise.muscleGroups.map(m => (
           <span key={m} className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">{m}</span>
         ))}
+        {exercise.suggestedRir !== undefined && (
+          <span className="text-xs bg-brand-50 text-brand-700 font-semibold px-2 py-1 rounded-full">
+            {exercise.suggestedRir} RIR suggested
+          </span>
+        )}
         <span className="text-xs text-gray-400 ml-auto">Rest: {exercise.defaultRestSeconds}s</span>
       </div>
 

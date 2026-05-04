@@ -9,8 +9,8 @@ import { CATEGORY_COLORS, DEFAULT_EXERCISES } from '../../data/exercises';
 
 const CATEGORIES: ExerciseCategory[] = [
   'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Cardio', 'Full Body',
-  'Olympic', 'Isometric', 'Plyometrics',
-  'Speed & Agility', 'Eccentric', 'Conditioning', 'Testing',
+  'Isometric', 'Plyometrics',
+  'Speed', 'Agility', 'Eccentric', 'Conditioning', 'Testing',
 ];
 
 interface ExerciseLibraryProps {
@@ -44,7 +44,7 @@ function AddExerciseModal({ onAdd, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Add Custom Exercise</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
@@ -61,7 +61,7 @@ function AddExerciseModal({ onAdd, onClose }: {
               onChange={e => setCategory(e.target.value as ExerciseCategory)}
               className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
-              {(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Cardio', 'Full Body', 'Olympic', 'Isometric', 'Plyometrics', 'Speed & Agility', 'Eccentric', 'Conditioning', 'Testing'] as ExerciseCategory[]).map(c => <option key={c}>{c}</option>)}
+              {(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Cardio', 'Full Body', 'Isometric', 'Plyometrics', 'Speed', 'Agility', 'Eccentric', 'Conditioning', 'Testing'] as ExerciseCategory[]).map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
           <Input
@@ -92,7 +92,7 @@ export function ExerciseLibrary({ exercises, onAddCustom, onDeleteCustom, onNavi
   const filtered = exercises.filter(ex => {
     const matchesQuery = ex.name.toLowerCase().includes(query.toLowerCase()) ||
       ex.muscleGroups.some(m => m.toLowerCase().includes(query.toLowerCase()));
-    const matchesCategory = activeCategory === 'All' || ex.category === activeCategory;
+    const matchesCategory = activeCategory === 'All' || ex.category === activeCategory || ex.secondaryCategory === activeCategory;
     return matchesQuery && matchesCategory;
   });
 
@@ -152,10 +152,20 @@ export function ExerciseLibrary({ exercises, onAddCustom, onDeleteCustom, onNavi
                   <span className="text-xs bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded-full">Custom</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${CATEGORY_COLORS[ex.category]}`}>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${CATEGORY_COLORS[ex.category]}`}>
                   {ex.category}
                 </span>
+                {ex.secondaryCategory && (
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${CATEGORY_COLORS[ex.secondaryCategory]}`}>
+                    {ex.secondaryCategory}
+                  </span>
+                )}
+                {ex.suggestedRir !== undefined && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-700 font-medium flex-shrink-0">
+                    {ex.suggestedRir} RIR
+                  </span>
+                )}
                 {ex.muscleGroups.length > 0 && (
                   <span className="text-xs text-gray-400 truncate">{ex.muscleGroups.slice(0, 2).join(', ')}</span>
                 )}

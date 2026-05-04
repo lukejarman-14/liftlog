@@ -60,19 +60,6 @@ export const EXERCISE_VIDEOS: Record<string, string> = {
   'thruster':          'L219ltL15zk', // Thruster – Proper Form and Technique
 
   // ── Olympic ────────────────────────────────────────────────────────────────
-  'power-clean':       'lI35socHJ4k', // How To Power Clean: Step by Step Beginner's Tutorial
-  'hang-power-clean':  'efHjodEVf9w', // Hang Power Clean | Olympic Weightlifting Exercise Library
-  'squat-clean':       'vnmSXlBXZlo', // Squat Clean Tutorial – Catalyst Athletics
-  'hang-clean':        'ppAzF8Cm-uo', // Hang Clean Like a Pro: Expert Tips
-  'clean-and-jerk':    'nJEMcnFKWQ8', // How To Clean & Jerk: Complete Beginner's Guide
-  'power-snatch':      'ydHHsju1-Nc', // Power Snatch | Olympic Weightlifting Exercise Library
-  'hang-power-snatch': 'SpDPcj0W3Yw', // Hang Power Snatch | Olympic Weightlifting Exercise Library
-  'squat-snatch':      'VMaBfcRprAU', // How to Master the Snatch – Olympics
-  'split-jerk':        '0ieS7C6Rdyk', // The Jerk: Olympic Lift Tutorial
-  'push-jerk':         'ZGMQhH0Kkiw', // Push Jerk Tutorial – Catalyst Athletics
-  'overhead-squat':    'RD_vUnqwqqI', // Overhead Squat – How To Perform With Proper Form
-  'clean-pull':        'bbiGsJXJBaI', // Clean Pull Tutorial
-  'snatch-pull':       't4qkBp9MLv4', // Snatch from Power Position – Exercise Library
 
   // ── Plyometrics ────────────────────────────────────────────────────────────
   'box-jump':          'Bc_ycZFCEvQ', // How To Do The Plyometric Box Jump – Technique Breakdown

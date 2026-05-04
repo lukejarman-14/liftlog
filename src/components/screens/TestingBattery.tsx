@@ -35,7 +35,7 @@ type FlowPhase = 'select' | 'sex' | 'testing' | 'results';
 
 // ── RSA State Machine ──────────────────────────────────────────────────────
 
-type RsaPhase = 'idle' | 'countdown' | 'active' | 'rest' | 'entry';
+type RsaPhase = 'idle' | 'countdown' | 'active' | 'rest' | 'done';
 
 interface RsaState {
   phase: RsaPhase;
@@ -45,7 +45,10 @@ interface RsaState {
 
 function useRsaEngine() {
   const [rsaState, setRsaState] = useState<RsaState>({ phase: 'idle', rep: 1, remaining: 5 });
+  const [sprintTimes, setSprintTimes] = useState<number[]>([]);
+  const [stopwatchMs, setStopwatchMs] = useState(0);
   const endAtRef = useRef(0);
+  const sprintStartRef = useRef(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   function getAudio(): AudioContext | null {
@@ -78,7 +81,7 @@ function useRsaEngine() {
     } catch (_) {}
   }, []);
 
-  // Single interval — uses Date.now() for accuracy, handles tab switch
+  // Countdown / rest interval — uses Date.now() for accuracy
   useEffect(() => {
     const { phase, rep } = rsaState;
     if (phase !== 'countdown' && phase !== 'rest') return;
@@ -99,22 +102,29 @@ function useRsaEngine() {
         done = true;
         if (phase === 'countdown') {
           beep(880, 0.38, 0.85); // GO!
+          sprintStartRef.current = Date.now();
+          setStopwatchMs(0);
           setRsaState({ phase: 'active', rep, remaining: 0 });
         } else {
-          if (rep >= 6) {
-            setRsaState({ phase: 'entry', rep, remaining: 0 });
-          } else {
-            const nextRep = rep + 1;
-            endAtRef.current = Date.now() + 5000;
-            beep(440, 0.12);
-            setRsaState({ phase: 'countdown', rep: nextRep, remaining: 5 });
-          }
+          const nextRep = rep + 1;
+          endAtRef.current = Date.now() + 5000;
+          beep(440, 0.12);
+          setRsaState({ phase: 'countdown', rep: nextRep, remaining: 5 });
         }
       }
     }, 100);
 
     return () => { done = true; clearInterval(id); };
   }, [rsaState.phase, rsaState.rep, beep]);
+
+  // Stopwatch — ticks every 50ms during active sprint
+  useEffect(() => {
+    if (rsaState.phase !== 'active') return;
+    const id = setInterval(() => {
+      setStopwatchMs(Date.now() - sprintStartRef.current);
+    }, 50);
+    return () => clearInterval(id);
+  }, [rsaState.phase, rsaState.rep]);
 
   const startRsa = useCallback(() => {
     getAudio(); // must init on user gesture
@@ -123,13 +133,20 @@ function useRsaEngine() {
   }, []);
 
   const sprintDone = useCallback((rep: number) => {
+    const elapsed = (Date.now() - sprintStartRef.current) / 1000;
+    setSprintTimes(prev => {
+      const next = [...prev];
+      next[rep - 1] = Math.round(elapsed * 100) / 100;
+      return next;
+    });
     if (rep >= 6) {
-      setRsaState({ phase: 'entry', rep, remaining: 0 });
+      beep(880, 0.5, 0.8); // final beep
+      setRsaState({ phase: 'done', rep, remaining: 0 });
     } else {
       endAtRef.current = Date.now() + 20000;
       setRsaState({ phase: 'rest', rep, remaining: 20 });
     }
-  }, []);
+  }, [beep]);
 
   const skipRest = useCallback((rep: number) => {
     endAtRef.current = Date.now() + 5000;
@@ -139,9 +156,11 @@ function useRsaEngine() {
 
   const resetRsa = useCallback(() => {
     setRsaState({ phase: 'idle', rep: 1, remaining: 5 });
+    setSprintTimes([]);
+    setStopwatchMs(0);
   }, []);
 
-  return { rsaState, startRsa, sprintDone, skipRest, resetRsa };
+  return { rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa };
 }
 
 // ── Small UI helpers ───────────────────────────────────────────────────────
@@ -611,9 +630,11 @@ function JumpScreen({
 const RSA_REPS = 6;
 
 function RsaScreen({
-  rsaState, startRsa, sprintDone, skipRest, resetRsa, draft, onChangeDraft, onSkip,
+  rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa, draft, onChangeDraft, onSkip,
 }: {
   rsaState: RsaState;
+  sprintTimes: number[];
+  stopwatchMs: number;
   startRsa: () => void;
   sprintDone: (rep: number) => void;
   skipRest: (rep: number) => void;
@@ -622,28 +643,22 @@ function RsaScreen({
   onChangeDraft: (d: TestDraft) => void;
   onSkip: () => void;
 }) {
-  const [enteredTimes, setEnteredTimes] = useState<string[]>(
-    Array(RSA_REPS).fill(''),
-  );
-
   const { phase, rep, remaining } = rsaState;
 
-  // Sync entered times → draft
+  // Auto-sync sprint times → draft when all done
   useEffect(() => {
-    if (phase !== 'entry' && !draft.rsaCompleted) return;
-    const parsed = enteredTimes.map(t => parseFloat(t) || 0);
-    const valid = parsed.filter(t => t > 0);
+    if (phase !== 'done') return;
+    const valid = sprintTimes.filter(t => t > 0);
     if (valid.length === 0) return;
     const mean = valid.reduce((a, b) => a + b, 0) / valid.length;
     onChangeDraft({
       ...draft,
-      rsaAllSprints: parsed,
+      rsaAllSprints: sprintTimes,
       rsaCompleted: true,
-      attempts: [mean],  // use mean as "best" for progression
+      attempts: [mean],
     });
-    // Suppress — intentionally only sync on enteredTimes change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enteredTimes]);
+  }, [phase]);
 
   if (draft.skipped) {
     return (
@@ -673,7 +688,7 @@ function RsaScreen({
     <div className="flex gap-1.5 mb-6">
       {Array.from({ length: RSA_REPS }, (_, i) => {
         const repNum = i + 1;
-        const done = phase === 'entry' || repNum < rep || (repNum === rep && phase === 'rest');
+        const done = phase === 'done' || repNum < rep || (repNum === rep && phase === 'rest');
         const current = repNum === rep && (phase === 'countdown' || phase === 'active');
         return (
           <div
@@ -687,6 +702,11 @@ function RsaScreen({
     </div>
   );
 
+  // Format stopwatch as S.ss
+  const swSecs = Math.floor(stopwatchMs / 1000);
+  const swCents = Math.floor((stopwatchMs % 1000) / 10);
+  const stopwatchDisplay = `${swSecs}.${String(swCents).padStart(2, '0')}`;
+
   return (
     <div className="flex-1 flex flex-col py-8 pt-14">
       <div className="flex items-center gap-2 mb-1">
@@ -694,7 +714,15 @@ function RsaScreen({
         <h2 className="text-2xl font-bold text-gray-900">Repeated Sprint Ability</h2>
       </div>
       <p className="text-xs text-gray-500 mb-1">6 × 20m · 20s passive rest · Fatigue Index</p>
-      <p className="text-xs text-gray-400 italic mb-5">Girard, Mendez-Villanueva & Bishop (2011) Sports Med</p>
+      <p className="text-xs text-gray-400 italic mb-3">Girard, Mendez-Villanueva & Bishop (2011) Sports Med</p>
+
+      {/* Partner disclaimer */}
+      <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mb-4">
+        <AlertTriangle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+        <p className="text-xs font-semibold text-red-700 leading-relaxed">
+          Partner required — your partner holds the phone and taps "Sprint Done" the instant you cross the 20m line for accurate timing.
+        </p>
+      </div>
 
       <Dots />
 
@@ -702,12 +730,6 @@ function RsaScreen({
       {phase === 'idle' && (
         <div>
           <ProtocolBox items={TEST_PROTOCOLS.rsa.protocol} />
-          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-5">
-            <p className="text-xs text-amber-800 font-semibold mb-1">Before you start</p>
-            <p className="text-xs text-amber-700 leading-relaxed">
-              Have your stopwatch ready. You will complete 6 sprints. Enter times after all reps are done.
-            </p>
-          </div>
           <button
             onClick={startRsa}
             className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 shadow-sm mb-3"
@@ -755,21 +777,25 @@ function RsaScreen({
       {/* ACTIVE */}
       {phase === 'active' && (
         <div className="flex flex-col items-center py-4">
-          <div className="text-xs font-semibold text-brand-600 bg-brand-50 border border-brand-200 px-3 py-1 rounded-full mb-8">
+          <div className="text-xs font-semibold text-brand-600 bg-brand-50 border border-brand-200 px-3 py-1 rounded-full mb-5">
             Sprint {rep} of {RSA_REPS} — RUN!
           </div>
-          <div className="w-28 h-28 rounded-full bg-brand-500 flex items-center justify-center mb-8 shadow-lg">
-            <Zap size={48} className="text-white" />
+          {/* Stopwatch */}
+          <div className="w-44 h-44 rounded-full bg-brand-500 flex flex-col items-center justify-center mb-6 shadow-xl">
+            <span className="text-5xl font-extrabold text-white leading-none tabular-nums tracking-tight">
+              {stopwatchDisplay}
+            </span>
+            <span className="text-xs text-brand-100 mt-1 font-semibold tracking-wider">seconds</span>
           </div>
-          <p className="text-sm text-gray-500 mb-8 text-center">
-            Sprint 20m at full effort — tap when you cross the finish line
+          <p className="text-sm text-gray-500 mb-6 text-center font-medium">
+            Partner: tap the moment they cross 20m
           </p>
           <button
             onClick={() => sprintDone(rep)}
             className="w-full py-5 rounded-2xl bg-gray-900 text-white font-bold text-lg hover:bg-gray-800 shadow-sm active:scale-95 transition-all"
           >
             <Square size={16} className="inline mr-2" />
-            Sprint Done →
+            Sprint Done — Record Time
           </button>
         </div>
       )}
@@ -797,7 +823,17 @@ function RsaScreen({
               <span className="text-xs text-gray-400 mt-1">seconds</span>
             </div>
           </div>
-          <p className="text-xs text-gray-500 mb-5">Stand still — passive rest only. Note your time now.</p>
+          <p className="text-xs text-gray-500 mb-3">Stand still — passive rest only. Walk back to start line.</p>
+          {/* Show times recorded so far */}
+          {sprintTimes.filter(t => t > 0).length > 0 && (
+            <div className="flex gap-1.5 flex-wrap justify-center mb-3">
+              {sprintTimes.slice(0, rep).map((t, i) => (
+                <span key={i} className="text-xs bg-green-100 text-green-700 font-bold px-2 py-1 rounded-lg">
+                  #{i+1} {t.toFixed(2)}s
+                </span>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => skipRest(rep)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50"
@@ -808,8 +844,8 @@ function RsaScreen({
         </div>
       )}
 
-      {/* ENTRY — input all 6 times */}
-      {phase === 'entry' && (
+      {/* DONE — all 6 sprint times recorded automatically */}
+      {phase === 'done' && (
         <div>
           <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-5 flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
@@ -817,42 +853,41 @@ function RsaScreen({
             </div>
             <div>
               <p className="text-sm font-bold text-green-800">All 6 sprints complete</p>
-              <p className="text-xs text-green-700">Now enter your times from your stopwatch</p>
+              <p className="text-xs text-green-700">Times recorded automatically — tap Continue to see your Fatigue Index</p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 mb-4">
-            {Array.from({ length: RSA_REPS }, (_, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="text-xs font-bold text-gray-400 w-14">Sprint {i + 1}</span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  value={enteredTimes[i]}
-                  onChange={e => {
-                    const next = [...enteredTimes];
-                    next[i] = e.target.value;
-                    setEnteredTimes(next);
-                  }}
-                  placeholder="3.10"
-                  className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-900 text-base font-bold focus:outline-none focus:ring-2 focus:ring-brand-400 text-center"
-                />
-                <span className="text-xs font-semibold text-gray-400 w-4">s</span>
-              </div>
-            ))}
+          {/* Sprint times grid */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {Array.from({ length: RSA_REPS }, (_, i) => {
+              const t = sprintTimes[i] ?? 0;
+              const valid = sprintTimes.filter(x => x > 0);
+              const best = valid.length ? Math.min(...valid) : 0;
+              const isBest = t > 0 && t === best;
+              return (
+                <div key={i} className={`text-center p-3 rounded-xl border ${
+                  isBest ? 'border-brand-200 bg-brand-50' : 'border-gray-100 bg-gray-50'
+                }`}>
+                  <p className="text-xs text-gray-400 mb-0.5">Sprint {i + 1}</p>
+                  <p className={`text-base font-extrabold ${isBest ? 'text-brand-600' : 'text-gray-800'}`}>
+                    {t > 0 ? `${t.toFixed(2)}s` : '—'}
+                  </p>
+                  {isBest && <p className="text-xs text-brand-500 font-semibold">Best</p>}
+                </div>
+              );
+            })}
           </div>
 
           {/* Live FI preview */}
           {(() => {
-            const valid = enteredTimes.map(t => parseFloat(t) || 0).filter(t => t > 0);
+            const valid = sprintTimes.filter(t => t > 0);
             const fi = valid.length >= 2 ? calcFatigueIndex(valid) : null;
             return fi !== null ? (
               <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 mb-3">
                 <p className="text-xs text-brand-700 font-semibold">
-                  Fatigue Index preview: <span className="text-brand-600 text-sm font-extrabold">{fi.toFixed(1)}%</span>
+                  Fatigue Index: <span className="text-brand-600 text-sm font-extrabold">{fi.toFixed(1)}%</span>
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">Full results after saving</p>
+                <p className="text-xs text-gray-400 mt-0.5">Full breakdown in results</p>
               </div>
             ) : null;
           })()}
@@ -915,20 +950,39 @@ function YoyoScreen({
         </div>
       ) : (
         <>
-          {/* Reliable YouTube embed — nocookie domain, lazy loading */}
+          {/* Yo-Yo video links */}
           <div className="mb-5">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Test demonstration</p>
-            <div className="relative w-full rounded-2xl overflow-hidden bg-gray-900" style={{ paddingBottom: '56.25%' }}>
-              <iframe
-                className="absolute inset-0 w-full h-full"
-                src="https://www.youtube-nocookie.com/embed/kN4a3bVvRCE?rel=0&modestbranding=1"
-                title="Yo-Yo Intermittent Recovery Test IR1 demonstration"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                loading="lazy"
-              />
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Videos</p>
+            <div className="flex flex-col gap-2">
+              <a
+                href="https://www.youtube.com/watch?v=HMFMbFFCOjw"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 w-full p-4 rounded-2xl border-2 border-brand-200 bg-brand-50 hover:bg-brand-100 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-red-500 flex items-center justify-center flex-shrink-0">
+                  <Play size={18} className="text-white ml-0.5" fill="white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-gray-900">Full Yo-Yo IR1 Audio Track</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Official beep track — play this during your test</p>
+                </div>
+              </a>
+              <a
+                href="https://www.youtube.com/watch?v=R3eBFQ8XJRU"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 w-full p-4 rounded-2xl border-2 border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-red-500 flex items-center justify-center flex-shrink-0">
+                  <Play size={18} className="text-white ml-0.5" fill="white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-gray-900">Yo-Yo IR1 Demonstration</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Setup, distances and how to record your level</p>
+                </div>
+              </a>
             </div>
-            <p className="text-xs text-gray-400 mt-1.5">Yo-Yo IR1 test protocol demonstration. Use this to understand shuttle distances and pacing.</p>
           </div>
 
           <ProtocolBox items={TEST_PROTOCOLS.yoyo.protocol} />
@@ -1159,7 +1213,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
   const [exitModalOpen, setExitModalOpen] = useState(false);
   const [computedSession, setComputedSession] = useState<TestSession | null>(null);
 
-  const { rsaState, startRsa, sprintDone, skipRest, resetRsa } = useRsaEngine();
+  const { rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa } = useRsaEngine();
 
   const currentTest = selectedTests[currentTestIdx] as TestType | undefined;
 
@@ -1184,9 +1238,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
     const draft = getDraft(currentTest);
     if (draft.skipped) return true;
     if (currentTest === 'rsa') {
-      // Need RSA cycling to be complete AND at least 2 times entered
-      const sprints = draft.rsaAllSprints ?? [];
-      return rsaState.phase === 'entry' && sprints.filter(t => t > 0).length >= 2;
+      return rsaState.phase === 'done';
     }
     return draft.attempts.filter(a => a > 0).length > 0;
   };
@@ -1297,7 +1349,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
   };
 
   // RSA in active cycle (countdown/active/rest) — hide standard Continue, show exit-only bar
-  const isRsaActive = currentTest === 'rsa' && rsaState.phase !== 'idle' && rsaState.phase !== 'entry';
+  const isRsaActive = currentTest === 'rsa' && rsaState.phase !== 'idle' && rsaState.phase !== 'done';
 
   // Progress bar %
   const totalSteps = selectedTests.length + 1; // +1 for sex screen
@@ -1378,6 +1430,8 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
             {currentTest === 'rsa' && (
               <RsaScreen
                 rsaState={rsaState}
+                sprintTimes={sprintTimes}
+                stopwatchMs={stopwatchMs}
                 startRsa={startRsa}
                 sprintDone={sprintDone}
                 skipRest={skipRest}

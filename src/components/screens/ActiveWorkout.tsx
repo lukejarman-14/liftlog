@@ -218,19 +218,22 @@ interface SetRowProps {
   defaultReps: number;
   measureType?: MeasureType;
   unit?: string;
-  targetRpe?: number;
+  targetRir?: number;
   onComplete: (set: CompletedSet) => void;
 }
 
 function SetRow({
   setIndex, completed, defaultWeight, defaultReps,
-  measureType = 'strength', unit, targetRpe, onComplete,
+  measureType = 'strength', unit, targetRir, onComplete,
 }: SetRowProps) {
-  const [reps, setReps]     = useState(defaultReps);
-  const [weight, setWeight] = useState(defaultWeight);
+  // Use string state so we can show blank instead of "0"
+  const [repsStr, setRepsStr]     = useState(defaultReps  > 0 ? String(defaultReps)  : '');
+  const [weightStr, setWeightStr] = useState(defaultWeight > 0 ? String(defaultWeight) : '');
+  const reps   = parseInt(repsStr)   || 0;
+  const weight = parseFloat(weightStr) || 0;
 
   // Two-phase commit state
-  const [pendingSet, setPendingSet] = useState<Omit<CompletedSet, 'rpe'> | null>(null);
+  const [pendingSet, setPendingSet] = useState<Omit<CompletedSet, 'rir'> | null>(null);
 
   const label = getMeasureLabel(measureType, unit);
   const step  = measureType === 'strength' ? 2.5 : measureType === 'distance' ? 0.1 : 1;
@@ -248,10 +251,10 @@ function SetRow({
     }
   };
 
-  // Phase 2: user picks RPE → finalise set
-  const handleRpe = (rpe: number) => {
+  // Phase 2: user picks RIR → finalise set
+  const handleRir = (rir: number) => {
     if (!pendingSet) return;
-    onComplete({ ...pendingSet, rpe });
+    onComplete({ ...pendingSet, rir });
     setPendingSet(null);
   };
 
@@ -283,21 +286,22 @@ function SetRow({
               <div className="flex items-center gap-1">
                 <button
                   disabled={!isInteractive}
-                  onClick={() => setWeight(w => Math.max(0, parseFloat((w - 2.5).toFixed(1))))}
+                  onClick={() => setWeightStr(w => String(Math.max(0, parseFloat((parseFloat(w || '0') - 2.5).toFixed(1)))))}
                   className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40"
                 >
                   <Minus size={12} />
                 </button>
                 <input
-                  type="number" value={weight} min="0" step="0.5"
+                  type="number" value={weightStr} min="0" step="0.5"
+                  placeholder="0"
                   disabled={!isInteractive}
-                  onChange={e => setWeight(parseFloat(e.target.value) || 0)}
+                  onChange={e => setWeightStr(e.target.value)}
                   onFocus={e => e.target.select()}
                   className="w-16 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50"
                 />
                 <button
                   disabled={!isInteractive}
-                  onClick={() => setWeight(w => parseFloat((w + 2.5).toFixed(1)))}
+                  onClick={() => setWeightStr(w => String(parseFloat((parseFloat(w || '0') + 2.5).toFixed(1))))}
                   className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40"
                 >
                   <Plus size={12} />
@@ -308,21 +312,22 @@ function SetRow({
               <div className="flex items-center gap-1">
                 <button
                   disabled={!isInteractive}
-                  onClick={() => setReps(r => Math.max(1, r - 1))}
+                  onClick={() => setRepsStr(r => String(Math.max(1, (parseInt(r || '0') - 1))))}
                   className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40"
                 >
                   <Minus size={12} />
                 </button>
                 <input
-                  type="number" value={reps} min="1"
+                  type="number" value={repsStr} min="1"
+                  placeholder="0"
                   disabled={!isInteractive}
-                  onChange={e => setReps(parseInt(e.target.value) || 1)}
+                  onChange={e => setRepsStr(e.target.value)}
                   onFocus={e => e.target.select()}
                   className="w-12 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50"
                 />
                 <button
                   disabled={!isInteractive}
-                  onClick={() => setReps(r => r + 1)}
+                  onClick={() => setRepsStr(r => String((parseInt(r || '0') + 1)))}
                   className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40"
                 >
                   <Plus size={12} />
@@ -334,15 +339,15 @@ function SetRow({
 
           {measureType === 'reps' && (
             <div className="flex items-center gap-1">
-              <button disabled={!isInteractive} onClick={() => setReps(r => Math.max(1, r - 1))}
+              <button disabled={!isInteractive} onClick={() => setRepsStr(r => String(Math.max(1, (parseInt(r || '0') - 1))))}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
                 <Minus size={12} />
               </button>
-              <input type="number" value={reps} min="1" disabled={!isInteractive}
-                onChange={e => setReps(parseInt(e.target.value) || 1)}
+              <input type="number" value={repsStr} min="1" placeholder="0" disabled={!isInteractive}
+                onChange={e => setRepsStr(e.target.value)}
                 onFocus={e => e.target.select()}
                 className="w-14 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50" />
-              <button disabled={!isInteractive} onClick={() => setReps(r => r + 1)}
+              <button disabled={!isInteractive} onClick={() => setRepsStr(r => String((parseInt(r || '0') + 1)))}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
                 <Plus size={12} />
               </button>
@@ -352,15 +357,15 @@ function SetRow({
 
           {(measureType === 'time' || measureType === 'distance' || measureType === 'height' || measureType === 'score') && (
             <div className="flex items-center gap-1">
-              <button disabled={!isInteractive} onClick={() => setWeight(w => Math.max(0, parseFloat((w - step).toFixed(2))))}
+              <button disabled={!isInteractive} onClick={() => setWeightStr(w => String(Math.max(0, parseFloat((parseFloat(w || '0') - step).toFixed(2)))))}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
                 <Minus size={12} />
               </button>
-              <input type="number" value={weight} min="0" step={step} disabled={!isInteractive}
-                onChange={e => setWeight(parseFloat(e.target.value) || 0)}
+              <input type="number" value={weightStr} min="0" step={step} placeholder="0" disabled={!isInteractive}
+                onChange={e => setWeightStr(e.target.value)}
                 onFocus={e => e.target.select()}
                 className="w-20 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50" />
-              <button disabled={!isInteractive} onClick={() => setWeight(w => parseFloat((w + step).toFixed(2)))}
+              <button disabled={!isInteractive} onClick={() => setWeightStr(w => String(parseFloat((parseFloat(w || '0') + step).toFixed(2))))}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
                 <Plus size={12} />
               </button>
@@ -369,10 +374,10 @@ function SetRow({
           )}
         </div>
 
-        {/* Completed: show RPE badge if logged */}
-        {completed?.rpe && (
+        {/* Completed: show RIR badge if logged */}
+        {completed?.rir !== undefined && (
           <span className="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-1.5 py-0.5 rounded-lg flex-shrink-0">
-            {completed.rpe}
+            {completed.rir} RIR
           </span>
         )}
 
@@ -389,13 +394,13 @@ function SetRow({
         </button>
       </div>
 
-      {/* ── Phase 2: RPE selector ── */}
+      {/* ── Phase 2: RIR selector ── */}
       {isAwaitingRpe && (
         <RpeSelector
           value={null}
-          onChange={handleRpe}
+          onChange={handleRir}
           onSkip={handleSkipRpe}
-          targetRpe={targetRpe}
+          targetRir={targetRir}
         />
       )}
     </div>
@@ -427,9 +432,13 @@ function ExerciseSection({
 
   if (!exercise) return null;
 
-  const measureType: MeasureType = exercise.measureType ?? 'strength';
+  // Isometric exercises use time input regardless of stored measureType
+  const measureType: MeasureType = exercise.category === 'Isometric'
+    ? 'time'
+    : (exercise.measureType ?? 'strength');
   const unit        = exercise.unit;
-  const targetRpe   = sessionExercise.targetRpe;
+  // Use programme-defined RIR if set, otherwise fall back to exercise suggested RIR
+  const targetRir   = sessionExercise.targetRir ?? exercise.suggestedRir;
 
   const completedCount = sessionExercise.sets.length;
   const totalSets      = sessionExercise.targetSets;
@@ -443,7 +452,7 @@ function ExerciseSection({
     }
     // Inter-session: use RPE-calibrated baseline when available
     if (lastSession?.sets.length) {
-      const base = interSessionBaseline(lastSession.sets, targetRpe ?? 7);
+      const base = interSessionBaseline(lastSession.sets, targetRir ?? 2);
       if (base) return { weight: base.weight, reps: base.reps };
     }
     if (lastSession?.sets[i]) return { weight: lastSession.sets[i].weight, reps: lastSession.sets[i].reps };
@@ -454,11 +463,11 @@ function ExerciseSection({
   // ── Intra-session suggestion (shown after last logged set with RPE) ────
   const lastCompleted = sessionExercise.sets[sessionExercise.sets.length - 1];
   const suggestion = (
-    lastCompleted?.rpe !== undefined &&
+    lastCompleted?.rir !== undefined &&
     measureType === 'strength' &&
     completedCount < totalSets
   )
-    ? intraSessionSuggestion(targetRpe ?? 7, lastCompleted.rpe, lastCompleted.weight)
+    ? intraSessionSuggestion(targetRir ?? 2, lastCompleted.rir, lastCompleted.weight)
     : null;
 
   // ── PB / last session display ──────────────────────────────────────────
@@ -484,7 +493,7 @@ function ExerciseSection({
             <div className="text-xs text-gray-400 flex items-center gap-2">
               <span>{completedCount}/{totalSets} {exercise.category === 'Testing' ? 'trials' : 'sets'}</span>
               {sessionExercise.restSeconds > 0 && <span>· {sessionExercise.restSeconds}s rest</span>}
-              {targetRpe && <span className="text-brand-500 font-medium">· RPE {targetRpe} target</span>}
+              {targetRir !== undefined && <span className="text-brand-500 font-medium">· {targetRir} RIR target</span>}
             </div>
           </div>
         </div>
@@ -512,12 +521,12 @@ function ExerciseSection({
                     {showAllLast
                       ? lastSession.sets.map((s, i) => (
                           <span key={i} className="mr-2 whitespace-nowrap">
-                            {formatSetDisplay(s, measureType, unit)}{s.rpe ? ` @${s.rpe}` : ''}
+                            {formatSetDisplay(s, measureType, unit)}{s.rir !== undefined ? ` @ ${s.rir} RIR` : ''}
                           </span>
                         ))
                       : <span className="font-medium">
                           {lastDisplay}
-                          {lastBest?.rpe && <span className="text-blue-400 font-normal ml-1">@RPE {lastBest.rpe}</span>}
+                          {lastBest?.rir !== undefined && <span className="text-blue-400 font-normal ml-1">@ {lastBest.rir} RIR</span>}
                         </span>
                     }
                   </div>
@@ -564,7 +573,7 @@ function ExerciseSection({
                       defaultReps={defaults.reps}
                       measureType={measureType}
                       unit={unit}
-                      targetRpe={targetRpe}
+                      targetRir={targetRir}
                       onComplete={set => onCompleteSet(i, set)}
                     />
                   </div>

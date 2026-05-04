@@ -1,5 +1,6 @@
-import { CheckCircle2, Play, Calendar } from 'lucide-react';
-import { WorkoutSession, ActivePlan, NavState, GeneratedProgramme } from '../types';
+import { useState } from 'react';
+import { CheckCircle2, Play, Clock } from 'lucide-react';
+import { WorkoutSession, ActivePlan, NavState, GeneratedProgramme, Exercise, WorkoutExercise, MatchEntry } from '../types';
 import {
   POSITION_PLANS,
   POSITION_TEMPLATES,
@@ -7,6 +8,9 @@ import {
   getWeekDates,
   isSameDay,
 } from '../data/positionPlans';
+import { sessionToWorkoutExercises, getProgrammeWeekIndex } from '../lib/sessionUtils';
+import { SessionPreviewModal } from './screens/GeneratedProgramme';
+import { useStore } from '../hooks/useStore';
 
 const DAY_NAME_TO_INDEX: Record<string, number> = {
   Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
@@ -16,8 +20,10 @@ interface WeeklyCalendarProps {
   sessions: WorkoutSession[];
   activePlan: ActivePlan | null;
   generatedProgramme?: GeneratedProgramme | null;
+  exercises?: Exercise[];
   onNavigate: (nav: NavState) => void;
   onStartWorkout: (templateId: string, name: string) => void;
+  onStartProgrammeSession?: (name: string, items: WorkoutExercise[]) => void;
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -34,21 +40,48 @@ function dateToStr(d: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, onNavigate, onStartWorkout }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession }: WeeklyCalendarProps) {
+  const { matchEntries } = useStore();
+  const [previewSession, setPreviewSession] = useState<import('../types').ProgrammeSession | null>(null);
   const weekDates = getWeekDates(0);
   const today = new Date();
 
   // Find the plan and current week if a plan is active
   const plan = activePlan ? POSITION_PLANS.find(p => p.id === activePlan.planId) : null;
+  const hasPlan = !!plan;
   const weekIdx = activePlan ? getCurrentPlanWeek(activePlan.startDate) : -1;
   const planWeek = plan && weekIdx >= 0 && weekIdx < plan.weeks.length ? plan.weeks[weekIdx] : null;
 
-  // Build a map: dayOfWeek (0-6) → session template info
+  // Build a map: dayOfWeek (0-6) → session template info (position plan)
   const plannedByDay = new Map<number, { templateId: string; name: string; tags: string[] }>();
   if (planWeek) {
     for (const s of planWeek.sessions) {
       plannedByDay.set(s.dayOfWeek, s);
     }
+  }
+
+  // Current week of the generated programme
+  const progWeekIdx = generatedProgramme ? getProgrammeWeekIndex(generatedProgramme) : -1;
+  const progWeek = generatedProgramme && progWeekIdx >= 0
+    ? generatedProgramme.weeks[progWeekIdx] ?? null
+    : null;
+
+  // Build map: day index → programme session (for tap-to-preview + dots)
+  const progSessionByDay = new Map<number, import('../types').ProgrammeSession>();
+  if (!hasPlan && progWeek) {
+    for (const s of progWeek.sessions) {
+      const idx = DAY_NAME_TO_INDEX[s.dayOfWeek];
+      if (idx != null) progSessionByDay.set(idx, s);
+    }
+  }
+  const progDayIndices = new Set(progSessionByDay.keys());
+
+  // Match entries this week keyed by day index
+  const matchByDay = new Map<number, MatchEntry>();
+  for (const entry of matchEntries) {
+    const d = new Date(entry.date + 'T12:00:00');
+    const idx = weekDates.findIndex(wd => isSameDay(wd, d));
+    if (idx >= 0) matchByDay.set(idx, entry);
   }
 
   // Completed session dates (as YYYY-MM-DD strings) for this week
@@ -57,8 +90,6 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, onNav
       .filter(s => s.endTime != null && weekDates.some(d => isSameDay(new Date(s.date), d)))
       .map(s => s.date)
   );
-
-  const hasPlan = !!plan;
 
   return (
     <section className="mb-6">
@@ -69,7 +100,12 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, onNav
             {plan!.shortName} · Wk {planWeek.weekNumber} · {planWeek.phase}
           </span>
         )}
-        {!hasPlan && (
+        {!hasPlan && progWeek && (
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PHASE_COLOURS[progWeek.phase] ?? 'bg-gray-100 text-gray-600'}`}>
+            Wk {progWeekIdx + 1} · {progWeek.phase}
+          </span>
+        )}
+        {!hasPlan && !progWeek && (
           <button
             onClick={() => onNavigate({ screen: 'plans' })}
             className="text-xs text-brand-500 font-medium"
@@ -85,10 +121,16 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, onNav
           const isToday = isSameDay(date, today);
           const dateStr = dateToStr(date);
           const done = completedDates.has(dateStr);
-          const planned = plannedByDay.has(i);
+          const planned = plannedByDay.has(i) || progDayIndices.has(i);
 
+          const sess = progSessionByDay.get(i);
+          const El = sess ? 'button' : 'div';
           return (
-            <div key={i} className="flex flex-col items-center gap-1">
+            <El
+              key={i}
+              {...(sess ? { onClick: () => setPreviewSession(sess) } : {})}
+              className="flex flex-col items-center gap-1"
+            >
               <span className={`text-xs font-medium ${isToday ? 'text-brand-500' : 'text-gray-400'}`}>
                 {DAY_LABELS[i]}
               </span>
@@ -111,49 +153,72 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, onNav
               </div>
               {/* dot indicator */}
               <div className={`w-1.5 h-1.5 rounded-full ${planned && !done ? 'bg-brand-400' : done ? 'bg-green-400' : 'bg-transparent'}`} />
-            </div>
+            </El>
           );
         })}
       </div>
 
       {/* Session cards for planned days */}
       {/* Generated programme sessions (shown when no activePlan) */}
-      {!hasPlan && generatedProgramme && (() => {
-        const week1 = generatedProgramme.weeks[0];
-        if (!week1) return null;
+      {!hasPlan && generatedProgramme && progWeek && (() => {
         return (
           <div className="flex flex-col gap-2 mb-2">
-            {week1.sessions.map((session, i) => {
+            {progWeek.sessions.map((session, i) => {
               const dowIndex = DAY_NAME_TO_INDEX[session.dayOfWeek];
               const date = dowIndex != null ? weekDates[dowIndex] : null;
               const dateStr = date ? dateToStr(date) : '';
               const done = dateStr ? completedDates.has(dateStr) : false;
               const isToday = date ? isSameDay(date, today) : false;
               const mdDisplay = session.mdDay.replace('MD-', 'MD');
+              // Match entry on the same day (to show opponent)
+              const matchOnDay = dowIndex != null ? matchByDay.get(dowIndex) : undefined;
               return (
-                <div key={i} className={`rounded-2xl border p-3 flex items-center justify-between transition-all ${
+                <div key={i} className={`rounded-2xl border p-3.5 flex items-center justify-between transition-all ${
                   done ? 'bg-green-50 border-green-200' :
                   isToday ? 'bg-brand-50 border-brand-300 shadow-sm' :
                   'bg-white border-gray-100'
                 }`}>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700">{mdDisplay}</span>
                       <span className={`text-xs font-semibold ${isToday ? 'text-brand-500' : 'text-gray-400'}`}>{session.dayOfWeek}</span>
+                      <span className="text-xs text-gray-300 flex items-center gap-0.5">
+                        <Clock size={10} className="text-gray-300" />{session.durationMin}m
+                      </span>
+                      {matchOnDay && (
+                        <span className="text-xs font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">
+                          ⚽ {matchOnDay.label ?? (matchOnDay.type === 'match' ? 'Match' : 'Training')}
+                        </span>
+                      )}
                     </div>
-                    <div className="text-sm font-semibold text-gray-900 truncate">{session.objective}</div>
+                    <div className="text-sm font-semibold text-gray-900 leading-snug">{session.objective}</div>
+                    {session.fvProfile && (
+                      <div className="text-xs text-indigo-500 font-medium mt-0.5 truncate">⚡ {session.fvProfile}</div>
+                    )}
                   </div>
-                  {done
-                    ? <CheckCircle2 size={22} className="text-green-500 ml-3 flex-shrink-0" />
-                    : <button
-                        onClick={() => onNavigate({ screen: 'generated-programme' })}
-                        className={`ml-3 flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                          isToday ? 'bg-brand-500 text-white hover:bg-brand-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}>
-                        <Play size={12} />
-                        View
-                      </button>
-                  }
+                  <div className="ml-3 flex-shrink-0 flex flex-col gap-1.5 items-end">
+                    {done
+                      ? <CheckCircle2 size={22} className="text-green-500" />
+                      : isToday && onStartProgrammeSession
+                      ? <button
+                          onClick={() => {
+                            const items = sessionToWorkoutExercises(session, exercises);
+                            onStartProgrammeSession(`${mdDisplay} · ${session.dayOfWeek}`, items);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors"
+                        >
+                          <Play size={12} />
+                          Start
+                        </button>
+                      : null
+                    }
+                    <button
+                      onClick={() => setPreviewSession(session)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                    >
+                      Preview
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -221,16 +286,12 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, onNav
             );
           })}
         </div>
-      ) : !hasPlan ? (
-        <div
-          className="rounded-2xl border border-dashed border-gray-200 bg-white p-5 flex flex-col items-center text-center cursor-pointer hover:border-brand-300 hover:bg-brand-50 transition-all"
-          onClick={() => onNavigate({ screen: 'plans' })}
-        >
-          <Calendar size={28} className="text-gray-300 mb-2" />
-          <p className="text-sm font-medium text-gray-600">No active plan</p>
-          <p className="text-xs text-gray-400 mt-0.5">Choose a position plan to fill your week with sessions</p>
-        </div>
       ) : null}
+
+      {/* Session preview modal */}
+      {previewSession && (
+        <SessionPreviewModal session={previewSession} onClose={() => setPreviewSession(null)} />
+      )}
     </section>
   );
 }

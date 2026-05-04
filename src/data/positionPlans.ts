@@ -13,199 +13,325 @@ function ex(
 
 // ── Position session templates ────────────────────────────────────────────
 // Each position has 3 session archetypes (A/B/C) used across the 8-week plan.
-// Structure: Plyometrics → Strength → Eccentric → Isometric → Conditioning
+// HPP hierarchy: Max Velocity → Max Strength → Tendon Stiffness → Eccentric → Isometric → Conditioning
 
 export const POSITION_TEMPLATES: BuiltInTemplate[] = [
 
   // ── GOALKEEPER ──────────────────────────────────────────────────────────
   {
-    id: 'gk-session-a', name: 'GK — Reactive Power', description: 'Reaction jumps, upper body strength, ankle/adductor resilience, agility conditioning.',
+    id: 'gk-session-a', name: 'GK — Reactive Power', description: 'Vertical jumps, upper body strength, reactive plyos, calf eccentrics, shoulder isometrics, shuttle conditioning.',
     program: 'Goalkeeper', exercises: [
-      ex('reactive-drop-jump', 4, 5,  0,  150), ex('lateral-box-jump',  3, 8,  0,  90),  ex('pogo-jump', 3, 20, 0, 60),
-      ex('bench-press',        4, 6,  65, 180), ex('barbell-row',       4, 6,  55, 180), ex('ohp', 3, 8, 40, 150), ex('pull-up', 3, 8, 0, 120),
-      ex('eccentric-calf-raise',3,12, 0,  90),  ex('eccentric-hip-adductor',3,10,0, 90),
-      ex('dead-hang',          3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
-      ex('agility-circuit',    4, 1,  0,  90),
+      // 1 — Max Velocity
+      ex('approach-jump',        4, 5,  0,  120), ex('box-jump',          3, 5,  0,  120),
+      // 2 — Max Strength
+      ex('bench-press',          4, 6,  65, 180), ex('barbell-row',       4, 6,  55, 180), ex('ohp', 3, 8, 40, 150), ex('pull-up', 3, 8, 0, 120),
+      // 3 — Tendon Stiffness
+      ex('reactive-drop-jump',   3, 5,  0,  150), ex('lateral-box-jump',  3, 8,  0,  90),  ex('pogo-jump', 3, 20, 0, 60),
+      // 4 — Eccentric
+      ex('eccentric-calf-raise', 3, 12, 0,  90),  ex('eccentric-nordic',  3, 2,  0,  120),
+      // 5 — Isometric
+      ex('dead-hang',            3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('shuttle-run',          4, 1,  0,  60),
     ],
   },
   {
-    id: 'gk-session-b', name: 'GK — Lower & COD', description: 'Lateral bounds, squat-based strength, hamstring & hip flexor eccentrics, core isometrics, shuttle conditioning.',
+    id: 'gk-session-b', name: 'GK — Lower Power', description: 'Broad jumps, squat-based strength, lateral tendon stiffness, hamstring eccentrics, hip isometrics, shuttle conditioning.',
     program: 'Goalkeeper', exercises: [
-      ex('lateral-bound',      4, 8,  0,  90),  ex('approach-jump',     3, 5,  0,  120), ex('skater-jump', 3, 10, 0, 90),
-      ex('squat',              4, 6,  80, 240),  ex('rdl',               3, 8,  65, 180), ex('hip-thrust', 3, 10, 75, 120),
-      ex('eccentric-psoas',    3, 10, 0,  90),   ex('eccentric-sl-rdl',  3, 8,  0,  90),
-      ex('hollow-hold',        3, 1,  0,  60),   ex('glute-bridge-hold', 2, 1,  0,  60),
-      ex('shuttle-run',        5, 1,  0,  60),
+      // 1 — Max Velocity
+      ex('broad-jump',           4, 5,  0,  120), ex('approach-jump',     3, 5,  0,  120),
+      // 2 — Max Strength
+      ex('squat',                4, 6,  80, 240), ex('rdl',               3, 8,  65, 180), ex('hip-thrust', 3, 10, 75, 120),
+      // 3 — Tendon Stiffness
+      ex('lateral-bound',        3, 8,  0,  90),  ex('skater-jump',       3, 10, 0,  90),  ex('pogo-jump', 3, 20, 0, 60),
+      // 4 — Eccentric
+      ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('glute-bridge-hold',    2, 1,  0,  60),  ex('wall-sit',          2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('shuttle-run',          5, 1,  0,  60),
     ],
   },
   {
-    id: 'gk-session-c', name: 'GK — Full Body Power', description: 'Vertical power, Olympic strength, full posterior chain, stability, and repeated agility.',
+    id: 'gk-session-c', name: 'GK — Full Body Power', description: 'Drop jumps, full posterior chain, reactive plyos, eccentric circuit, core isometrics, repeated sprint conditioning.',
     program: 'Goalkeeper', exercises: [
-      ex('box-jump',           4, 5,  0,  120),  ex('depth-jump',        3, 5,  0,  150), ex('tuck-jump', 3, 8, 0, 90),
-      ex('power-clean',        4, 3,  60, 180),  ex('deadlift',          3, 5,  95, 240), ex('front-squat', 3, 6, 60, 180),
-      ex('eccentric-nordic',   3, 6,  0,  120),  ex('eccentric-step-down',3,10, 0,  90),
-      ex('copenhagen-plank',   3, 1,  0,  60),   ex('spanish-squat',     2, 1,  0,  60),
-      ex('agility-circuit',    3, 1,  0,  90),
+      // 1 — Max Velocity
+      ex('box-jump',             4, 5,  0,  120), ex('depth-jump',        3, 5,  0,  150),
+      // 2 — Max Strength
+      ex('deadlift',             3, 5,  95, 240), ex('front-squat',       3, 6,  60, 180),
+      // 3 — Tendon Stiffness
+      ex('reactive-drop-jump',   3, 5,  0,  150), ex('lateral-box-jump',  3, 8,  0,  90),
+      // 4 — Eccentric
+      ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('copenhagen-plank',     3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('repeated-sprint',      5, 1,  0,  30),
     ],
   },
 
   // ── CENTRE BACK ─────────────────────────────────────────────────────────
   {
-    id: 'cb-session-a', name: 'CB — Aerial Power', description: 'Vertical jump, heavy strength, hamstring protection, quad isometrics, short sprint conditioning.',
+    id: 'cb-session-a', name: 'CB — Aerial Power', description: 'Vertical and broad jumps, heavy compound strength, tendon stiffness plyos, hamstring eccentrics, hip isometrics, sprint conditioning.',
     program: 'Centre Back', exercises: [
-      ex('approach-jump',      4, 5,  0,  120),  ex('box-jump',          3, 5,  0,  120), ex('broad-jump', 3, 5, 0, 120),
-      ex('squat',              5, 5,  90, 240),   ex('deadlift',          4, 4,  110,240), ex('hip-thrust', 3, 8, 90, 120),
-      ex('eccentric-nordic',   4, 6,  0,  120),   ex('eccentric-calf-raise',3,12,0,  90),
-      ex('spanish-squat',      3, 1,  0,  60),    ex('glute-bridge-hold', 2, 1,  0,  60),
-      ex('repeated-sprint',    6, 1,  0,  30),
+      // 1 — Max Velocity
+      ex('approach-jump',        4, 5,  0,  120), ex('box-jump',          3, 5,  0,  120), ex('broad-jump', 3, 5, 0, 120),
+      // 2 — Max Strength
+      ex('squat',                5, 5,  90, 240), ex('deadlift',          4, 4,  110,240), ex('hip-thrust', 3, 8, 90, 120),
+      // 3 — Tendon Stiffness
+      ex('pogo-jump',            3, 20, 0,  60),  ex('lateral-bound',     3, 8,  0,  90),
+      // 4 — Eccentric
+      ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('glute-bridge-hold',    2, 1,  0,  60),  ex('wall-sit',          2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('repeated-sprint',      6, 1,  0,  30),
     ],
   },
   {
-    id: 'cb-session-b', name: 'CB — Upper Strength', description: 'Reactive plyos, upper body dominance, eccentric adductors, core stability, shuttle conditioning.',
+    id: 'cb-session-b', name: 'CB — Upper Strength', description: 'Jumps, upper body dominance, reactive plyos, hamstring eccentrics, core stability, shuttle conditioning.',
     program: 'Centre Back', exercises: [
-      ex('reactive-drop-jump', 3, 5,  0,  150),  ex('pogo-jump',         3, 20, 0,  60),  ex('lateral-bound', 3, 8, 0, 90),
-      ex('bench-press',        4, 6,  70, 180),   ex('barbell-row',       4, 6,  60, 180), ex('ohp', 3, 8, 45, 150), ex('pull-up', 3, 8, 0, 120),
-      ex('eccentric-hip-adductor',3,10,0,  90),   ex('eccentric-step-down',3,10, 0,  90),
-      ex('dead-hang',          3, 1,  0,  60),    ex('side-plank',        2, 1,  0,  60),
-      ex('shuttle-run',        4, 1,  0,  60),
+      // 1 — Max Velocity
+      ex('box-jump',             3, 5,  0,  120), ex('broad-jump',        3, 5,  0,  120),
+      // 2 — Max Strength
+      ex('bench-press',          4, 6,  70, 180), ex('barbell-row',       4, 6,  60, 180), ex('ohp', 3, 8, 45, 150), ex('pull-up', 3, 8, 0, 120),
+      // 3 — Tendon Stiffness
+      ex('reactive-drop-jump',   3, 5,  0,  150), ex('pogo-jump',         3, 20, 0,  60),  ex('lateral-bound', 3, 8, 0, 90),
+      // 4 — Eccentric
+      ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('dead-hang',            3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('shuttle-run',          4, 1,  0,  60),
     ],
   },
   {
-    id: 'cb-session-c', name: 'CB — Full Power', description: 'Olympic lifting, posterior chain, full eccentric/isometric circuit, repeated sprints.',
+    id: 'cb-session-c', name: 'CB — Full Power', description: 'Drop jumps, bounding, posterior chain strength, reactive plyos, full eccentric circuit, core isometrics, repeated sprints.',
     program: 'Centre Back', exercises: [
-      ex('depth-jump',         4, 5,  0,  150),   ex('approach-jump',     3, 5,  0,  120), ex('jump-squat', 3, 6, 20, 90),
-      ex('power-clean',        4, 3,  65, 180),   ex('front-squat',       3, 6,  70, 180), ex('rdl', 3, 8, 70, 180),
-      ex('eccentric-sl-rdl',   3, 8,  0,  90),    ex('eccentric-psoas',   3, 10, 0,  90),
-      ex('copenhagen-plank',   3, 1,  0,  60),    ex('hollow-hold',       2, 1,  0,  60),
-      ex('repeated-sprint',    6, 1,  0,  30),
+      // 1 — Max Velocity
+      ex('depth-jump',           4, 5,  0,  150), ex('approach-jump',     3, 5,  0,  120), ex('hurdle-hop', 3, 8, 0, 90),
+      // 2 — Max Strength
+      ex('front-squat',          3, 6,  70, 180), ex('rdl',               3, 8,  70, 180),
+      // 3 — Tendon Stiffness
+      ex('reactive-drop-jump',   3, 5,  0,  150), ex('lateral-bound',     3, 8,  0,  90),  ex('skater-jump', 3, 10, 0, 90),
+      // 4 — Eccentric
+      ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('copenhagen-plank',     3, 1,  0,  60),  ex('glute-bridge-hold', 2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('repeated-sprint',      6, 1,  0,  30),
     ],
   },
 
   // ── FULL BACK ────────────────────────────────────────────────────────────
   {
-    id: 'fb-pos-session-a', name: 'FB — Lateral Speed', description: 'Lateral bounds, balanced strength, adductor & calf eccentrics, hip isometrics, shuttle conditioning.',
+    id: 'fb-pos-session-a', name: 'FB — Lateral Speed', description: 'Sprints, broad jumps and bounding, balanced lower strength, lateral tendon stiffness, calf eccentrics, hip isometrics, shuttle conditioning.',
     program: 'Full Back', exercises: [
-      ex('lateral-bound',      4, 8,  0,  90),    ex('skater-jump',       3, 10, 0,  90),  ex('sprint', 4, 1, 0, 180),
-      ex('squat',              4, 6,  82, 240),    ex('rdl',               3, 8,  68, 180), ex('hip-thrust', 3, 10, 80, 120), ex('pull-up', 3, 8, 0, 120),
-      ex('eccentric-hip-adductor',3,10,0,  90),   ex('eccentric-calf-raise',3,12,0, 90),
-      ex('side-plank',         3, 1,  0,  60),    ex('glute-bridge-hold', 2, 1,  0,  60),
-      ex('shuttle-run',        6, 1,  0,  45),
+      // 1 — Max Velocity
+      ex('sprint',               4, 1,  0,  180), ex('broad-jump',        4, 5,  0,  120), ex('bounding', 3, 8, 0, 120),
+      // 2 — Max Strength
+      ex('squat',                4, 6,  82, 240), ex('rdl',               3, 8,  68, 180), ex('hip-thrust', 3, 10, 80, 120), ex('pull-up', 3, 8, 0, 120),
+      // 3 — Tendon Stiffness
+      ex('lateral-bound',        3, 8,  0,  90),  ex('skater-jump',       3, 10, 0,  90),  ex('pogo-jump', 3, 20, 0, 60),
+      // 4 — Eccentric
+      ex('eccentric-calf-raise', 3, 12, 0,  90),  ex('eccentric-sl-rdl',  3, 8,  0,  90),
+      // 5 — Isometric
+      ex('side-plank',           3, 1,  0,  60),  ex('glute-bridge-hold', 2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('shuttle-run',          6, 1,  0,  45),
     ],
   },
   {
-    id: 'fb-pos-session-b', name: 'FB — Upper & Reactive', description: 'Reactive cuts, upper body, hip flexor eccentrics, core stability, tempo conditioning.',
+    id: 'fb-pos-session-b', name: 'FB — Upper & Power', description: 'Box jumps, upper body strength, reactive plyos, hamstring/calf eccentrics, core stability, tempo conditioning.',
     program: 'Full Back', exercises: [
-      ex('reactive-45-cut',    4, 8,  0,  90),    ex('pogo-jump',         3, 20, 0,  60),  ex('lateral-shuffle', 3, 20, 0, 60),
-      ex('bench-press',        3, 8,  62, 150),   ex('barbell-row',       3, 8,  55, 150), ex('ohp', 3, 10, 40, 120), ex('chin-up', 3, 8, 0, 120),
-      ex('eccentric-psoas',    3, 10, 0,  90),    ex('eccentric-step-down',3,10, 0,  90),
-      ex('hollow-hold',        3, 1,  0,  60),    ex('side-plank',        2, 1,  0,  60),
-      ex('tempo-run',          5, 1,  0,  90),
+      // 1 — Max Velocity
+      ex('box-jump',             4, 5,  0,  120), ex('approach-jump',     3, 5,  0,  120),
+      // 2 — Max Strength
+      ex('bench-press',          3, 8,  62, 150), ex('barbell-row',       3, 8,  55, 150), ex('ohp', 3, 10, 40, 120), ex('chin-up', 3, 8, 0, 120),
+      // 3 — Tendon Stiffness
+      ex('pogo-jump',            3, 20, 0,  60),  ex('reactive-drop-jump', 3, 5, 0, 150),  ex('lateral-bound', 3, 8, 0, 90),
+      // 4 — Eccentric
+      ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('side-plank',           3, 1,  0,  60),  ex('calf-raise-hold',   2, 1,  0,  45),
+      // 6 — Conditioning
+      ex('tempo-run',            5, 1,  0,  90),
     ],
   },
   {
-    id: 'fb-pos-session-c', name: 'FB — Full Body Endurance Power', description: 'Full body explosive work, Olympic lifting, posterior chain, repeated sprint conditioning.',
+    id: 'fb-pos-session-c', name: 'FB — Full Body Endurance Power', description: 'Broad jumps and bounding, full posterior chain, tendon stiffness, eccentric circuit, core isometrics, repeated sprint conditioning.',
     program: 'Full Back', exercises: [
-      ex('broad-jump',         4, 5,  0,  120),   ex('deceleration-drill',3, 6,  0,  90),  ex('bounding', 3, 8, 0, 120),
-      ex('power-clean',        3, 3,  60, 180),   ex('deadlift',          3, 5,  95, 240), ex('front-squat', 3, 6, 62, 180),
-      ex('eccentric-nordic',   3, 6,  0,  120),   ex('eccentric-sl-rdl',  3, 8,  0,  90),
-      ex('copenhagen-plank',   3, 1,  0,  60),    ex('calf-raise-hold',   2, 1,  0,  45),
-      ex('repeated-sprint',    8, 1,  0,  30),
+      // 1 — Max Velocity
+      ex('broad-jump',           4, 5,  0,  120), ex('bounding',          3, 8,  0,  120), ex('hurdle-hop', 3, 8, 0, 90),
+      // 2 — Max Strength
+      ex('deadlift',             3, 5,  95, 240), ex('front-squat',       3, 6,  62, 180),
+      // 3 — Tendon Stiffness
+      ex('lateral-bound',        3, 8,  0,  90),  ex('skater-jump',       3, 10, 0,  90),
+      // 4 — Eccentric
+      ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('copenhagen-plank',     3, 1,  0,  60),  ex('calf-raise-hold',   2, 1,  0,  45),
+      // 6 — Conditioning
+      ex('repeated-sprint',      8, 1,  0,  30),
     ],
   },
 
   // ── CENTRAL MIDFIELDER ───────────────────────────────────────────────────
   {
-    id: 'cm-session-a', name: 'CM — Lower Endurance Power', description: 'COD plyos, balanced strength, hamstring & hip eccentrics, core isometrics, RSA conditioning.',
+    id: 'cm-session-a', name: 'CM — Lower Endurance Power', description: 'Broad jumps and hurdle hops, balanced lower strength, tendon stiffness plyos, hamstring eccentrics, core isometrics, HIIT conditioning.',
     program: 'Central Midfielder', exercises: [
-      ex('reactive-45-cut',    4, 8,  0,  90),    ex('pogo-jump',         3, 20, 0,  60),  ex('tuck-jump', 3, 8, 0, 90),
-      ex('squat',              4, 6,  80, 240),   ex('rdl',               3, 8,  65, 180), ex('hip-thrust', 3, 10, 78, 120),
-      ex('eccentric-nordic',   3, 6,  0,  120),   ex('eccentric-psoas',   3, 10, 0,  90),
-      ex('hollow-hold',        3, 1,  0,  60),    ex('wall-sit',          2, 1,  0,  60),
-      ex('hiit-run',           8, 1,  0,  30),
+      // 1 — Max Velocity
+      ex('broad-jump',           4, 5,  0,  120), ex('hurdle-hop',        3, 8,  0,  90),
+      // 2 — Max Strength
+      ex('squat',                4, 6,  80, 240), ex('rdl',               3, 8,  65, 180), ex('hip-thrust', 3, 10, 78, 120),
+      // 3 — Tendon Stiffness
+      ex('pogo-jump',            3, 20, 0,  60),  ex('lateral-bound',     3, 8,  0,  90),  ex('skater-jump', 3, 10, 0, 90),
+      // 4 — Eccentric
+      ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('wall-sit',             2, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('hiit-run',             8, 1,  0,  30),
     ],
   },
   {
-    id: 'cm-session-b', name: 'CM — Upper & Reactive', description: 'Reactive agility, upper body strength, adductor & calf eccentrics, stability, HIIT conditioning.',
+    id: 'cm-session-b', name: 'CM — Upper & Reactive', description: 'Box jumps, upper body strength, reactive plyos, calf eccentrics, core stability, HIIT conditioning.',
     program: 'Central Midfielder', exercises: [
-      ex('lateral-shuffle',    4, 20, 0,  60),    ex('skater-jump',       3, 10, 0,  90),  ex('deceleration-drill', 3, 6, 0, 90),
-      ex('bench-press',        3, 8,  62, 150),   ex('barbell-row',       3, 8,  55, 150), ex('ohp', 3, 10, 40, 120), ex('pull-up', 3, 8, 0, 120),
-      ex('eccentric-hip-adductor',3,10,0,  90),   ex('eccentric-calf-raise',3,12,0, 90),
-      ex('side-plank',         3, 1,  0,  60),    ex('glute-bridge-hold', 2, 1,  0,  60),
-      ex('hiit-run',           6, 1,  0,  30),
+      // 1 — Max Velocity
+      ex('box-jump',             3, 5,  0,  120), ex('broad-jump',        3, 5,  0,  120),
+      // 2 — Max Strength
+      ex('bench-press',          3, 8,  62, 150), ex('barbell-row',       3, 8,  55, 150), ex('ohp', 3, 10, 40, 120), ex('pull-up', 3, 8, 0, 120),
+      // 3 — Tendon Stiffness
+      ex('reactive-drop-jump',   3, 5,  0,  150), ex('pogo-jump',         3, 20, 0,  60),  ex('skater-jump', 3, 10, 0, 90),
+      // 4 — Eccentric
+      ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('side-plank',           3, 1,  0,  60),  ex('glute-bridge-hold', 2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('hiit-run',             6, 1,  0,  30),
     ],
   },
   {
-    id: 'cm-session-c', name: 'CM — Full Body RSA', description: 'Full body power, Olympic base, full eccentric circuit, repeated sprint ability conditioning.',
+    id: 'cm-session-c', name: 'CM — Full Body RSA', description: 'Broad jumps, bounding and hurdle hops, full posterior chain, tendon stiffness, eccentric circuit, core isometrics, repeated sprint ability.',
     program: 'Central Midfielder', exercises: [
-      ex('broad-jump',         4, 5,  0,  120),   ex('hurdle-hop',        3, 8,  0,  90),  ex('lateral-bound', 3, 8, 0, 90),
-      ex('power-clean',        3, 3,  60, 180),   ex('deadlift',          3, 5,  95, 240), ex('front-squat', 3, 6, 62, 180),
-      ex('eccentric-sl-rdl',   3, 8,  0,  90),    ex('eccentric-step-down',3,10, 0,  90),
-      ex('copenhagen-plank',   3, 1,  0,  60),    ex('hollow-hold',       2, 1,  0,  60),
-      ex('repeated-sprint',    8, 1,  0,  30),
+      // 1 — Max Velocity
+      ex('broad-jump',           4, 5,  0,  120), ex('bounding',          3, 8,  0,  120), ex('hurdle-hop', 3, 8, 0, 90),
+      // 2 — Max Strength
+      ex('deadlift',             3, 5,  95, 240), ex('front-squat',       3, 6,  62, 180),
+      // 3 — Tendon Stiffness
+      ex('lateral-bound',        3, 8,  0,  90),  ex('pogo-jump',         3, 20, 0,  60),
+      // 4 — Eccentric
+      ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('copenhagen-plank',     3, 1,  0,  60),  ex('wall-sit',          2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('repeated-sprint',      8, 1,  0,  30),
     ],
   },
 
   // ── WINGER ───────────────────────────────────────────────────────────────
   {
-    id: 'w-session-a', name: 'Winger — Acceleration Power', description: 'Sprint plyos, explosive lower strength, calf & hamstring eccentrics, ankle isometrics, sprint conditioning.',
+    id: 'w-session-a', name: 'Winger — Acceleration Power', description: 'Sprints, broad jumps and bounding, explosive lower strength, ankle tendon stiffness, calf eccentrics, ankle isometrics, sprint conditioning.',
     program: 'Winger', exercises: [
-      ex('sprint',             5, 1,  0,  180),   ex('broad-jump',        4, 5,  0,  120), ex('lateral-bound', 3, 8, 0, 90),
-      ex('jump-squat',         4, 5,  25, 120),   ex('rdl',               3, 8,  68, 180), ex('power-clean', 3, 3, 62, 180), ex('hip-thrust', 3, 10, 80, 120),
-      ex('eccentric-calf-raise',3,12, 0,  90),    ex('eccentric-sl-rdl',  3, 8,  0,  90),
-      ex('calf-raise-hold',    3, 1,  0,  45),    ex('glute-bridge-hold', 2, 1,  0,  60),
-      ex('repeated-sprint',    6, 1,  0,  30),
+      // 1 — Max Velocity
+      ex('sprint',               5, 1,  0,  180), ex('broad-jump',        4, 5,  0,  120), ex('bounding', 3, 8, 0, 120),
+      // 2 — Max Strength
+      ex('squat',                4, 5,  85, 240), ex('rdl',               3, 8,  68, 180), ex('hip-thrust', 3, 10, 80, 120),
+      // 3 — Tendon Stiffness
+      ex('pogo-jump',            3, 20, 0,  60),  ex('ankle-hop',         3, 20, 0,  60),  ex('lateral-bound', 3, 8, 0, 90),
+      // 4 — Eccentric
+      ex('eccentric-calf-raise', 3, 12, 0,  90),  ex('eccentric-nordic',  3, 2,  0,  120),
+      // 5 — Isometric
+      ex('calf-raise-hold',      3, 1,  0,  45),  ex('glute-bridge-hold', 2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('repeated-sprint',      6, 1,  0,  30),
     ],
   },
   {
-    id: 'w-session-b', name: 'Winger — Lateral & Reactive', description: 'Lateral quickness, upper body, hip adductor/psoas eccentrics, core stability, shuttle sprints.',
+    id: 'w-session-b', name: 'Winger — Lateral & Reactive', description: 'Approach and broad jumps, upper body strength, lateral tendon stiffness, hamstring eccentrics, core stability, shuttle conditioning.',
     program: 'Winger', exercises: [
-      ex('reactive-45-cut',    4, 8,  0,  90),    ex('skater-jump',       3, 10, 0,  90),  ex('deceleration-drill', 3, 6, 0, 90),
-      ex('bench-press',        3, 8,  60, 150),   ex('barbell-row',       3, 8,  52, 150), ex('ohp', 3, 10, 38, 120), ex('pull-up', 3, 8, 0, 120),
-      ex('eccentric-psoas',    3, 10, 0,  90),    ex('eccentric-hip-adductor',3,10,0, 90),
-      ex('side-plank',         3, 1,  0,  60),    ex('hollow-hold',       2, 1,  0,  60),
-      ex('shuttle-run',        5, 1,  0,  45),
+      // 1 — Max Velocity
+      ex('approach-jump',        4, 5,  0,  120), ex('broad-jump',        3, 5,  0,  120),
+      // 2 — Max Strength
+      ex('bench-press',          3, 8,  60, 150), ex('barbell-row',       3, 8,  52, 150), ex('ohp', 3, 10, 38, 120), ex('pull-up', 3, 8, 0, 120),
+      // 3 — Tendon Stiffness
+      ex('lateral-bound',        3, 8,  0,  90),  ex('skater-jump',       3, 10, 0,  90),  ex('reactive-drop-jump', 3, 5, 0, 150),
+      // 4 — Eccentric
+      ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('side-plank',           3, 1,  0,  60),  ex('calf-raise-hold',   2, 1,  0,  45),
+      // 6 — Conditioning
+      ex('shuttle-run',          5, 1,  0,  45),
     ],
   },
   {
-    id: 'w-session-c', name: 'Winger — Full Explosive', description: 'Depth jumps, Olympic power, full chain eccentrics, stability, top-speed conditioning.',
+    id: 'w-session-c', name: 'Winger — Full Explosive', description: 'Sprints, drop jumps and bounding, full compound strength, reactive plyos, eccentric circuit, core isometrics, tempo conditioning.',
     program: 'Winger', exercises: [
-      ex('depth-jump',         4, 5,  0,  150),   ex('approach-jump',     3, 5,  0,  120), ex('bounding', 3, 8, 0, 120),
-      ex('power-clean',        4, 3,  62, 180),   ex('deadlift',          3, 5,  98, 240), ex('squat', 3, 5, 85, 240),
-      ex('eccentric-nordic',   3, 6,  0,  120),   ex('eccentric-step-down',3,10, 0,  90),
-      ex('copenhagen-plank',   3, 1,  0,  60),    ex('spanish-squat',     2, 1,  0,  60),
-      ex('sprint',             6, 1,  0,  180),
+      // 1 — Max Velocity
+      ex('sprint',               5, 1,  0,  180), ex('depth-jump',        4, 5,  0,  150), ex('approach-jump', 3, 5, 0, 120), ex('bounding', 3, 8, 0, 120),
+      // 2 — Max Strength
+      ex('deadlift',             3, 5,  98, 240), ex('squat',             3, 5,  85, 240),
+      // 3 — Tendon Stiffness
+      ex('pogo-jump',            3, 20, 0,  60),  ex('reactive-drop-jump', 3, 5, 0, 150),
+      // 4 — Eccentric
+      ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('copenhagen-plank',     3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('tempo-run',            5, 1,  0,  90),
     ],
   },
 
   // ── STRIKER ──────────────────────────────────────────────────────────────
   {
-    id: 'st-session-a', name: 'Striker — Explosive Lower', description: 'Approach jumps, power-focused strength, hamstring & quad eccentrics, power isometrics, sprint conditioning.',
+    id: 'st-session-a', name: 'Striker — Explosive Lower', description: 'Approach jumps, drop jumps and broad jumps, power-focused lower strength, reactive plyos, hamstring eccentrics, power isometrics, sprint conditioning.',
     program: 'Striker', exercises: [
-      ex('approach-jump',      4, 5,  0,  120),   ex('depth-jump',        3, 5,  0,  150), ex('jump-squat', 3, 6, 25, 90),
-      ex('squat',              4, 5,  88, 240),   ex('power-clean',       4, 3,  65, 180), ex('hip-thrust', 3, 8, 88, 120),
-      ex('eccentric-nordic',   3, 6,  0,  120),   ex('eccentric-step-down',3,10, 0,  90),
-      ex('spanish-squat',      3, 1,  0,  60),    ex('hollow-hold',       2, 1,  0,  60),
-      ex('sprint',             6, 1,  0,  180),
+      // 1 — Max Velocity
+      ex('approach-jump',        4, 5,  0,  120), ex('depth-jump',        3, 5,  0,  150), ex('broad-jump', 3, 5, 0, 120),
+      // 2 — Max Strength
+      ex('squat',                4, 5,  88, 240), ex('rdl',               3, 8,  72, 180), ex('hip-thrust', 3, 8, 88, 120),
+      // 3 — Tendon Stiffness
+      ex('pogo-jump',            3, 20, 0,  60),  ex('reactive-drop-jump', 3, 5, 0, 150),
+      // 4 — Eccentric
+      ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('wall-sit',             3, 1,  0,  60),  ex('glute-bridge-hold', 2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('repeated-sprint',      6, 1,  0,  30),
     ],
   },
   {
-    id: 'st-session-b', name: 'Striker — Upper & Reactive', description: 'Reactive power, upper strength for hold-up play, hip & calf eccentrics, core stability, repeated sprint conditioning.',
+    id: 'st-session-b', name: 'Striker — Upper & Reactive', description: 'Box and broad jumps, upper body strength for hold-up play, reactive plyos, calf eccentrics, core stability, repeated sprint conditioning.',
     program: 'Striker', exercises: [
-      ex('reactive-drop-jump', 3, 5,  0,  150),   ex('pogo-jump',         3, 20, 0,  60),  ex('reactive-45-cut', 3, 8, 0, 90),
-      ex('bench-press',        4, 6,  68, 180),   ex('barbell-row',       4, 6,  58, 180), ex('ohp', 3, 8, 42, 150), ex('pull-up', 3, 8, 0, 120),
-      ex('eccentric-hip-adductor',3,10,0,  90),   ex('eccentric-calf-raise',3,12,0, 90),
-      ex('dead-hang',          3, 1,  0,  60),    ex('side-plank',        2, 1,  0,  60),
-      ex('repeated-sprint',    6, 1,  0,  30),
+      // 1 — Max Velocity
+      ex('box-jump',             4, 5,  0,  120), ex('broad-jump',        3, 5,  0,  120),
+      // 2 — Max Strength
+      ex('bench-press',          4, 6,  68, 180), ex('barbell-row',       4, 6,  58, 180), ex('ohp', 3, 8, 42, 150), ex('pull-up', 3, 8, 0, 120),
+      // 3 — Tendon Stiffness
+      ex('reactive-drop-jump',   3, 5,  0,  150), ex('lateral-bound',     3, 8,  0,  90),  ex('pogo-jump', 3, 20, 0, 60),
+      // 4 — Eccentric
+      ex('eccentric-calf-raise', 3, 12, 0,  90),  ex('eccentric-nordic',  3, 2,  0,  120),
+      // 5 — Isometric
+      ex('dead-hang',            3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('repeated-sprint',      6, 1,  0,  30),
     ],
   },
   {
-    id: 'st-session-c', name: 'Striker — Full Power', description: 'Bounding, Olympic lifting, full eccentric circuit, core, sprint & agility conditioning.',
+    id: 'st-session-c', name: 'Striker — Full Power', description: 'Broad jumps, bounding and hurdle hops, full posterior chain, lateral tendon stiffness, eccentric circuit, core isometrics, repeated sprint conditioning.',
     program: 'Striker', exercises: [
-      ex('broad-jump',         4, 5,  0,  120),   ex('bounding',          3, 8,  0,  120), ex('lateral-bound', 3, 8, 0, 90),
-      ex('power-clean',        4, 3,  65, 180),   ex('deadlift',          3, 5,  100,240), ex('front-squat', 3, 6, 68, 180),
-      ex('eccentric-sl-rdl',   3, 8,  0,  90),    ex('eccentric-psoas',   3, 10, 0,  90),
-      ex('copenhagen-plank',   3, 1,  0,  60),    ex('glute-bridge-hold', 2, 1,  0,  60),
-      ex('agility-circuit',    3, 1,  0,  90),
+      // 1 — Max Velocity
+      ex('broad-jump',           4, 5,  0,  120), ex('bounding',          3, 8,  0,  120), ex('hurdle-hop', 3, 8, 0, 90),
+      // 2 — Max Strength
+      ex('deadlift',             3, 5,  100,240), ex('front-squat',       3, 6,  68, 180),
+      // 3 — Tendon Stiffness
+      ex('lateral-bound',        3, 8,  0,  90),  ex('skater-jump',       3, 10, 0,  90),
+      // 4 — Eccentric
+      ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
+      // 5 — Isometric
+      ex('copenhagen-plank',     3, 1,  0,  60),  ex('glute-bridge-hold', 2, 1,  0,  60),
+      // 6 — Conditioning
+      ex('repeated-sprint',      8, 1,  0,  30),
     ],
   },
 ];
@@ -304,7 +430,7 @@ export const POSITION_PLANS: PositionPlan[] = [
     id: 'plan-winger',
     position: 'Winger',
     shortName: 'W',
-    description: 'Top-end speed, acceleration and explosive 1v1 ability. Sprint-focused plyometrics, Olympic-based power development and calf/Achilles resilience.',
+    description: 'Top-end speed, acceleration and explosive 1v1 ability. Sprint-focused plyometrics, calf/Achilles resilience.',
     weeks: [
       week(1, 'Foundation',  'w-session-a', 'w-session-b', 'w-session-c', 'W Acceleration Power', 'W Lateral & Reactive', 'W Full Explosive'),
       week(2, 'Foundation',  'w-session-b', 'w-session-c', 'w-session-a', 'W Lateral & Reactive', 'W Full Explosive', 'W Acceleration Power'),
@@ -320,7 +446,7 @@ export const POSITION_PLANS: PositionPlan[] = [
     id: 'plan-striker',
     position: 'Striker',
     shortName: 'ST',
-    description: 'Explosive first step, aerial power and hold-up strength. Power-clean-based Olympic work, vertical jump development and sprint conditioning throughout.',
+    description: 'Explosive first step, aerial power and hold-up strength. Full-body power, vertical jump development and sprint conditioning throughout.',
     weeks: [
       week(1, 'Foundation',  'st-session-a', 'st-session-b', 'st-session-c', 'ST Explosive Lower', 'ST Upper & Reactive', 'ST Full Power'),
       week(2, 'Foundation',  'st-session-b', 'st-session-c', 'st-session-a', 'ST Upper & Reactive', 'ST Full Power', 'ST Explosive Lower'),
