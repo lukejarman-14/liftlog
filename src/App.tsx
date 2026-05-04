@@ -19,6 +19,7 @@ import { LoadCalendar } from './components/screens/LoadCalendar';
 import { ProgrammeBuilder } from './components/screens/ProgrammeBuilder';
 import { GeneratedProgramme } from './components/screens/GeneratedProgramme';
 import { ProgrammeHub } from './components/screens/ProgrammeHub';
+import { ResetPassword } from './components/screens/ResetPassword';
 import { generateProgramme } from './lib/programmeGenerator';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 import {
@@ -28,6 +29,7 @@ import {
   cloudDeleteAccount,
   getExistingSession,
 } from './lib/cloudSync';
+import { supabase } from './lib/supabase';
 
 export default function App() {
   const store = useStore();
@@ -50,6 +52,19 @@ export default function App() {
       }
       setSessionChecking(false);
     });
+  }, []);
+
+  // ── Listen for password recovery event (from reset email link) ────────────
+  useEffect(() => {
+    if (!supabase) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        if (session?.user?.id) cloudUserIdRef.current = session.user.id;
+        setIsAuthenticated(true);
+        setNav({ screen: 'reset-password' });
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   // ── Periodic background sync (every 2 min while authenticated) ────────────
@@ -196,20 +211,12 @@ export default function App() {
           if (userId) cloudUserIdRef.current = userId;
           setIsAuthenticated(true);
         }}
-        onForgotPassword={async () => {
-          if (window.confirm('This will permanently delete your account and ALL data. Are you sure?')) {
-            if (isSupabaseConfigured) await cloudDeleteAccount();
-            store.clearAll();
-            cloudUserIdRef.current = null;
-            setIsAuthenticated(false);
-          }
-        }}
       />
     );
   }
 
   const { screen } = nav;
-  const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme'];
+  const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme', 'reset-password'];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -395,6 +402,10 @@ export default function App() {
           />
         );
       })()}
+
+      {screen === 'reset-password' && (
+        <ResetPassword onDone={() => navigate({ screen: 'dashboard' })} />
+      )}
 
       {!fullScreens.includes(screen) && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />

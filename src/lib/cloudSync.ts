@@ -69,6 +69,22 @@ export async function cloudDeleteAccount(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+/** Send a password reset email to the user. */
+export async function cloudResetPassword(email: string): Promise<void> {
+  if (!supabase) throw new Error('not_configured');
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://vectorfootball.co.uk/',
+  });
+  if (error) throw error;
+}
+
+/** Update the current user's password (used after clicking reset link). */
+export async function cloudUpdatePassword(newPassword: string): Promise<void> {
+  if (!supabase) throw new Error('not_configured');
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
 /** Check if a Supabase session already exists (e.g. after page reload). */
 export async function getExistingSession(): Promise<string | null> {
   if (!supabase) return null;

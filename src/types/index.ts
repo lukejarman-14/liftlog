@@ -240,7 +240,8 @@ export type Screen =
   | 'testing-battery'
   | 'load-calendar'
   | 'programme-builder'
-  | 'generated-programme';
+  | 'generated-programme'
+  | 'reset-password';
 
 export interface NavState {
   screen: Screen;
