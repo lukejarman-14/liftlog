@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus, UploadCloud } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { importData } from '../../lib/dataSync';
-import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData } from '../../lib/cloudSync';
+import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudResetPassword } from '../../lib/cloudSync';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile, recommendedPlanId: string, userId?: string) => void;
@@ -55,6 +55,13 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
   const [restoring,       setRestoring]       = useState(false);
   const [restoreSuccess,  setRestoreSuccess]  = useState('');
   const restoreFileRef = useRef<HTMLInputElement>(null);
+
+  // Forgot password state
+  const [showForgot,     setShowForgot]     = useState(false);
+  const [forgotEmail,    setForgotEmail]    = useState('');
+  const [forgotLoading,  setForgotLoading]  = useState(false);
+  const [forgotSent,     setForgotSent]     = useState(false);
+  const [forgotError,    setForgotError]    = useState('');
 
   // Step 1 — Account
   const [firstName,       setFirstName]       = useState('');
@@ -382,6 +389,63 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
                 {!loginLoading && <ChevronRight size={16} />}
               </button>
             </div>
+
+            {isSupabaseConfigured && !showForgot && (
+              <button
+                onClick={() => { setShowForgot(true); setForgotEmail(loginEmail); setForgotError(''); setForgotSent(false); }}
+                className="w-full mt-3 text-sm text-brand-500 hover:text-brand-600 text-center py-2 font-semibold"
+              >
+                Forgot password?
+              </button>
+            )}
+
+            {isSupabaseConfigured && showForgot && (
+              <div className="mt-4 p-4 rounded-xl bg-gray-100 border border-gray-200">
+                {forgotSent ? (
+                  <div className="flex items-center gap-2 text-green-600 text-sm font-semibold">
+                    <Check size={14} /> Reset link sent — check your inbox.
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600 mb-3 font-semibold">Send password reset email</p>
+                    <input
+                      value={forgotEmail}
+                      onChange={e => { setForgotEmail(e.target.value); setForgotError(''); }}
+                      type="email"
+                      placeholder="your@email.com"
+                      className={inputClass(!!forgotError)}
+                    />
+                    {forgotError && <p className="text-xs text-red-500 mt-1">{forgotError}</p>}
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => setShowForgot(false)}
+                        className="px-3 py-2 rounded-lg text-sm text-gray-500 border border-gray-200 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!forgotEmail || forgotLoading) return;
+                          setForgotLoading(true);
+                          setForgotError('');
+                          try {
+                            await cloudResetPassword(forgotEmail);
+                            setForgotSent(true);
+                          } catch {
+                            setForgotError('Could not send reset email. Check the address.');
+                          }
+                          setForgotLoading(false);
+                        }}
+                        disabled={!forgotEmail || forgotLoading}
+                        className="flex-1 py-2 rounded-lg text-sm font-bold bg-brand-500 text-white hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400"
+                      >
+                        {forgotLoading ? 'Sending…' : 'Send Reset Link'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 
