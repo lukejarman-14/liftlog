@@ -52,6 +52,23 @@ export async function cloudSignOut(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+/** Permanently delete the current user's account and all their data from Supabase. */
+export async function cloudDeleteAccount(): Promise<void> {
+  if (!supabase) return;
+  try {
+    // Delete their data row first
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('user_data').delete().eq('id', user.id);
+      // Delete the auth user via the SQL function we created
+      await supabase.rpc('delete_user');
+    }
+  } catch (err) {
+    console.error('[cloudSync] delete account error:', err);
+  }
+  await supabase.auth.signOut();
+}
+
 /** Check if a Supabase session already exists (e.g. after page reload). */
 export async function getExistingSession(): Promise<string | null> {
   if (!supabase) return null;

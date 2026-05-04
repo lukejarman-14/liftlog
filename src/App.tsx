@@ -25,6 +25,7 @@ import {
   isSupabaseConfigured,
   cloudSignOut,
   cloudSaveData,
+  cloudDeleteAccount,
   getExistingSession,
 } from './lib/cloudSync';
 
@@ -195,9 +196,11 @@ export default function App() {
           if (userId) cloudUserIdRef.current = userId;
           setIsAuthenticated(true);
         }}
-        onForgotPassword={() => {
-          if (window.confirm('This will reset all your data and return you to setup. Are you sure?')) {
+        onForgotPassword={async () => {
+          if (window.confirm('This will permanently delete your account and ALL data. Are you sure?')) {
+            if (isSupabaseConfigured) await cloudDeleteAccount();
             store.clearAll();
+            cloudUserIdRef.current = null;
             setIsAuthenticated(false);
           }
         }}
@@ -310,9 +313,12 @@ export default function App() {
           baseline={store.baseline}
           onSetProfilePicture={store.setProfilePicture}
           onStartBattery={() => navigate({ screen: 'testing-battery' })}
-          onResetProfile={() => {
-            store.setUserProfile(null);
-            navigate({ screen: 'dashboard' });
+          onResetProfile={async () => {
+            // Delete from Supabase first, then clear local data
+            if (isSupabaseConfigured) await cloudDeleteAccount();
+            store.clearAll();
+            cloudUserIdRef.current = null;
+            setIsAuthenticated(false);
           }}
           onChangePassword={(newHash) => {
             if (store.userProfile) {
