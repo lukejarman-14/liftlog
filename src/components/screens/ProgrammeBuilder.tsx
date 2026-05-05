@@ -9,7 +9,7 @@ import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import {
-  ProgrammeInputs, PrimaryGoal, MatchDayPref, Weakness, InjuryArea,
+  ProgrammeInputs, PrimaryGoal, MatchDayPref, GameDayPref, Weakness, InjuryArea,
   PlayStyle, UserProfile,
 } from '../../types';
 
@@ -157,7 +157,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   const [sessionsPerWeek, setSessionsPerWeek] = useState<2 | 3 | 4>(3);
   const [matchDay, setMatchDay] = useState<MatchDayPref>('saturday');
   const [hasSecondMatchDay, setHasSecondMatchDay] = useState(false);
-  const [secondMatchDay, setSecondMatchDay] = useState<MatchDayPref>('midweek');
+  const [secondMatchDay, setSecondMatchDay] = useState<GameDayPref>('wednesday');
   // Step 1 — Position & play style
   const [primaryPos, setPrimaryPos] = useState<string>(userProfile.position);
   const [secondaryPos, setSecondaryPos] = useState<string>('');
@@ -272,11 +272,32 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
             {hasSecondMatchDay && (
               <div className="mt-3">
                 <p className="text-sm font-semibold text-gray-700 mb-2">Second match day</p>
-                <ChipSelector
-                  options={MATCH_DAY_OPTS.filter(o => o.value !== matchDay)}
-                  selected={secondMatchDay !== matchDay ? secondMatchDay : MATCH_DAY_OPTS.find(o => o.value !== matchDay)?.value ?? 'midweek'}
-                  onToggle={setSecondMatchDay}
-                />
+                <div className="grid grid-cols-7 gap-1">
+                  {(['mon','tue','wed','thu','fri','sat','sun'] as const).map((short, i) => {
+                    const full = (['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as const)[i];
+                    const isSelected = secondMatchDay === full;
+                    // Disable if it clashes with primary match day (mapped)
+                    const primaryFull = matchDay === 'saturday' ? 'saturday' : matchDay === 'sunday' ? 'sunday' : 'wednesday';
+                    const isDisabled = full === primaryFull;
+                    return (
+                      <button
+                        key={full}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => setSecondMatchDay(full)}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                          isSelected
+                            ? 'bg-brand-500 text-white shadow-sm'
+                            : isDisabled
+                            ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                            : 'bg-white border border-gray-200 text-gray-600 hover:border-brand-400 hover:text-brand-600'
+                        }`}
+                      >
+                        {short.charAt(0).toUpperCase() + short.slice(1)}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

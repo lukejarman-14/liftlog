@@ -6,7 +6,7 @@
 import { useState, useRef } from 'react';
 import {
   ChevronLeft, ChevronDown, ChevronUp, ChevronRight,
-  Zap, Shield, Clock, TrendingUp, BookOpen, Play, X, GripVertical, AlertTriangle,
+  Zap, Shield, Clock, TrendingUp, BookOpen, Play, Home, X, GripVertical, AlertTriangle,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -201,7 +201,7 @@ export function SessionPreviewModal({ session, onClose }: {
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end pb-20">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white rounded-t-3xl max-h-[88vh] flex flex-col z-10">
         {/* sticky header */}
@@ -364,7 +364,7 @@ function WeekAccordion({
 
       {/* Reorder warning modal */}
       {showWarn && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
             <div className="flex items-start gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
@@ -467,35 +467,56 @@ export function GeneratedProgramme({ programme, isActive, onBack, onRebuild, onA
         </div>
       </Card>
 
-      {/* ── Apply / End Plan button ── */}
+      {/* ── Plan action buttons ── */}
       {isActive ? (
-        <button
-          onClick={() => setShowEndModal(true)}
-          className="w-full mb-5 flex items-center justify-center gap-2 py-4 rounded-2xl bg-red-500 text-white font-bold text-base hover:bg-red-600 transition-colors shadow-md active:scale-[0.98]"
-        >
-          End Plan
-        </button>
+        <div className="flex flex-col gap-3 mb-5">
+          {/* Primary: Start Plan (plan already running — goes home) */}
+          <button
+            onClick={onBack}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md active:scale-[0.98]"
+          >
+            <Play size={18} />
+            Start Plan
+          </button>
+          {/* Secondary row */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowEndModal(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors active:scale-[0.98]"
+            >
+              End Plan
+            </button>
+            <button
+              onClick={onBack}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors active:scale-[0.98]"
+            >
+              <Home size={15} />
+              Home Screen
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="flex gap-3 mb-5">
           <button
             onClick={onBack}
             className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl border-2 border-gray-200 text-gray-700 font-bold text-base hover:bg-gray-50 transition-colors active:scale-[0.98]"
           >
-            Exit
+            <Home size={18} />
+            Home Screen
           </button>
           <button
             onClick={onApply}
             className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md active:scale-[0.98]"
           >
             <Play size={18} />
-            Make Active Plan
+            Start Plan
           </button>
         </div>
       )}
 
       {/* ── End Plan modal ── */}
       {showEndModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center p-4 pb-20">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm mb-2">
             <h3 className="text-base font-bold text-gray-900 mb-1">End Current Plan?</h3>
             <p className="text-sm text-gray-500 mb-5">This will remove it from your calendar. What would you like to do next?</p>

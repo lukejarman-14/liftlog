@@ -255,6 +255,7 @@ export interface NavState {
 
 export type PrimaryGoal = 'speed' | 'strength' | 'power' | 'endurance' | 'injury_prevention';
 export type MatchDayPref = 'saturday' | 'sunday' | 'midweek';
+export type GameDayPref = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 export type Weakness = 'speed' | 'strength' | 'endurance' | 'power' | 'agility' | 'injury_prone';
 export type InjuryArea = 'hamstring' | 'ankle' | 'knee' | 'groin' | 'calf' | 'back' | 'shoulder';
 export type PlayStyle = 'box-to-box' | 'direct' | 'technical' | 'physical' | 'press-heavy' | 'counter-attack';
@@ -273,7 +274,7 @@ export interface ProgrammeInputs {
   primaryGoal: PrimaryGoal;
   secondaryGoals: string[];
   matchDay: MatchDayPref;
-  secondMatchDay?: MatchDayPref;
+  secondMatchDay?: GameDayPref;
   biggestWeakness: Weakness;
   injuryHistory: InjuryArea[];
   readiness: { sleep: number; fatigue: number; soreness: number; stress: number };

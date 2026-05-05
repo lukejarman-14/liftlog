@@ -173,7 +173,7 @@ function DayModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-4 pb-20">
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl mb-4 max-h-[90vh] overflow-y-auto">
         <div className="p-5">
         <div className="flex items-center gap-2 mb-1">

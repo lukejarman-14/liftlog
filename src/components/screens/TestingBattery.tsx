@@ -301,7 +301,7 @@ function AttemptInputs({
 
 function ExitModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-5">
       <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">

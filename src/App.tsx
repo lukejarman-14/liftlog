@@ -191,6 +191,9 @@ export default function App() {
   if (!store.userProfile) {
     return (
       <Onboarding
+        // If already authenticated (e.g. login succeeded but profile wasn't in cloud),
+        // pass the userId so Onboarding skips auth and goes straight to profile setup.
+        existingUserId={isAuthenticated ? (cloudUserIdRef.current ?? undefined) : undefined}
         onComplete={(profile, planId, userId) => {
           handleOnboardingComplete(profile, planId, userId);
           setIsAuthenticated(true);

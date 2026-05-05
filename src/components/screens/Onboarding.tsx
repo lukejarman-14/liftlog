@@ -1,12 +1,13 @@
-import { useRef, useState, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus, UploadCloud } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus } from 'lucide-react';
 import { UserProfile } from '../../types';
-import { importData } from '../../lib/dataSync';
 import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudResetPassword } from '../../lib/cloudSync';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile, recommendedPlanId: string, userId?: string) => void;
   onLoginSuccess?: (userId?: string) => void;
+  /** When set, the user is already authenticated — skip auth step, go straight to profile setup */
+  existingUserId?: string;
 }
 
 const GENDERS = [
@@ -39,9 +40,10 @@ async function hashPassword(password: string): Promise<string> {
 // Total wizard steps (excluding welcome): steps 1 and 2
 const TOTAL_STEPS = 2;
 
-export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
+export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: OnboardingProps) {
   // step: 0 = landing, -1 = login mode, 1 = create account, 2 = body metrics
-  const [step, setStep] = useState(0);
+  // If existingUserId is provided, skip landing and go straight to profile setup
+  const [step, setStep] = useState(existingUserId ? 1 : 0);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [step]);
@@ -52,9 +54,7 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
   const [showLoginPw,     setShowLoginPw]     = useState(false);
   const [loginError,      setLoginError]      = useState('');
   const [loginLoading,    setLoginLoading]    = useState(false);
-  const [restoring,       setRestoring]       = useState(false);
   const [restoreSuccess,  setRestoreSuccess]  = useState('');
-  const restoreFileRef = useRef<HTMLInputElement>(null);
 
   // Forgot password state
   const [showForgot,     setShowForgot]     = useState(false);
@@ -81,12 +81,9 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
   // ── Validation ─────────────────────────────────────────────────────────────
   const passwordStrong = password.length >= 8;
   const passwordsMatch = password === confirmPassword && confirmPassword !== '';
-  const canCreateAccount =
-    firstName.trim() !== '' &&
-    lastName.trim() !== '' &&
-    email.includes('@') &&
-    passwordStrong &&
-    passwordsMatch;
+  const canCreateAccount = existingUserId
+    ? firstName.trim() !== '' && lastName.trim() !== '' && email.includes('@')
+    : firstName.trim() !== '' && lastName.trim() !== '' && email.includes('@') && passwordStrong && passwordsMatch;
 
   // ── Login attempt ──────────────────────────────────────────────────────────
   const handleLogin = async () => {
@@ -114,14 +111,19 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
           return;
         }
 
-        // Load data from cloud
+        // Try to load data from cloud
         const loaded = await cloudLoadData(userId);
-        if (loaded) {
-          // Data is now in localStorage — reload so the store picks it up
+        const profileRestored = !!localStorage.getItem('ll_user_profile');
+        if (loaded && profileRestored) {
+          // Data including profile loaded — reload so the store picks it up fresh
           setRestoreSuccess('Signed in! Loading your data…');
           setTimeout(() => window.location.reload(), 800);
         } else {
-          // Signed in but no cloud data yet (e.g. first device login)
+          // Either no cloud data, or profile was missing from cloud.
+          // Back-up whatever is local, then proceed.
+          // If profile is missing, App.tsx will show Onboarding with existingUserId
+          // so the user can set up their profile without re-authenticating.
+          await cloudSaveData(userId);
           onLoginSuccess?.(userId);
         }
         return;
@@ -160,22 +162,6 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
     setLoginLoading(false);
   };
 
-  // ── Restore from backup ────────────────────────────────────────────────────
-  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setRestoring(true);
-    setLoginError('');
-    try {
-      const email = await importData(file);
-      setRestoreSuccess(`Data restored for ${email}. Reloading…`);
-      setTimeout(() => window.location.reload(), 1200);
-    } catch (err) {
-      setLoginError(err instanceof Error ? err.message : 'Restore failed.');
-    }
-    setRestoring(false);
-    e.target.value = '';
-  };
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   const handleCreateAccount = async () => {
@@ -187,7 +173,8 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
   const handleEnterApp = async () => {
     if (submitting) return;
     setSubmitting(true);
-    const passwordHash = await hashPassword(password);
+    // Only hash a password when the user is creating a new account
+    const passwordHash = existingUserId ? undefined : await hashPassword(password);
     const profile: UserProfile = {
       firstName:       firstName.trim(),
       lastName:        lastName.trim(),
@@ -204,8 +191,12 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
       gender:          gender || undefined,
     };
 
-    let userId: string | undefined;
-    if (isSupabaseConfigured) {
+    // Write profile directly to localStorage NOW so cloudSaveData always finds it,
+    // regardless of whether React's useEffect has committed yet.
+    localStorage.setItem('ll_user_profile', JSON.stringify(profile));
+
+    let userId: string | undefined = existingUserId;
+    if (!userId && isSupabaseConfigured) {
       try {
         const id = await cloudSignUp(profile.email, password);
         if (id) userId = id;
@@ -223,9 +214,9 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
 
     onComplete(profile, '', userId);
 
-    // Push initial data to cloud after a tick so the store has written to localStorage
+    // Push data to cloud immediately (profile is already in localStorage above)
     if (userId) {
-      setTimeout(() => cloudSaveData(userId as string), 500);
+      await cloudSaveData(userId);
     }
   };
 
@@ -326,14 +317,6 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
                       Create a new account →
                     </button>
                   )}
-                  {loginError.includes('No account') && (
-                    <button
-                      onClick={() => restoreFileRef.current?.click()}
-                      className="mt-1 text-sm font-semibold text-gray-600 underline"
-                    >
-                      Or restore from a backup file →
-                    </button>
-                  )}
                 </div>
               )}
             </div>
@@ -343,30 +326,6 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
                 <Check size={14} /> {restoreSuccess}
               </div>
             )}
-
-            {/* Divider */}
-            <div className="flex items-center gap-3 mt-6">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-xs text-gray-400">or</span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
-
-            {/* Restore from backup */}
-            <button
-              onClick={() => restoreFileRef.current?.click()}
-              disabled={restoring}
-              className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 text-sm font-semibold hover:border-brand-400 hover:text-brand-600 transition-colors"
-            >
-              <UploadCloud size={16} />
-              {restoring ? 'Restoring…' : 'Restore from Backup File'}
-            </button>
-            <input
-              ref={restoreFileRef}
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={handleRestoreFile}
-            />
 
             <div className="flex gap-3 mt-5">
               <button
@@ -453,8 +412,17 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
         {step === 1 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
             <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 1 of 2</p>
-            <h2 className="text-2xl font-bold text-gray-900 mb-1">Create your account</h2>
-            <p className="text-gray-500 text-sm mb-7">Your details are stored securely on this device.</p>
+            {existingUserId ? (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">Set up your profile</h2>
+                <p className="text-gray-500 text-sm mb-7">You're signed in — just fill in your details to get started.</p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">Create your account</h2>
+                <p className="text-gray-500 text-sm mb-7">Your details are stored securely on this device.</p>
+              </>
+            )}
 
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
@@ -492,75 +460,81 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
                 />
               </div>
 
-              <div>
-                <Label>Password</Label>
-                <div className="relative">
-                  <input
-                    value={password}
-                    onChange={e => { setPassword(e.target.value); setStep1Error(''); }}
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Min. 8 characters"
-                    className={inputClass(password !== '' && !passwordStrong)}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(p => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                {password !== '' && (
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <div className={`h-1 flex-1 rounded-full transition-colors ${passwordStrong ? 'bg-green-400' : 'bg-red-300'}`} />
-                    <span className={`text-xs font-medium ${passwordStrong ? 'text-green-600' : 'text-red-400'}`}>
-                      {passwordStrong ? 'Strong enough' : 'Too short'}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <Label>Confirm Password</Label>
-                <div className="relative">
-                  <input
-                    value={confirmPassword}
-                    onChange={e => { setConfirmPassword(e.target.value); setStep1Error(''); }}
-                    type={showConfirm ? 'text' : 'password'}
-                    placeholder="Re-enter password"
-                    className={inputClass(confirmPassword !== '' && !passwordsMatch)}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm(p => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                  {confirmPassword !== '' && passwordsMatch && (
-                    <div className="absolute right-9 top-1/2 -translate-y-1/2 text-green-500">
-                      <Check size={15} />
+              {!existingUserId && (
+                <>
+                  <div>
+                    <Label>Password</Label>
+                    <div className="relative">
+                      <input
+                        value={password}
+                        onChange={e => { setPassword(e.target.value); setStep1Error(''); }}
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Min. 8 characters"
+                        className={inputClass(password !== '' && !passwordStrong)}
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(p => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
                     </div>
-                  )}
-                </div>
-                {confirmPassword !== '' && !passwordsMatch && (
-                  <p className="text-xs text-red-400 mt-1">Passwords don't match</p>
-                )}
-              </div>
+                    {password !== '' && (
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <div className={`h-1 flex-1 rounded-full transition-colors ${passwordStrong ? 'bg-green-400' : 'bg-red-300'}`} />
+                        <span className={`text-xs font-medium ${passwordStrong ? 'text-green-600' : 'text-red-400'}`}>
+                          {passwordStrong ? 'Strong enough' : 'Too short'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label>Confirm Password</Label>
+                    <div className="relative">
+                      <input
+                        value={confirmPassword}
+                        onChange={e => { setConfirmPassword(e.target.value); setStep1Error(''); }}
+                        type={showConfirm ? 'text' : 'password'}
+                        placeholder="Re-enter password"
+                        className={inputClass(confirmPassword !== '' && !passwordsMatch)}
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirm(p => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                      {confirmPassword !== '' && passwordsMatch && (
+                        <div className="absolute right-9 top-1/2 -translate-y-1/2 text-green-500">
+                          <Check size={15} />
+                        </div>
+                      )}
+                    </div>
+                    {confirmPassword !== '' && !passwordsMatch && (
+                      <p className="text-xs text-red-400 mt-1">Passwords don't match</p>
+                    )}
+                  </div>
+                </>
+              )}
 
               {step1Error && (
                 <p className="text-sm text-red-500 text-center">{step1Error}</p>
               )}
             </div>
 
-            <p className="text-xs text-center text-gray-400 mt-5">
-              Already have an account?{' '}
-              <button onClick={() => { setLoginError(''); setStep(-1); }} className="text-brand-500 font-semibold underline">
-                Log in
-              </button>
-            </p>
+            {!existingUserId && (
+              <p className="text-xs text-center text-gray-400 mt-5">
+                Already have an account?{' '}
+                <button onClick={() => { setLoginError(''); setStep(-1); }} className="text-brand-500 font-semibold underline">
+                  Log in
+                </button>
+              </p>
+            )}
           </div>
         )}
 
@@ -625,13 +599,15 @@ export function Onboarding({ onComplete, onLoginSuccess }: OnboardingProps) {
         {/* ── Nav buttons ─────────────────────────────────────────────────── */}
         {step === 1 && (
           <div className="flex gap-3 py-6">
-            <button
-              onClick={() => setStep(0)}
-              className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
-            >
-              <ChevronLeft size={16} />
-              Back
-            </button>
+            {!existingUserId && (
+              <button
+                onClick={() => setStep(0)}
+                className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
+              >
+                <ChevronLeft size={16} />
+                Back
+              </button>
+            )}
             <button
               onClick={handleCreateAccount}
               disabled={!canCreateAccount}

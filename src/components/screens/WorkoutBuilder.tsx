@@ -50,7 +50,7 @@ function ExercisePicker({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 pb-20">
       <div className="bg-white rounded-t-2xl w-full max-w-lg h-[80vh] flex flex-col">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-bold text-gray-900">Add Exercise</h2>
@@ -717,7 +717,7 @@ export function WorkoutBuilder({
 
       {/* Save template modal */}
       {showSave && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
             <h2 className="font-bold text-gray-900 mb-1">Save As New Template</h2>
             <p className="text-xs text-gray-400 mb-4">Creates a new template — existing one is unchanged.</p>
@@ -738,7 +738,7 @@ export function WorkoutBuilder({
 
       {/* Unsaved changes prompt */}
       {showUnsavedPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
             <h2 className="font-bold text-gray-900 mb-2">Unsaved workout</h2>
             <p className="text-sm text-gray-500 mb-5">

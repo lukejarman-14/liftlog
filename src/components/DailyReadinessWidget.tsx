@@ -65,7 +65,6 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
   const [fatigue, setFatigue] = useState(2);
   const [soreness, setSoreness] = useState(2);
   const [stress, setStress]   = useState(2);
-  const [saved, setSaved]     = useState(false);
 
   const handleSave = () => {
     const raw = calcReadiness({ sleep, fatigue, soreness, stress });
@@ -77,12 +76,11 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
       completedAt: Date.now(),
     };
     onSave(entry);
-    setSaved(true);
     setOpen(false);
   };
 
-  // Already logged today
-  if (existing && !saved) {
+  // Already logged today — show summary (with optional inline edit form)
+  if (existing) {
     const cfg = LEVEL_CONFIG[existing.level] ?? LEVEL_CONFIG.high;
     return (
       <div className={`w-full mb-5 p-4 rounded-2xl border ${cfg.light}`}>

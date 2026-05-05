@@ -112,8 +112,13 @@ export async function cloudLoadData(userId: string): Promise<boolean> {
     .select('app_data')
     .eq('id', userId)
     .single();
+  console.log('[cloudLoadData] userId:', userId, 'error:', error?.message, 'hasData:', !!data?.app_data);
   if (error || !data?.app_data) return false;
-  restoreAllData(data.app_data as Record<string, unknown>);
+  const appData = data.app_data as Record<string, unknown>;
+  console.log('[cloudLoadData] keys in cloud data:', Object.keys(appData));
+  console.log('[cloudLoadData] ll_user_profile:', appData['ll_user_profile']);
+  restoreAllData(appData);
+  console.log('[cloudLoadData] after restore, ll_user_profile in localStorage:', localStorage.getItem('ll_user_profile'));
   return true;
 }
 

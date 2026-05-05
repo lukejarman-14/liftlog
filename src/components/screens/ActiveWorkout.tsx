@@ -683,7 +683,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
       </Layout>
 
       {showFinish && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
             <h2 className="font-bold text-gray-900 mb-2">Finish Workout?</h2>
             <p className="text-sm text-gray-500 mb-4">

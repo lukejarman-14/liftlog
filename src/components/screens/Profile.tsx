@@ -2,9 +2,9 @@ import { useRef, useState } from 'react';
 import {
   Camera, Mail, User, Shield, Calendar, Target, Dumbbell,
   LogOut, ChevronRight, Activity, Zap, Lock, Eye, EyeOff, Check,
-  Ruler, Weight, Download,
+  Ruler, Weight,
 } from 'lucide-react';
-import { exportData } from '../../lib/dataSync';
+import { isSupabaseConfigured, cloudUpdatePassword } from '../../lib/cloudSync';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { UserProfile } from '../../types';
@@ -58,11 +58,21 @@ function ChangePasswordModal({
     if (!passwordStrong) { setError('New password must be at least 8 characters.'); return; }
     if (!passwordsMatch) { setError('New passwords do not match.'); return; }
     setLoading(true);
-    // Verify current password
+    // Verify current password (local hash check)
     if (currentHash) {
       const curHash = await hashPassword(currentPw);
       if (curHash !== currentHash) {
         setError('Current password is incorrect.');
+        setLoading(false);
+        return;
+      }
+    }
+    // Update password in Supabase (this is the real auth password)
+    if (isSupabaseConfigured) {
+      try {
+        await cloudUpdatePassword(newPw);
+      } catch {
+        setError('Failed to update password. Please try again.');
         setLoading(false);
         return;
       }
@@ -77,7 +87,7 @@ function ChangePasswordModal({
     `w-full px-4 py-3 rounded-xl border ${err ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'} bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 pr-11`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 pb-20">
       <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center gap-2 mb-5">
           <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center">
@@ -193,7 +203,7 @@ function EditMetricsModal({
   const inputCls = `w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-400`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 pb-20">
       <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
         <div className="flex items-center gap-2 mb-5">
           <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center">
@@ -536,27 +546,6 @@ export function Profile({
             </div>
           </div>
         </div>
-      </Card>
-
-      {/* ── Settings ──────────────────────────────────────────────────── */}
-      <Card className="p-4 mb-4">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Data &amp; Backup</h3>
-
-        <button
-          onClick={() => exportData()}
-          className="w-full text-left py-3 flex items-center justify-between gap-2 hover:opacity-80 transition-opacity"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
-              <Download size={14} className="text-brand-600" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-gray-800">Export My Data</div>
-              <div className="text-xs text-gray-400">Download a backup file — restore on any device</div>
-            </div>
-          </div>
-          <ChevronRight size={14} className="text-gray-300 flex-shrink-0" />
-        </button>
       </Card>
 
       {/* ── Account ───────────────────────────────────────────────────── */}
