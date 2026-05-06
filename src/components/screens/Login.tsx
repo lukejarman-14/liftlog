@@ -1,7 +1,6 @@
-import { useRef, useState } from 'react';
-import { Dumbbell, Eye, EyeOff, UploadCloud, Check, ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+import { Dumbbell, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react';
 import { UserProfile } from '../../types';
-import { importData } from '../../lib/dataSync';
 import { isSupabaseConfigured, cloudSignIn, cloudLoadData, cloudResetPassword } from '../../lib/cloudSync';
 
 interface LoginProps {
@@ -32,10 +31,6 @@ export function Login({ profile, onLogin }: LoginProps) {
   const [forgotError,    setForgotError]    = useState('');
 
   // Restore from backup
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [restoring,       setRestoring]       = useState(false);
-  const [restoreError,    setRestoreError]    = useState('');
-  const [restoreSuccess,  setRestoreSuccess]  = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,23 +73,6 @@ export function Login({ profile, onLogin }: LoginProps) {
       setForgotError('Could not send reset email. Check the address and try again.');
     }
     setForgotLoading(false);
-  };
-
-  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setRestoring(true);
-    setRestoreError('');
-    setRestoreSuccess('');
-    try {
-      const email = await importData(file);
-      setRestoreSuccess(`Data restored for ${email}. Reloading…`);
-      setTimeout(() => window.location.reload(), 1200);
-    } catch (err) {
-      setRestoreError(err instanceof Error ? err.message : 'Restore failed.');
-    }
-    setRestoring(false);
-    e.target.value = '';
   };
 
   // ── Forgot password view ───────────────────────────────────────────────────
@@ -226,38 +204,6 @@ export function Login({ profile, onLogin }: LoginProps) {
           Forgot password?
         </button>
 
-        {/* Divider */}
-        <div className="flex items-center gap-3 my-4">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-xs text-gray-400">or</span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
-
-        {/* Restore from backup */}
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={restoring}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 text-sm font-semibold hover:border-brand-400 hover:text-brand-600 transition-colors"
-        >
-          <UploadCloud size={16} />
-          {restoring ? 'Restoring…' : 'Restore from Backup File'}
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".json,application/json"
-          className="hidden"
-          onChange={handleRestoreFile}
-        />
-
-        {restoreError && (
-          <p className="text-xs text-red-500 mt-2 text-center">{restoreError}</p>
-        )}
-        {restoreSuccess && (
-          <div className="flex items-center justify-center gap-1.5 mt-2 text-green-600 text-sm font-semibold">
-            <Check size={14} /> {restoreSuccess}
-          </div>
-        )}
       </div>
     </div>
   );

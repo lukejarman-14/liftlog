@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import {
   Camera, Mail, User, Shield, Calendar, Target, Dumbbell,
   LogOut, ChevronRight, Activity, Zap, Lock, Eye, EyeOff, Check,
-  Ruler, Weight,
+  Ruler, Weight, AlertTriangle, Pencil,
 } from 'lucide-react';
 import { isSupabaseConfigured, cloudUpdatePassword } from '../../lib/cloudSync';
 import { Layout } from '../Layout';
@@ -295,6 +295,191 @@ function getInitials(first: string, last: string) {
   return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
 }
 
+// ── Edit Training Profile Modal ────────────────────────────────────────────
+
+const POSITIONS = [
+  { id: 'GK', label: '🧤 Goalkeeper' },
+  { id: 'CB', label: '🛡️ Centre Back' },
+  { id: 'FB', label: '⚡ Full Back' },
+  { id: 'CM', label: '⚙️ Midfielder' },
+  { id: 'W',  label: '💨 Winger' },
+  { id: 'ST', label: '🎯 Striker' },
+] as const;
+
+const EXPERIENCE_OPTIONS = [
+  { id: '<1',  label: 'Less than 1 year' },
+  { id: '1-3', label: '1–3 years' },
+  { id: '3-5', label: '3–5 years' },
+  { id: '5+',  label: '5+ years' },
+] as const;
+
+const FREQUENCY_OPTIONS = [
+  { id: '0',   label: 'Just starting' },
+  { id: '1-2', label: '1–2 sessions/week' },
+  { id: '3-4', label: '3–4 sessions/week' },
+  { id: '5+',  label: '5+ sessions/week' },
+] as const;
+
+const GYM_ACCESS_OPTIONS = [
+  { id: 'full',  label: '🏋️ Full gym' },
+  { id: 'basic', label: '🪑 Basic gym' },
+  { id: 'none',  label: '🌳 Home / Outdoor' },
+] as const;
+
+type EditableProfile = Pick<UserProfile, 'position' | 'experienceYears' | 'gymFrequency' | 'gymAccess'>;
+
+function EditTrainingProfileModal({
+  current,
+  onSave,
+  onClose,
+}: {
+  current: EditableProfile;
+  onSave: (updates: EditableProfile) => void;
+  onClose: () => void;
+}) {
+  const [confirmed, setConfirmed] = useState(false);
+  const [position, setPosition]           = useState(current.position);
+  const [experienceYears, setExperience]  = useState(current.experienceYears);
+  const [gymFrequency, setFrequency]      = useState(current.gymFrequency);
+  const [gymAccess, setGymAccess]         = useState(current.gymAccess);
+  const [saved, setSaved]                 = useState(false);
+
+  const handleSave = () => {
+    setSaved(true);
+    setTimeout(() => {
+      onSave({ position, experienceYears, gymFrequency, gymAccess });
+      onClose();
+    }, 600);
+  };
+
+  const btnBase = 'flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all text-center';
+  const btnActive = 'bg-brand-500 text-white border-brand-500';
+  const btnInactive = 'bg-white text-gray-600 border-gray-200 hover:border-brand-300';
+
+  // ── Step 1: warning ────────────────────────────────────────────────────────
+  if (!confirmed) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 pb-8">
+        <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={18} className="text-amber-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 mb-1">Edit Training Profile?</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Changing your position, experience, gym frequency or equipment access may mean your current programme is no longer optimal.
+              </p>
+              <p className="text-sm font-semibold text-amber-700 mt-2">
+                You may need to rebuild your programme after saving.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 mt-5">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => setConfirmed(true)}
+              className="flex-1 py-3 rounded-xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 2: edit form ──────────────────────────────────────────────────────
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 pb-8 overflow-y-auto">
+      <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center">
+            <Pencil size={15} className="text-brand-600" />
+          </div>
+          <h3 className="font-bold text-gray-900">Edit Training Profile</h3>
+        </div>
+
+        <div className="flex flex-col gap-5">
+          {/* Position */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Position</label>
+            <div className="grid grid-cols-3 gap-2">
+              {POSITIONS.map(p => (
+                <button key={p.id} onClick={() => setPosition(p.id as typeof position)}
+                  className={`py-2 px-1 rounded-xl text-xs font-semibold border transition-all text-center ${position === p.id ? btnActive : btnInactive}`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Experience */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Training Experience</label>
+            <div className="grid grid-cols-2 gap-2">
+              {EXPERIENCE_OPTIONS.map(o => (
+                <button key={o.id} onClick={() => setExperience(o.id as typeof experienceYears)}
+                  className={`${btnBase} ${experienceYears === o.id ? btnActive : btnInactive}`}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Gym frequency */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Gym Sessions per Week</label>
+            <div className="grid grid-cols-2 gap-2">
+              {FREQUENCY_OPTIONS.map(o => (
+                <button key={o.id} onClick={() => setFrequency(o.id as typeof gymFrequency)}
+                  className={`${btnBase} ${gymFrequency === o.id ? btnActive : btnInactive}`}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Gym access */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Equipment Access</label>
+            <div className="flex flex-col gap-2">
+              {GYM_ACCESS_OPTIONS.map(o => (
+                <button key={o.id} onClick={() => setGymAccess(o.id as typeof gymAccess)}
+                  className={`${btnBase} ${gymAccess === o.id ? btnActive : btnInactive}`}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {saved && (
+            <div className="flex items-center justify-center gap-2 text-green-600 text-sm font-semibold">
+              <Check size={16} /> Saved!
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose}
+            className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50">
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saved}
+            className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${saved ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-brand-500 text-white hover:bg-brand-600'}`}>
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 export function Profile({
   userProfile, profilePicture, totalSessions,
@@ -302,8 +487,9 @@ export function Profile({
   onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onLogout, onBack,
 }: ProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showChangePw,    setShowChangePw]    = useState(false);
-  const [showEditMetrics, setShowEditMetrics] = useState(false);
+  const [showChangePw,         setShowChangePw]         = useState(false);
+  const [showEditMetrics,      setShowEditMetrics]      = useState(false);
+  const [showEditTraining,     setShowEditTraining]     = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -380,7 +566,15 @@ export function Profile({
 
       {/* ── Training background ───────────────────────────────────────── */}
       <Card className="p-4 mb-4">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Training Profile</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Training Profile</h3>
+          <button
+            onClick={() => setShowEditTraining(true)}
+            className="flex items-center gap-1 text-xs font-semibold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-full hover:bg-brand-100 transition-colors"
+          >
+            <Pencil size={11} /> Edit
+          </button>
+        </div>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -611,6 +805,19 @@ export function Profile({
           currentWeight={userProfile.weightKg}
           onSave={(h, w) => onUpdateProfile({ heightCm: h, weightKg: w })}
           onClose={() => setShowEditMetrics(false)}
+        />
+      )}
+
+      {showEditTraining && (
+        <EditTrainingProfileModal
+          current={{
+            position: userProfile.position,
+            experienceYears: userProfile.experienceYears,
+            gymFrequency: userProfile.gymFrequency,
+            gymAccess: userProfile.gymAccess,
+          }}
+          onSave={(updates) => onUpdateProfile(updates)}
+          onClose={() => setShowEditTraining(false)}
         />
       )}
     </Layout>
