@@ -137,8 +137,8 @@ function getFVProfile(mdDay: string): {
     loadScheme: 'heavy', repRange: 'low',
   };
   if (mdDay === 'MD-3') return {
-    profile: 'Speed day. Light load, maximal velocity. Quality over quantity.',
-    loadScheme: 'light', repRange: 'high',
+    profile: 'Structural day. Moderate load, higher reps, eccentric emphasis. DOMS peaks at 48h — will be fully cleared by match day.',
+    loadScheme: 'moderate', repRange: 'medium',
   };
   if (mdDay === 'MD-2') return {
     profile: 'Conditioning day. Moderate effort, low-impact cross-training only.',
@@ -170,12 +170,9 @@ const WARMUP_NEURAL = [
     { intensityIntent: 'moderate' }),
 ];
 
-const WARMUP_SPEED = [
-  ex('Butt Kicks', '2', '20m', '20s', 'Heel to glute. Hips tall — no forward hinge.',
-    { intensityIntent: 'moderate' }),
-  ex('Build-Up Sprint 60→80→90%', '3', '30m', '60s', 'Smooth ramp. Feel rhythm build. No flying start.',
-    { intensityIntent: 'submaximal' }),
-];
+// WARMUP_SPEED retained as reference for future speed-day sessions
+const WARMUP_SPEED_REF = null as unknown as ProgrammeExercise[];
+void WARMUP_SPEED_REF;
 
 const WARMUP_STRENGTH = [
   ex('Ankle Circles + Eccentric Calf Raise', '1', '10 each direction', '', 'Full dorsiflexion range. 3s lowering on the calf.',
@@ -1296,33 +1293,39 @@ function recoverySession(dow: string): ProgrammeSession {
   return {
     mdDay: 'MD+1',
     dayOfWeek: dow,
-    objective: 'Active recovery — flush metabolic waste, restore ROM, prepare for the week ahead.',
-    readinessNote: 'MD+1 is always low load regardless of readiness. Protect your body — gains happen in recovery.',
-    durationMin: 35,
-    fvProfile: 'Recovery — no F-V output. Movement only.',
+    objective: 'MD+1 — Active Recovery. Objective: analgesia (pain reduction) and clearing metabolites. Yielding isometrics and concentric-only cardio only. No eccentric loading — muscle fibres are already dealing with micro-tears from the match.',
+    readinessNote: 'MD+1 is ALWAYS low load regardless of readiness score. The biggest mistake is passive stretching or heavy eccentric lifting today. Muscle fibres are already dealing with micro-tears from the match. Protect them.',
+    durationMin: 30,
+    fvProfile: 'Recovery — yielding isometrics and concentric cardio only. Zero eccentric load.',
     blocks: [
       {
-        title: '🔄 Soft Tissue + Mobility',
-        methodFocus: 'Parasympathetic — connective tissue quality and ROM restoration',
+        title: '🚴 Concentric Cardio (15 min)',
+        methodFocus: 'Bike or easy walk — concentric only. Flushes the legs without stretching torn tissue. HR below 120 bpm throughout. This is not a training stimulus.',
         exercises: [
-          ex('Foam Roll: Quads, Hamstrings, IT Band, Calves', '1', '90s each area', '', 'Slow rolls. Pause on tender spots 5–10s.',
-            { methodType: 'mixed', intensityIntent: 'controlled' }),
-          ex('Static Hip Flexor Stretch', '1', '60s each side', '', 'Tall kneeling. Posterior pelvic tilt. Feel front of hip.',
-            { methodType: 'isometric', intensityIntent: 'controlled' }),
-          ex('Supine Piriformis Stretch', '1', '60s each side', '', 'Figure-4. Pull knee toward opposite shoulder gently.',
-            { methodType: 'isometric', intensityIntent: 'controlled' }),
+          ex('Low-Intensity Cycling or Easy Walk', '1', '15 min at RPE 2–3', '', 'HR below 120 bpm. Legs should feel slightly better after this, not worse. Pedal with low resistance — this is a metabolite flush, not a workout.',
+            { intensityIntent: 'controlled' }),
         ],
       },
       {
-        title: '⚡ Light Activation',
-        methodFocus: 'Neural — light concentric to promote blood flow without load',
+        title: '🧘 Yielding Isometric Holds',
+        methodFocus: 'Isometric holds at RPE 3–4 — should feel like a warm hug for the joints, not a workout. No eccentric loading. 2 sets × 45 seconds.',
         exercises: [
-          ex('Glute Bridge (Light)', '2', '15', '30s', 'Blood flow only. Not a strength exercise.',
-            { methodType: 'concentric', intensityIntent: 'moderate' }),
-          ex('Band Clamshell', '2', '15 each', '30s', 'Light band. Hip external rotation. Activate without loading.',
-            { methodType: 'concentric', intensityIntent: 'moderate' }),
-          ex('Light Bike or Walk', '1', '20 min at 55–65% max HR', '', 'HR below 130 bpm throughout. Active recovery — promotes blood flow without adding fatigue.',
-            { intensityIntent: 'moderate' }),
+          ex('Single-Leg Glute Bridge Hold', '2', '45s each side', '60s', 'Shoulders on floor, hips extended, squeeze glute. RPE 3–4 — this is analgesia, not strength training. Breathe steadily. The goal is blood flow and pain reduction, not force production.',
+            { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+          ex('Wall Sit (Bilateral)', '2', '45s', '60s', 'Back flat against wall. Knees at 90°. RPE 3–4. Quadriceps isometric hold — reduces muscle soreness without adding eccentric damage. Breathe steadily throughout.',
+            { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+          ex('Prone Hamstring Isometric Hold', '2', '45s each side', '60s', 'Face down, ankle hooked under a fixed surface. Pull heel toward glute and hold. RPE 3–4. Hamstring isometric at mid-length — reduces DOMS without the eccentric loading that would add more micro-damage.',
+            { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+        ],
+      },
+      {
+        title: '🔄 Hip & Ankle Mobility',
+        methodFocus: 'Restore range of motion — gentle, non-fatiguing. Match soreness reduces ROM; restore it slowly.',
+        exercises: [
+          ex('Hip 90/90 Mobilisation', '1', '60s each side', '', 'Breathe into end range. Never force it. Restore hip ROM lost from match day.',
+            { methodType: 'isometric', intensityIntent: 'controlled' }),
+          ex('Supine Knee Hug + Ankle Circle', '1', '30s each side', '', 'Pull knee to chest. Circle ankle through full range. Light and parasympathetic.',
+            { methodType: 'mixed', intensityIntent: 'controlled' }),
         ],
       },
     ],
@@ -1332,59 +1335,83 @@ function recoverySession(dow: string): ProgrammeSession {
 // ── Neural priming session (MD-1) ──────────────────────────────────────────
 
 function primingSession(dow: string, position: string, playStyle: string): ProgrammeSession {
+  // Position-specific priming per HPP philosophy:
+  // MD-1 is neurology, not muscle damage. Biomechanical execution matches primary match-day demands.
+  // Protocol: 2 sets × 2–3 reps, bodyweight or very light load. Post-Activation Potentiation, zero metabolic cost.
   const positionPriming: Partial<Record<string, ProgrammeExercise[]>> = {
-    GK: [ex('Lateral Bound + Stick', '3', '3 each way', '2:00', 'Explosive bound. Stick landing 1s. Prime reaction patterns.',
-      { methodType: 'reactive', intensityIntent: 'explosive' })],
-    W: [ex('Block Start Acceleration', '4', '10m', '2:00', '3-point start. Max intent. Short and sharp. Fire the CNS.',
-      { methodType: 'concentric', intensityIntent: 'explosive' })],
-    ST: [ex('5m Explosive Burst', '5', '5m', '90s', 'From varied stances. Max first step. Neural sharpness only.',
-      { methodType: 'reactive', intensityIntent: 'explosive' })],
+    CM: [
+      ex('Lateral Pogo Jumps', '2', '5s (rapid)', '2:00', 'Ankles stiff, minimal ground contact. Rapid low-amplitude lateral hops. Multi-directional tendon stiffness — midfielders need fast elastic response in all planes. 5 seconds of continuous rapid hops, full CNS reset between sets.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Low-Amplitude Drop Jump', '2', '3 reps', '2:00', 'Step off a low box (15–20cm), land and immediately explode up. Minimal ground contact time. CNS priming only — not a conditioning exercise. Full 2-minute rest between sets.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    ST: [
+      ex('Medicine Ball Broad Toss', '2', '3 reps', '2:00', 'Heavy medicine ball (4–6kg). Maximum horizontal displacement. Drive from the hips, not the arms. Horizontal Rate of Force Development — the same motor pattern as first-step acceleration. Full rest between reps.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Light Sled Push (10m)', '2', '10m', '2:30', 'Light load — you should be able to sprint the sled, not grind it. Low body angle. This is a neural primer, not a strength exercise. Maximum velocity on every push. Full rest.',
+        { methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    CB: [
+      ex('Trap Bar Jump', '2', '3 reps', '2:00', '20% of 1RM trap bar deadlift load. Drive explosively from the floor — land softly. Vertical power and tendon stiffness for aerial duels. Maximum jump height every rep. Full reset between reps.',
+        { intensity: '20% 1RM', methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Vertical Countermovement Jump (CMJ)', '2', '3 reps', '2:00', 'Arms back, deep dip, drive through ceiling. Max height every rep. Stick landing 1 second. Post-Activation Potentiation — primes the same motor units used to win aerial duels tomorrow.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    GK: [
+      ex('Explosive Lateral Bound + Stick', '2', '3 each way', '2:00', 'Push off outside foot explosively. Stick landing 1 second on inside foot. Simulates save-and-reset. PAP for reaction saves.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    FB: [
+      ex('Block Start Acceleration', '2', '10m', '2:00', 'From 3-point position. Maximum first-step intent. 10m only — this is a neural primer, not sprint conditioning. Full rest.',
+        { methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    W: [
+      ex('Block Start Acceleration', '2', '10m', '2:00', 'Maximum intent from stationary. 10m sharp. Your primary weapon tomorrow is max velocity — wake up those fast-twitch units today.',
+        { methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
   };
 
   const styleNote = playStyle === 'counter-attack'
-    ? 'Pay particular attention to transition speed — tomorrow\'s game may require explosive acceleration quickly.'
+    ? 'Counter-attack play style: pay particular attention to transition speed cues tomorrow.'
     : playStyle === 'press-heavy'
-    ? 'Priming mirrors the press demands — short, sharp, full effort, immediate recovery.'
+    ? 'Press-heavy style: priming mirrors press triggers — short, sharp, full effort, immediate reset.'
     : 'Neural priming only. Low volume, maximum quality. Arrive tomorrow sharp, not heavy.';
 
   return {
     mdDay: 'MD-1',
     dayOfWeek: dow,
-    objective: `MD-1 — Neural priming — activate fast-twitch fibres without accumulating fatigue. ${styleNote}`,
-    readinessNote: 'MD-1 is always low load. Do NOT add volume regardless of readiness score.',
-    durationMin: 30,
-    fvProfile: 'Speed end of F-V curve — submaximal load, maximal intent, zero accumulated fatigue.',
+    objective: `MD-1 — Priming Session. Objective: wake up the nervous system (Post-Activation Potentiation) with zero metabolic cost. 2 sets × 2–3 reps. Bodyweight or very light load only. ${styleNote}`,
+    readinessNote: 'MD-1 is ALWAYS low load — do NOT add sets or intensity regardless of readiness score. The goal is CNS activation, not fatigue. You should leave this session feeling MORE energetic than when you arrived.',
+    durationMin: 25,
+    fvProfile: 'Speed end of F-V curve — light load, maximal velocity intent, zero accumulated fatigue.',
     blocks: [
       {
-        title: '🔥 Movement Prep',
-        methodFocus: 'Mobility and CNS ramp — prepare joints and nervous system',
+        title: '🔥 Movement Prep (8 min)',
+        methodFocus: 'Mobility and CNS ramp — prepare joints and nervous system. Light and fast.',
         exercises: [
-          ...WARMUP_MOBILITY.slice(0, 2),
-          ex('A-Skip', '2', '20m', '30s', 'Neural warm-up. Crisp mechanics. Light and fast.',
+          ex('Hip 90/90 Mobilisation', '1', '30s each side', '', 'Restore hip ROM. Breathe into end range.',
+            { methodType: 'isometric', intensityIntent: 'controlled' }),
+          ex('A-Skip', '2', '20m', '30s', 'Crisp mechanics. Knee to hip height. Neural warm-up.',
             { intensityIntent: 'moderate' }),
+          ex('Build-Up Sprint 50→70→85%', '2', '20m', '60s', 'Smooth ramp — feel the nervous system wake up. No flying start. Stop at 85%.',
+            { intensityIntent: 'submaximal' }),
         ],
       },
       {
-        title: '⚡ Neural Priming',
-        methodFocus: 'Fast-twitch activation — explosive quality, not conditioning',
-        exercises: [
-          ...(positionPriming[position] ?? [
-            ex('Build-Up Sprint 60→80→90%', '4', '30m', '90s', 'Smooth ramp. Wake up the nervous system.',
-              { methodType: 'concentric', intensityIntent: 'submaximal' }),
-            ex('10m Acceleration Sprint', '3', '10m', '2:00', 'From walking start. Sharp first step. Full rest.',
-              { methodType: 'concentric', intensityIntent: 'explosive' }),
-          ]),
-          ex('CMJ × 3 reps', '1', '3 reps', '2:00', 'Explosive jumps. Full rest between. Neural activation — not conditioning.',
+        title: '⚡ Position-Specific Neural Priming',
+        methodFocus: 'Post-Activation Potentiation — biomechanical execution matches your primary match-day demands. 2 sets only. Full CNS recovery between sets.',
+        exercises: positionPriming[position] ?? [
+          ex('Countermovement Jump', '2', '3 reps', '2:00', 'Max height. Stick landing 1s. Full rest between reps. Neural activation only.',
             { methodType: 'reactive', intensityIntent: 'explosive' }),
         ],
       },
       {
         title: '🛡️ Pre-Match Prehab',
-        methodFocus: 'Eccentric and isometric — protect the soft tissue ahead of match demands',
+        methodFocus: 'Sub-maximal eccentric and isometric — protect soft tissue, not stimulate it.',
         exercises: [
-          ex('Nordic Hamstring Curl (2 reps — sub-max)', '1', '2 reps', '', 'Light activation only. Protect for match day.',
-            { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'submaximal' }),
-          ex('Hip 90/90 Mobilisation', '1', '30s each side', '', 'Restore hip ROM before tomorrow\'s game.',
+          ex('Nordic Hamstring Curl (Sub-Max)', '1', '2 reps', '', '3s lowering — sub-maximal effort only. Tissue protection before match day, not a strength stimulus.',
+            { tempo: '3-0-x-0', methodType: 'eccentric', intensityIntent: 'submaximal' }),
+          ex('Hip 90/90 Mobilisation', '1', '30s each side', '', 'Final hip ROM restoration before tomorrow\'s game.',
             { methodType: 'isometric', intensityIntent: 'controlled' }),
         ],
       },
@@ -1395,24 +1422,24 @@ function primingSession(dow: string, position: string, playStyle: string): Progr
 // ── Session objective labels ───────────────────────────────────────────────
 
 const MD4_OBJ: Record<string, string> = {
-  Foundation: 'Strength day. Establish movement patterns and build your foundational base. Focus on quality, not just load.',
-  Build: 'Strength day. Increase load with position-specific power work. This is where your main physical gains are made.',
-  'Strength & Power': 'Strength day. Peak force production. High neural demand. Take full rest between every main set.',
-  Peak: 'Strength day. Express the strength you have built. High intent, reduced volume.',
+  Foundation: 'High Demand Strength Day — CNS is freshest here. Objective: max strength and high-threshold motor unit recruitment. 2 working sets, 3–5 reps, 85%+ 1RM. RIR 1–2: bar moves with intent, not a grind.',
+  Build: 'High Demand Strength Day — further from match means heavier load. Drive strength adaptation today: 2 working sets, 85%+ 1RM, explosive concentric intent. This is where physical gains are made.',
+  'Strength & Power': 'High Demand Strength Day — peak force production. 2 working sets at the heaviest loads of the programme. Every rep is neural — treat it that way.',
+  Peak: 'High Demand Strength Day — express peak strength. Reduced volume, maximum intensity. 2 sets, 2–3 reps, 90%+ 1RM.',
 };
 
 const MD3_OBJ: Record<string, string> = {
-  Foundation: 'Speed day. Develop your acceleration mechanics and position-specific movement patterns.',
-  Build: 'Speed day. Build maximum velocity. Position-specific sprinting at near-maximum effort.',
-  'Strength & Power': 'Speed day. Peak sprint session. Flying sprints and maximum velocity work.',
-  Peak: 'Speed day. Sharpen your speed. Low volume, high quality. Stay fresh.',
+  Foundation: 'Structural Day — tissue architecture and fascicle length. 2–3 sets, 5–8 reps, 70–80% 1RM. Eccentric emphasis: DOMS peaks at 48h, so by match day it is completely cleared. Structural resilience is built today.',
+  Build: 'Structural Day — drive hypertrophy and fascicle length adaptation. Moderate load, higher reps, eccentric tempo. DOMS from today\'s eccentric work peaks at 48h — gone by Saturday. This is the science of smart scheduling.',
+  'Strength & Power': 'Structural Day — maintain tissue quality under an accumulating programme. 2–3 sets, 5–8 reps, 70–80% 1RM. Eccentric slider curls and single-leg RDLs are the priority.',
+  Peak: 'Structural Day — minimum effective dose. 2 sets, 6–8 reps. Maintain fascicle length without generating new fatigue.',
 };
 
 const MD2_OBJ: Record<string, string> = {
-  Foundation: 'Conditioning day. Build your aerobic base and reinforce movement quality. Moderate effort throughout.',
-  Build: 'Conditioning day. Position-specific aerobic work. Build repeated-effort capacity for match demands.',
-  'Strength & Power': 'Conditioning day. Develop your work capacity without leaving fatigue that carries into match day.',
-  Peak: 'Conditioning day. Short, sharp and focused. Stay crisp.',
+  Foundation: 'The Forbidden Zone — 2 days from match. Zero heavy lifting. The pitch is the priority today. Micro-dosed power only: 2 sets × 3 reps at 30–40% 1RM, maximal velocity. No fatigue carryover.',
+  Build: 'The Forbidden Zone — 2 days from match. No heavy mechanical load. This is usually the heaviest tactical and sprint day on the pitch. Micro-dosed power only to maintain CNS sharpness without generating fatigue.',
+  'Strength & Power': 'The Forbidden Zone — 2 days from match. Protect the legs entirely. If anything, micro-dosed power: 2 × 3 at 30–40% 1RM at max intent. Walk out of here fresh.',
+  Peak: 'The Forbidden Zone — 2 days from match. Zero gym fatigue. Rest, eat, sleep. Arrive Saturday sharp.',
 };
 
 // ── Main session builder ───────────────────────────────────────────────────
@@ -1437,10 +1464,10 @@ function buildSession(
   const upperEx = UPPER[phase] ?? UPPER.Build;
 
   const posKey = position as PosKey;
-  const posSpeedEx = POSITION_SPEED[posKey] ?? [];
-  const accelEx = SPEED_ACCELERATION[phase] ?? SPEED_ACCELERATION.Foundation;
-  const condExMD3 = CONDITIONING[posKey]?.[phase] ?? CONDITIONING.CM.Foundation;
-  const condExMD2 = CONDITIONING_MD2[posKey]?.[phase] ?? CONDITIONING_MD2.CM.Foundation;
+  void (POSITION_SPEED[posKey] ?? []);   // retained for future use
+  void (SPEED_ACCELERATION[phase] ?? SPEED_ACCELERATION.Foundation);
+  void (CONDITIONING[posKey]?.[phase] ?? CONDITIONING.CM.Foundation);
+  void (CONDITIONING_MD2[posKey]?.[phase] ?? CONDITIONING_MD2.CM.Foundation);
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
   const weaknessEx = WEAKNESS_EX[biggestWeakness]?.slice(0, 2) ?? [];
 
@@ -1531,85 +1558,129 @@ function buildSession(
     };
   }
 
-  // MD-3: Speed FIRST (fresh CNS) → Conditioning → Tendon/SSC (light) → Eccentric (last)
-  // Science: max velocity requires the freshest possible nervous system — performed before any other work.
+  // MD-3: Structural Day — tissue architecture and fascicle length
+  // Science: 2–3 sets, 5–8 reps, 70–80% 1RM, eccentric emphasis.
+  // DOMS peaks at 48h — by match day (Saturday) it will be completely cleared.
+  // This day is structural resilience, NOT speed. Speed day is dead — the pitch handles speed.
   if (slot.mdDay === 'MD-3') {
-    const gymKey = (gymAccess as GymKey) in TENDON_SSC_BLOCK ? (gymAccess as GymKey) : 'basic';
+    const gymKey = (gymAccess as GymKey) in ECCENTRIC_BLOCK ? (gymAccess as GymKey) : 'basic';
+
+    // Structural exercises: eccentric slider curls, single-leg RDLs — the HPP MD-3 staples
+    const structuralExercises: Record<GymKey, ProgrammeExercise[]> = {
+      full: [
+        ex('Eccentric Slider Curl (Nordic Variation)', '3', '6', '2:30', '3–4 second eccentric lowering on the slider. This is a fascicle-length exercise — the slow eccentric under load is what lengthens the sarcomeres. DOMS will peak in 48 hours. By Saturday, it is gone. This is why we do it today.',
+          { intensity: '70–80% effort', tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Single-Leg Romanian Deadlift', '3', '8 each', '2:00', 'Hinge to mid-shin with full control. Slow eccentric — 3s lowering. Hamstring fascicle length adaptation. Moderate load only: this is structural work, not a max strength stimulus. 70–80% 1RM.',
+          { intensity: '70–80% 1RM', tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Bulgarian Split Squat (Structural)', '2', '8 each', '2:00', 'Rear foot elevated. 3s eccentric descent. Tissue architecture — quad and hip flexor fascicle adaptation. Moderate load. Drive hips through at the top.',
+          { intensity: '70–80% 1RM', tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+      ],
+      basic: [
+        ex('Slider Hamstring Curl (Eccentric)', '3', '6', '2:30', '4s eccentric lowering on a slider (or smooth surface with socks). Fascicle-length exercise — slow eccentric under load is the adaptation stimulus. DOMS peaks 48h, gone by Saturday. This is why MD-3 is structural.',
+          { intensity: 'Bodyweight + slider', tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Single-Leg Romanian Deadlift (DB)', '3', '8 each', '2:00', 'Hinge to mid-shin. 3s controlled descent. Hamstring fascicle length — structural resilience at the hip hinge pattern. Moderate DB load.',
+          { intensity: 'Moderate DB', tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Rear-Foot Elevated Split Squat (Slow Eccentric)', '2', '8 each', '2:00', 'Rear foot on bench. 3s descent. Quad fascicle length. Drive hips through at top. Moderate load.',
+          { intensity: 'Moderate DB', tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+      ],
+      none: [
+        ex('Bodyweight Nordic Hamstring Curl (Eccentric Only)', '3', '6', '2:30', '4s eccentric lowering — fight the fall completely. Fascicle-length adaptation: sarcomeres lengthened under tension → wider operating range → reduced hamstring strain risk. DOMS peaks 48h, cleared by Saturday.',
+          { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Single-Leg RDL (Bodyweight)', '3', '8 each', '2:00', '3s eccentric lowering. Touch floor with fingertips. Hamstring fascicle length at the hip hinge. Add a backpack if too easy.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Slow Eccentric Split Squat', '2', '8 each', '90s', '3s eccentric descent. Full depth. Drive through front heel. Quad fascicle adaptation.',
+          { tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+      ],
+    };
+
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
       objective: `MD-3 — ${MD3_OBJ[phase] ?? MD3_OBJ.Build}`,
-      readinessNote, durationMin,
-      fvProfile: fv.profile,
+      readinessNote: readinessNote + ' MD-3 structural work: eccentric DOMS peaks at 48h — by match day it is gone. This timing is deliberate.',
+      durationMin: 55, fvProfile: fv.profile,
       blocks: [
         {
-          title: '🔥 Sprint Prep (15 min)',
-          methodFocus: 'CNS ramp — progressive velocity build before maximum-speed work',
-          exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_SPEED],
+          title: '🔥 Warm-Up (10 min)',
+          methodFocus: 'Mobility and light activation — prepare joints for eccentric loading',
+          exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 1)],
         },
         {
-          title: '⚡ Max Velocity / Speed — Fresh CNS First',
-          methodFocus: 'Maximum velocity requires a completely fresh nervous system — always performed before any other fatiguing work. This is your primary stimulus today.',
-          exercises: [...accelEx.slice(0, 2), ...(posSpeedEx.slice(0, 1))],
+          title: '🏗️ Structural Block — Fascicle Length & Hypertrophy',
+          methodFocus: `Eccentric emphasis — 2–3 sets, 5–8 reps, 70–80% 1RM. DOMS peaks at 48h. By ${slot.dayOfWeek === 'Wednesday' ? 'Saturday' : 'match day'} it will be gone. This is the science of smart scheduling.`,
+          exercises: applyReadiness(structuralExercises[gymKey], readiness.level, readiness.intensityNote),
         },
         {
-          title: '🎯 Weakness Focus',
-          methodFocus: `${biggestWeakness} — maintained at minimum effective dose on speed day`,
-          exercises: weaknessEx.slice(0, 1),
-        },
-        {
-          title: '🦴 Tendon Maintenance (1 exercise)',
-          methodFocus: 'Single heavy isometric — maintains tendon stiffness adaptation on speed day without accumulating fatigue',
+          title: '🦴 Tendon Maintenance',
+          methodFocus: 'Single heavy isometric — maintain tendon stiffness adaptation without accumulating fatigue',
           exercises: [TENDON_SSC_BLOCK[gymKey][0]],
         },
         {
-          title: '🔴 Eccentric Block',
-          methodFocus: 'Eccentric loading always before conditioning — Nordic Curl fascicle length adaptation is non-negotiable even on speed days.',
-          exercises: ECCENTRIC_BLOCK[gymKey].slice(0, 2),
+          title: '🎯 Weakness Focus',
+          methodFocus: `${biggestWeakness} — maintained at minimum effective dose on structural day`,
+          exercises: weaknessEx.slice(0, 1),
         },
         {
-          title: '🏃 Conditioning — Always Last',
-          methodFocus: 'Aerobic / anaerobic capacity — sport-specific HR zone training. Always performed after eccentric work, never before.',
-          exercises: applyReadiness([condExMD3], readiness.level, readiness.intensityNote),
+          title: '🔴 Eccentric Block — Always Last',
+          methodFocus: 'Nordic Curl and Copenhagen Plank — non-negotiable. Fascicle length adaptation is the primary mechanism reducing hamstring and groin strain risk.',
+          exercises: ECCENTRIC_BLOCK[gymKey],
         },
       ],
     };
   }
 
-  // MD-2: LOW-IMPACT cross-training + technical speed + weakness + eccentric (last)
-  // Science: 2 days before match → must avoid muscular fatigue carryover.
-  // Bike / pool / ergometer only — maintains aerobic sharpness without loading sprint muscles.
+  // MD-2: THE FORBIDDEN ZONE — 2 days from match.
+  // Objective: ZERO gym fatigue. This is the heaviest tactical/sprint day on the pitch.
+  // No heavy lifting. Micro-dosed power only if needed: 2 sets × 3 reps at 30–40% 1RM, max velocity.
   if (slot.mdDay === 'MD-2') {
     const gymKey = (gymAccess as GymKey) in ECCENTRIC_BLOCK ? (gymAccess as GymKey) : 'basic';
+
+    // Micro-dosed power: light load, maximum velocity intent. This is CNS maintenance only.
+    const microPowerEx: Record<GymKey, ProgrammeExercise[]> = {
+      full: [
+        ex('Jump Squat (30–40% 1RM)', '2', '3 reps', '3:00', 'Load bar at 30–40% of your squat 1RM. Drive explosively from the floor. Land softly. Maximum velocity intent on every rep. This is CNS maintenance — 2 sets, 3 reps, then walk away. Do NOT add volume.',
+          { intensity: '30–40% 1RM', tempo: '1-0-x-0', methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Hip Thrust (Speed Focus)', '2', '3 reps', '3:00', '30–40% of your hip thrust 1RM. Explosive drive — bar should move fast. Maximum velocity of movement. 2 sets only. Maintain CNS sharpness without leaving any fatigue.',
+          { intensity: '30–40% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'explosive' }),
+      ],
+      basic: [
+        ex('Explosive DB Goblet Squat Jump', '2', '3 reps', '3:00', 'Light DB (20–30% of normal goblet squat load). Explosive drive from the floor — leave the ground. Maximum intent on every rep. 2 sets, 3 reps only. Walk away.',
+          { intensity: 'Light DB — max velocity', methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('DB Hip Thrust (Speed Focus)', '2', '3 reps', '3:00', 'Light DB on hips — 30–40% of normal. Drive hips through as explosively as possible. 2 sets, 3 reps. CNS maintenance only.',
+          { intensity: '30–40% normal load', methodType: 'concentric', intensityIntent: 'explosive' }),
+      ],
+      none: [
+        ex('Countermovement Jump', '2', '3 reps', '3:00', 'Bodyweight. Maximum height every rep. Full CNS reset between reps. 2 sets, 3 reps — then done. Micro-dosed CNS maintenance.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+        ex('Broad Jump', '2', '3 reps', '3:00', 'Maximum horizontal displacement. Stick the landing. Full reset between reps. 2 sets only.',
+          { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ],
+    };
+
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
-      objective: `MD-2 — ${MD2_OBJ[phase] ?? MD2_OBJ.Build} Low-impact cross-training only — protect legs for match day.`,
-      readinessNote: readinessNote + ' MD-2: bike or pool conditioning only. No running.',
-      durationMin, fvProfile: fv.profile,
+      objective: `MD-2 — ${MD2_OBJ[phase] ?? MD2_OBJ.Build}`,
+      readinessNote: 'MD-2: THE FORBIDDEN ZONE. Do NOT lift heavy regardless of how good you feel. The pitch is the priority today. If anything, micro-dosed power only (2 sets × 3 reps, 30–40% 1RM, max velocity) — then leave. Your job today is to arrive at Saturday fresh.',
+      durationMin: 30, fvProfile: fv.profile,
       blocks: [
         {
-          title: '🔥 Warm-Up (10 min)',
-          methodFocus: 'Aerobic ramp — elevate HR progressively, minimal impact',
-          exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_NEURAL.slice(0, 2)],
+          title: '🔥 Minimal Warm-Up (8 min)',
+          methodFocus: 'Light activation only — prepare for micro-dosed power work',
+          exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_NEURAL.slice(0, 1)],
         },
         {
-          title: '🚴 Low-Impact Conditioning',
-          methodFocus: 'Bike / pool — maintain aerobic sharpness without fatigue carryover into match',
-          exercises: applyReadiness([condExMD2], readiness.level, readiness.intensityNote),
+          title: '⚡ Micro-Dosed Power (2 sets × 3 reps only)',
+          methodFocus: 'Maximum velocity intent at 30–40% 1RM. CNS maintenance — NOT a training stimulus. 2 sets, 3 reps, full rest. Then leave.',
+          exercises: microPowerEx[gymKey],
         },
         {
-          title: '⚡ Technical Speed (Low Volume)',
-          methodFocus: 'Reactive — position-specific patterns at match velocity. Max 1 exercise, full recovery. MD-2: volume is minimal.',
-          exercises: (posSpeedEx.length > 0 ? posSpeedEx.slice(0, 1) : accelEx.slice(0, 1)),
-        },
-        {
-          title: '🎯 Weakness Focus (Maintenance)',
-          methodFocus: `${biggestWeakness} — 1 exercise only. Maintain stimulus, do not accumulate fatigue before match.`,
-          exercises: weaknessEx.slice(0, 1),
-        },
-        {
-          title: '🔴 Eccentric Block — Always Last',
-          methodFocus: 'Nordic Curl maintained on MD-2 — 2 sets only. Eccentric stimulus preserved without fatiguing the system before match day.',
-          exercises: ECCENTRIC_BLOCK[gymKey].slice(0, 2),
+          title: '🛡️ Pre-Match Prehab (Minimal)',
+          methodFocus: 'Isometric only — maintain tissue quality without adding fatigue.',
+          exercises: [
+            ex('Isometric Hip Flexor Hold (Kneeling)', '1', '30s each side', '', 'Tall kneeling, posterior pelvic tilt. Light isometric — maintain hip flexor length ahead of match day. Not a strength exercise.',
+              { methodType: 'isometric', intensityIntent: 'controlled' }),
+            ex('Copenhagen Plank Hold', '1', '20s each side', '', 'Adductor maintenance — sub-maximal. 20 seconds only. Protect the groin for tomorrow.',
+              { methodType: 'isometric', intensityIntent: 'controlled' }),
+          ],
         },
       ],
     };
@@ -1654,7 +1725,7 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
     ? ` Your ${inputs.playStyle.replace(/-/g, '-')} play style is reflected in position-specific speed patterns and conditioning protocols.`
     : '';
   const doubleGameWeekNote = inputs.secondMatchDay
-    ? `\n\nDouble game week awareness: your schedule includes a second match day (${inputs.secondMatchDay}). On weeks with two games, MD-3 volume is reduced — treat that session as neural priming rather than a loading day. Prioritise recovery between matches: sleep, nutrition, and soft-tissue work take precedence over hitting prescribed sets. If fatigue is high before the second game, drop to the moderate readiness protocol regardless of your score.`
+    ? `\n\nDouble game week — Survival Mode: your schedule includes a second match day (${inputs.secondMatchDay.charAt(0).toUpperCase() + inputs.secondMatchDay.slice(1)}). When two matches fall within 4 days, the HPP rule is simple: you cannot build fitness, you can only mitigate fatigue. MD-4 and MD-3 strength blocks are completely deleted from the algorithm in double-game weeks. MD+1 becomes recovery only (isometrics + bike). MD-1 becomes neural priming only — zero heavy lifting. The pitch is the only priority. Sleep, nutrition and soft-tissue work take precedence over prescribed sets.`
     : '';
 
   return `This ${totalWeeks}-week programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session uses a three-method structure. Concentric work builds force production, eccentric work creates structural resilience and reduces injury risk, and isometric work develops joint stability. All three are trained throughout the programme.\n\nSessions are structured around your match schedule. The heaviest training falls furthest from match day, and load is progressively reduced as the game approaches. This protects performance on the pitch while ensuring consistent physical development across the week.${doubleGameWeekNote}\n\n${readinessLine}`;
