@@ -384,7 +384,7 @@ export default function App() {
           <GeneratedProgramme
             programme={prog}
             isActive={store.activeProgrammeId === prog.id}
-            onBack={() => navigate({ screen: 'dashboard' })}
+            onBack={() => navigate({ screen: 'plans' })}
             onRebuild={() => navigate({ screen: 'programme-builder' })}
             onApply={() => {
               store.setActiveProgrammeId(prog.id);
