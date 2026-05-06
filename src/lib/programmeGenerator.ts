@@ -177,7 +177,7 @@ void WARMUP_SPEED_REF;
 const WARMUP_STRENGTH = [
   ex('Ankle Circles + Eccentric Calf Raise', '1', '10 each direction', '', 'Full dorsiflexion range. 3s lowering on the calf.',
     { methodType: 'eccentric', intensityIntent: 'controlled', tempo: '3-0-1-0' }),
-  ex('Goblet Squat (Bodyweight)', '2', '10', '30s', 'Elbows inside knees at the bottom. Drive knees out. Full depth.',
+  ex('Air Squat (Activation)', '2', '10', '30s', 'Elbows inside knees at the bottom. Drive knees out. Full depth. No equipment needed — bodyweight only.',
     { methodType: 'concentric', intensityIntent: 'controlled', tempo: '3-0-1-0' }),
   ex('Prone T-Y-I (Scapular Activation)', '2', '8 each shape', '20s', 'Lie face down. For T: arms out to sides, thumbs up. Y: arms 45° overhead. I: arms overhead. Squeeze shoulder blades on each rep. No equipment needed — scapular stability for every training environment.',
     { methodType: 'concentric', intensityIntent: 'moderate' }),
@@ -669,7 +669,7 @@ const POSITION_SPEED: Partial<Record<PosKey, ProgrammeExercise[]>> = {
 
 const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
   'box-to-box': [
-    ex('45s AMRAP (Goblet Squat + Lateral Jump + Sprint 10m)', '4', '45s on / 45s off', '45s', 'Simulate box-to-box demands. Quality through fatigue.',
+    ex('45s AMRAP (Air Squat + Lateral Jump + Sprint 10m)', '4', '45s on / 45s off', '45s', 'Simulate box-to-box demands. Quality through fatigue. Bodyweight squat + lateral jump + 10m sprint — no equipment needed.',
       { methodType: 'mixed', intensityIntent: 'submaximal' }),
   ],
   'direct': [
@@ -1235,9 +1235,10 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
   strength: [
     // Concentric strength work only — eccentrics belong in the Eccentric block.
     // These go at the END of the Maximum Strength block, after vertical + horizontal compound lifts.
-    ex('Paused Squat', '2', '3', '3:00', '2s pause at bottom — maintain tension. Explosive up. Complements the main compound lift. 2 sets only: supplemental, not the priority.',
-      { intensity: '75% 1RM', tempo: '1-2-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
-    ex('Isometric Split Squat Hold', '1', '40s each', '2:00', 'Bottom position hold. Tendon stiffness and joint stability. 1 set — maintenance dose at the end of the strength block.',
+    // Bodyweight-compatible (no barbell/DB required): 2s pause = tension + intent without load.
+    ex('Paused Squat (2s Bottom Hold)', '2', '5', '3:00', '2s pause at the bottom — maintain full tension throughout. Explosive drive up. Works with bodyweight or any load available. Supplemental only: 2 sets after the main compounds.',
+      { tempo: '1-2-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    ex('Isometric Split Squat Hold', '1', '40s each', '2:00', 'Bottom position hold. Tendon stiffness and joint stability. 1 set — maintenance dose at the end of the strength block. Bodyweight only.',
       { tempo: '0-40s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
   ],
   endurance: [
