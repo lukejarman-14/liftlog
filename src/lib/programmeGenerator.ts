@@ -162,7 +162,7 @@ const WARMUP_MOBILITY = [
 ];
 
 const WARMUP_NEURAL = [
-  ex('Lateral Band Walk', '2', '15 steps each way', '30s', 'Feet hip-width. Constant band tension. Knees track over toes.',
+  ex('Lateral Shuffle', '2', '15 steps each way', '30s', 'Stay low — hips below shoulders. Push off outside foot each step. Do not cross feet. Groin activation and lateral movement prep.',
     { methodType: 'concentric', intensityIntent: 'moderate' }),
   ex('A-Skip', '2', '2 × 20m', '30s', 'Knee to hip height. Claw foot back down. Tall posture, relaxed shoulders.',
     { intensityIntent: 'moderate' }),
@@ -179,7 +179,7 @@ const WARMUP_STRENGTH = [
     { methodType: 'eccentric', intensityIntent: 'controlled', tempo: '3-0-1-0' }),
   ex('Goblet Squat (Bodyweight)', '2', '10', '30s', 'Elbows inside knees at the bottom. Drive knees out. Full depth.',
     { methodType: 'concentric', intensityIntent: 'controlled', tempo: '3-0-1-0' }),
-  ex('Band Pull-Apart', '2', '15', '20s', 'Retract scapulae. Thumbs pointing back at full range.',
+  ex('Prone T-Y-I (Scapular Activation)', '2', '8 each shape', '20s', 'Lie face down. For T: arms out to sides, thumbs up. Y: arms 45° overhead. I: arms overhead. Squeeze shoulder blades on each rep. No equipment needed — scapular stability for every training environment.',
     { methodType: 'concentric', intensityIntent: 'moderate' }),
 ];
 
@@ -211,18 +211,18 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
     },
     basic: {
       heavy: [
-        ex('Heavy DB Goblet Squat', '3', '5', '2:30', 'DB held at chest. Full depth. Drive knees out. Explosive concentric — this is a strength stimulus, not a warm-up.',
-          { intensity: 'Heaviest available DB', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('DB Hip Thrust', '3', '5', '2:30', 'Shoulders on bench. Full hip extension. Squeeze at top. Drive hips explosively.',
-          { intensity: 'Heavy DB on hips', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('DB Romanian Deadlift (Concentric Focus)', '2', '5', '2:00', 'Hinge to mid-shin, then drive hips through powerfully. Focus on the hip extension — not the lowering.',
-          { intensity: 'Heavy DB', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Back Squat', '3', '5', '3:00', 'Full depth. Drive knees out. Explosive concentric — treat it like a competition attempt. 2–1 RIR.',
+          { intensity: '80% 1RM', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Hip Thrust', '3', '5', '2:30', 'Shoulders on bench. Barbell across hips (use pad). Full hip extension. 1s hold at top. Horizontal force — sprint motor units.',
+          { intensity: '78% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Romanian Deadlift (Concentric Focus)', '2', '5', '2:30', 'Hinge to mid-shin — drive hips through powerfully. Focus on the hip extension. 2 RIR.',
+          { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('DB Goblet Squat', '3', '6', '2:00', 'Full depth. Explosive up. Chest stays tall.',
-          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
-        ex('DB Hip Thrust', '2', '6', '2:00', 'Full range. Strong hip extension. Controlled.',
-          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('Barbell Back Squat', '3', '6', '2:30', 'Full depth. Consistent bar path. Explosive drive up. 3–2 RIR.',
+          { intensity: '75% 1RM', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Barbell Hip Thrust', '2', '6', '2:00', 'Full hip extension. Glute drive. 3 RIR.',
+          { intensity: '72% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
       ],
     },
     none: {
@@ -263,16 +263,18 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
     },
     basic: {
       heavy: [
-        ex('DB Hip Thrust', '3', '5', '2:30', 'Heavy loading on hips. Full extension. Glute drive.',
-          { intensity: 'Heavy DB', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('Heavy DB Goblet Squat', '2', '4', '2:30', 'Heaviest available. Explosive drive. Treat as a competition lift.',
-          { intensity: 'Max DB', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Back Squat', '3', '4', '3:30', 'Vertical force — brace maximally, attack depth. Every rep treated as a competition attempt. 2–1 RIR.',
+          { intensity: '85% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Hip Thrust', '3', '4', '3:00', 'Heavy barbell across hips. Full hip extension. 1s hold at top. Sprint motor units — horizontal force.',
+          { intensity: '83% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Romanian Deadlift (Concentric Focus)', '2', '4', '2:30', 'Hinge to mid-shin — drive hips through powerfully. Focus on hip extension. 2 RIR.',
+          { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('DB Goblet Squat', '3', '5', '2:30', 'Full depth. Controlled descent. Explosive up.',
-          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
-        ex('DB Hip Thrust', '2', '6', '2:00', 'Strong hip extension. Consistent.',
-          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('Barbell Back Squat', '3', '5', '3:00', 'High intent. Consistent depth. Fast concentric. 3–2 RIR.',
+          { intensity: '80% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Barbell Hip Thrust', '2', '5', '2:30', 'Horizontal force. Strong hip extension. 3 RIR.',
+          { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
       ],
     },
     none: {
@@ -313,18 +315,18 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
     },
     basic: {
       heavy: [
-        ex('DB Split Squat (Heavy)', '3', '4 each', '3:00', 'Rear foot elevated on bench. Heaviest available DB. Drive through front heel. 2–1 RIR. Hip extension at the top — same motor pattern as a sprint push-off.',
-          { intensity: 'Heaviest DB', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('DB Hip Thrust', '3', '4', '2:30', 'Heavy. Full hip extension. Glute drive on every rep.',
-          { intensity: 'Heaviest DB', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('DB Romanian Deadlift (Concentric Focus)', '2', '4', '2:30', 'Hinge to mid-shin, drive hips through powerfully. Focus on the hip extension. 2 RIR.',
-          { intensity: 'Heavy DB', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Back Squat', '3', '3', '4:00', 'Vertical force — peak neural output. Maximum drive every rep. 1 RIR.',
+          { intensity: '88% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Hip Thrust', '3', '4', '3:00', 'Peak horizontal hip extension. Heavy barbell. 1s hold at top. 2–1 RIR. Sprint motor units.',
+          { intensity: '85% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Romanian Deadlift (Concentric Focus)', '2', '4', '2:30', 'Hip hinge — drive through powerfully. 2 RIR. Peak loading.',
+          { intensity: '84% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('DB Split Squat', '3', '5 each', '2:30', 'Rear foot elevated. Full depth. Explosive drive up. 3–2 RIR.',
-          { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
-        ex('DB Hip Thrust', '2', '5', '2:00', 'Strong hip extension. Controlled.',
-          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('Barbell Back Squat', '3', '4', '3:30', 'High intent. Maximum concentric speed. 2 RIR.',
+          { intensity: '85% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Hip Thrust', '2', '4', '2:30', 'Horizontal force. Full extension. 2 RIR.',
+          { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
     },
     none: {
@@ -363,16 +365,16 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
     },
     basic: {
       heavy: [
-        ex('DB Split Squat (Explosive)', '2', '4 each', '3:00', 'Rear foot elevated. Heaviest available DB. Maximum drive through front heel. Express peak strength — 1 RIR.',
-          { intensity: 'Heavy DB', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-        ex('DB Hip Thrust', '2', '4', '3:00', 'Heavy. Full hip extension. Peak strength expression.',
-          { intensity: 'Heavy DB', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Back Squat', '2', '3', '4:00', 'Express peak vertical strength. Near-maximum. 1–0 RIR. Non-negotiable rest.',
+          { intensity: '91% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Hip Thrust', '2', '3', '3:00', 'Peak horizontal hip extension. Heavy barbell. 2–1 RIR. Express sprint-specific force.',
+          { intensity: '87% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
-        ex('DB Split Squat', '2', '5 each', '2:30', 'Rear foot elevated. Strong drive. Consistent quality. 2 RIR.',
-          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
-        ex('DB Hip Thrust', '2', '5', '2:30', 'Strong hip extension. Consistent quality.',
-          { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+        ex('Barbell Back Squat', '2', '4', '4:00', 'High quality. Full rest. Max intent. 2 RIR.',
+          { intensity: '86% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Hip Thrust', '2', '4', '3:00', 'Horizontal force. Quality over volume. 2 RIR.',
+          { intensity: '84% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
     },
     none: {
@@ -483,41 +485,112 @@ const ECCENTRIC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
   ],
 };
 
-// ── Upper body ─────────────────────────────────────────────────────────────
+// ── Upper body — gym-access-aware ──────────────────────────────────────────
+// full: barbell + cable + machines available
+// basic: barbells + dumbbells only (no cables, machines, or sled)
+// none: bodyweight only (push-ups, inverted rows, pike push-ups)
 
-const UPPER: Record<string, ProgrammeExercise[]> = {
-  Foundation: [
-    ex('DB Bench Press', '3', '10', '2:00', 'Retract shoulder blades. Controlled descent. Explosive push.',
-      { intensity: '60% effort', tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
-    ex('DB Row', '3', '10', '2:00', 'Hinge 45°. Pull elbow to hip. Squeeze lat at top.',
-      { tempo: '2-1-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
-    ex('DB Shoulder Press', '3', '10', '90s', 'Neutral spine. No arching. Full lockout overhead.',
-      { intensity: 'Moderate', methodType: 'concentric', intensityIntent: 'moderate' }),
-  ],
-  Build: [
-    ex('Bench Press', '4', '5', '3:00', 'Explosive push. 2s controlled descent. Just outside shoulder-width.',
-      { intensity: '75% 1RM', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
-    ex('Weighted Pull-Up', '4', '4', '3:00', 'Dead hang to chin over bar. Initiate with lats.',
-      { intensity: 'Add 5–10kg', tempo: '1-1-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
-    ex('Push Press', '3', '4', '2:30', 'Dip and drive hips. Aggressive lockout. Bar over heels.',
-      { intensity: '75% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
-  ],
-  'Strength & Power': [
-    ex('Bench Press', '4', '3', '3:30', 'Maximum force intent.',
-      { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-    ex('Weighted Pull-Up', '4', '3', '3:00', '1s pause at top. 3s descent. No kipping.',
-      { intensity: 'Challenging', tempo: '1-1-x-3', methodType: 'eccentric', intensityIntent: 'maximal' }),
-    ex('Push Press', '3', '4', '90s', 'Dip and drive hips aggressively. Lockout at full extension. Maximum rate of force development.',
-      { intensity: '75% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
-  ],
-  Peak: [
-    ex('Bench Press', '3', '2', '4:00', 'Max intent. Full recovery.',
-      { intensity: '90% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-    ex('Weighted Pull-Up', '3', '3', '4:00', 'Explosive concentric. 4s descent.',
-      { intensity: 'Heavy', tempo: '1-0-x-4', methodType: 'eccentric', intensityIntent: 'maximal' }),
-    ex('Push Press', '3', '3', '2:00', 'Explosive dip and drive. Express upper body rate of force development at peak intensity.',
-      { intensity: '80% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
-  ],
+const UPPER: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
+  Foundation: {
+    full: [
+      ex('DB Bench Press', '3', '10', '2:00', 'Retract shoulder blades. Controlled descent. Explosive push.',
+        { intensity: '60% effort', tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ex('DB Row', '3', '10', '2:00', 'Hinge 45°. Pull elbow to hip. Squeeze lat at top.',
+        { tempo: '2-1-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ex('DB Shoulder Press', '3', '10', '90s', 'Neutral spine. No arching. Full lockout overhead.',
+        { intensity: 'Moderate', methodType: 'concentric', intensityIntent: 'moderate' }),
+    ],
+    basic: [
+      ex('DB Bench Press', '3', '10', '2:00', 'Retract shoulder blades. Controlled descent. Explosive push. DBs allow free range — use them.',
+        { intensity: '60% effort', tempo: '3-0-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ex('Barbell Bent-Over Row', '3', '8', '2:00', 'Hinge at 45°. Pull bar to lower chest. Squeeze lats at top. Control the descent.',
+        { intensity: 'Moderate', tempo: '1-1-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ex('DB Shoulder Press', '3', '10', '90s', 'Neutral spine. No arching. Full lockout overhead.',
+        { intensity: 'Moderate', methodType: 'concentric', intensityIntent: 'moderate' }),
+    ],
+    none: [
+      ex('Push-Up', '3', '10', '90s', 'Hands just outside shoulders. Full lockout. Lower chest to within 3cm of floor. Bodyweight horizontal push.',
+        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ex('Inverted Row (Table or Low Bar)', '3', '8', '90s', 'Lie under table/low bar. Pull chest to bar. Heels on floor. Straight body throughout. Bodyweight horizontal pull — no equipment needed beyond a stable surface.',
+        { tempo: '1-1-1-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+      ex('Pike Push-Up', '3', '8', '90s', 'Hips high, forming an inverted V. Lower head toward floor. Vertical push pattern — shoulder stimulus without overhead equipment.',
+        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'moderate' }),
+    ],
+  },
+  Build: {
+    full: [
+      ex('Bench Press', '4', '5', '3:00', 'Explosive push. 2s controlled descent. Just outside shoulder-width.',
+        { intensity: '75% 1RM', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+      ex('Weighted Pull-Up', '4', '4', '3:00', 'Dead hang to chin over bar. Initiate with lats.',
+        { intensity: 'Add 5–10kg', tempo: '1-1-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+      ex('Push Press', '3', '4', '2:30', 'Dip and drive hips. Aggressive lockout. Bar over heels.',
+        { intensity: '75% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    basic: [
+      ex('Barbell Bench Press', '3', '5', '3:00', 'Explosive push. 2s controlled descent. Just outside shoulder-width. Barbell allows heavier load than DBs.',
+        { intensity: '75% 1RM', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+      ex('Barbell Bent-Over Row', '3', '5', '2:30', 'Hinge at 45°. Pull bar to lower chest explosively. Horizontal pull for upper back strength.',
+        { intensity: '75% 1RM', tempo: '1-1-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+      ex('DB Push Press', '3', '5', '2:30', 'Dip and drive hips — DBs allow bilateral or unilateral variation. Aggressive lockout overhead.',
+        { intensity: 'Moderate-heavy', methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    none: [
+      ex('Plyometric Push-Up', '3', '6', '2:30', 'Explosive push — hands leave the floor at the top. Land softly. Bodyweight upper power development.',
+        { tempo: '2-0-x-0', methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Inverted Row (Table or Low Bar)', '3', '8', '2:00', 'Pull chest to bar, heels on floor, body straight throughout. Add difficulty by elevating feet.',
+        { tempo: '1-1-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+      ex('Pike Push-Up', '3', '8', '2:00', 'Hips high, inverted V. Lower head toward floor between hands. Vertical push — shoulder development.',
+        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    ],
+  },
+  'Strength & Power': {
+    full: [
+      ex('Bench Press', '4', '3', '3:30', 'Maximum force intent.',
+        { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Weighted Pull-Up', '4', '3', '3:00', '1s pause at top. 3s descent. No kipping.',
+        { intensity: 'Challenging', tempo: '1-1-x-3', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Push Press', '3', '4', '90s', 'Dip and drive hips aggressively. Lockout at full extension. Maximum rate of force development.',
+        { intensity: '75% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    basic: [
+      ex('Barbell Bench Press', '3', '4', '3:30', 'Maximum force intent. Bar moves fast on every rep.',
+        { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Bent-Over Row', '3', '4', '3:00', 'Pull bar to lower chest with intent. Control descent. Heavy horizontal pull.',
+        { intensity: '80% 1RM', tempo: '1-1-1-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('DB Push Press', '3', '4', '2:30', 'Dip and drive hips. Explosive lockout. Maximum rate of force development.',
+        { intensity: 'Heavy DB', methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    none: [
+      ex('Archer Push-Up', '3', '5 each side', '3:00', 'Wide hands. Lower to one side — that arm takes full load. Alternate sides. Unilateral bodyweight strength — progressively harder than standard push-up.',
+        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Inverted Row (Feet Elevated)', '3', '6', '2:30', 'Pull chest to bar with feet elevated on chair. High difficulty — close to body row. Maximal bodyweight horizontal pull.',
+        { tempo: '1-1-1-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Pike Push-Up (Deficit)', '3', '6', '2:00', 'Hands on elevated surface (books, bags). Increase depth below hand level. Harder vertical push pattern.',
+        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    ],
+  },
+  Peak: {
+    full: [
+      ex('Bench Press', '3', '2', '4:00', 'Max intent. Full recovery.',
+        { intensity: '90% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Weighted Pull-Up', '3', '3', '4:00', 'Explosive concentric. Full recovery.',
+        { intensity: 'Heavy', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Push Press', '3', '3', '2:00', 'Explosive dip and drive. Express upper body rate of force development at peak intensity.',
+        { intensity: '80% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    basic: [
+      ex('Barbell Bench Press', '2', '3', '4:00', 'Max intent. Full recovery. Express peak upper strength.',
+        { intensity: '88% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Bent-Over Row', '2', '3', '3:30', 'Peak horizontal pull. Maximum intent. Full rest.',
+        { intensity: '85% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ],
+    none: [
+      ex('Explosive Push-Up', '2', '5 @ 1 RIR', '3:00', 'Maximum explosive intent on every rep. 1 RIR — close to failure. Bodyweight peak upper expression.',
+        { tempo: '2-0-x-0', methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Inverted Row (Feet Elevated)', '2', '6 @ 1 RIR', '3:00', 'Peak bodyweight horizontal pull. 1 RIR. Full rest between sets.',
+        { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ],
+  },
 };
 
 // ── Speed-acceleration by phase ────────────────────────────────────────────
@@ -1156,7 +1229,7 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
       { methodType: 'concentric', intensityIntent: 'explosive' }),
     ex('Single-Leg Broad Jump', '3', '5 each', '2:00', 'Push horizontally off one foot. Land controlled. Max distance.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ex('Resisted Hip Extension (Band)', '3', '12 each', '90s', 'Full hip extension against band. Glute drive. Sprint push-off simulation.',
+    ex('Single-Leg Hip Thrust (Glute Focus)', '2', '10 each', '90s', 'Shoulders on bench, non-working leg raised. Full hip extension. Squeeze at top. Glute/hamstring motor units — horizontal force without any equipment beyond a bench or low surface.',
       { methodType: 'concentric', intensityIntent: 'moderate' }),
   ],
   strength: [
@@ -1209,9 +1282,9 @@ const PREHAB: Record<string, ProgrammeExercise[]> = {
       { tempo: '4-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
   ],
   ankle: [
-    ex('Single-Leg Balance (Eyes Closed)', '3', '40s each', '60s', 'Slight knee bend. Eyes closed when easy. Proprioception training.',
+    ex('Single-Leg Balance (Eyes Closed)', '3', '40s each', '60s', 'Slight knee bend. Eyes closed when easy. Proprioception training. No equipment needed.',
       { tempo: '0-40s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
-    ex('Banded Ankle Dorsiflexion Mob', '2', '10 each', '30s', 'Band pulls heel forward. Drive knee over small toe. Restore dorsiflexion.',
+    ex('Ankle Dorsiflexion Mob (Kneeling)', '2', '10 each', '30s', 'Kneeling lunge position. Drive knee forward over pinky toe — keep heel on floor. Rock forward and back. Restore full dorsiflexion range. No equipment needed.',
       { methodType: 'mixed', intensityIntent: 'controlled' }),
   ],
   knee: [
@@ -1233,15 +1306,15 @@ const PREHAB: Record<string, ProgrammeExercise[]> = {
       { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
   ],
   back: [
-    ex('Dead Bug', '3', '6 each side', '60s', 'Lower back into floor. Extend opposite arm and leg — don\'t lose lumbar position.',
+    ex('Dead Bug', '3', '6 each side', '60s', 'Lower back into floor throughout. Extend opposite arm and leg — do not lose lumbar contact. Anti-extension core stability. No equipment needed.',
       { methodType: 'isometric', intensityIntent: 'controlled' }),
-    ex('Pallof Press', '3', '10 each side', '60s', 'Anti-rotation. Resist band. Body stays square throughout.',
-      { methodType: 'isometric', intensityIntent: 'controlled' }),
+    ex('Side Plank', '3', '30s each side', '60s', 'Elbow under shoulder. Hips stacked. Anti-lateral flexion — protects the lumbar spine under rotation load. No equipment needed.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
   ],
   shoulder: [
-    ex('Band External Rotation', '3', '15 each', '60s', 'Elbow pinned to side. Slow intentional outward rotation.',
-      { tempo: '2-0-2-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-    ex('Y-T-W on Incline Bench', '3', '8 each letter', '60s', 'Scapular control. Light weight. Each rep fully deliberate.',
+    ex('Side-Lying External Rotation', '3', '15 each', '60s', 'Lie on side. Elbow pinned at 90°. Rotate forearm upward slowly — 2s up, 2s down. Rotator cuff activation. No equipment needed.',
+      { tempo: '2-0-2-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    ex('Prone T-Y-W (Scapular Control)', '3', '8 each shape', '60s', 'Lie face down. T: arms wide, thumbs up. Y: arms at 45°. W: elbows bent 90°, pull back. Squeeze shoulder blades on each. No equipment needed.',
       { methodType: 'concentric', intensityIntent: 'controlled' }),
   ],
 };
@@ -1249,9 +1322,9 @@ const PREHAB: Record<string, ProgrammeExercise[]> = {
 // Note: Nordics and Copenhagen Plank are in ECCENTRIC_BLOCK (always last in session).
 // DEFAULT_PREHAB covers position-agnostic stability work for athletes with no specific injury history.
 const DEFAULT_PREHAB: ProgrammeExercise[] = [
-  ex('Single-Leg Balance (Eyes Closed)', '2', '40s each', '60s', 'Slight knee bend. Eyes closed when stable. Ankle and knee proprioception — foundational for every footballer.',
+  ex('Single-Leg Balance (Eyes Closed)', '2', '40s each', '60s', 'Slight knee bend. Eyes closed when stable. Ankle and knee proprioception — foundational for every footballer. No equipment needed.',
     { tempo: '0-40s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
-  ex('Pallof Press', '2', '10 each side', '60s', 'Anti-rotation. Resist band. Body stays square. Core stability under lateral load.',
+  ex('Dead Bug', '2', '8 each side', '60s', 'Lower back pressed into floor throughout. Extend opposite arm and leg simultaneously — do not lose lumbar contact. Anti-extension core stability. No equipment needed.',
     { methodType: 'isometric', intensityIntent: 'controlled' }),
 ];
 
@@ -1461,7 +1534,8 @@ function buildSession(
   const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
   const gymAccessLib = gymLib[gymAccess] ?? gymLib.basic;
   const strengthEx = gymAccessLib[fv.loadScheme === 'heavy' ? 'heavy' : 'moderate'] ?? gymAccessLib.moderate;
-  const upperEx = UPPER[phase] ?? UPPER.Build;
+  const upperPhase = UPPER[phase] ?? UPPER.Build;
+  const upperEx = upperPhase[gymAccess as GymKey] ?? upperPhase.basic;
 
   const posKey = position as PosKey;
   void (POSITION_SPEED[posKey] ?? []);   // retained for future use
@@ -1600,11 +1674,11 @@ function buildSession(
           { intensity: '70–80% 1RM', tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
       ],
       basic: [
-        ex('Slider Hamstring Curl (Eccentric)', '3', '6', '2:30', '4s eccentric lowering on a slider (or smooth surface with socks). Fascicle-length exercise — slow eccentric under load is the adaptation stimulus. DOMS peaks 48h, gone by Saturday. This is why MD-3 is structural.',
-          { intensity: 'Bodyweight + slider', tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Single-Leg Romanian Deadlift (DB)', '3', '8 each', '2:00', 'Hinge to mid-shin. 3s controlled descent. Hamstring fascicle length — structural resilience at the hip hinge pattern. Moderate DB load.',
-          { intensity: 'Moderate DB', tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-        ex('Rear-Foot Elevated Split Squat (Slow Eccentric)', '2', '8 each', '2:00', 'Rear foot on bench. 3s descent. Quad fascicle length. Drive hips through at top. Moderate load.',
+        ex('Barbell Romanian Deadlift (Eccentric Emphasis)', '3', '6', '2:30', '3–4s eccentric lowering to mid-shin. Barbell allows proper load — 70–80% 1RM. Hamstring fascicle-length adaptation. DOMS peaks 48h, gone by match day. This is why we do it today.',
+          { intensity: '70–80% 1RM', tempo: '4-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('Barbell Split Squat (Structural)', '3', '8 each', '2:00', 'Barbell on back, rear foot on bench. 3s eccentric descent. Quad and hip flexor fascicle length adaptation. Moderate load — 70–80% 1RM. Drive hips through at top.',
+          { intensity: '70–80% 1RM', tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
+        ex('DB Single-Leg Romanian Deadlift', '2', '8 each', '2:00', 'Hinge to mid-shin. 3s controlled descent. DB used for balance control on the single-leg pattern. Hamstring fascicle adaptation at hip hinge.',
           { intensity: 'Moderate DB', tempo: '3-0-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
       ],
       none: [
