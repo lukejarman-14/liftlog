@@ -1160,11 +1160,11 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
       { methodType: 'concentric', intensityIntent: 'moderate' }),
   ],
   strength: [
-    ex('Tempo Squat', '4', '4', '3:00', '3s descent, 1s pause at bottom, explosive up. Time under tension.',
-      { intensity: '70% 1RM', tempo: '3-1-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-    ex('Eccentric RDL', '3', '6', '2:30', '4s lowering. Load the hamstring eccentrically.',
-      { intensity: 'Moderate', tempo: '4-1-1-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-    ex('Isometric Split Squat Hold', '3', '40s each', '2:00', 'Bottom position hold. Strength and joint stability.',
+    // Concentric strength work only — eccentrics belong in the Eccentric block.
+    // These go at the END of the Maximum Strength block, after vertical + horizontal compound lifts.
+    ex('Paused Squat', '2', '3', '3:00', '2s pause at bottom — maintain tension. Explosive up. Complements the main compound lift. 2 sets only: supplemental, not the priority.',
+      { intensity: '75% 1RM', tempo: '1-2-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    ex('Isometric Split Squat Hold', '1', '40s each', '2:00', 'Bottom position hold. Tendon stiffness and joint stability. 1 set — maintenance dose at the end of the strength block.',
       { tempo: '0-40s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
   ],
   endurance: [
@@ -1190,11 +1190,11 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   injury_prone: [
-    ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s eccentric — maximum effort, 2 reps only. Gold standard — non-negotiable for every footballer.',
-      { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-    ex('Copenhagen Plank', '3', '30s each', '90s', 'Groin-specific. Top foot on bench. Pull bottom leg. Most evidenced groin prevention.',
-      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
-    ex('Single-Leg Balance Reach', '3', '10 each', '60s', 'Reach forward, lateral, diagonal. Ankle stability and proprioception.',
+    // Low volume, non-eccentric — Nordics/Copenhagen already in ECCENTRIC_BLOCK every session.
+    // This is maintenance/proprioception only: 1 set, placed at the END of the session.
+    ex('Single-Leg Balance Reach', '1', '8 each', '45s', 'Reach forward, lateral, diagonal. Ankle stability and proprioception. 1 set — enough stimulus for neural adaptation without adding fatigue.',
+      { methodType: 'isometric', intensityIntent: 'controlled' }),
+    ex('Isometric Split Squat Hold (Light)', '1', '20s each leg', '60s', 'Bottom position, bodyweight or very light load only. Joint awareness and tendon maintenance. 1 set — minimum effective dose. This is not a strength exercise.',
       { methodType: 'isometric', intensityIntent: 'controlled' }),
   ],
 };
@@ -1533,18 +1533,25 @@ function buildSession(
           methodFocus: 'ALWAYS first — sprinting, jumping and reactive work require a completely fresh nervous system. Full rest between reps. This is neural output, not conditioning.',
           exercises: [...POWER_PRIMER[gymKey], ...pogoHops],
         },
-        // ② Maximum Strength — all loaded concentric/compound work together
+        // ② Maximum Strength — strict order: vertical → horizontal → accessory → weakness LAST
+        // NO eccentric exercises in this block — they go to block ④ only.
         {
           title: '💪 Maximum Strength',
           methodFocus: fv.loadScheme === 'heavy'
-            ? 'Maximal force — 85%+ load, low reps, explosive concentric intent. Bar velocity is your autoregulation signal. Upper body and position-specific work follows the main compound lifts.'
-            : 'Strength-speed — high load with explosive intent. Autoregulate: stop when bar speed visibly drops >20% vs set 1. Upper and accessory work follows.',
+            ? 'Maximal force — 85%+ load, low reps, explosive concentric intent. Order: heavy vertical compound → heavy horizontal → upper accessory → play-style and weakness work last. Bar velocity is your autoregulation signal. Zero eccentric work in this block.'
+            : 'Strength-speed — high load with explosive intent. Heavy vertical compound first, then horizontal, then accessory. Weakness work always last. No eccentric exercises here.',
           exercises: applyReadiness(
             [
+              // 1. Heavy vertical (hip hinge, squat) — the main compound lift, first
               ...strengthEx,
+              // 2. Heavy horizontal (upper push/pull) — second
               ...upperEx.slice(0, 2),
-              ...(playStyleEx),
-              ...(biggestWeakness !== 'endurance' ? weaknessEx : []),
+              // 3. Play style — third
+              ...(playStyleEx.filter(e => e.methodType !== 'eccentric')),
+              // 4. Weakness — LAST, and only concentric/isometric (no eccentric)
+              ...(biggestWeakness !== 'endurance'
+                ? weaknessEx.filter(e => e.methodType !== 'eccentric')
+                : []),
             ],
             readiness.level,
             readiness.intensityNote,
