@@ -434,7 +434,7 @@ function EditTrainingProfileModal({
 
           {/* Gym frequency */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Gym Sessions per Week</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Current Gym Sessions per Week</label>
             <div className="grid grid-cols-2 gap-2">
               {FREQUENCY_OPTIONS.map(o => (
                 <button key={o.id} onClick={() => setFrequency(o.id as typeof gymFrequency)}
