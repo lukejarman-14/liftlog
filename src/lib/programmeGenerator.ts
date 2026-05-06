@@ -1493,10 +1493,29 @@ function buildSession(
     : readiness.level === 'elite' ? durationBase + 10
     : durationBase;
 
-  // MD-4: Max Velocity (sprints/jumps) → Max Strength → Tendon/SSC → Upper → Weakness → Eccentric (last)
-  // Science: explosive/speed work FIRST (fresh CNS) → strength second → tendon stiffness third → eccentrics ALWAYS last.
+  // ── Session block order (non-negotiable) ────────────────────────────────
+  // 1. Speed & Plyometrics  (fresh CNS — jumps, sprints, reactive)
+  // 2. Maximum Strength      (heavy compound, upper body, play style, weakness)
+  // 3. Isometric             (tendon HSR holds, prehab isometrics)
+  // 4. Eccentric             (Nordics, Copenhagen, sliders — most structural stress, always last)
+  // 5. Conditioning          (only when included — always after everything else)
+
   if (slot.mdDay === 'MD-4') {
     const gymKey = (gymAccess as GymKey) in POWER_PRIMER ? (gymAccess as GymKey) : 'basic';
+
+    // Split TENDON_SSC_BLOCK: first 2 entries = isometric holds → Isometric block
+    // Last entry = pogo hops (reactive) → Speed & Plyometrics block
+    const tendonIsometrics = TENDON_SSC_BLOCK[gymKey].slice(0, 2);
+    const pogoHops = TENDON_SSC_BLOCK[gymKey].slice(2);
+
+    // Conditioning — only for endurance-focused athletes, placed LAST
+    const includeConditioning = inputs.primaryGoal === 'endurance' || inputs.biggestWeakness === 'endurance';
+    const condEx = CONDITIONING[position as PosKey]?.[phase] ?? CONDITIONING.CM[phase];
+
+    // Prehab: isometric exercises only (filter out eccentric prehab — it moves to eccentric block)
+    const prehabIsometric = prehabEx.filter(e => e.methodType === 'isometric' || !e.methodType);
+    const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
+
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
       objective: `MD-4 — ${MD4_OBJ[phase] ?? MD4_OBJ.Build}`,
@@ -1508,52 +1527,50 @@ function buildSession(
           methodFocus: 'Mobility + concentric ramp — full joint prep before heavy loading',
           exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 2)],
         },
+        // ① Speed & Plyometrics — FIRST
         {
-          title: '⚡ Max Velocity — Sprinting & Jumping First',
-          methodFocus: 'Max velocity work ALWAYS first — sprinting and jumping require a completely fresh nervous system. Performed before any strength or loaded work. No weighted exercises in this block.',
-          exercises: POWER_PRIMER[gymKey],
+          title: '⚡ Speed & Plyometrics',
+          methodFocus: 'ALWAYS first — sprinting, jumping and reactive work require a completely fresh nervous system. Full rest between reps. This is neural output, not conditioning.',
+          exercises: [...POWER_PRIMER[gymKey], ...pogoHops],
         },
+        // ② Maximum Strength — all loaded concentric/compound work together
         {
-          title: '💪 Max Strength Block',
+          title: '💪 Maximum Strength',
           methodFocus: fv.loadScheme === 'heavy'
-            ? 'Maximal force — strength end of F-V curve. 85%+ load, low reps, explosive concentric intent. Bar velocity is your autoregulation signal.'
-            : 'Strength-speed — high load with explosive intent. Autoregulate: stop when bar speed visibly drops >20% vs set 1.',
-          exercises: applyReadiness(strengthEx, readiness.level, readiness.intensityNote),
+            ? 'Maximal force — 85%+ load, low reps, explosive concentric intent. Bar velocity is your autoregulation signal. Upper body and position-specific work follows the main compound lifts.'
+            : 'Strength-speed — high load with explosive intent. Autoregulate: stop when bar speed visibly drops >20% vs set 1. Upper and accessory work follows.',
+          exercises: applyReadiness(
+            [
+              ...strengthEx,
+              ...upperEx.slice(0, 2),
+              ...(playStyleEx),
+              ...(biggestWeakness !== 'endurance' ? weaknessEx : []),
+            ],
+            readiness.level,
+            readiness.intensityNote,
+          ),
         },
+        // ③ Isometric — after strength, before eccentric
         {
-          title: '🦴 Tendon & SSC Block',
-          methodFocus: 'Tendon stiffness — heavy isometrics build tendon structural capacity; fast pogo hops train the stretch-shortening cycle spring. Placed after strength, before eccentrics.',
-          exercises: TENDON_SSC_BLOCK[gymKey],
+          title: '🦴 Isometric Block',
+          methodFocus: 'Heavy isometric holds — tendon stiffness adaptation (HSR protocol). Maximum effort throughout each hold. The tendon stiffens under heavy isometric load so it absorbs sprint/jump force instead of the muscle.',
+          exercises: [
+            ...tendonIsometrics,
+            ...(prehabIsometric.length > 0 ? prehabIsometric : DEFAULT_PREHAB),
+          ],
         },
-        {
-          title: '💪 Upper Body Accessory',
-          methodFocus: 'Concentric — upper body strength balance and shoulder integrity',
-          exercises: applyReadiness(upperEx.slice(0, 2), readiness.level, readiness.intensityNote),
-        },
-        ...(playStyleEx.length > 0 ? [{
-          title: '🎮 Play Style Block',
-          methodFocus: `${inputs.playStyle.replace('-', ' ')} specific — translating physical output to your game model`,
-          exercises: playStyleEx,
-        }] : []),
-        {
-          title: '🎯 Weakness Focus',
-          methodFocus: `${biggestWeakness} development — targeted overload of your primary physical gap`,
-          exercises: weaknessEx,
-        },
-        ...(prehabEx.length > 0 && prehabEx !== DEFAULT_PREHAB ? [{
-          title: '🛡️ Joint Prehab',
-          methodFocus: 'Isometric + eccentric — address your specific injury history areas',
-          exercises: prehabEx,
-        }] : [{
-          title: '🛡️ Core Stability',
-          methodFocus: 'Anti-rotation and proprioception — foundational stability for every footballer',
-          exercises: DEFAULT_PREHAB,
-        }]),
+        // ④ Eccentric — ALWAYS last (before conditioning only)
         {
           title: '🔴 Eccentric Block — Always Last',
-          methodFocus: 'Eccentric strength for injury prevention — placed LAST because it generates the most structural stress. Nordic Curl fascicle length adaptation is the primary hamstring strain prevention mechanism.',
-          exercises: ECCENTRIC_BLOCK[gymKey],
+          methodFocus: 'Eccentric work placed LAST because it generates the most structural stress and residual DOMS. Nordic Curl fascicle-length adaptation is the primary hamstring strain prevention mechanism. Non-negotiable.',
+          exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
         },
+        // ⑤ Conditioning — ONLY if included, and always after everything else
+        ...(includeConditioning && condEx ? [{
+          title: '🏃 Conditioning — Always Last',
+          methodFocus: 'Conditioning completed LAST — after all strength and structural work. Energy system development without compromising quality of strength and eccentric stimulus.',
+          exercises: [condEx],
+        }] : []),
       ],
     };
   }
@@ -1599,31 +1616,34 @@ function buildSession(
       readinessNote: readinessNote + ' MD-3 structural work: eccentric DOMS peaks at 48h — by match day it is gone. This timing is deliberate.',
       durationMin: 55, fvProfile: fv.profile,
       blocks: [
+        // No speed/plyometrics on MD-3 — structural day only
         {
           title: '🔥 Warm-Up (10 min)',
-          methodFocus: 'Mobility and light activation — prepare joints for eccentric loading',
+          methodFocus: 'Mobility and light activation — prepare joints for loaded eccentric work',
           exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 1)],
         },
+        // ② Maximum Strength — structural loaded work at 70–80% with eccentric tempo
         {
-          title: '🏗️ Structural Block — Fascicle Length & Hypertrophy',
-          methodFocus: `Eccentric emphasis — 2–3 sets, 5–8 reps, 70–80% 1RM. DOMS peaks at 48h. By ${slot.dayOfWeek === 'Wednesday' ? 'Saturday' : 'match day'} it will be gone. This is the science of smart scheduling.`,
+          title: '💪 Maximum Strength — Structural Loading',
+          methodFocus: `Loaded compound work at 70–80% 1RM with eccentric tempo. DOMS peaks at 48h. By ${slot.dayOfWeek === 'Wednesday' ? 'Saturday' : 'match day'} it will be completely gone. This is the science of smart scheduling — structural resilience built at the right time.`,
           exercises: applyReadiness(structuralExercises[gymKey], readiness.level, readiness.intensityNote),
         },
+        // ③ Isometric — tendon maintenance + weakness (isometric component only)
         {
-          title: '🦴 Tendon Maintenance',
-          methodFocus: 'Single heavy isometric — maintain tendon stiffness adaptation without accumulating fatigue',
-          exercises: [TENDON_SSC_BLOCK[gymKey][0]],
+          title: '🦴 Isometric Block',
+          methodFocus: 'Heavy isometric hold — maintain tendon stiffness without adding fatigue. Minimum effective dose on structural day.',
+          exercises: [
+            TENDON_SSC_BLOCK[gymKey][0],
+            ...(weaknessEx.slice(0, 1).filter(e => e.methodType === 'isometric')),
+          ],
         },
-        {
-          title: '🎯 Weakness Focus',
-          methodFocus: `${biggestWeakness} — maintained at minimum effective dose on structural day`,
-          exercises: weaknessEx.slice(0, 1),
-        },
+        // ④ Eccentric — always last
         {
           title: '🔴 Eccentric Block — Always Last',
-          methodFocus: 'Nordic Curl and Copenhagen Plank — non-negotiable. Fascicle length adaptation is the primary mechanism reducing hamstring and groin strain risk.',
+          methodFocus: 'Nordic Curl and Copenhagen Plank — non-negotiable every session. Fascicle length adaptation is the primary mechanism reducing hamstring and groin strain risk. Placed last as it generates the highest structural stress.',
           exercises: ECCENTRIC_BLOCK[gymKey],
         },
+        // No conditioning on MD-3
       ],
     };
   }
@@ -1667,21 +1687,26 @@ function buildSession(
           methodFocus: 'Light activation only — prepare for micro-dosed power work',
           exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_NEURAL.slice(0, 1)],
         },
+        // ① Speed & Plyometrics — micro-dosed (jumps = plyometric; first block per rule)
         {
-          title: '⚡ Micro-Dosed Power (2 sets × 3 reps only)',
-          methodFocus: 'Maximum velocity intent at 30–40% 1RM. CNS maintenance — NOT a training stimulus. 2 sets, 3 reps, full rest. Then leave.',
+          title: '⚡ Speed & Plyometrics — Micro-Dosed (2 × 3 only)',
+          methodFocus: 'Maximum velocity intent at 30–40% 1RM. CNS maintenance — NOT a training stimulus. 2 sets, 3 reps, full rest. Then leave. No additional volume under any circumstances.',
           exercises: microPowerEx[gymKey],
         },
+        // No max strength on MD-2 (Forbidden Zone)
+        // ③ Isometric only — no eccentric, no conditioning on MD-2
         {
-          title: '🛡️ Pre-Match Prehab (Minimal)',
-          methodFocus: 'Isometric only — maintain tissue quality without adding fatigue.',
+          title: '🦴 Isometric — Pre-Match Tissue Maintenance',
+          methodFocus: 'Sub-maximal isometric only — maintain hip flexor length and adductor integrity ahead of match. Not a training stimulus. Zero eccentric load today.',
           exercises: [
-            ex('Isometric Hip Flexor Hold (Kneeling)', '1', '30s each side', '', 'Tall kneeling, posterior pelvic tilt. Light isometric — maintain hip flexor length ahead of match day. Not a strength exercise.',
+            ex('Isometric Hip Flexor Hold (Kneeling)', '1', '30s each side', '', 'Tall kneeling, posterior pelvic tilt. Sub-maximal hold — maintain hip flexor length ahead of match day.',
               { methodType: 'isometric', intensityIntent: 'controlled' }),
-            ex('Copenhagen Plank Hold', '1', '20s each side', '', 'Adductor maintenance — sub-maximal. 20 seconds only. Protect the groin for tomorrow.',
+            ex('Copenhagen Plank Hold', '1', '20s each side', '', 'Adductor maintenance — sub-maximal. 20 seconds only. Protect the groin for tomorrow. No eccentric loading.',
               { methodType: 'isometric', intensityIntent: 'controlled' }),
           ],
         },
+        // No eccentric on MD-2 — too close to match
+        // No conditioning on MD-2
       ],
     };
   }

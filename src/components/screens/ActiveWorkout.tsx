@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp,
   Trophy, Clock, BookOpen, Lightbulb, MapPin, ChevronRight,
-  TrendingUp, TrendingDown,
+  TrendingUp, TrendingDown, Pencil, Save,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -220,11 +220,12 @@ interface SetRowProps {
   unit?: string;
   targetRir?: number;
   onComplete: (set: CompletedSet) => void;
+  onEdit?: (set: CompletedSet) => void;
 }
 
 function SetRow({
   setIndex, completed, defaultWeight, defaultReps,
-  measureType = 'strength', unit, targetRir, onComplete,
+  measureType = 'strength', unit, targetRir, onComplete, onEdit,
 }: SetRowProps) {
   // Use string state so we can show blank instead of "0"
   const [repsStr, setRepsStr]     = useState(defaultReps  > 0 ? String(defaultReps)  : '');
@@ -234,6 +235,26 @@ function SetRow({
 
   // Two-phase commit state
   const [pendingSet, setPendingSet] = useState<Omit<CompletedSet, 'rir'> | null>(null);
+
+  // Edit mode for completed sets
+  const [isEditing, setIsEditing] = useState(false);
+  const [editRepsStr, setEditRepsStr]     = useState('');
+  const [editWeightStr, setEditWeightStr] = useState('');
+
+  const handleStartEdit = () => {
+    if (!completed) return;
+    setEditRepsStr(String(completed.reps));
+    setEditWeightStr(String(completed.weight));
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!completed || !onEdit) return;
+    const newReps   = parseInt(editRepsStr)   || completed.reps;
+    const newWeight = parseFloat(editWeightStr) || completed.weight;
+    onEdit({ ...completed, reps: newReps, weight: newWeight });
+    setIsEditing(false);
+  };
 
   const label = getMeasureLabel(measureType, unit);
   const step  = measureType === 'strength' ? 2.5 : measureType === 'distance' ? 0.1 : 1;
@@ -267,6 +288,89 @@ function SetRow({
 
   const isAwaitingRpe = pendingSet !== null && !completed;
   const isInteractive = !completed && !isAwaitingRpe;
+
+  // ── Edit mode UI (replaces normal row when editing a completed set) ──────
+  if (isEditing && completed) {
+    const editStep = measureType === 'strength' ? 2.5 : measureType === 'distance' ? 0.1 : 1;
+    return (
+      <div className="flex flex-col gap-2 p-3 rounded-xl bg-blue-50 border border-blue-200">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-blue-400 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
+          <div className="flex-1 flex items-center gap-2 flex-wrap">
+            {(measureType === 'strength') && (
+              <>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setEditWeightStr(w => String(Math.max(0, parseFloat((parseFloat(w || '0') - 2.5).toFixed(1)))))}
+                    className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200">
+                    <Minus size={12} />
+                  </button>
+                  <input type="number" value={editWeightStr} min="0" step="0.5"
+                    onChange={e => setEditWeightStr(e.target.value)}
+                    onFocus={e => e.target.select()}
+                    className="w-16 text-center text-sm font-semibold border border-blue-300 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  <button onClick={() => setEditWeightStr(w => String(parseFloat((parseFloat(w || '0') + 2.5).toFixed(1))))}
+                    className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200">
+                    <Plus size={12} />
+                  </button>
+                  <span className="text-xs text-blue-400">kg</span>
+                </div>
+                <span className="text-blue-300">×</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setEditRepsStr(r => String(Math.max(1, parseInt(r || '0') - 1)))}
+                    className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200">
+                    <Minus size={12} />
+                  </button>
+                  <input type="number" value={editRepsStr} min="1"
+                    onChange={e => setEditRepsStr(e.target.value)}
+                    onFocus={e => e.target.select()}
+                    className="w-12 text-center text-sm font-semibold border border-blue-300 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  <button onClick={() => setEditRepsStr(r => String(parseInt(r || '0') + 1))}
+                    className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200">
+                    <Plus size={12} />
+                  </button>
+                  <span className="text-xs text-blue-400">reps</span>
+                </div>
+              </>
+            )}
+            {(measureType === 'reps') && (
+              <div className="flex items-center gap-1">
+                <button onClick={() => setEditRepsStr(r => String(Math.max(1, parseInt(r || '0') - 1)))}
+                  className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200"><Minus size={12} /></button>
+                <input type="number" value={editRepsStr} min="1"
+                  onChange={e => setEditRepsStr(e.target.value)} onFocus={e => e.target.select()}
+                  className="w-14 text-center text-sm font-semibold border border-blue-300 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <button onClick={() => setEditRepsStr(r => String(parseInt(r || '0') + 1))}
+                  className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200"><Plus size={12} /></button>
+                <span className="text-xs text-blue-400">reps</span>
+              </div>
+            )}
+            {(measureType === 'time' || measureType === 'distance' || measureType === 'height' || measureType === 'score') && (
+              <div className="flex items-center gap-1">
+                <button onClick={() => setEditWeightStr(w => String(Math.max(0, parseFloat((parseFloat(w || '0') - editStep).toFixed(2)))))}
+                  className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200"><Minus size={12} /></button>
+                <input type="number" value={editWeightStr} min="0" step={editStep}
+                  onChange={e => setEditWeightStr(e.target.value)} onFocus={e => e.target.select()}
+                  className="w-20 text-center text-sm font-semibold border border-blue-300 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <button onClick={() => setEditWeightStr(w => String(parseFloat((parseFloat(w || '0') + editStep).toFixed(2))))}
+                  className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200"><Plus size={12} /></button>
+                <span className="text-xs text-blue-400">{getMeasureLabel(measureType, unit)}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button onClick={handleSaveEdit}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors">
+              <Save size={12} /> Save
+            </button>
+            <button onClick={() => setIsEditing(false)}
+              className="px-2 py-1.5 text-xs text-blue-400 hover:text-blue-600 rounded-lg">
+              ✕
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -374,11 +478,22 @@ function SetRow({
           )}
         </div>
 
-        {/* Completed: show RIR badge if logged */}
+        {/* Completed: show RIR badge + edit button */}
         {completed?.rir !== undefined && (
           <span className="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-1.5 py-0.5 rounded-lg flex-shrink-0">
             {completed.rir} RIR
           </span>
+        )}
+
+        {/* Edit button for completed sets */}
+        {completed && onEdit && (
+          <button
+            onClick={handleStartEdit}
+            className="p-1 rounded-lg text-gray-300 hover:text-blue-500 transition-colors flex-shrink-0"
+            title="Edit this set"
+          >
+            <Pencil size={14} />
+          </button>
         )}
 
         <button
@@ -415,12 +530,14 @@ function ExerciseSection({
   showTutorials,
   restInfo,
   onCompleteSet,
+  onEditSet,
 }: {
   sessionExercise: SessionExercise;
   sessionId: string;
   showTutorials: boolean;
   restInfo?: RestInfo;
   onCompleteSet: (setIndex: number, set: CompletedSet) => void;
+  onEditSet: (setIndex: number, set: CompletedSet) => void;
 }) {
   const { getExercise, getLastSession, getPB } = useStore();
   const exercise   = getExercise(sessionExercise.exerciseId);
@@ -575,6 +692,7 @@ function ExerciseSection({
                       unit={unit}
                       targetRir={targetRir}
                       onComplete={set => onCompleteSet(i, set)}
+                      onEdit={set => onEditSet(i, set)}
                     />
                   </div>
                 );
@@ -606,6 +724,19 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     timer.skip();
     setRestingExerciseIdx(null);
   }, [timer]);
+
+  const handleEditSet = useCallback((exerciseIdx: number, setIndex: number, set: CompletedSet) => {
+    const updated: WorkoutSession = {
+      ...session,
+      exercises: session.exercises.map((ex, i) => {
+        if (i !== exerciseIdx) return ex;
+        const sets = [...ex.sets];
+        sets[setIndex] = set;
+        return { ...ex, sets };
+      }),
+    };
+    onUpdateSession(updated);
+  }, [session, onUpdateSession]);
 
   const handleCompleteSet = useCallback((exerciseIdx: number, setIndex: number, set: CompletedSet) => {
     const updated: WorkoutSession = {
@@ -671,6 +802,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
               showTutorials={showTutorials}
               restInfo={exerciseIdx === restingExerciseIdx ? restInfo : undefined}
               onCompleteSet={(setIndex, set) => handleCompleteSet(exerciseIdx, setIndex, set)}
+              onEditSet={(setIndex, set) => handleEditSet(exerciseIdx, setIndex, set)}
             />
           ))}
         </div>
