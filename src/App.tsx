@@ -149,7 +149,7 @@ export default function App() {
   const handleGenerateProgramme = (inputs: ProgrammeInputs) => {
     const programme = generateProgramme(inputs);
     store.saveGeneratedProgramme(programme);
-    store.setActiveProgrammeId(programme.id);
+    // Do NOT auto-activate — user presses "Start Plan" to activate
     setCurrentProgramme(programme);
     navigate({ screen: 'generated-programme' });
   };
