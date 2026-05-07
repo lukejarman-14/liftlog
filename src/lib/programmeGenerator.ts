@@ -411,7 +411,7 @@ const POWER_PRIMER: Record<GymKey, ProgrammeExercise[]> = {
   basic: [
     ex('Broad Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Max horizontal displacement every rep. Drive arms, load hips, push the ground back hard. Stick the landing. Full reset between reps: maximal neural output only.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ex('Countermovement Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset between reps.',
+    ex('Box Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Step back, drive arms, explode onto box. Land softly in partial squat. Step down every time — never jump down. Complete CNS reset between reps.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
   ],
   none: [
@@ -439,8 +439,6 @@ const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
       { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles STIFF — no dorsiflexion. Arms punch up. Minimum ground contact time. High frequency tendon-spring training: the holds above build stiffness, pogos train the elastic SSC return at match-speed loading rate.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
-    ex('Ankle Hops', '3', '15', '75s', 'REACTIVE — 15 reps, 75s rest. Both feet together. Tiny range — only the ankles move. Rapid plantarflexion/dorsiflexion. No knee or hip bend. High-frequency ground contacts — stiffness and SSC spring at the ankle. Fast, light, bouncy.',
-      { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   basic: [
     ex('Isometric Split Squat Hold (Heavy DB)', '3', '45s each leg', '2:00', 'Bottom of split squat. Hold heaviest available DB. Maximum effort throughout. Patellar tendon HSR — the tendon stiffens under heavy isometric load so it handles sprint/jump demand instead of the muscle.',
@@ -449,8 +447,6 @@ const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
       { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Stiff ankles. Minimum ground contact time. Elastic tendon return — train the spring at match-speed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
-    ex('Ankle Hops', '3', '15', '75s', 'REACTIVE — 15 reps, 75s rest. Both feet together. Only the ankles move. Rapid plantarflexion/dorsiflexion. High-frequency — ankle stiffness and SSC spring.',
-      { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   none: [
     ex('Single-Leg Isometric Wall Sit', '3', '45s each leg', '2:00', 'Single-leg at 60° knee flexion against wall. Back flat. Maximum effort. Patellar tendon HSR at 60° is the clinically-validated loading angle — heavy isometric at this position directly increases patellar tendon stiffness.',
@@ -458,8 +454,6 @@ const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
     ex('Single-Leg Calf Isometric Hold', '3', '45s each leg', '2:00', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — tendon absorbs sprint load so calf muscle capacity is preserved.',
       { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles stiff. Minimum ground contact. Elastic SSC tendon return at match-speed.',
-      { methodType: 'reactive', intensityIntent: 'reactive' }),
-    ex('Ankle Hops', '3', '15', '75s', 'REACTIVE — 15 reps, 75s rest. Both feet together. Only the ankles move. Rapid plantarflexion/dorsiflexion. No knee or hip bend. High-frequency ankle spring — no equipment needed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
 };
