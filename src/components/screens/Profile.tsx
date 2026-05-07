@@ -21,6 +21,7 @@ interface ProfileProps {
   onResetProfile: () => void;
   onChangePassword: (newHash: string) => void;
   onUpdateProfile: (updates: Partial<UserProfile>) => void;
+  onSaveTrainingProfile: (updates: Partial<UserProfile>) => void;
   onLogout: () => void;
   onBack: () => void;
 }
@@ -484,7 +485,7 @@ function EditTrainingProfileModal({
 export function Profile({
   userProfile, profilePicture, totalSessions,
   baseline, onSetProfilePicture,
-  onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onLogout, onBack,
+  onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onSaveTrainingProfile, onLogout, onBack,
 }: ProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showChangePw,         setShowChangePw]         = useState(false);
@@ -816,7 +817,7 @@ export function Profile({
             gymFrequency: userProfile.gymFrequency,
             gymAccess: userProfile.gymAccess,
           }}
-          onSave={(updates) => onUpdateProfile(updates)}
+          onSave={(updates) => onSaveTrainingProfile(updates)}
           onClose={() => setShowEditTraining(false)}
         />
       )}

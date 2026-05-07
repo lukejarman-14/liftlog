@@ -340,6 +340,12 @@ export default function App() {
               store.setUserProfile({ ...store.userProfile, ...updates });
             }
           }}
+          onSaveTrainingProfile={(updates) => {
+            if (store.userProfile) {
+              store.setUserProfile({ ...store.userProfile, ...updates });
+              store.setActiveProgrammeId(null);
+            }
+          }}
           onLogout={handleLogout}
           onBack={() => navigate({ screen: 'dashboard' })}
         />
