@@ -399,23 +399,25 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
 // Always immediately after warm-up, BEFORE any heavy strength work.
 // No weighted exercises — sprints and jumps only.
 
+// Explosive plyometrics: low reps (2–3), long rest (3 min). Max CNS output every rep.
+// These are NOT conditioning — every rep must be 100% intent. Full 3 min rest is non-negotiable.
 const POWER_PRIMER: Record<GymKey, ProgrammeExercise[]> = {
   full: [
-    ex('Broad Jump', '3', '4', '3:00', 'Max horizontal displacement. Swing arms. Drive through the hips. Stick the landing. Full reset between reps — this is neural output, not conditioning.',
+    ex('Broad Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Max horizontal displacement every rep. Swing arms back, load hips, drive hard. Stick the landing — absorb with hips and knees. Full reset between reps: this is maximal neural output, not conditioning.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ex('Box Jump', '2', '4', '2:30', 'Step back, drive arms, explode onto the box. Land softly in a partial squat. Step down — do not jump down. Full reset between reps.',
+    ex('Box Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Step back, drive arms, explode onto box. Land softly in partial squat. Step down every time — never jump down. Complete CNS reset between reps.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
   ],
   basic: [
-    ex('Broad Jump', '3', '4', '2:30', 'Max horizontal displacement. Swing arms. Stick landing. Full reset between reps — this is neural output, not conditioning.',
+    ex('Broad Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Max horizontal displacement every rep. Drive arms, load hips, push the ground back hard. Stick the landing. Full reset between reps: maximal neural output only.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ex('Box Jump', '2', '4', '2:30', 'Step back, drive arms, explode onto the box. Land softly in a partial squat. Step down — do not jump down. Full reset between reps.',
+    ex('Countermovement Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset between reps.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
   ],
   none: [
-    ex('Countermovement Jump', '3', '4', '2:30', 'Arms back, deep dip, drive through ceiling. Max height. 30s between reps — this is neural output, not conditioning.',
+    ex('Countermovement Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset between reps: this is maximal neural output, not conditioning.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ex('Broad Jump', '2', '4', '2:30', 'Max horizontal displacement. Swing arms. Stick the landing. Full reset.',
+    ex('Broad Jump', '3', '2', '3:00', 'EXPLOSIVE — 2 reps, full 3 min rest. Max horizontal displacement. Swing arms, load hips, drive. Stick the landing. Full reset between every rep.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
   ],
 };
@@ -435,7 +437,9 @@ const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
       { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Single-Leg Calf Isometric Hold (Heel Raise Position)', '3', '45s each leg', '2:00', 'Rise onto single-leg tiptoe. Hold at the top. Add weight via DB or barbell if available. Maximum effort. Achilles tendon HSR — stiffness adaptation. The tendon absorbs sprint push-off load so the calf muscle doesn\'t overwork over 90 minutes.',
       { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Pogo Hops', '3', '20', '90s', 'Ankles STIFF — no dorsiflexion. Arms punch up. Minimum ground contact time. This is tendon-spring training at match-speed loading rate. Different stimulus from the holds above — the holds build stiffness; pogos train the SSC elastic return.',
+    ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles STIFF — no dorsiflexion. Arms punch up. Minimum ground contact time. High frequency tendon-spring training: the holds above build stiffness, pogos train the elastic SSC return at match-speed loading rate.',
+      { methodType: 'reactive', intensityIntent: 'reactive' }),
+    ex('Ankle Hops', '3', '15', '75s', 'REACTIVE — 15 reps, 75s rest. Both feet together. Tiny range — only the ankles move. Rapid plantarflexion/dorsiflexion. No knee or hip bend. High-frequency ground contacts — stiffness and SSC spring at the ankle. Fast, light, bouncy.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   basic: [
@@ -443,7 +447,9 @@ const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
       { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Single-Leg Calf Isometric Hold', '3', '45s each leg', '2:00', 'Single-leg tiptoe hold. Hold heavy DB at side. Maximum effort. Achilles tendon HSR. The stiffer the tendon, the more it acts as a spring — reducing muscle work over the full 90 minutes.',
       { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Pogo Hops', '3', '20', '90s', 'Stiff ankles. Fast ground contacts. Elastic tendon return — train the spring.',
+    ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Stiff ankles. Minimum ground contact time. Elastic tendon return — train the spring at match-speed.',
+      { methodType: 'reactive', intensityIntent: 'reactive' }),
+    ex('Ankle Hops', '3', '15', '75s', 'REACTIVE — 15 reps, 75s rest. Both feet together. Only the ankles move. Rapid plantarflexion/dorsiflexion. High-frequency — ankle stiffness and SSC spring.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   none: [
@@ -451,7 +457,9 @@ const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
       { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Single-Leg Calf Isometric Hold', '3', '45s each leg', '2:00', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — tendon absorbs sprint load so calf muscle capacity is preserved.',
       { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Pogo Hops', '3', '20', '90s', 'Ankles stiff. Minimum ground contact. Elastic SSC tendon return.',
+    ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles stiff. Minimum ground contact. Elastic SSC tendon return at match-speed.',
+      { methodType: 'reactive', intensityIntent: 'reactive' }),
+    ex('Ankle Hops', '3', '15', '75s', 'REACTIVE — 15 reps, 75s rest. Both feet together. Only the ankles move. Rapid plantarflexion/dorsiflexion. No knee or hip bend. High-frequency ankle spring — no equipment needed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
 };
@@ -1602,11 +1610,17 @@ function buildSession(
           methodFocus: 'Mobility + concentric ramp — full joint prep before heavy loading',
           exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 2)],
         },
-        // ① Speed & Plyometrics — FIRST
+        // ① Explosive Plyometrics — FIRST (max CNS output: CMJ / Broad Jump)
         {
-          title: '⚡ Speed & Plyometrics',
-          methodFocus: 'ALWAYS first — sprinting, jumping and reactive work require a completely fresh nervous system. Full rest between reps. This is neural output, not conditioning.',
-          exercises: [...POWER_PRIMER[gymKey], ...pogoHops],
+          title: '⚡ Explosive Plyometrics — CMJ / Broad Jump',
+          methodFocus: 'ALWAYS first — explosive jumps require a completely fresh nervous system. Low reps (2–3), full 3 min rest between sets. Every rep is maximal intent. This is NOT conditioning — if you cannot give 100% on the next rep, extend the rest.',
+          exercises: POWER_PRIMER[gymKey],
+        },
+        // ① Reactive Plyometrics — immediately after (Pogos / Ankle Hops)
+        {
+          title: '🦘 Reactive Plyometrics — Pogos / Ankle Hops',
+          methodFocus: 'High-rep, medium rest (60–90s). Stiff ankles — minimise ground contact time. Trains the tendon spring at match-speed loading rate. Different stimulus to the jumps above: pogos/hops build elastic SSC return, not peak power.',
+          exercises: pogoHops,
         },
         // ② Maximum Strength — strict order: vertical → horizontal → accessory → weakness LAST
         // NO eccentric exercises in this block — they go to block ④ only.
