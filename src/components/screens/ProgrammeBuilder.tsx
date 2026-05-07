@@ -154,6 +154,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [step]);
 
   // Step 0 — Schedule
+  const [offSeason, setOffSeason] = useState(false);
   const [sessionsPerWeek, setSessionsPerWeek] = useState<2 | 3 | 4>(3);
   const [matchDay, setMatchDay] = useState<MatchDayPref>('saturday');
   const [hasSecondMatchDay, setHasSecondMatchDay] = useState(false);
@@ -189,7 +190,8 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
       primaryGoal,
       secondaryGoals,
       matchDay,
-      secondMatchDay: hasSecondMatchDay ? secondMatchDay : undefined,
+      secondMatchDay: hasSecondMatchDay && !offSeason ? secondMatchDay : undefined,
+      offSeason,
       biggestWeakness,
       injuryHistory,
       readiness,
@@ -241,6 +243,28 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
       {/* ── Step 0: Schedule ── */}
       {step === 0 && (
         <div className="space-y-5">
+          {/* Off-season toggle */}
+          <div>
+            <button
+              onClick={() => { setOffSeason(v => !v); setHasSecondMatchDay(false); }}
+              className={`w-full flex items-start justify-between px-4 py-3 rounded-xl border-2 transition-all ${
+                offSeason
+                  ? 'border-brand-500 bg-brand-50 text-brand-700'
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="text-left">
+                <span className="text-sm font-semibold block">🏝️ Off Season</span>
+                <span className="text-xs text-gray-500 mt-0.5 block">No match-day periodisation — sessions focus purely on building physical qualities. DOMS and fatigue managed through session spacing.</span>
+              </div>
+              <span className={`w-5 h-5 rounded flex-shrink-0 ml-3 mt-0.5 flex items-center justify-center border-2 ${
+                offSeason ? 'bg-brand-500 border-brand-500' : 'border-gray-300'
+              }`}>
+                {offSeason && <Check size={12} className="text-white" />}
+              </span>
+            </button>
+          </div>
+
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-2">Sessions per week</p>
             <ChipSelector
@@ -249,10 +273,14 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
               onToggle={v => setSessionsPerWeek(Number(v) as 2 | 3 | 4)}
             />
           </div>
+
+          {!offSeason && (
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-2">Match day</p>
             <ChipSelector options={MATCH_DAY_OPTS} selected={matchDay} onToggle={setMatchDay} />
           </div>
+          )}
+          {!offSeason && (
           <div>
             <button
               onClick={() => setHasSecondMatchDay(v => !v)}
@@ -301,6 +329,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
               </div>
             )}
           </div>
+          )}
           <Card className="p-4 bg-blue-50 border-blue-200">
             <p className="text-xs text-blue-700 font-medium">Using your profile</p>
             <p className="text-xs text-blue-600 mt-1">

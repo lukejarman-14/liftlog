@@ -280,6 +280,7 @@ export interface ProgrammeInputs {
   readiness: { sleep: number; fatigue: number; soreness: number; stress: number };
   gymAccess: 'full' | 'basic' | 'none';
   fvEmphasis?: FVEmphasis; // always 'balanced' — kept for historical data compatibility
+  offSeason?: boolean;     // when true: no match-day periodisation, DOMS/fatigue managed only
 }
 
 export interface ProgrammeExercise {

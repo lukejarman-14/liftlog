@@ -97,6 +97,30 @@ function getPhase(week: number, total: number): { phase: string; phaseGoal: stri
   };
 }
 
+// ── Off-season schedule — no MD loading, DOMS/fatigue managed by spacing ──
+// Heavy sessions spaced ≥72h apart. Moderate sessions fill gaps.
+// Pattern: Heavy → Moderate → Heavy (or Heavy → Heavy for 2x/week with 72h gap).
+
+type OsSlot = { dayOfWeek: string; load: 'heavy' | 'moderate' };
+
+const OFF_SEASON_SCHEDULES: Record<number, OsSlot[]> = {
+  2: [
+    { dayOfWeek: 'Tuesday',  load: 'heavy' },
+    { dayOfWeek: 'Friday',   load: 'heavy' },     // 72h gap each way
+  ],
+  3: [
+    { dayOfWeek: 'Monday',   load: 'heavy' },
+    { dayOfWeek: 'Wednesday', load: 'moderate' },  // 48h — moderate to manage DOMS
+    { dayOfWeek: 'Friday',   load: 'heavy' },      // 48h — recovered from Wed
+  ],
+  4: [
+    { dayOfWeek: 'Monday',   load: 'heavy' },
+    { dayOfWeek: 'Tuesday',  load: 'moderate' },   // 24h — moderate only
+    { dayOfWeek: 'Thursday', load: 'heavy' },      // 48h — recovered
+    { dayOfWeek: 'Friday',   load: 'moderate' },   // 24h — moderate only
+  ],
+};
+
 // ── MD schedule ────────────────────────────────────────────────────────────
 
 type MdSlot = { mdDay: string; dayOfWeek: string };
@@ -1518,6 +1542,125 @@ const MD2_OBJ: Record<string, string> = {
   Peak: 'The Forbidden Zone — 2 days from match. Zero gym fatigue. Rest, eat, sleep. Arrive Saturday sharp.',
 };
 
+// ── Off-season session builder ─────────────────────────────────────────────
+// No match-day context. Load alternates Heavy/Moderate based on schedule spacing.
+// Full 5-block structure every session. DOMS managed by session spacing alone.
+
+function buildOffSeasonSession(
+  slot: OsSlot,
+  inputs: ProgrammeInputs,
+  phase: string,
+  weekNum: number,
+  readiness: { level: ReadinessLevel; volumeMultiplier: number; intensityNote: string },
+): ProgrammeSession {
+  const { position, biggestWeakness, injuryHistory, gymAccess } = inputs;
+
+  // Use heavy load on heavy days, moderate on moderate days
+  const loadScheme = slot.load === 'heavy' ? 'heavy' : 'moderate';
+  const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
+  const gymAccessLib = gymLib[gymAccess as GymKey] ?? gymLib.basic;
+  const strengthEx = gymAccessLib[loadScheme] ?? gymAccessLib.moderate;
+  const upperPhase = UPPER[phase] ?? UPPER.Build;
+  const upperEx = upperPhase[gymAccess as GymKey] ?? upperPhase.basic;
+
+  const posKey = position as PosKey;
+  const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
+  const weaknessEx = WEAKNESS_EX[biggestWeakness]?.slice(0, 2) ?? [];
+
+  const prehabEx: ProgrammeExercise[] = [];
+  for (const area of injuryHistory.slice(0, 2)) {
+    const p = PREHAB[area];
+    if (p) prehabEx.push(p[weekNum % p.length]);
+  }
+  if (prehabEx.length === 0) prehabEx.push(...DEFAULT_PREHAB);
+
+  const gymKey = (gymAccess as GymKey) in POWER_PRIMER ? (gymAccess as GymKey) : 'basic';
+  const tendonIsometrics = TENDON_SSC_BLOCK[gymKey].slice(0, 2);
+  const pogoHops = TENDON_SSC_BLOCK[gymKey].slice(2);
+  const prehabIsometric = prehabEx.filter(e => e.methodType === 'isometric' || !e.methodType);
+  const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
+
+  const loadLabel = slot.load === 'heavy' ? 'Heavy Day' : 'Moderate Day';
+  const durationBase = slot.load === 'heavy' ? 70 : 60;
+  const durationMin = readiness.level === 'low' ? durationBase - 15
+    : readiness.level === 'elite' ? durationBase + 10
+    : durationBase;
+
+  // Include conditioning only for endurance-focused athletes
+  const includeConditioning = inputs.primaryGoal === 'endurance' || inputs.biggestWeakness === 'endurance';
+  const condEx = CONDITIONING[posKey]?.[phase] ?? CONDITIONING.CM[phase];
+
+  const readinessNote =
+    readiness.level === 'elite'
+      ? 'Elite readiness ✦ — Add a bonus set. Chase a PB on your primary lift. Conditions are optimal.'
+      : readiness.level === 'high'
+      ? 'High readiness ✓ — Execute as written. 2–1 RIR on main sets.'
+      : readiness.level === 'moderate'
+      ? 'Moderate readiness — Drop load ~10%. RIR floor 2.'
+      : 'Low readiness — 1 fewer set, −20–25% intensity. Movement quality is today\'s goal.';
+
+  return {
+    mdDay: loadLabel,
+    dayOfWeek: slot.dayOfWeek,
+    objective: `Off Season — ${loadLabel} · ${phase} · Wk ${weekNum}`,
+    readinessNote,
+    durationMin,
+    fvProfile: slot.load === 'heavy'
+      ? 'Off-season heavy day. High load, low reps, explosive concentric intent. No match to manage around — push the quality ceiling.'
+      : 'Off-season moderate day. Controlled load, higher reps. Manage DOMS from the previous session — quality over intensity today.',
+    blocks: [
+      {
+        title: '🔥 Warm-Up (12 min)',
+        methodFocus: 'Mobility + concentric ramp — full joint prep before heavy loading',
+        exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 2)],
+      },
+      {
+        title: '⚡ Explosive Plyometrics — CMJ / Broad Jump',
+        methodFocus: 'Low reps (2–3), full 3 min rest. Maximum neural output. No match to manage — express full power quality.',
+        exercises: POWER_PRIMER[gymKey],
+      },
+      {
+        title: '🦘 Reactive Plyometrics — Pogos',
+        methodFocus: 'High reps (15–20), 90s rest. Stiff ankles. Tendon spring at match-speed loading rate.',
+        exercises: pogoHops,
+      },
+      {
+        title: '💪 Maximum Strength',
+        methodFocus: slot.load === 'heavy'
+          ? 'Off-season: no match day ceiling — push load to the limit. Heavy vertical compound → horizontal → upper accessory → weakness last. Zero eccentric work here.'
+          : 'Moderate load — manage DOMS from last session. Maintain quality. Weakness work last.',
+        exercises: applyReadiness(
+          [
+            ...strengthEx,
+            ...upperEx.slice(0, 2),
+            ...(playStyleEx.filter(e => e.methodType !== 'eccentric')),
+            ...(biggestWeakness !== 'endurance'
+              ? weaknessEx.filter(e => e.methodType !== 'eccentric')
+              : []),
+          ],
+          readiness.level,
+          readiness.intensityNote,
+        ),
+      },
+      {
+        title: '🦴 Isometric Block',
+        methodFocus: 'Tendon HSR holds. Patellar + Achilles stiffness adaptation.',
+        exercises: [...tendonIsometrics, ...(prehabIsometric.length > 0 ? prehabIsometric : DEFAULT_PREHAB)],
+      },
+      {
+        title: '🔴 Eccentric Block — Always Last',
+        methodFocus: 'Fascicle length adaptation. DOMS peaks 48h — sessions are spaced to manage this. Non-negotiable every session.',
+        exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
+      },
+      ...(includeConditioning ? [{
+        title: '🏃 Conditioning — Always Last',
+        methodFocus: 'Off-season conditioning — no match-day fatigue constraints. Build the aerobic base freely.',
+        exercises: [condEx],
+      }] : []),
+    ],
+  };
+}
+
 // ── Main session builder ───────────────────────────────────────────────────
 
 function buildSession(
@@ -1843,6 +1986,10 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
     ? `\n\nDouble game week — Survival Mode: your schedule includes a second match day (${inputs.secondMatchDay.charAt(0).toUpperCase() + inputs.secondMatchDay.slice(1)}). When two matches fall within 4 days, the HPP rule is simple: you cannot build fitness, you can only mitigate fatigue. MD-4 and MD-3 strength blocks are completely deleted from the algorithm in double-game weeks. MD+1 becomes recovery only (isometrics + bike). MD-1 becomes neural priming only — zero heavy lifting. The pitch is the only priority. Sleep, nutrition and soft-tissue work take precedence over prescribed sets.`
     : '';
 
+  if (inputs.offSeason) {
+    return `This ${totalWeeks}-week OFF-SEASON programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nOff-season mode: there are no match-day loading constraints. Every session follows the full five-block structure — Explosive Plyometrics → Reactive Plyometrics → Maximum Strength → Isometric → Eccentric. Sessions are spaced to manage DOMS and accumulated fatigue: heavy sessions are separated by at least 72 hours, with moderate sessions filling the gaps where needed.\n\nThis is the window to build physical qualities without compromise. Load can be pushed further than in-season, eccentric volume is higher, and there is no match-day to protect. Use it.\n\n${readinessLine}`;
+  }
+
   return `This ${totalWeeks}-week programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session uses a three-method structure. Concentric work builds force production, eccentric work creates structural resilience and reduces injury risk, and isometric work develops joint stability. All three are trained throughout the programme.\n\nSessions are structured around your match schedule. The heaviest training falls furthest from match day, and load is progressively reduced as the game approaches. This protects performance on the pitch while ensuring consistent physical development across the week.${doubleGameWeekNote}\n\n${readinessLine}`;
 }
 
@@ -1851,7 +1998,6 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
 export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
   const { score, level: readinessLevel, guidance: readinessGuidance, volumeMultiplier, intensityNote } = calcReadiness(inputs.readiness);
   const totalWeeks = durationWeeks(inputs.experienceYears);
-  const slots = getMdSlots(inputs.sessionsPerWeek, inputs.matchDay);
 
   const POSITION_LABELS: Record<string, string> = {
     GK: 'Goalkeeper', CB: 'Centre Back', FB: 'Full Back', CM: 'Midfielder', W: 'Winger', ST: 'Striker',
@@ -1860,6 +2006,43 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     speed: 'Speed & Acceleration', strength: 'Strength', power: 'Explosive Power',
     endurance: 'Endurance', injury_prevention: 'Injury Prevention',
   };
+
+  const pos = POSITION_LABELS[inputs.position] ?? inputs.position;
+  const goal = GOAL_LABELS[inputs.primaryGoal] ?? inputs.primaryGoal;
+
+  // ── Off-season path ──────────────────────────────────────────────────────
+  if (inputs.offSeason) {
+    const osSlots = OFF_SEASON_SCHEDULES[inputs.sessionsPerWeek] ?? OFF_SEASON_SCHEDULES[3];
+    const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
+      const weekNum = i + 1;
+      const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
+      const sessions = osSlots.map(slot =>
+        buildOffSeasonSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }),
+      );
+      return {
+        weekNumber: weekNum,
+        phase,
+        phaseGoal: `${phaseGoal} [Wk ${weekNum}: ${progressNote(weekNum)}]`,
+        sessions,
+      };
+    });
+    return {
+      id: `prog-${Date.now()}`,
+      createdAt: Date.now(),
+      title: `${pos} — ${goal} (Off Season)`,
+      summary: `${totalWeeks}-week OFF-SEASON programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inputs.sessionsPerWeek} sessions/week · No match-day loading — DOMS managed by session spacing.`,
+      coachExplanation: buildCoachExplanation(inputs, totalWeeks, readinessLevel),
+      readinessScore: score,
+      readinessLevel,
+      readinessGuidance,
+      durationWeeks: totalWeeks,
+      inputs,
+      weeks,
+    };
+  }
+
+  // ── In-season path ───────────────────────────────────────────────────────
+  const slots = getMdSlots(inputs.sessionsPerWeek, inputs.matchDay);
   const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNum = i + 1;
     const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
@@ -1874,8 +2057,6 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     };
   });
 
-  const pos = POSITION_LABELS[inputs.position] ?? inputs.position;
-  const goal = GOAL_LABELS[inputs.primaryGoal] ?? inputs.primaryGoal;
   const matchStr = inputs.matchDay.charAt(0).toUpperCase() + inputs.matchDay.slice(1);
   const secondMatchStr = inputs.secondMatchDay
     ? ` + ${inputs.secondMatchDay.charAt(0).toUpperCase() + inputs.secondMatchDay.slice(1)}`
