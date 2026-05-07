@@ -469,31 +469,20 @@ export function GeneratedProgramme({ programme, isActive, onBack, onRebuild, onA
 
       {/* ── Plan action buttons ── */}
       {isActive ? (
-        <div className="flex flex-col gap-3 mb-5">
-          {/* Primary: Start Plan (plan already running — goes home) */}
+        <div className="flex gap-3 mb-5">
+          <button
+            onClick={() => setShowEndModal(true)}
+            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl border-2 border-gray-200 text-gray-600 font-bold text-base hover:bg-gray-50 transition-colors active:scale-[0.98]"
+          >
+            End Plan
+          </button>
           <button
             onClick={onBack}
-            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md active:scale-[0.98]"
+            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md active:scale-[0.98]"
           >
-            <Play size={18} />
-            Start Plan
+            <Home size={18} />
+            Home Screen
           </button>
-          {/* Secondary row */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowEndModal(true)}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors active:scale-[0.98]"
-            >
-              End Plan
-            </button>
-            <button
-              onClick={onBack}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors active:scale-[0.98]"
-            >
-              <Home size={15} />
-              Home Screen
-            </button>
-          </div>
         </div>
       ) : (
         <div className="flex gap-3 mb-5">
