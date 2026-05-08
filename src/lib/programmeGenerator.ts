@@ -28,6 +28,48 @@ function ex(
   return { name, sets, reps, rest, cue, ...opts };
 }
 
+// ── Conditioning progressive overload ─────────────────────────────────────
+// Normalises base reps to 6, adds 1 every 2 weeks (max +3), reduces rest 15s every 4 weeks.
+
+function parseRestSec(rest: string): number {
+  const mm = rest.match(/(\d+):(\d+)/);
+  if (mm) return parseInt(mm[1]) * 60 + parseInt(mm[2]);
+  const ss = rest.match(/(\d+)\s*s(?:\b|$)/);
+  if (ss) return parseInt(ss[1]);
+  const mn = rest.match(/(\d+)\s*min/);
+  if (mn) return parseInt(mn[1]) * 60;
+  return 0;
+}
+
+function fmtRest(secs: number): string {
+  if (secs <= 0) return 'Continuous';
+  if (secs < 60) return `${secs}s`;
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return s === 0 ? `${m}:00` : `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function progressConditioning(ex: ProgrammeExercise, weekNum: number): ProgrammeExercise {
+  const baseSets = Math.max(parseInt(ex.sets, 10) || 4, 6);
+  const addedReps = Math.min(Math.floor(weekNum / 2), 3);      // +1 every 2 weeks, cap +3
+  const sets = baseSets + addedReps;
+
+  const baseRestSec = parseRestSec(ex.rest);
+  const restCut = Math.min(Math.floor(weekNum / 4) * 15, Math.round(baseRestSec * 0.25));
+  const newRestSec = baseRestSec > 0 ? Math.max(baseRestSec - restCut, Math.round(baseRestSec * 0.75)) : 0;
+
+  const progressNote = weekNum === 0
+    ? '\n\n📈 PROGRESSION: Week 1 baseline — 6 reps, full rest. +1 rep every 2 weeks · -15s rest every 4 weeks.'
+    : `\n\n📈 WEEK ${weekNum + 1}: ${sets} reps · ${fmtRest(newRestSec)} rest${addedReps > 0 || restCut > 0 ? ` (started at 6 reps / ${fmtRest(baseRestSec)} rest)` : ''}`;
+
+  return {
+    ...ex,
+    sets: String(sets),
+    rest: newRestSec > 0 ? fmtRest(newRestSec) : ex.rest,
+    cue: ex.cue + progressNote,
+  };
+}
+
 // ── Readiness — 4-band (1–5 scale) ────────────────────────────────────────
 // score = mean of (sleep + inverted_fatigue + inverted_soreness + inverted_stress) / 4
 // sleep: 1=poor → 5=excellent  |  fatigue/soreness/stress: 1=none → 5=severe
@@ -1648,7 +1690,8 @@ function buildOffSeasonSession(
 
   // Include conditioning only for endurance-focused athletes
   const includeConditioning = inputs.primaryGoal === 'endurance' || inputs.biggestWeakness === 'endurance';
-  const condEx = CONDITIONING[posKey]?.[phase] ?? CONDITIONING.CM[phase];
+  const condExRaw = CONDITIONING[posKey]?.[phase] ?? CONDITIONING.CM[phase];
+  const condEx = condExRaw ? progressConditioning(condExRaw, weekNum) : condExRaw;
 
   const readinessNote =
     readiness.level === 'elite'
@@ -1801,7 +1844,8 @@ function buildSession(
 
     // Conditioning — only for endurance-focused athletes, placed LAST
     const includeConditioning = inputs.primaryGoal === 'endurance' || inputs.biggestWeakness === 'endurance';
-    const condEx = CONDITIONING[position as PosKey]?.[phase] ?? CONDITIONING.CM[phase];
+    const condExRaw = CONDITIONING[position as PosKey]?.[phase] ?? CONDITIONING.CM[phase];
+    const condEx = condExRaw ? progressConditioning(condExRaw, weekNum) : condExRaw;
 
     // Prehab: isometric exercises only (filter out eccentric prehab — it moves to eccentric block)
     const prehabIsometric = prehabEx.filter(e => e.methodType === 'isometric' || !e.methodType);
