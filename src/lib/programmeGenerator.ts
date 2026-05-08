@@ -1615,14 +1615,14 @@ function buildOffSeasonSession(
         exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 2)],
       },
       {
-        title: '⚡ Explosive Plyometrics — CMJ / Broad Jump',
-        methodFocus: 'Low reps (2–3), full 3 min rest. Maximum neural output. No match to manage — express full power quality.',
-        exercises: POWER_PRIMER[gymKey],
-      },
-      {
         title: '🦘 Reactive Plyometrics — Pogos',
         methodFocus: 'High reps (15–20), 90s rest. Stiff ankles. Tendon spring at match-speed loading rate.',
         exercises: pogoHops,
+      },
+      {
+        title: '⚡ Explosive Plyometrics — CMJ / Broad Jump',
+        methodFocus: 'Low reps (2–3), full 3 min rest. Maximum neural output. No match to manage — express full power quality.',
+        exercises: POWER_PRIMER[gymKey],
       },
       {
         title: '💪 Maximum Strength',
@@ -1714,11 +1714,12 @@ function buildSession(
     : durationBase;
 
   // ── Session block order (non-negotiable) ────────────────────────────────
-  // 1. Speed & Plyometrics  (fresh CNS — jumps, sprints, reactive)
-  // 2. Maximum Strength      (heavy compound, upper body, play style, weakness)
-  // 3. Isometric             (tendon HSR holds, prehab isometrics)
-  // 4. Eccentric             (Nordics, Copenhagen, sliders — most structural stress, always last)
-  // 5. Conditioning          (only when included — always after everything else)
+  // 1. Reactive Plyometrics  (Pogos — tendon spring, high rep, medium rest)
+  // 2. Explosive Plyometrics (CMJ / Broad Jump — max CNS output, low rep, long rest)
+  // 3. Maximum Strength      (heavy compound, upper body, play style, weakness)
+  // 4. Isometric             (tendon HSR holds, prehab isometrics)
+  // 5. Eccentric             (Nordics, Copenhagen — most structural stress, always last)
+  // 6. Conditioning          (only when included — always after everything else)
 
   if (slot.mdDay === 'MD-4') {
     const gymKey = (gymAccess as GymKey) in POWER_PRIMER ? (gymAccess as GymKey) : 'basic';
@@ -1747,17 +1748,17 @@ function buildSession(
           methodFocus: 'Mobility + concentric ramp — full joint prep before heavy loading',
           exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 2)],
         },
-        // ① Explosive Plyometrics — FIRST (max CNS output: CMJ / Broad Jump)
-        {
-          title: '⚡ Explosive Plyometrics — CMJ / Broad Jump',
-          methodFocus: 'ALWAYS first — explosive jumps require a completely fresh nervous system. Low reps (2–3), full 3 min rest between sets. Every rep is maximal intent. This is NOT conditioning — if you cannot give 100% on the next rep, extend the rest.',
-          exercises: POWER_PRIMER[gymKey],
-        },
-        // ① Reactive Plyometrics — immediately after (Pogos / Ankle Hops)
+        // ① Reactive Plyometrics — FIRST (Pogos / Ankle Hops)
         {
           title: '🦘 Reactive Plyometrics — Pogos / Ankle Hops',
-          methodFocus: 'High-rep, medium rest (60–90s). Stiff ankles — minimise ground contact time. Trains the tendon spring at match-speed loading rate. Different stimulus to the jumps above: pogos/hops build elastic SSC return, not peak power.',
+          methodFocus: 'High-rep, medium rest (60–90s). Stiff ankles — minimise ground contact time. Trains the tendon spring at match-speed loading rate.',
           exercises: pogoHops,
+        },
+        // ② Explosive Plyometrics — after reactive (CMJ / Broad Jump)
+        {
+          title: '⚡ Explosive Plyometrics — CMJ / Broad Jump',
+          methodFocus: 'Low reps (2–3), full 3 min rest between sets. Every rep is maximal intent. This is NOT conditioning — if you cannot give 100% on the next rep, extend the rest.',
+          exercises: POWER_PRIMER[gymKey],
         },
         // ② Maximum Strength — strict order: vertical → horizontal → accessory → weakness LAST
         // NO eccentric exercises in this block — they go to block ④ only.
@@ -1920,9 +1921,9 @@ function buildSession(
           methodFocus: 'Light activation only — prepare for micro-dosed power work',
           exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_NEURAL.slice(0, 1)],
         },
-        // ① Speed & Plyometrics — micro-dosed (jumps = plyometric; first block per rule)
+        // ① Explosive Plyometrics — micro-dosed (MD-2 only)
         {
-          title: '⚡ Speed & Plyometrics — Micro-Dosed (2 × 3 only)',
+          title: '⚡ Explosive Plyometrics — Micro-Dosed (2 × 3 only)',
           methodFocus: 'Maximum velocity intent at 30–40% 1RM. CNS maintenance — NOT a training stimulus. 2 sets, 3 reps, full rest. Then leave. No additional volume under any circumstances.',
           exercises: microPowerEx[gymKey],
         },
@@ -1987,7 +1988,7 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
     : '';
 
   if (inputs.offSeason) {
-    return `This ${totalWeeks}-week OFF-SEASON programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nOff-season mode: there are no match-day loading constraints. Every session follows the full five-block structure — Explosive Plyometrics → Reactive Plyometrics → Maximum Strength → Isometric → Eccentric. Sessions are spaced to manage DOMS and accumulated fatigue: heavy sessions are separated by at least 72 hours, with moderate sessions filling the gaps where needed.\n\nThis is the window to build physical qualities without compromise. Load can be pushed further than in-season, eccentric volume is higher, and there is no match-day to protect. Use it.\n\n${readinessLine}`;
+    return `This ${totalWeeks}-week OFF-SEASON programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nOff-season mode: there are no match-day loading constraints. Every session follows the full five-block structure — Reactive Plyometrics → Explosive Plyometrics → Maximum Strength → Isometric → Eccentric. Sessions are spaced to manage DOMS and accumulated fatigue: heavy sessions are separated by at least 72 hours, with moderate sessions filling the gaps where needed.\n\nThis is the window to build physical qualities without compromise. Load can be pushed further than in-season, eccentric volume is higher, and there is no match-day to protect. Use it.\n\n${readinessLine}`;
   }
 
   return `This ${totalWeeks}-week programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session uses a three-method structure. Concentric work builds force production, eccentric work creates structural resilience and reduces injury risk, and isometric work develops joint stability. All three are trained throughout the programme.\n\nSessions are structured around your match schedule. The heaviest training falls furthest from match day, and load is progressively reduced as the game approaches. This protects performance on the pitch while ensuring consistent physical development across the week.${doubleGameWeekNote}\n\n${readinessLine}`;
