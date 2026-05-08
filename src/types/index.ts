@@ -284,6 +284,8 @@ export interface ProgrammeInputs {
   gymAccess: 'full' | 'basic' | 'none';
   fvEmphasis?: FVEmphasis; // always 'balanced' — kept for historical data compatibility
   offSeason?: boolean;     // when true: no match-day periodisation, DOMS/fatigue managed only
+  customDurationWeeks?: number; // user-chosen programme length (overrides experience-based default)
+  preferBackSquat?: boolean;   // player enjoys/prefers Back Squat — enables selection in eligible phases
 }
 
 export interface ProgrammeExercise {

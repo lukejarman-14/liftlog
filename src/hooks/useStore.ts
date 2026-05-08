@@ -165,22 +165,27 @@ export function useStore() {
   // Returns the most recent completed session (excluding currentSessionId) that contains exerciseId
   const getLastSession = (exerciseId: string, currentSessionId: string) => {
     const past = sessions
-      .filter(s => s.id !== currentSessionId && s.endTime != null && s.exercises.some(e => e.exerciseId === exerciseId))
+      .filter(s => s.id !== currentSessionId && s.exercises.some(e => e.exerciseId === exerciseId))
       .sort((a, b) => b.startTime - a.startTime);
     if (!past.length) return null;
     const session = past[0];
     return session.exercises.find(e => e.exerciseId === exerciseId) ?? null;
   };
 
-  // Returns the single best set ever for an exercise (by weight, then reps)
-  const getPB = (exerciseId: string) => {
+  // Returns the single best set ever for an exercise.
+  // For reps-only exercises (measureType 'reps') ranks by reps; otherwise by weight then reps.
+  const getPB = (exerciseId: string, measureType?: string) => {
     let best: { weight: number; reps: number } | null = null;
     for (const session of sessions) {
       const ex = session.exercises.find(e => e.exerciseId === exerciseId);
       if (!ex) continue;
       for (const set of ex.sets) {
-        if (!best || set.weight > best.weight || (set.weight === best.weight && set.reps > best.reps)) {
-          best = { weight: set.weight, reps: set.reps };
+        if (measureType === 'reps') {
+          if (!best || set.reps > best.reps) best = { weight: set.weight, reps: set.reps };
+        } else {
+          if (!best || set.weight > best.weight || (set.weight === best.weight && set.reps > best.reps)) {
+            best = { weight: set.weight, reps: set.reps };
+          }
         }
       }
     }

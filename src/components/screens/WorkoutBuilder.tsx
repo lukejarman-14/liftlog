@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp, BookMarked, User } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -236,11 +236,13 @@ function ExerciseRow({
   exercise,
   onChange,
   onRemove,
+  dragHandleProps,
 }: {
   item: WorkoutExercise;
   exercise: Exercise;
   onChange: (updated: WorkoutExercise) => void;
   onRemove: () => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }) {
   const [open, setOpen] = useState(false);
   // Local string state so fields can be blank while typing (same as weight)
@@ -248,27 +250,48 @@ function ExerciseRow({
   const [repsStr,   setRepsStr]   = useState(item.targetReps   > 0 ? String(item.targetReps)   : '');
   const [weightStr, setWeightStr] = useState(item.targetWeight > 0 ? String(item.targetWeight) : '');
 
+  // Isometric exercises measure duration in seconds, not reps
+  const isIsometric = exercise.category === 'Isometric';
+  const repsLabel   = isIsometric ? 'Seconds' : 'Reps';
+  const repsPlaceholder = isIsometric ? '30' : '10';
+  // Hide weight for non-strength exercises (time, reps, isometric, plyometrics, speed)
+  const showWeight = exercise.category !== 'Isometric'
+    && exercise.category !== 'Plyometrics'
+    && exercise.category !== 'Speed'
+    && exercise.category !== 'Agility'
+    && exercise.category !== 'Conditioning'
+    && (exercise.measureType === undefined || exercise.measureType === 'strength');
+
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center gap-2 p-3 cursor-pointer" onClick={() => setOpen(o => !o)}>
-        <GripVertical size={16} className="text-gray-300 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2 p-3">
+        {/* Drag handle — prevents row expand/collapse on drag */}
+        <div
+          {...dragHandleProps}
+          className="p-1 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+          onClick={e => e.stopPropagation()}
+        >
+          <GripVertical size={16} className="text-gray-300" />
+        </div>
+        <button className="flex-1 min-w-0 flex items-center" onClick={() => setOpen(o => !o)}>
           <span className="font-medium text-sm text-gray-900">{exercise.name}</span>
           <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${CATEGORY_COLORS[exercise.category]}`}>
             {exercise.category}
           </span>
-        </div>
+        </button>
         <button
           onClick={e => { e.stopPropagation(); onRemove(); }}
           className="p-1 text-gray-300 hover:text-red-500 transition-colors"
         >
           <Trash2 size={14} />
         </button>
-        {open ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
+        <button onClick={() => setOpen(o => !o)}>
+          {open ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
+        </button>
       </div>
 
       {open && (
-        <div className="px-3 pb-3 grid grid-cols-2 gap-3 border-t border-gray-50 pt-3">
+        <div className={`px-3 pb-3 grid gap-3 border-t border-gray-50 pt-3 ${showWeight ? 'grid-cols-2' : 'grid-cols-2'}`}>
           <Input
             label="Sets"
             type="number" min="1" max="20"
@@ -283,31 +306,33 @@ function ExerciseRow({
             }}
           />
           <Input
-            label="Reps"
-            type="number" min="1" max="100"
+            label={repsLabel}
+            type="number" min="1" max={isIsometric ? '300' : '100'}
             value={repsStr}
-            placeholder="10"
+            placeholder={repsPlaceholder}
             onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
             onChange={e => setRepsStr(e.target.value)}
             onBlur={() => {
-              const v = parseInt(repsStr) || 10;
+              const v = parseInt(repsStr) || (isIsometric ? 30 : 10);
               setRepsStr(String(v));
               onChange({ ...item, targetReps: v });
             }}
           />
-          <Input
-            label="Weight (kg)"
-            type="number" min="0" step="0.5"
-            value={weightStr}
-            placeholder="0"
-            onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
-            onChange={e => setWeightStr(e.target.value)}
-            onBlur={() => {
-              const v = parseFloat(weightStr) || 0;
-              setWeightStr(v > 0 ? String(v) : '');
-              onChange({ ...item, targetWeight: v });
-            }}
-          />
+          {showWeight && (
+            <Input
+              label="Weight (kg)"
+              type="number" min="0" step="0.5"
+              value={weightStr}
+              placeholder="0"
+              onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
+              onChange={e => setWeightStr(e.target.value)}
+              onBlur={() => {
+                const v = parseFloat(weightStr) || 0;
+                setWeightStr(v > 0 ? String(v) : '');
+                onChange({ ...item, targetWeight: v });
+              }}
+            />
+          )}
           <RestPicker
             value={item.restSeconds}
             onChange={secs => onChange({ ...item, restSeconds: secs })}
@@ -503,6 +528,55 @@ export function WorkoutBuilder({
 
   const selectedIds = items.map(i => i.exerciseId);
 
+  // ── Drag-to-reorder state ─────────────────────────────────────────────────
+  const dragIndexRef  = useRef<number | null>(null);
+  const overIndexRef  = useRef<number | null>(null);
+  const [dragIndex,   setDragIndex]  = useState<number | null>(null);
+  const [overIndex,   setOverIndex]  = useState<number | null>(null);
+  const rowRefsMap    = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  const getRowIndex = useCallback((y: number): number | null => {
+    for (const [idx, el] of rowRefsMap.current.entries()) {
+      const rect = el.getBoundingClientRect();
+      if (y >= rect.top && y <= rect.bottom) return idx;
+    }
+    return null;
+  }, []);
+
+  const handleDragHandlePointerDown = useCallback((startIdx: number) => (e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragIndexRef.current = startIdx;
+    overIndexRef.current = startIdx;
+    setDragIndex(startIdx);
+    setOverIndex(startIdx);
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (dragIndexRef.current === null) return;
+    const idx = getRowIndex(e.clientY);
+    if (idx !== null && idx !== overIndexRef.current) {
+      overIndexRef.current = idx;
+      setOverIndex(idx);
+    }
+  }, [getRowIndex]);
+
+  const handlePointerUp = useCallback(() => {
+    if (dragIndexRef.current !== null && overIndexRef.current !== null && dragIndexRef.current !== overIndexRef.current) {
+      const from = dragIndexRef.current;
+      const to   = overIndexRef.current;
+      setItems(prev => {
+        const next = [...prev];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        return next;
+      });
+    }
+    dragIndexRef.current = null;
+    overIndexRef.current = null;
+    setDragIndex(null);
+    setOverIndex(null);
+  }, []);
+
   const loadTemplate = (t: { id?: string; name: string; exercises: WorkoutExercise[] }) => {
     setName(t.name);
     setItems(t.exercises);
@@ -671,19 +745,38 @@ export function WorkoutBuilder({
             />
           </div>
 
-          {/* Exercise list */}
-          <div className="flex flex-col gap-3 mb-4">
+          {/* Exercise list — drag-to-reorder */}
+          <div
+            className="flex flex-col gap-3 mb-4"
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerUp}
+          >
             {items.map((item, idx) => {
               const exercise = exercises.find(e => e.id === item.exerciseId);
               if (!exercise) return null;
+              const isDragging = dragIndex === idx;
+              const isOver     = overIndex === idx && dragIndex !== null && dragIndex !== idx;
               return (
-                <ExerciseRow
+                <div
                   key={item.exerciseId}
-                  item={item}
-                  exercise={exercise}
-                  onChange={updated => updateItem(idx, updated)}
-                  onRemove={() => removeItem(idx)}
-                />
+                  ref={el => { if (el) rowRefsMap.current.set(idx, el); else rowRefsMap.current.delete(idx); }}
+                  className={`transition-all duration-150 ${
+                    isDragging ? 'opacity-50 scale-[0.98]' : ''
+                  } ${
+                    isOver ? 'ring-2 ring-brand-400 rounded-2xl' : ''
+                  }`}
+                >
+                  <ExerciseRow
+                    item={item}
+                    exercise={exercise}
+                    onChange={updated => updateItem(idx, updated)}
+                    onRemove={() => removeItem(idx)}
+                    dragHandleProps={{
+                      onPointerDown: handleDragHandlePointerDown(idx),
+                    }}
+                  />
+                </div>
               );
             })}
           </div>

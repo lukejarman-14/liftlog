@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Zap, Target, Activity, Brain, Check, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Target, Activity, Brain, Check, User, Calendar } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -19,7 +19,7 @@ interface Props {
   onBack: () => void;
 }
 
-const STEPS = ['Schedule', 'Position', 'Goals', 'Injuries', 'Readiness'];
+const STEPS = ['Schedule', 'Position', 'Goals', 'Injuries', 'Readiness', 'Duration'];
 
 type Opt<T extends string> = { value: T; label: string; description?: string };
 
@@ -167,10 +167,16 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal>('speed');
   const [secondaryGoals, setSecondaryGoals] = useState<string[]>([]);
   const [biggestWeakness, setBiggestWeakness] = useState<Weakness>('speed');
-  // Step 3 — Injuries
+  // Step 3 — Injuries & preferences
   const [injuryHistory, setInjuryHistory] = useState<InjuryArea[]>([]);
+  const [preferBackSquat, setPreferBackSquat] = useState(false);
   // Step 4 — Readiness
   const [readiness, setReadiness] = useState({ sleep: 4, fatigue: 2, soreness: 2, stress: 2 });
+  // Step 5 — Duration
+  const suggestedWeeks = ({ '<1': 6, '1-3': 8, '3-5': 10, '5+': 12 } as Record<string, number>)[userProfile.experienceYears] ?? 8;
+  const [programDuration, setProgramDuration] = useState(suggestedWeeks);
+  const [customDurStr, setCustomDurStr] = useState('');
+  const DURATION_PRESETS = [4, 6, 8, 12, 16];
 
   const toggleSecondary = (v: string) => {
     if (v === primaryGoal) return;
@@ -197,12 +203,14 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
       readiness,
       gymAccess: userProfile.gymAccess,
       fvEmphasis: 'balanced',
+      customDurationWeeks: programDuration,
+      preferBackSquat: userProfile.gymAccess !== 'none' ? preferBackSquat : undefined,
     };
     onGenerate(inputs);
   };
 
   const totalSteps = STEPS.length;
-  const stepIcons = [Activity, User, Target, Brain, Zap];
+  const stepIcons = [Activity, User, Target, Brain, Zap, Calendar];
   const StepIcon = stepIcons[step] ?? Check;
 
   const expWeeks: Record<string, string> = { '<1': '6', '1-3': '8', '3-5': '10', '5+': '12' };
@@ -237,6 +245,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           {step === 2 && 'Goals & Weakness'}
           {step === 3 && 'Injury History'}
           {step === 4 && "Today's Readiness"}
+          {step === 5 && 'Programme Duration'}
         </h2>
       </div>
 
@@ -433,6 +442,30 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
               <p className="text-xs text-green-700">No injury history — a general prehab protocol (hamstring + groin) will be included in every session.</p>
             </Card>
           )}
+          {userProfile.gymAccess !== 'none' && (
+            <div className="mt-5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Squat Preference</p>
+              <button
+                onClick={() => setPreferBackSquat(p => !p)}
+                className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                  preferBackSquat
+                    ? 'border-brand-500 bg-brand-50 text-brand-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                <span className="text-2xl">🏋️</span>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold">I enjoy Back Squat / have plateaued on split squat</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Enables Back Squat in off-season Foundation phases. BSS always used when in-season, speed goal, or back/hamstring history.</div>
+                </div>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                  preferBackSquat ? 'bg-brand-500 border-brand-500' : 'border-gray-300'
+                }`}>
+                  {preferBackSquat && <Check size={12} className="text-white" />}
+                </div>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -444,7 +477,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           <ReadinessSlider label="Fatigue Level" description="How tired/fatigued do you feel today?" value={readiness.fatigue} onChange={v => setReadiness(r => ({ ...r, fatigue: v }))} inverted />
           <ReadinessSlider label="Muscle Soreness" description="Any soreness from previous training?" value={readiness.soreness} onChange={v => setReadiness(r => ({ ...r, soreness: v }))} inverted />
           <ReadinessSlider label="Stress Level" description="Life stress, work, or mental load today?" value={readiness.stress} onChange={v => setReadiness(r => ({ ...r, stress: v }))} inverted />
-          <Card className="p-4 bg-gray-50 mt-2 mb-6">
+          <Card className="p-4 bg-gray-50 mt-2 mb-2">
             <div className="flex gap-3 flex-wrap">
               {[
                 { label: '4.5–5 Elite', colour: 'text-emerald-600' },
@@ -454,12 +487,73 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
               ].map(b => <span key={b.label} className={`text-xs font-semibold ${b.colour}`}>{b.label}</span>)}
             </div>
           </Card>
+        </div>
+      )}
+
+      {/* ── Step 5: Duration + Generate ── */}
+      {step === 5 && (
+        <div>
+          <p className="text-sm text-gray-600 mb-5">Choose how long your programme should be. Longer programmes allow more progressive phases. You can always regenerate later.</p>
+
+          {/* Suggested callout */}
+          <Card className="p-4 bg-blue-50 border-blue-200 mb-5">
+            <p className="text-xs font-semibold text-blue-700 mb-0.5">Suggested for your experience</p>
+            <p className="text-sm font-bold text-blue-800">{suggestedWeeks} weeks</p>
+            <p className="text-xs text-blue-600 mt-1">Based on {userProfile.experienceYears} years of training — enough time to complete a full progressive overload cycle.</p>
+          </Card>
+
+          {/* Preset chips */}
+          <p className="text-sm font-semibold text-gray-700 mb-3">Select a duration</p>
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            {DURATION_PRESETS.map(w => (
+              <button
+                key={w}
+                onClick={() => { setProgramDuration(w); setCustomDurStr(''); }}
+                className={`py-4 rounded-xl border-2 text-center transition-all ${
+                  programDuration === w && customDurStr === ''
+                    ? 'border-brand-500 bg-brand-50 text-brand-700'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="text-xl font-black">{w}</div>
+                <div className="text-xs text-gray-500 mt-0.5">weeks</div>
+                {w === suggestedWeeks && <div className="text-[10px] font-bold text-brand-500 mt-1">Suggested</div>}
+              </button>
+            ))}
+          </div>
+
+          {/* Custom input */}
+          <div className="mb-6">
+            <p className="text-sm font-semibold text-gray-700 mb-2">Custom length</p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min="1"
+                max="16"
+                placeholder="e.g. 10"
+                value={customDurStr}
+                onChange={e => {
+                  const val = e.target.value;
+                  setCustomDurStr(val);
+                  const n = parseInt(val, 10);
+                  if (!isNaN(n) && n >= 1 && n <= 16) setProgramDuration(n);
+                }}
+                className="w-24 text-center text-lg font-bold border-2 border-gray-200 rounded-xl py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              />
+              <span className="text-sm text-gray-500 font-medium">weeks (1–16)</span>
+            </div>
+          </div>
+
+          <div className="mb-2 p-3 bg-gray-50 rounded-xl">
+            <p className="text-xs text-gray-500">Selected: <span className="font-bold text-gray-800">{programDuration} weeks</span> · {sessionsPerWeek} sessions/week</p>
+          </div>
+
           <Button fullWidth size="lg" onClick={handleGenerate}>
             <Zap size={18} />
             Generate My Program
           </Button>
           <p className="text-center text-xs text-gray-400 mt-2 pb-6">
-            {expWeeks[userProfile.experienceYears] ?? '8'} weeks · {sessionsPerWeek} sessions/week
+            {programDuration} weeks · {sessionsPerWeek} sessions/week
           </p>
         </div>
       )}

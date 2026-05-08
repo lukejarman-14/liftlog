@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp,
   Trophy, Clock, BookOpen, Lightbulb, MapPin, ChevronRight,
@@ -260,30 +260,44 @@ function SetRow({
   // Two-phase commit state
   const [pendingSet, setPendingSet] = useState<Omit<CompletedSet, 'rir'> | null>(null);
 
-  // Timer state for time-based exercises
+  // Timer state for time-based exercises (background-safe: uses absolute endTime)
   const [timerSecs, setTimerSecs] = useState(defaultReps);
   const [timerRunning, setTimerRunning] = useState(false);
+  const timerEndRef = useRef<number | null>(null);
+  const timerSecsRef = useRef(timerSecs);
+  timerSecsRef.current = timerSecs;
 
   useEffect(() => {
     if (!timerRunning) return;
-    const id = setInterval(() => {
-      setTimerSecs(s => {
-        if (s <= 1) {
-          clearInterval(id);
-          setTimerRunning(false);
-          playTimerDoneSound();
-          if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
-          onComplete({ reps: 1, weight: defaultReps, completedAt: Date.now() });
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
+    // Snapshot current remaining secs (supports both Start and Resume)
+    timerEndRef.current = Date.now() + timerSecsRef.current * 1000;
+
+    const tick = () => {
+      if (!timerEndRef.current) return;
+      const rem = Math.max(0, Math.ceil((timerEndRef.current - Date.now()) / 1000));
+      setTimerSecs(rem);
+      if (rem <= 0) {
+        timerEndRef.current = null;
+        setTimerRunning(false);
+        playTimerDoneSound();
+        if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
+        onComplete({ reps: 1, weight: defaultReps, completedAt: Date.now() });
+      }
+    };
+
+    const id = setInterval(tick, 250);
+    const onVisibility = () => { if (!document.hidden) tick(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [timerRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Edit mode for completed sets
   const [isEditing, setIsEditing] = useState(false);
+  // RIR re-edit for completed sets
+  const [isEditingRir, setIsEditingRir] = useState(false);
   const [editRepsStr, setEditRepsStr]     = useState('');
   const [editWeightStr, setEditWeightStr] = useState('');
 
@@ -606,11 +620,19 @@ function SetRow({
           )}
         </div>
 
-        {/* Completed: show RIR badge + edit button */}
+        {/* Completed: show RIR badge (clickable to re-edit) */}
         {completed?.rir !== undefined && (
-          <span className="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-1.5 py-0.5 rounded-lg flex-shrink-0">
+          <button
+            onClick={() => setIsEditingRir(v => !v)}
+            className={`text-xs font-bold px-1.5 py-0.5 rounded-lg flex-shrink-0 border transition-colors ${
+              isEditingRir
+                ? 'bg-brand-100 border-brand-400 text-brand-700'
+                : 'bg-white border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600'
+            }`}
+            title="Tap to edit RIR"
+          >
             {completed.rir} RIR
-          </span>
+          </button>
         )}
 
         {/* Edit button for completed sets */}
@@ -646,6 +668,19 @@ function SetRow({
           targetRir={targetRir}
         />
       )}
+
+      {/* ── RIR re-edit for already-completed sets ── */}
+      {isEditingRir && completed && onEdit && (
+        <RpeSelector
+          value={completed.rir ?? null}
+          onChange={rir => {
+            onEdit({ ...completed, rir });
+            setIsEditingRir(false);
+          }}
+          onSkip={() => setIsEditingRir(false)}
+          targetRir={targetRir}
+        />
+      )}
     </div>
   );
 }
@@ -672,9 +707,6 @@ function ExerciseSection({
   const [collapsed, setCollapsed] = useState(false);
   const [showAllLast, setShowAllLast] = useState(false);
 
-  const lastSession = getLastSession(sessionExercise.exerciseId, sessionId);
-  const pb          = getPB(sessionExercise.exerciseId);
-
   if (!exercise) return null;
 
   // Isometric exercises use time input regardless of stored measureType
@@ -682,6 +714,9 @@ function ExerciseSection({
     ? 'time'
     : (exercise.measureType ?? 'strength');
   const unit        = exercise.unit;
+
+  const lastSession = getLastSession(sessionExercise.exerciseId, sessionId);
+  const pb          = getPB(sessionExercise.exerciseId, measureType);
   // Use programme-defined RIR if set, otherwise fall back to exercise suggested RIR
   const targetRir   = sessionExercise.targetRir ?? exercise.suggestedRir;
   // RIR only applies to strength and eccentric work — not plyometrics, isometrics, speed, warmup etc.
@@ -720,9 +755,17 @@ function ExerciseSection({
 
   // ── PB / last session display ──────────────────────────────────────────
   const currentBest = sessionExercise.sets.reduce<{ weight: number; reps: number } | null>(
-    (best, set) => (!best || set.weight > best.weight ? set : best), null,
+    (best, set) => {
+      if (!best) return set;
+      if (measureType === 'reps') return set.reps > best.reps ? set : best;
+      return set.weight > best.weight ? set : best;
+    }, null,
   );
-  const isNewPB  = !!(currentBest && pb && currentBest.weight > pb.weight);
+  const isNewPB = !!(currentBest && pb && (
+    measureType === 'reps'
+      ? currentBest.reps > pb.reps
+      : currentBest.weight > pb.weight
+  ));
   const pbDisplay = pb ? formatSetDisplay({ ...pb, completedAt: 0 }, measureType, unit) : null;
   const lastBest  = lastSession?.sets.length
     ? lastSession.sets.reduce((b, s) => s.weight > b.weight ? s : b)
@@ -826,13 +869,14 @@ function ExerciseSection({
                       onComplete={set => onCompleteSet(i, set)}
                       onEdit={set => onEditSet(i, set)}
                     />
+                    {/* Rest timer appears between last completed set and next pending set */}
+                    {restInfo && i === completedCount - 1 && (
+                      <InlineRestTimer restInfo={restInfo} />
+                    )}
                   </div>
                 );
               })}
             </div>
-
-            {/* Inline rest timer */}
-            {restInfo && <InlineRestTimer restInfo={restInfo} />}
           </div>
         </>
       )}
@@ -842,10 +886,31 @@ function ExerciseSection({
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
+interface NewPBEntry {
+  exerciseId: string;
+  name: string;
+  newWeight: number;
+  newReps: number;
+  prevWeight: number | null;
+  prevReps: number | null;
+}
+
 export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onNavigate }: ActiveWorkoutProps) {
   const timer = useTimer();
+  const { getPB, getExercise } = useStore();
   const [showFinish, setShowFinish] = useState(false);
+  const [showPBModal, setShowPBModal] = useState(false);
+  const [pendingSession, setPendingSession] = useState<WorkoutSession | null>(null);
+  const [newPBs, setNewPBs] = useState<NewPBEntry[]>([]);
   const [restingExerciseIdx, setRestingExerciseIdx] = useState<number | null>(null);
+
+  // Capture pre-session PBs on mount (before any sets are saved)
+  const prePBsRef = useRef<Record<string, { weight: number; reps: number } | null>>({});
+  useEffect(() => {
+    session.exercises.forEach(ex => {
+      prePBsRef.current[ex.exerciseId] = getPB(ex.exerciseId);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalSets     = session.exercises.reduce((a, e) => a + e.targetSets, 0);
   const completedSets = session.exercises.reduce((a, e) => a + e.sets.length, 0);
@@ -856,6 +921,66 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     timer.skip();
     setRestingExerciseIdx(null);
   }, [timer]);
+
+  const computeNewPBs = useCallback((s: WorkoutSession): NewPBEntry[] => {
+    return s.exercises.flatMap(ex => {
+      const exercise = getExercise(ex.exerciseId);
+      if (!exercise || exercise.isWarmup) return [];
+      const pre = prePBsRef.current[ex.exerciseId];
+      const currentBest = ex.sets.reduce<{ weight: number; reps: number } | null>(
+        (best, set) => !best || set.weight > best.weight ? { weight: set.weight, reps: set.reps } : best,
+        null,
+      );
+      if (!currentBest || currentBest.weight === 0) return [];
+      const isNew = !pre
+        || currentBest.weight > pre.weight
+        || (currentBest.weight === pre.weight && currentBest.reps > pre.reps);
+      if (!isNew) return [];
+      return [{
+        exerciseId: ex.exerciseId,
+        name: exercise.name,
+        newWeight: currentBest.weight,
+        newReps: currentBest.reps,
+        prevWeight: pre?.weight ?? null,
+        prevReps: pre?.reps ?? null,
+      }];
+    });
+  }, [getExercise]);
+
+  const handleFinishConfirm = useCallback((s: WorkoutSession) => {
+    const finalSession = { ...s, endTime: Date.now() };
+    const pbs = computeNewPBs(finalSession);
+    setShowFinish(false);
+    if (pbs.length > 0) {
+      setPendingSession(finalSession);
+      setNewPBs(pbs);
+      setShowPBModal(true);
+    } else {
+      onFinish(finalSession);
+    }
+  }, [computeNewPBs, onFinish]);
+
+  const handleKeepPBs = useCallback(() => {
+    if (pendingSession) onFinish(pendingSession);
+    setShowPBModal(false);
+  }, [pendingSession, onFinish]);
+
+  const handleDiscardPBs = useCallback(() => {
+    if (!pendingSession) return;
+    const pbIds = newPBs.map(p => p.exerciseId);
+    const updated: WorkoutSession = {
+      ...pendingSession,
+      exercises: pendingSession.exercises.map(ex => {
+        if (!pbIds.includes(ex.exerciseId)) return ex;
+        const pre = prePBsRef.current[ex.exerciseId];
+        if (!pre) return ex; // no prior PB — keep all sets
+        const kept = ex.sets.filter(s => s.weight <= pre.weight);
+        return { ...ex, sets: kept };
+      }),
+    };
+    onFinish(updated);
+    setShowPBModal(false);
+  }, [pendingSession, newPBs, onFinish]);
 
   const handleEditSet = useCallback((exerciseIdx: number, setIndex: number, set: CompletedSet) => {
     const updated: WorkoutSession = {
@@ -950,7 +1075,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
         </div>
 
         <div className="mt-6">
-          <Button variant="danger" fullWidth onClick={() => setShowFinish(true)}>
+          <Button variant="danger" fullWidth onClick={() => setShowFinish(true)} className="mb-4">
             Finish Workout
           </Button>
         </div>
@@ -967,7 +1092,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
             </p>
             <div className="flex gap-3">
               <Button variant="secondary" fullWidth onClick={() => setShowFinish(false)}>Continue</Button>
-              <Button fullWidth onClick={() => onFinish({ ...session, endTime: Date.now() })}>Finish</Button>
+              <Button fullWidth onClick={() => handleFinishConfirm(session)}>Finish</Button>
             </div>
             <button
               onClick={() => onNavigate({ screen: 'dashboard' })}
@@ -975,6 +1100,46 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
             >
               Discard workout
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── PB review modal ── */}
+      {showPBModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+            <div className="flex items-center gap-2 mb-1">
+              <Trophy size={22} className="text-yellow-500" />
+              <h2 className="font-bold text-gray-900 text-lg">New Personal Best{newPBs.length > 1 ? 's' : ''}!</h2>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">You set a new record this session. Save or discard?</p>
+            <div className="flex flex-col gap-2 mb-5">
+              {newPBs.map(pb => (
+                <div key={pb.exerciseId} className="flex items-center justify-between bg-yellow-50 rounded-xl px-3 py-2.5">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{pb.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {pb.prevWeight !== null
+                        ? `was ${pb.prevWeight}kg × ${pb.prevReps}`
+                        : 'First recorded lift'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-yellow-600">{pb.newWeight}kg</p>
+                    <p className="text-xs text-yellow-500">× {pb.newReps} reps</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <Button variant="secondary" fullWidth onClick={handleDiscardPBs}>
+                Discard
+              </Button>
+              <Button fullWidth onClick={handleKeepPBs}>
+                <Trophy size={14} />
+                Keep PBs
+              </Button>
+            </div>
           </div>
         </div>
       )}
