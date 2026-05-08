@@ -111,44 +111,47 @@ export function sessionToWorkoutExercises(
   session: ProgrammeSession,
   exercises: Exercise[],
 ): WorkoutExercise[] {
-  const all = session.blocks
-    .flatMap(b => b.exercises);
-
   const result: WorkoutExercise[] = [];
   const used = new Set<string>();
 
-  for (const pe of all) {
-    const key = pe.name.toLowerCase().split('(')[0].trim();
-    let id: string | undefined;
+  for (const block of session.blocks) {
+    let isFirstInBlock = true;
 
-    id = NAME_TO_ID[key];
+    for (const pe of block.exercises) {
+      const key = pe.name.toLowerCase().split('(')[0].trim();
+      let id: string | undefined;
 
-    if (!id) {
-      for (const [pattern, mappedId] of Object.entries(NAME_TO_ID)) {
-        if (key.includes(pattern) || pattern.includes(key.split(' ')[0])) {
-          id = mappedId;
-          break;
+      id = NAME_TO_ID[key];
+
+      if (!id) {
+        for (const [pattern, mappedId] of Object.entries(NAME_TO_ID)) {
+          if (key.includes(pattern) || pattern.includes(key.split(' ')[0])) {
+            id = mappedId;
+            break;
+          }
         }
       }
-    }
 
-    if (!id) {
-      const found = exercises.find(e =>
-        e.name.toLowerCase().includes(key.split(' ')[0]) ||
-        key.includes(e.name.toLowerCase().split(' ')[0]),
-      );
-      id = found?.id;
-    }
+      if (!id) {
+        const found = exercises.find(e =>
+          e.name.toLowerCase().includes(key.split(' ')[0]) ||
+          key.includes(e.name.toLowerCase().split(' ')[0]),
+        );
+        id = found?.id;
+      }
 
-    if (id && !used.has(id) && exercises.find(e => e.id === id)) {
-      used.add(id);
-      result.push({
-        exerciseId: id,
-        targetSets: parseSets(pe.sets),
-        targetReps: parseReps(pe.reps),
-        targetWeight: 0,
-        restSeconds: parseRest(pe.rest),
-      });
+      if (id && !used.has(id) && exercises.find(e => e.id === id)) {
+        used.add(id);
+        result.push({
+          exerciseId: id,
+          targetSets: parseSets(pe.sets),
+          targetReps: parseReps(pe.reps),
+          targetWeight: 0,
+          restSeconds: parseRest(pe.rest),
+          blockTitle: isFirstInBlock ? block.title : undefined,
+        });
+        isFirstInBlock = false;
+      }
     }
   }
 

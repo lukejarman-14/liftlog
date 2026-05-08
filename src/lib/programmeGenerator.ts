@@ -242,8 +242,6 @@ const WARMUP_SPEED_REF = null as unknown as ProgrammeExercise[];
 void WARMUP_SPEED_REF;
 
 const WARMUP_STRENGTH = [
-  ex('Ankle Circles + Eccentric Calf Raise', '1', '10 each direction', '', 'Full dorsiflexion range. 3s lowering on the calf.',
-    { methodType: 'eccentric', intensityIntent: 'controlled', tempo: '3-0-1-0' }),
   ex('Air Squat (Activation)', '2', '10', '30s', 'Elbows inside knees at the bottom. Drive knees out. Full depth. No equipment needed — bodyweight only.',
     { methodType: 'concentric', intensityIntent: 'controlled', tempo: '3-0-1-0' }),
   ex('Prone T-Y-I (Scapular Activation)', '2', '8 each shape', '20s', 'Lie face down. For T: arms out to sides, thumbs up. Y: arms 45° overhead. I: arms overhead. Squeeze shoulder blades on each rep. No equipment needed — scapular stability for every training environment.',
@@ -1646,6 +1644,8 @@ function buildOffSeasonSession(
   const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
   const gymAccessLib = gymLib[gymAccess as GymKey] ?? gymLib.basic;
   const strengthEx = gymAccessLib[loadScheme] ?? gymAccessLib.moderate;
+  const upperPhase = UPPER[phase] ?? UPPER.Build;
+  const upperEx = upperPhase[gymAccess as GymKey] ?? upperPhase.basic;
 
   const posKey = position as PosKey;
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
@@ -1734,8 +1734,9 @@ function buildOffSeasonSession(
           : 'Moderate load — manage DOMS from last session. Maintain quality. Weakness work last.',
         exercises: applyReadiness(
           [
-            // Off-season: 2 main lifts only — 1 vertical + 1 horizontal
+            // Off-season: 2 main lifts (vertical + horizontal) + upper accessory
             ...strengthEx.slice(0, 2),
+            ...upperEx.slice(0, 2),
             ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
             ...(biggestWeakness !== 'endurance'
               ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)

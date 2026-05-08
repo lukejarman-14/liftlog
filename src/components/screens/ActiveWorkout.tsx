@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp,
   Trophy, Clock, BookOpen, Lightbulb, MapPin, ChevronRight,
@@ -41,6 +41,29 @@ function playRestEndSound() {
       osc.start(ctx.currentTime + offset);
       osc.stop(ctx.currentTime + offset + 0.15);
     });
+  } catch (_) { /* audio not available */ }
+}
+
+function playTimerDoneSound() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const bufLen = Math.floor(ctx.sampleRate * 0.35);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.04));
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 350;
+    const gain = ctx.createGain();
+    gain.gain.value = 1.2;
+    src.connect(lp); lp.connect(gain); gain.connect(ctx.destination);
+    src.start(); src.stop(ctx.currentTime + 0.35);
   } catch (_) { /* audio not available */ }
 }
 
@@ -219,13 +242,14 @@ interface SetRowProps {
   measureType?: MeasureType;
   unit?: string;
   targetRir?: number;
+  isWarmup?: boolean;
   onComplete: (set: CompletedSet) => void;
   onEdit?: (set: CompletedSet) => void;
 }
 
 function SetRow({
   setIndex, completed, defaultWeight, defaultReps,
-  measureType = 'strength', unit, targetRir, onComplete, onEdit,
+  measureType = 'strength', unit, targetRir, isWarmup, onComplete, onEdit,
 }: SetRowProps) {
   // Use string state so we can show blank instead of "0"
   const [repsStr, setRepsStr]     = useState(defaultReps  > 0 ? String(defaultReps)  : '');
@@ -235,6 +259,28 @@ function SetRow({
 
   // Two-phase commit state
   const [pendingSet, setPendingSet] = useState<Omit<CompletedSet, 'rir'> | null>(null);
+
+  // Timer state for time-based exercises
+  const [timerSecs, setTimerSecs] = useState(defaultReps);
+  const [timerRunning, setTimerRunning] = useState(false);
+
+  useEffect(() => {
+    if (!timerRunning) return;
+    const id = setInterval(() => {
+      setTimerSecs(s => {
+        if (s <= 1) {
+          clearInterval(id);
+          setTimerRunning(false);
+          playTimerDoneSound();
+          if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
+          onComplete({ reps: 1, weight: defaultReps, completedAt: Date.now() });
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timerRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Edit mode for completed sets
   const [isEditing, setIsEditing] = useState(false);
@@ -262,6 +308,17 @@ function SetRow({
   // Phase 1: user taps checkmark → capture set, await RPE
   const handleInitialLog = () => {
     if (completed || pendingSet) return;
+    if (isWarmup) {
+      // Warmup: skip RPE phase entirely
+      if (measureType === 'reps') {
+        onComplete({ reps, weight: 0, completedAt: Date.now() });
+      } else if (measureType === 'strength') {
+        onComplete({ reps, weight, completedAt: Date.now() });
+      } else {
+        onComplete({ reps: 1, weight, completedAt: Date.now() });
+      }
+      return;
+    }
     if (measureType === 'reps') {
       setPendingSet({ reps, weight: 0, completedAt: Date.now() });
     } else if (measureType === 'strength') {
@@ -372,10 +429,81 @@ function SetRow({
     );
   }
 
+  // Completed time-based set: show simple green badge
+  if (completed && measureType === 'time') {
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-100">
+        <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
+        <span className="flex-1 text-sm font-semibold text-green-600">✓ {defaultReps}s</span>
+        {completed && onEdit && (
+          <button
+            onClick={handleStartEdit}
+            className="p-1 rounded-lg text-gray-300 hover:text-blue-500 transition-colors flex-shrink-0"
+            title="Edit this set"
+          >
+            <Pencil size={14} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div>
-      {/* ── Main set row ── */}
-      <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
+      {/* ── Timer UI for time-based exercises ── */}
+      {measureType === 'time' && !completed && (
+        <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors bg-gray-50`}>
+          <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
+          <div className="flex flex-col items-center gap-2 py-2 w-full">
+            <div className="text-3xl font-black tabular-nums text-brand-600">
+              {timerSecs}s
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2">
+              <div
+                className="h-2 bg-brand-500 rounded-full transition-all duration-1000"
+                style={{ width: `${((defaultReps - timerSecs) / defaultReps) * 100}%` }}
+              />
+            </div>
+            <div className="flex gap-2">
+              {!timerRunning && timerSecs === defaultReps && (
+                <button
+                  onClick={() => setTimerRunning(true)}
+                  className="px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-bold hover:bg-brand-600"
+                >
+                  Start {defaultReps}s
+                </button>
+              )}
+              {timerRunning && (
+                <button
+                  onClick={() => setTimerRunning(false)}
+                  className="px-4 py-2 bg-orange-100 text-orange-700 rounded-xl text-sm font-semibold"
+                >
+                  Pause
+                </button>
+              )}
+              {!timerRunning && timerSecs < defaultReps && timerSecs > 0 && (
+                <>
+                  <button
+                    onClick={() => setTimerRunning(true)}
+                    className="px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-bold"
+                  >
+                    Resume
+                  </button>
+                  <button
+                    onClick={() => setTimerSecs(defaultReps)}
+                    className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold"
+                  >
+                    Reset
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Main set row (non-time types) ── */}
+      {measureType !== 'time' && (<div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
         completed       ? 'bg-green-50 border border-green-100' :
         isAwaitingRpe   ? 'bg-brand-50 border border-brand-200' :
                           'bg-gray-50'
@@ -459,7 +587,7 @@ function SetRow({
             </div>
           )}
 
-          {(measureType === 'time' || measureType === 'distance' || measureType === 'height' || measureType === 'score') && (
+          {(measureType === 'distance' || measureType === 'height' || measureType === 'score') && (
             <div className="flex items-center gap-1">
               <button disabled={!isInteractive} onClick={() => setWeightStr(w => String(Math.max(0, parseFloat((parseFloat(w || '0') - step).toFixed(2)))))}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
@@ -507,7 +635,7 @@ function SetRow({
         >
           <CheckCircle2 size={26} strokeWidth={completed ? 2.5 : 1.5} />
         </button>
-      </div>
+      </div>)}
 
       {/* ── Phase 2: RIR selector ── */}
       {isAwaitingRpe && (
@@ -610,7 +738,7 @@ function ExerciseSection({
             <div className="text-xs text-gray-400 flex items-center gap-2">
               <span>{completedCount}/{totalSets} {exercise.category === 'Testing' ? 'trials' : 'sets'}</span>
               {sessionExercise.restSeconds > 0 && <span>· {sessionExercise.restSeconds}s rest</span>}
-              {targetRir !== undefined && <span className="text-brand-500 font-medium">· {targetRir} RIR target</span>}
+              {targetRir !== undefined && !exercise.isWarmup && <span className="text-brand-500 font-medium">· {targetRir} RIR target</span>}
             </div>
           </div>
         </div>
@@ -691,6 +819,7 @@ function ExerciseSection({
                       measureType={measureType}
                       unit={unit}
                       targetRir={targetRir}
+                      isWarmup={exercise.isWarmup}
                       onComplete={set => onCompleteSet(i, set)}
                       onEdit={set => onEditSet(i, set)}
                     />
@@ -795,15 +924,25 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
 
         <div className="flex flex-col gap-3">
           {session.exercises.map((ex, exerciseIdx) => (
-            <ExerciseSection
-              key={ex.exerciseId}
-              sessionExercise={ex}
-              sessionId={session.id}
-              showTutorials={showTutorials}
-              restInfo={exerciseIdx === restingExerciseIdx ? restInfo : undefined}
-              onCompleteSet={(setIndex, set) => handleCompleteSet(exerciseIdx, setIndex, set)}
-              onEditSet={(setIndex, set) => handleEditSet(exerciseIdx, setIndex, set)}
-            />
+            <React.Fragment key={ex.exerciseId}>
+              {ex.blockTitle && (
+                <div className="flex items-center gap-2 mt-2 mb-1">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 whitespace-nowrap">
+                    {ex.blockTitle.replace(/^[^\w\s]*\s*/, '')}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+              )}
+              <ExerciseSection
+                sessionExercise={ex}
+                sessionId={session.id}
+                showTutorials={showTutorials}
+                restInfo={exerciseIdx === restingExerciseIdx ? restInfo : undefined}
+                onCompleteSet={(setIndex, set) => handleCompleteSet(exerciseIdx, setIndex, set)}
+                onEditSet={(setIndex, set) => handleEditSet(exerciseIdx, setIndex, set)}
+              />
+            </React.Fragment>
           ))}
         </div>
 
