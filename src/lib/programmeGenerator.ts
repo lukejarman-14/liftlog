@@ -694,31 +694,74 @@ const POSITION_SPEED: Partial<Record<PosKey, ProgrammeExercise[]>> = {
 
 // ── Play-style specific exercises ──────────────────────────────────────────
 
-const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
+// Play-style running exercises — 3 variants each, rotated weekly so sessions feel fresh.
+// ALL marked isRunning: true so they are filtered OUT of the strength block and
+// routed to the separate Speed Work session card on the home screen.
+const PLAY_STYLE_RUNNING: Record<string, ProgrammeExercise[]> = {
   'box-to-box': [
-    ex('Box-to-Box Sprint Repeats', '4', '3 × 30m', '2:30', 'Sprint 30m at maximum effort. Walk back as recovery. Box-to-box simulation — repeated acceleration. Every rep maximum intent.',
+    ex('Box-to-Box Sprint', '5', '5 × 68m', '3:00',
+      'Full box-to-box distance (~68m). Sprint from the edge of one penalty area to the other at maximum effort. Walk back as full recovery. Every rep the same intent — this is the quality that wins games in the 85th minute.',
       { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('Repeated Sprint Ability', '6', '6 × 30m', '30s walk',
+      '30m sprint at 95% effort, walk back in 30s. Do NOT rest longer — the fatigue is the stimulus. RSA: the most box-to-box midfield quality. Rep 6 should still feel like rep 3.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('30-15 Intermittent Intervals', '3', '4 min blocks', '3:00',
+      'Run at the fastest pace you can sustain for 4 minutes, 30s easy jog, 15s hard. Repeat 3 blocks. This is the highest-evidence aerobic power protocol for football — directly improves VO2max and match distance.',
+      { methodType: 'mixed', intensityIntent: 'submaximal', isRunning: true }),
   ],
   'direct': [
-    ex('Sprint + Controlled Decel + Sprint', '4', '20m + stop + 20m', '3:00', 'Direct play demands. Burst, brake, repeat.',
+    ex('Sprint + Controlled Decel + Sprint', '4', '4 × 20m + stop + 20m', '3:00',
+      'Direct play demands. Sprint 20m, plant and decelerate completely, then sprint 20m back. Burst, brake, repeat. The deceleration is the training stimulus — most hamstring injuries occur here.',
       { methodType: 'eccentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('30m Acceleration Sprint + Hard Stop', '5', '5 × 30m', '2:30',
+      'Accelerate to top speed over 30m then plant both feet into a hard stop. Full deceleration mechanics every rep. Loaded eccentric at the hamstring insertion — direct play resilience.',
+      { methodType: 'eccentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('Turn & Sprint', '4', '4 × 10m back-pedal + 30m sprint', '3:00',
+      'Back-pedal 10m (maintain upright posture), plant, turn and sprint 30m at maximum effort. Simulates defensive recovery → direct forward transition. Full rest — max quality every rep.',
+      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
   ],
   'technical': [
-    ex('Lateral Bound + Balance Hold', '3', '5 each', '2:00', 'Multi-directional agility. Stable landing = technical foundation.',
+    ex('Lateral Bound + Balance Hold', '3', '5 each', '2:00',
+      'Multi-directional agility. Stable landing = technical foundation.',
       { methodType: 'reactive', intensityIntent: 'controlled' }),
   ],
   'physical': [
-    ex('Isometric Split Squat Hold', '3', '30s each', '2:00', 'Bottom position hold. Physical duel strength and joint integrity.',
+    ex('Isometric Split Squat Hold', '3', '30s each', '2:00',
+      'Bottom position hold. Physical duel strength and joint integrity.',
       { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
   ],
   'press-heavy': [
-    ex('Short Sprint + Recovery Jog Circuit', '5', '10m sprint / 20m jog', 'Continuous', 'Simulate press trigger and recovery. Press-heavy demands.',
+    ex('Short Sprint + Recovery Jog Circuit', '5', '5 × 10m sprint / 20m jog', 'Continuous',
+      'Sprint 10m at maximum effort, then jog 20m back as recovery. Continuous circuit — simulates press trigger and immediate recovery. Do NOT walk — the jog recovery is the point.',
+      { methodType: 'mixed', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Press Trigger Intervals', '6', '6 × 15s on / 15s off', '2:00 between rounds',
+      '15s all-out sprint, 15s complete rest. 6 reps = 1 round. 3 rounds total. This matches the actual press trigger work-rest in a high-press system. Trains the short-burst repeated sprint capacity that fuels pressing.',
+      { methodType: 'mixed', intensityIntent: 'maximal', isRunning: true }),
+    ex('High-Press Interval Run', '3', '3 × 5 min blocks', '2:30',
+      'Continuous effort at 80–85% max HR for 5 minutes. Represent the sustained aerobic demand of 90-minute high-press play. Stay above 78% HR the whole block — if HR drops too low, increase pace.',
       { methodType: 'mixed', intensityIntent: 'submaximal', isRunning: true }),
   ],
   'counter-attack': [
-    ex('Acceleration from Set Position', '5', '30m', '3:00', 'From standing or jogging — explosive transition to sprint. Counter-attack simulation.',
+    ex('Acceleration from Set Position', '5', '5 × 30m', '3:00',
+      'From standing or jogging — explosive transition to sprint. Do NOT pre-wind up. React instantly and hit top speed in the shortest distance possible. Counter-attack simulation: every metre of hesitation is a chance lost.',
+      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
+    ex('Flying 30m Sprint', '4', '4 × 10m build + 30m fly', '4:00',
+      'Build over 10m to 80%, then maximally accelerate through the 30m fly zone. Max velocity sprint — train the top-end speed you need to outrun defenders on the counter. Full 4 min rest: this is CNS, not conditioning.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('Sprint + Cut + Sprint', '4', '4 × 15m + 45° cut + 20m', '3:00',
+      'Sprint 15m, plant outside foot into a 45° cut, sprint 20m at full effort. Simulates receiving the ball on the counter and accelerating past the defender. Deceleration into the cut is the injury-prevention stimulus.',
       { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
   ],
+};
+
+// Non-running play-style gym exercises (strength / isometric / plyometric)
+const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
+  'box-to-box': [],
+  'direct': [],
+  'technical': PLAY_STYLE_RUNNING['technical'],
+  'physical': PLAY_STYLE_RUNNING['physical'],
+  'press-heavy': [],
+  'counter-attack': [],
 };
 
 // ── Conditioning by position × phase ──────────────────────────────────────
@@ -1584,9 +1627,15 @@ function buildOffSeasonSession(
   const weaknessIso = biggestWeakness !== 'endurance'
     ? weaknessEx.filter(e => e.methodType === 'isometric')
     : [];
-  // Running/speed exercises — moved to separate Conditioning session on home screen
-  const playStyleRunning = playStyleEx.filter(e => e.isRunning);
-  const weaknessRunning = weaknessEx.filter(e => e.isRunning);
+  // Running/speed exercises — rotated weekly, moved to separate Conditioning session on home screen
+  const allPlayStyleRunning = (PLAY_STYLE_RUNNING[inputs.playStyle] ?? []).filter(e => e.isRunning);
+  const playStyleRunning = allPlayStyleRunning.length > 0
+    ? [allPlayStyleRunning[weekNum % allPlayStyleRunning.length]]
+    : [];
+  const allWeaknessRunning = weaknessEx.filter(e => e.isRunning);
+  const weaknessRunning = allWeaknessRunning.length > 0
+    ? [allWeaknessRunning[weekNum % allWeaknessRunning.length]]
+    : [];
   const speedWorkEx = [...playStyleRunning, ...weaknessRunning];
   // Injury-based block ordering: eccentric FIRST if muscle injury present, isometric FIRST otherwise
   const hasMuscleInjury = injuryHistory.some(a => ['hamstring', 'groin', 'calf', 'knee'].includes(a));
@@ -1762,9 +1811,15 @@ function buildSession(
     const weaknessIso = biggestWeakness !== 'endurance'
       ? weaknessEx.filter(e => e.methodType === 'isometric')
       : [];
-    // Running/speed exercises — moved to separate Conditioning session on home screen
-    const playStyleRunning = playStyleEx.filter(e => e.isRunning);
-    const weaknessRunning = weaknessEx.filter(e => e.isRunning);
+    // Running/speed exercises — rotated weekly, moved to separate Conditioning session on home screen
+    const allPlayStyleRunning = (PLAY_STYLE_RUNNING[inputs.playStyle] ?? []).filter(e => e.isRunning);
+    const playStyleRunning = allPlayStyleRunning.length > 0
+      ? [allPlayStyleRunning[weekNum % allPlayStyleRunning.length]]
+      : [];
+    const allWeaknessRunning = weaknessEx.filter(e => e.isRunning);
+    const weaknessRunning = allWeaknessRunning.length > 0
+      ? [allWeaknessRunning[weekNum % allWeaknessRunning.length]]
+      : [];
     const speedWorkEx = [...playStyleRunning, ...weaknessRunning];
     const hasMuscleInjury = injuryHistory.some(a => ['hamstring', 'groin', 'calf', 'knee'].includes(a));
 

@@ -61,6 +61,27 @@ export const NAME_TO_ID: Record<string, string> = {
   'lateral shuffle': 'lateral-shuffle',
   'a-skip': 'a-skip',
   'high knees': 'high-knees',
+  // Running / speed / conditioning — explicit to prevent fuzzy collision with box-jump etc.
+  'box-to-box sprint': 'repeated-sprint',
+  'box-to-box sprint repeats': 'repeated-sprint',
+  'repeated sprint ability': 'repeated-sprint',
+  '30-15 intermittent intervals': 'hiit-run',
+  'sprint + controlled decel + sprint': 'repeated-sprint',
+  '30m acceleration sprint + hard stop': 'repeated-sprint',
+  'turn & sprint': 'repeated-sprint',
+  'short sprint + recovery jog circuit': 'hiit-run',
+  'press trigger intervals': 'hiit-run',
+  'high-press interval run': 'hiit-run',
+  'acceleration from set position': 'repeated-sprint',
+  'flying 30m sprint': 'repeated-sprint',
+  'sprint + cut + sprint': 'repeated-sprint',
+  'hip flexor sprint drill': 'repeated-sprint',
+  'single-leg broad jump': 'broad-jump',
+  '5-10-5 pro agility drill': 'pro-agility',
+  't-drill': 'pro-agility',
+  'reactive cone drill (partner)': 'pro-agility',
+  'aerobic threshold run': 'aerobic-threshold-run',
+  'cardiac output circuit': 'hiit-run',
 };
 
 function parseRest(rest: string): number {
