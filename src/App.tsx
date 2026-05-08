@@ -103,6 +103,8 @@ export default function App() {
         targetReps: item.targetReps,
         targetWeight: item.targetWeight,
         restSeconds: item.restSeconds,
+        targetRir: item.targetRir,
+        blockTitle: item.blockTitle,
         sets: [],
       })),
       startTime: Date.now(),

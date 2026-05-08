@@ -1508,8 +1508,8 @@ function recoverySession(dow: string): ProgrammeSession {
         exercises: [
           ex('Hip 90/90 Mobilisation', '1', '60s each side', '', 'Breathe into end range. Never force it. Restore hip ROM lost from match day.',
             { methodType: 'isometric', intensityIntent: 'controlled' }),
-          ex('Supine Knee Hug + Ankle Circle', '1', '30s each side', '', 'Pull knee to chest. Circle ankle through full range. Light and parasympathetic.',
-            { methodType: 'mixed', intensityIntent: 'controlled' }),
+          ex('Supine Knee Hug', '1', '30s each side', '', 'Pull knee gently to chest. Hold at end range. Light and parasympathetic — restore hip flexor length lost from match day.',
+            { methodType: 'isometric', intensityIntent: 'controlled' }),
         ],
       },
     ],

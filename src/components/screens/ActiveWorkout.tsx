@@ -684,6 +684,9 @@ function ExerciseSection({
   const unit        = exercise.unit;
   // Use programme-defined RIR if set, otherwise fall back to exercise suggested RIR
   const targetRir   = sessionExercise.targetRir ?? exercise.suggestedRir;
+  // RIR only applies to strength and eccentric work — not plyometrics, isometrics, speed, warmup etc.
+  const RIR_CATEGORIES = new Set(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body', 'Eccentric']);
+  const showRir = !exercise.isWarmup && RIR_CATEGORIES.has(exercise.category);
 
   const completedCount = sessionExercise.sets.length;
   const totalSets      = sessionExercise.targetSets;
@@ -738,7 +741,7 @@ function ExerciseSection({
             <div className="text-xs text-gray-400 flex items-center gap-2">
               <span>{completedCount}/{totalSets} {exercise.category === 'Testing' ? 'trials' : 'sets'}</span>
               {sessionExercise.restSeconds > 0 && <span>· {sessionExercise.restSeconds}s rest</span>}
-              {targetRir !== undefined && !exercise.isWarmup && <span className="text-brand-500 font-medium">· {targetRir} RIR target</span>}
+              {targetRir !== undefined && showRir && <span className="text-brand-500 font-medium">· {targetRir} RIR target</span>}
             </div>
           </div>
         </div>
@@ -818,8 +821,8 @@ function ExerciseSection({
                       defaultReps={defaults.reps}
                       measureType={measureType}
                       unit={unit}
-                      targetRir={targetRir}
-                      isWarmup={exercise.isWarmup}
+                      targetRir={showRir ? targetRir : undefined}
+                      isWarmup={!showRir}
                       onComplete={set => onCompleteSet(i, set)}
                       onEdit={set => onEditSet(i, set)}
                     />
