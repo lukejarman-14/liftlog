@@ -163,6 +163,17 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'skater-jump', name: 'Skater Jump', category: 'Plyometrics', defaultRestSeconds: 60, muscleGroups: ['Glutes', 'Adductors', 'Calves'] },
   { id: 'bounding', name: 'Bounding', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Hamstrings', 'Glutes', 'Calves'] },
   { id: 'sprint', name: 'Sprint', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Hamstrings', 'Calves'] },
+
+  // ── Warm-Up / Mobility (programme warm-up blocks) ─────────────────────────
+  { id: 'hip-90-90', name: 'Hip 90/90 Mobilisation', category: 'Full Body', defaultRestSeconds: 0, muscleGroups: ['Hip Flexors', 'Glutes', 'Hip Rotators'], measureType: 'reps' },
+  { id: 'worlds-greatest-stretch', name: "World's Greatest Stretch", category: 'Full Body', defaultRestSeconds: 0, muscleGroups: ['Hip Flexors', 'Thoracic Spine', 'Hamstrings'], measureType: 'reps' },
+  { id: 'glute-bridge-march', name: 'Glute Bridge March', category: 'Core', defaultRestSeconds: 30, muscleGroups: ['Glutes', 'Core', 'Hamstrings'], measureType: 'reps' },
+  { id: 'ankle-circles-calf', name: 'Ankle Circles + Calf Raise', category: 'Legs', defaultRestSeconds: 0, muscleGroups: ['Calves', 'Ankle'], measureType: 'reps' },
+  { id: 'air-squat', name: 'Air Squat', category: 'Legs', defaultRestSeconds: 30, muscleGroups: ['Quads', 'Glutes'], measureType: 'reps' },
+  { id: 'prone-tyi', name: 'Prone T-Y-I', category: 'Shoulders', defaultRestSeconds: 20, muscleGroups: ['Rhomboids', 'Lower Traps', 'Rear Delts'], measureType: 'reps' },
+  { id: 'lateral-shuffle', name: 'Lateral Shuffle', category: 'Agility', defaultRestSeconds: 30, muscleGroups: ['Adductors', 'Abductors', 'Glutes'], measureType: 'reps' },
+  { id: 'a-skip', name: 'A-Skip', category: 'Speed', defaultRestSeconds: 30, muscleGroups: ['Hip Flexors', 'Calves', 'Coordination'], measureType: 'reps' },
+  { id: 'high-knees', name: 'High Knees', category: 'Speed', defaultRestSeconds: 20, muscleGroups: ['Hip Flexors', 'Quads', 'Cardiovascular'], measureType: 'reps' },
 ];
 
 export const CATEGORY_COLORS: Record<string, string> = {

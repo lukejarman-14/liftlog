@@ -46,6 +46,16 @@ export const NAME_TO_ID: Record<string, string> = {
   'countermovement jump': 'test-cmj', 'cmj': 'test-cmj',
   'pogo hops': 'pogo-jump', 'pogo hop': 'pogo-jump', 'pogo jumps': 'pogo-jump',
   'nordic hamstring curl': 'leg-curl', 'leg curl': 'leg-curl',
+  // Warm-up / mobility — explicit entries prevent fuzzy mis-matching
+  'hip 90/90 mobilisation': 'hip-90-90', 'hip 90/90': 'hip-90-90',
+  "world's greatest stretch": 'worlds-greatest-stretch',
+  'glute bridge hold + march': 'glute-bridge-march', 'glute bridge march': 'glute-bridge-march',
+  'ankle circles + eccentric calf raise': 'ankle-circles-calf',
+  'air squat': 'air-squat',
+  'prone t-y-i': 'prone-tyi',
+  'lateral shuffle': 'lateral-shuffle',
+  'a-skip': 'a-skip',
+  'high knees': 'high-knees',
 };
 
 function parseRest(rest: string): number {
@@ -63,7 +73,7 @@ function parseRest(rest: string): number {
 
 function parseReps(reps: string): number {
   const n = parseInt(reps, 10);
-  return isNaN(n) ? 8 : Math.min(n, 20);
+  return isNaN(n) ? 8 : Math.min(n, 60);
 }
 
 function parseSets(sets: string): number {
@@ -76,7 +86,6 @@ export function sessionToWorkoutExercises(
   exercises: Exercise[],
 ): WorkoutExercise[] {
   const all = session.blocks
-    .filter(b => !b.title.toLowerCase().includes('warm-up'))
     .flatMap(b => b.exercises);
 
   const result: WorkoutExercise[] = [];
@@ -117,5 +126,5 @@ export function sessionToWorkoutExercises(
     }
   }
 
-  return result.slice(0, 8);
+  return result.slice(0, 25);
 }
