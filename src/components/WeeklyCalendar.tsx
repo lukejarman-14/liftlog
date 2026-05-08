@@ -169,19 +169,26 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
               const dateStr = date ? dateToStr(date) : '';
               const done = dateStr ? completedDates.has(dateStr) : false;
               const isToday = date ? isSameDay(date, today) : false;
-              const mdDisplay = session.mdDay.replace('MD-', 'MD');
+              const isCond = session.mdDay === 'Conditioning';
+              const mdDisplay = isCond ? 'Conditioning' : session.mdDay.replace('MD-', 'MD');
               // Match entry on the same day (to show opponent)
               const matchOnDay = dowIndex != null ? matchByDay.get(dowIndex) : undefined;
               return (
                 <div key={i} className={`rounded-2xl border p-3.5 flex items-center justify-between transition-all ${
                   done ? 'bg-green-50 border-green-200' :
+                  isCond && isToday ? 'bg-emerald-50 border-emerald-300 shadow-sm' :
+                  isCond ? 'bg-white border-emerald-200' :
                   isToday ? 'bg-brand-50 border-brand-300 shadow-sm' :
                   'bg-white border-gray-100'
                 }`}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700">{mdDisplay}</span>
-                      <span className={`text-xs font-semibold ${isToday ? 'text-brand-500' : 'text-gray-400'}`}>{session.dayOfWeek}</span>
+                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                        isCond ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-100 text-brand-700'
+                      }`}>{mdDisplay}</span>
+                      <span className={`text-xs font-semibold ${
+                        isCond && isToday ? 'text-emerald-600' : isToday ? 'text-brand-500' : 'text-gray-400'
+                      }`}>{session.dayOfWeek}</span>
                       <span className="text-xs text-gray-300 flex items-center gap-0.5">
                         <Clock size={10} className="text-gray-300" />{session.durationMin}m
                       </span>
@@ -193,7 +200,9 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                     </div>
                     <div className="text-sm font-semibold text-gray-900 leading-snug">{session.objective}</div>
                     {session.fvProfile && (
-                      <div className="text-xs text-indigo-500 font-medium mt-0.5 truncate">⚡ {session.fvProfile}</div>
+                      <div className={`text-xs font-medium mt-0.5 truncate ${isCond ? 'text-emerald-600' : 'text-indigo-500'}`}>
+                        {isCond ? '🏃' : '⚡'} {session.fvProfile}
+                      </div>
                     )}
                   </div>
                   <div className="ml-3 flex-shrink-0 flex flex-col gap-1.5 items-end">
@@ -205,7 +214,9 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                             const items = sessionToWorkoutExercises(session, exercises);
                             onStartProgrammeSession(`${mdDisplay} · ${session.dayOfWeek}`, items);
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors"
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-colors ${
+                            isCond ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-brand-500 hover:bg-brand-600'
+                          }`}
                         >
                           <Play size={12} />
                           Start

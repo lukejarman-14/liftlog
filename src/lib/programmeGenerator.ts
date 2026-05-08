@@ -1959,6 +1959,43 @@ function progressNote(week: number): string {
   return 'Final phase: reduce sets by 1, increase intensity. Peak expression — maximise output.';
 }
 
+// ── Conditioning session splitter ─────────────────────────────────────────
+// Removes any conditioning block from the main session and returns it as a
+// standalone ProgrammeSession with its own neural warm-up on the same day.
+function splitConditioningIfPresent(session: ProgrammeSession): ProgrammeSession[] {
+  const condIdx = session.blocks.findIndex(b =>
+    b.title.toLowerCase().includes('conditioning'),
+  );
+  if (condIdx === -1) return [session];
+
+  const condBlock = session.blocks[condIdx];
+  const mainSession: ProgrammeSession = {
+    ...session,
+    blocks: session.blocks.filter((_, i) => i !== condIdx),
+  };
+
+  const condSession: ProgrammeSession = {
+    mdDay: 'Conditioning',
+    dayOfWeek: session.dayOfWeek,
+    objective: `Conditioning Session — ${condBlock.exercises[0]?.name ?? 'Energy System Work'}`,
+    readinessNote:
+      'Complete this after your main strength session — minimum 2 hours gap. Or treat it as an evening session. Short, high-quality work.',
+    durationMin: 25,
+    fvProfile: 'Aerobic / anaerobic energy system development. No strength load.',
+    blocks: [
+      {
+        title: '🔥 Conditioning Warm-Up (5 min)',
+        methodFocus:
+          'Dynamic neural activation — prepare for high-intensity energy system work. Elevate heart rate progressively.',
+        exercises: WARMUP_NEURAL,
+      },
+      condBlock,
+    ],
+  };
+
+  return [mainSession, condSession];
+}
+
 // ── Coach explanation ──────────────────────────────────────────────────────
 
 function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, readinessLevel: ReadinessLevel): string {
@@ -2017,8 +2054,10 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
       const weekNum = i + 1;
       const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
-      const sessions = osSlots.map(slot =>
-        buildOffSeasonSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }),
+      const sessions = osSlots.flatMap(slot =>
+        splitConditioningIfPresent(
+          buildOffSeasonSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }),
+        ),
       );
       return {
         weekNumber: weekNum,
@@ -2047,8 +2086,10 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
   const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNum = i + 1;
     const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
-    const sessions = slots.map(slot =>
-      buildSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }),
+    const sessions = slots.flatMap(slot =>
+      splitConditioningIfPresent(
+        buildSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }),
+      ),
     );
     return {
       weekNumber: weekNum,

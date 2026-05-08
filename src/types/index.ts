@@ -47,6 +47,7 @@ export interface Exercise {
   suggestedRir?: number;       // 0–4 recommended RIR for this exercise
   secondaryCategory?: ExerciseCategory;  // optional second category label
   isCustom?: boolean;
+  isWarmup?: boolean;    // suppresses history/PB display in active workout
 }
 
 export interface WorkoutExercise {

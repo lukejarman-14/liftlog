@@ -626,8 +626,8 @@ function ExerciseSection({
           )}
 
           <div className="px-4 pb-4">
-            {/* Last time & PB */}
-            <div className="flex gap-2 mb-3">
+            {/* Last time & PB — hidden for warm-up exercises */}
+            {!exercise.isWarmup && <div className="flex gap-2 mb-3">
               <button onClick={() => setShowAllLast(s => !s)} className="flex-1 bg-blue-50 rounded-xl px-3 py-2 text-left">
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <Clock size={11} className="text-blue-500" />
@@ -668,7 +668,7 @@ function ExerciseSection({
                   <div className="text-xs text-yellow-400 italic">Not set yet</div>
                 )}
               </div>
-            </div>
+            </div>}
 
             {/* Set rows */}
             <div className="flex flex-col gap-2">

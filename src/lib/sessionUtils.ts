@@ -45,7 +45,12 @@ export const NAME_TO_ID: Record<string, string> = {
   'broad jump': 'broad-jump',
   'countermovement jump': 'test-cmj', 'cmj': 'test-cmj',
   'pogo hops': 'pogo-jump', 'pogo hop': 'pogo-jump', 'pogo jumps': 'pogo-jump',
-  'nordic hamstring curl': 'leg-curl', 'leg curl': 'leg-curl',
+  'nordic hamstring curl': 'eccentric-nordic', 'nordic curl': 'nordic-curl', 'leg curl': 'leg-curl',
+  // Isometric holds — explicit to prevent fuzzy mis-matching to 'lunge' / 'calf-raise' etc.
+  'isometric split squat hold': 'iso-lunge-hold',
+  'single-leg calf isometric hold': 'calf-raise-hold', 'single-leg calf hold': 'calf-raise-hold',
+  'single-leg isometric wall sit': 'iso-squat-hold',
+  'copenhagen plank': 'copenhagen-plank',
   // Warm-up / mobility — explicit entries prevent fuzzy mis-matching
   'hip 90/90 mobilisation': 'hip-90-90', 'hip 90/90': 'hip-90-90',
   "world's greatest stretch": 'worlds-greatest-stretch',
