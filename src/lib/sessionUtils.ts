@@ -40,8 +40,12 @@ export const NAME_TO_ID: Record<string, string> = {
   'hip thrust': 'hip-thrust', 'glute bridge': 'hip-thrust',
   'calf raise': 'calf-raise', 'plank': 'plank',
   'kettlebell swing': 'kettlebell-swing',
-  'jump squat': 'squat', 'box jump': 'squat',
-  'broad jump': 'squat', 'nordic hamstring curl': 'leg-curl', 'leg curl': 'leg-curl',
+  'jump squat': 'squat',
+  'box jump': 'box-jump',
+  'broad jump': 'broad-jump',
+  'countermovement jump': 'test-cmj', 'cmj': 'test-cmj',
+  'pogo hops': 'pogo-jump', 'pogo hop': 'pogo-jump', 'pogo jumps': 'pogo-jump',
+  'nordic hamstring curl': 'leg-curl', 'leg curl': 'leg-curl',
 };
 
 function parseRest(rest: string): number {
