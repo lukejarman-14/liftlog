@@ -256,7 +256,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
     const currentMsg = GENERATING_STEPS[stepIndex];
     const pct = Math.round(genProgress * 100);
     return (
-      <div className="fixed inset-0 bg-gray-950 flex flex-col items-center justify-center z-50 px-8">
+      <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-50 px-8">
         {/* Pulsing icon */}
         <div className="mb-8 relative">
           <div className="w-20 h-20 rounded-full bg-brand-500/20 flex items-center justify-center animate-pulse">
@@ -265,12 +265,12 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           <div className="absolute inset-0 rounded-full border-2 border-brand-500/40 animate-ping" />
         </div>
 
-        <h2 className="text-white text-2xl font-bold mb-2 text-center">Building Your Programme</h2>
-        <p className="text-brand-300 text-sm mb-10 text-center">Personalised for your position, goals & readiness</p>
+        <h2 className="text-gray-900 text-2xl font-bold mb-2 text-center">Building Your Programme</h2>
+        <p className="text-brand-600 text-sm mb-10 text-center">Personalised for your position, goals & readiness</p>
 
         {/* Progress bar */}
         <div className="w-full max-w-xs mb-4">
-          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-brand-500 rounded-full transition-all duration-100 ease-linear"
               style={{ width: `${pct}%` }}
@@ -278,12 +278,12 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           </div>
           <div className="flex justify-between mt-1.5">
             <span className="text-xs text-gray-500">Analysing inputs</span>
-            <span className="text-xs text-brand-400 font-semibold">{pct}%</span>
+            <span className="text-xs text-brand-600 font-semibold">{pct}%</span>
           </div>
         </div>
 
         {/* Step message */}
-        <p className="text-gray-300 text-sm text-center min-h-[1.25rem]">{currentMsg}</p>
+        <p className="text-gray-600 text-sm text-center min-h-[1.25rem]">{currentMsg}</p>
       </div>
     );
   }
