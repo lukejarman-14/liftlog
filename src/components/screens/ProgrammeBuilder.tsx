@@ -3,7 +3,7 @@
  * Pre-fills position, experience, gym access from UserProfile. FV always balanced.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Zap, Target, Activity, Brain, Check, User, Calendar } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -186,6 +186,41 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
     setInjuryHistory(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
   };
 
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [genProgress, setGenProgress] = useState(0);
+  const genCallbackRef = useRef<(() => void) | null>(null);
+
+  const GENERATING_STEPS = [
+    'Analysing position & play style…',
+    'Calculating force-velocity profile…',
+    'Periodising training phases…',
+    'Selecting compound movements…',
+    'Building isometric & eccentric blocks…',
+    'Scheduling match-day structure…',
+    'Applying readiness calibration…',
+    'Optimising conditioning rotation…',
+    'Finalising weekly layout…',
+    'Programme ready ✓',
+  ];
+
+  useEffect(() => {
+    if (!isGenerating) return;
+    setGenProgress(0);
+    const total = 10000;
+    const interval = 100;
+    let elapsed = 0;
+    const timer = setInterval(() => {
+      elapsed += interval;
+      setGenProgress(Math.min(elapsed / total, 1));
+      if (elapsed >= total) {
+        clearInterval(timer);
+        setIsGenerating(false);
+        genCallbackRef.current?.();
+      }
+    }, interval);
+    return () => clearInterval(timer);
+  }, [isGenerating]);
+
   const handleGenerate = () => {
     const inputs: ProgrammeInputs = {
       position: primaryPos as ProgrammeInputs['position'],
@@ -206,7 +241,8 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
       customDurationWeeks: programDuration,
       preferBackSquat: userProfile.gymAccess !== 'none' ? preferBackSquat : undefined,
     };
-    onGenerate(inputs);
+    genCallbackRef.current = () => onGenerate(inputs);
+    setIsGenerating(true);
   };
 
   const totalSteps = STEPS.length;
@@ -214,6 +250,43 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   const StepIcon = stepIcons[step] ?? Check;
 
   const expWeeks: Record<string, string> = { '<1': '6', '1-3': '8', '3-5': '10', '5+': '12' };
+
+  if (isGenerating) {
+    const stepIndex = Math.min(Math.floor(genProgress * GENERATING_STEPS.length), GENERATING_STEPS.length - 1);
+    const currentMsg = GENERATING_STEPS[stepIndex];
+    const pct = Math.round(genProgress * 100);
+    return (
+      <div className="fixed inset-0 bg-gray-950 flex flex-col items-center justify-center z-50 px-8">
+        {/* Pulsing icon */}
+        <div className="mb-8 relative">
+          <div className="w-20 h-20 rounded-full bg-brand-500/20 flex items-center justify-center animate-pulse">
+            <Zap size={36} className="text-brand-400" />
+          </div>
+          <div className="absolute inset-0 rounded-full border-2 border-brand-500/40 animate-ping" />
+        </div>
+
+        <h2 className="text-white text-2xl font-bold mb-2 text-center">Building Your Programme</h2>
+        <p className="text-brand-300 text-sm mb-10 text-center">Personalised for your position, goals & readiness</p>
+
+        {/* Progress bar */}
+        <div className="w-full max-w-xs mb-4">
+          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-brand-500 rounded-full transition-all duration-100 ease-linear"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-1.5">
+            <span className="text-xs text-gray-500">Analysing inputs</span>
+            <span className="text-xs text-brand-400 font-semibold">{pct}%</span>
+          </div>
+        </div>
+
+        {/* Step message */}
+        <p className="text-gray-300 text-sm text-center min-h-[1.25rem]">{currentMsg}</p>
+      </div>
+    );
+  }
 
   return (
     <Layout
