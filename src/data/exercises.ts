@@ -46,6 +46,8 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'leg-curl', suggestedRir: 1, name: 'Leg Curl', category: 'Legs', defaultRestSeconds: 90, muscleGroups: ['Hamstrings'] },
   { id: 'leg-extension', name: 'Leg Extension', category: 'Legs', defaultRestSeconds: 90, muscleGroups: ['Quads'] },
   { id: 'lunge', suggestedRir: 2, name: 'Lunge', category: 'Legs', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes'] },
+  { id: 'bulgarian-split-squat', suggestedRir: 2, name: 'Bulgarian Split Squat', category: 'Legs', defaultRestSeconds: 180, muscleGroups: ['Quads', 'Glutes', 'Hamstrings'] },
+  { id: 'bulgarian-split-squat-db', suggestedRir: 2, name: 'Bulgarian Split Squat (DB)', category: 'Legs', defaultRestSeconds: 180, muscleGroups: ['Quads', 'Glutes', 'Hamstrings'] },
   { id: 'hip-thrust', suggestedRir: 2, name: 'Hip Thrust', category: 'Legs', defaultRestSeconds: 120, muscleGroups: ['Glutes'] },
   { id: 'calf-raise', name: 'Calf Raise', category: 'Legs', defaultRestSeconds: 60, muscleGroups: ['Calves'] },
 

@@ -471,18 +471,18 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
 const BSS_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeExercise>>> = {
   Foundation: {
     full: {
-      heavy: ex('Bulgarian Split Squat (Barbell)', '3', '5 each', '3:00',
-        'Rear foot elevated on bench. Barbell on back. 2s eccentric descent, explosive drive up. Full depth — front knee tracks over toes. Single-leg vertical force: loads hip flexors and quads independently, exposes asymmetries. 2–1 RIR. Sprint carryover is higher than bilateral squat due to unilateral loading angle.',
+      heavy: ex('Bulgarian Split Squat (DB)', '3', '5 each', '3:00',
+        'Rear foot elevated on bench. Heaviest DBs available — one in each hand. 2s eccentric descent, explosive drive up. Full depth — front knee tracks over toes. Single-leg vertical force: loads hip flexors and quads independently, exposes asymmetries. 2–1 RIR. Sprint carryover is higher than bilateral squat due to unilateral loading angle.',
         { intensity: '80% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      moderate: ex('Bulgarian Split Squat (Barbell)', '3', '6 each', '2:30',
+      moderate: ex('Bulgarian Split Squat (DB)', '3', '6 each', '2:30',
         'Rear foot elevated. Full depth. Explosive concentric. Consistent rep quality throughout. 3–2 RIR.',
         { intensity: '75% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     },
     basic: {
-      heavy: ex('Barbell Bulgarian Split Squat', '3', '5 each', '3:00',
-        'Rear foot on bench, barbell on back. 2s descent. Explosive drive. 2–1 RIR. Load both legs evenly in the warm-up set — one side is usually weaker.',
+      heavy: ex('Bulgarian Split Squat (DB)', '3', '5 each', '3:00',
+        'Rear foot on bench. DBs in each hand. 2s descent. Explosive drive. 2–1 RIR. Load both legs evenly in the warm-up set — one side is usually weaker.',
         { intensity: '80% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      moderate: ex('Barbell Bulgarian Split Squat', '3', '6 each', '2:30',
+      moderate: ex('Bulgarian Split Squat (DB)', '3', '6 each', '2:30',
         'Full depth. Explosive concentric. 3–2 RIR.',
         { intensity: '75% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     },
@@ -497,18 +497,18 @@ const BSS_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeExerci
   },
   Build: {
     full: {
-      heavy: ex('Bulgarian Split Squat (Barbell)', '3', '4 each', '3:30',
+      heavy: ex('Bulgarian Split Squat (DB)', '3', '4 each', '3:30',
         'Rear foot elevated. Heavy load — 85% of your BSS working weight. 2s descent, violent concentric. 2–1 RIR. Every rep a competition attempt. Sprint force development: unilateral loading replicates the single-leg push-off mechanics of acceleration.',
         { intensity: '85% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      moderate: ex('Bulgarian Split Squat (Barbell)', '3', '5 each', '3:00',
+      moderate: ex('Bulgarian Split Squat (DB)', '3', '5 each', '3:00',
         'Rear foot elevated. Consistent depth. Explosive concentric. 3–2 RIR.',
         { intensity: '80% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     },
     basic: {
-      heavy: ex('Barbell Bulgarian Split Squat', '3', '4 each', '3:30',
-        'Heavy barbell, rear foot on bench. 2s descent. Maximum concentric intent. 2–1 RIR.',
+      heavy: ex('Bulgarian Split Squat (DB)', '3', '4 each', '3:30',
+        'Heavy DBs, rear foot on bench. 2s descent. Maximum concentric intent. 2–1 RIR.',
         { intensity: '83% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      moderate: ex('Barbell Bulgarian Split Squat', '3', '5 each', '3:00',
+      moderate: ex('Bulgarian Split Squat (DB)', '3', '5 each', '3:00',
         'Full depth. Explosive drive. 3–2 RIR.',
         { intensity: '80% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     },
@@ -523,18 +523,18 @@ const BSS_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeExerci
   },
   'Strength & Power': {
     full: {
-      heavy: ex('Bulgarian Split Squat (Barbell)', '3', '3 each', '4:00',
+      heavy: ex('Bulgarian Split Squat (DB)', '3', '3 each', '4:00',
         'Heavy — 88% working weight. 2s descent, maximum concentric velocity intent. 1 RIR. Peak force expression on a unilateral pattern. Bar should move with authority. Do not compress rest.',
         { intensity: '88% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      moderate: ex('Bulgarian Split Squat (Barbell)', '3', '4 each', '3:30',
+      moderate: ex('Bulgarian Split Squat (DB)', '3', '4 each', '3:30',
         'High intent. Explosive concentric. 2 RIR.',
         { intensity: '84% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     },
     basic: {
-      heavy: ex('Barbell Bulgarian Split Squat', '3', '3 each', '4:00',
-        'Peak load. 1 RIR — bar is slow but technically sound. Do not rush.',
+      heavy: ex('Bulgarian Split Squat (DB)', '3', '3 each', '4:00',
+        'Peak load DBs. 1 RIR — reps are slow but technically sound. Do not rush.',
         { intensity: '87% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      moderate: ex('Barbell Bulgarian Split Squat', '3', '4 each', '3:30',
+      moderate: ex('Bulgarian Split Squat (DB)', '3', '4 each', '3:30',
         'Explosive concentric. 2 RIR.',
         { intensity: '84% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     },
@@ -549,18 +549,18 @@ const BSS_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeExerci
   },
   Peak: {
     full: {
-      heavy: ex('Bulgarian Split Squat (Barbell)', '2', '3 each', '4:00',
+      heavy: ex('Bulgarian Split Squat (DB)', '2', '3 each', '4:00',
         'Peak expression. Low volume, maximal quality. 1–0 RIR. Non-negotiable rest between sets and legs. Do not rush.',
         { intensity: '90% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      moderate: ex('Bulgarian Split Squat (Barbell)', '2', '4 each', '3:30',
+      moderate: ex('Bulgarian Split Squat (DB)', '2', '4 each', '3:30',
         'Quality over volume. Max intent every rep. 2 RIR.',
         { intensity: '86% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     },
     basic: {
-      heavy: ex('Barbell Bulgarian Split Squat', '2', '3 each', '4:00',
+      heavy: ex('Bulgarian Split Squat (DB)', '2', '3 each', '4:00',
         'Peak quality. 1–0 RIR. Full rest between sets.',
         { intensity: '89% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      moderate: ex('Barbell Bulgarian Split Squat', '2', '4 each', '3:30',
+      moderate: ex('Bulgarian Split Squat (DB)', '2', '4 each', '3:30',
         'Quality execution. Max intent. 2 RIR.',
         { intensity: '86% 1RM equiv.', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     },
@@ -2260,11 +2260,8 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
       { methodType: 'reactive', intensityIntent: 'reactive', isRunning: true }),
   ],
   injury_prone: [
-    // Concentric quality work for resilience — eccentrics in Eccentric Block, isometrics in Isometric Block.
-    ex('Bulgarian Split Squat (Control)', '2', '6 each', '90s', 'Rear foot elevated. 2s descent, explosive concentric. Movement quality focus — joint control and single-leg stability build resilience for injury-prone athletes.',
-      { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
-    ex('Single-Leg Romanian Deadlift (Stability)', '2', '8 each', '60s', 'Hinge to shin with full control throughout. Hip stability and hamstring activation — targets the soft tissue resilience and proprioception that injury-prone athletes need.',
-      { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    ex('Single-Leg Romanian Deadlift (Stability)', '2', '6 each', '90s', 'Hinge to shin — full hip extension at the top. Drive through the standing heel. Hip stability and hamstring activation for injury-resilient athletes.',
+      { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'maximal' }),
   ],
 };
 
