@@ -22,6 +22,7 @@ function ex(
     tempo?: string;
     methodType?: MethodType;
     intensityIntent?: IntensityIntent;
+    isRunning?: boolean;
   },
 ): ProgrammeExercise {
   return { name, sets, reps, rest, cue, ...opts };
@@ -696,11 +697,11 @@ const POSITION_SPEED: Partial<Record<PosKey, ProgrammeExercise[]>> = {
 const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
   'box-to-box': [
     ex('Box-to-Box Sprint Repeats', '4', '3 × 30m', '2:30', 'Sprint 30m at maximum effort. Walk back as recovery. Box-to-box simulation — repeated acceleration. Every rep maximum intent.',
-      { methodType: 'concentric', intensityIntent: 'maximal' }),
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
   ],
   'direct': [
     ex('Sprint + Controlled Decel + Sprint', '4', '20m + stop + 20m', '3:00', 'Direct play demands. Burst, brake, repeat.',
-      { methodType: 'eccentric', intensityIntent: 'maximal' }),
+      { methodType: 'eccentric', intensityIntent: 'maximal', isRunning: true }),
   ],
   'technical': [
     ex('Lateral Bound + Balance Hold', '3', '5 each', '2:00', 'Multi-directional agility. Stable landing = technical foundation.',
@@ -712,11 +713,11 @@ const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
   ],
   'press-heavy': [
     ex('Short Sprint + Recovery Jog Circuit', '5', '10m sprint / 20m jog', 'Continuous', 'Simulate press trigger and recovery. Press-heavy demands.',
-      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+      { methodType: 'mixed', intensityIntent: 'submaximal', isRunning: true }),
   ],
   'counter-attack': [
     ex('Acceleration from Set Position', '5', '30m', '3:00', 'From standing or jogging — explosive transition to sprint. Counter-attack simulation.',
-      { methodType: 'reactive', intensityIntent: 'maximal' }),
+      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
   ],
 };
 
@@ -1252,7 +1253,7 @@ export function getRunCondEx(posKey: PosKey, phase: string): ProgrammeExercise {
 const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
   speed: [
     ex('Hip Flexor Sprint Drill', '3', '4 × 20m', '2:00', 'Rapid knee drive. Arms drive speed.',
-      { methodType: 'concentric', intensityIntent: 'explosive' }),
+      { methodType: 'concentric', intensityIntent: 'explosive', isRunning: true }),
     ex('Single-Leg Broad Jump', '3', '5 each', '2:00', 'Push horizontally off one foot. Land controlled. Max distance.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
     ex('Single-Leg Hip Thrust (Glute Focus)', '2', '10 each', '90s', 'Shoulders on bench, non-working leg raised. Full hip extension. Squeeze at top. Glute/hamstring motor units — horizontal force without any equipment beyond a bench or low surface.',
@@ -1269,9 +1270,9 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
   ],
   endurance: [
     ex('Aerobic Threshold Run', '1', '20 min', '', '70% max HR — truly conversational pace. Aerobic base.',
-      { methodType: 'mixed', intensityIntent: 'moderate' }),
+      { methodType: 'mixed', intensityIntent: 'moderate', isRunning: true }),
     ex('Cardiac Output Circuit', '3', '5 min', '90s rest', '1 min jog / 1 min bike / 1 min row / 1 min step / 1 min jump rope. HR 130–150.',
-      { methodType: 'mixed', intensityIntent: 'moderate' }),
+      { methodType: 'mixed', intensityIntent: 'moderate', isRunning: true }),
   ],
   power: [
     ex('Box Jump', '4', '5', '2:30', 'Step down (never jump down). Reset fully. Maximum upward intent.',
@@ -1283,11 +1284,11 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
   ],
   agility: [
     ex('5-10-5 Pro Agility Drill', '4', 'Full shuttle', '2:30', '5m right, 10m left, 5m right. Drive off outside foot each turn.',
-      { methodType: 'reactive', intensityIntent: 'maximal' }),
+      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
     ex('T-Drill', '3', 'Full drill', '2:30', 'Sprint, shuffle left, shuffle right, back-pedal. Precise footwork at each cone.',
-      { methodType: 'reactive', intensityIntent: 'maximal' }),
+      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
     ex('Reactive Cone Drill (Partner)', '4', '6 reps', '2:00', 'Partner signals direction. React and accelerate. Decision speed is the variable.',
-      { methodType: 'reactive', intensityIntent: 'reactive' }),
+      { methodType: 'reactive', intensityIntent: 'reactive', isRunning: true }),
   ],
   injury_prone: [
     // Low volume, non-eccentric — Nordics/Copenhagen already in ECCENTRIC_BLOCK every session.
@@ -1583,6 +1584,10 @@ function buildOffSeasonSession(
   const weaknessIso = biggestWeakness !== 'endurance'
     ? weaknessEx.filter(e => e.methodType === 'isometric')
     : [];
+  // Running/speed exercises — moved to separate Conditioning session on home screen
+  const playStyleRunning = playStyleEx.filter(e => e.isRunning);
+  const weaknessRunning = weaknessEx.filter(e => e.isRunning);
+  const speedWorkEx = [...playStyleRunning, ...weaknessRunning];
   // Injury-based block ordering: eccentric FIRST if muscle injury present, isometric FIRST otherwise
   const hasMuscleInjury = injuryHistory.some(a => ['hamstring', 'groin', 'calf', 'knee'].includes(a));
 
@@ -1639,9 +1644,9 @@ function buildOffSeasonSession(
           [
             // Off-season: 2 main lifts only — 1 vertical + 1 horizontal
             ...strengthEx.slice(0, 2),
-            ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric')),
+            ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
             ...(biggestWeakness !== 'endurance'
-              ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric')
+              ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)
               : []),
           ],
           readiness.level,
@@ -1667,6 +1672,11 @@ function buildOffSeasonSession(
         title: '🏃 Conditioning — Always Last',
         methodFocus: 'Off-season conditioning — no match-day fatigue constraints. Build the aerobic base freely.',
         exercises: [condEx],
+      }] : []),
+      ...(speedWorkEx.length > 0 && !includeConditioning ? [{
+        title: '🏃 Speed Work — Conditioning',
+        methodFocus: 'Play-style and weakness speed work. Complete on the pitch — separate from the gym session.',
+        exercises: speedWorkEx,
       }] : []),
     ],
   };
@@ -1752,6 +1762,10 @@ function buildSession(
     const weaknessIso = biggestWeakness !== 'endurance'
       ? weaknessEx.filter(e => e.methodType === 'isometric')
       : [];
+    // Running/speed exercises — moved to separate Conditioning session on home screen
+    const playStyleRunning = playStyleEx.filter(e => e.isRunning);
+    const weaknessRunning = weaknessEx.filter(e => e.isRunning);
+    const speedWorkEx = [...playStyleRunning, ...weaknessRunning];
     const hasMuscleInjury = injuryHistory.some(a => ['hamstring', 'groin', 'calf', 'knee'].includes(a));
 
     return {
@@ -1790,11 +1804,11 @@ function buildSession(
               ...strengthEx,
               // 2. Heavy horizontal (upper push/pull) — second
               ...upperEx.slice(0, 2),
-              // 3. Play style — concentric only (isometrics moved to Isometric Block)
-              ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric')),
-              // 4. Weakness — LAST, concentric only (isometrics moved to Isometric Block)
+              // 3. Play style — gym exercises only (running + isometrics moved out)
+              ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
+              // 4. Weakness — LAST, gym exercises only (running + isometrics moved out)
               ...(biggestWeakness !== 'endurance'
-                ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric')
+                ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)
                 : []),
             ],
             readiness.level,
@@ -1829,6 +1843,12 @@ function buildSession(
           title: '🏃 Conditioning — Always Last',
           methodFocus: 'Conditioning completed LAST — after all strength and structural work. Energy system development without compromising quality of strength and eccentric stimulus.',
           exercises: [condEx],
+        }] : []),
+        // ⑥ Speed / play-style running work — split to separate home-screen card
+        ...(speedWorkEx.length > 0 && !includeConditioning ? [{
+          title: '🏃 Speed Work — Conditioning',
+          methodFocus: 'Play-style and weakness speed work. Complete on the pitch — separate from the gym session.',
+          exercises: speedWorkEx,
         }] : []),
       ],
     };
@@ -1985,36 +2005,40 @@ function progressNote(week: number): string {
 }
 
 // ── Conditioning session splitter ─────────────────────────────────────────
-// Removes any conditioning block from the main session and returns it as a
-// standalone ProgrammeSession with its own neural warm-up on the same day.
+// Removes ALL conditioning/speed-work blocks from the main session and returns them
+// as a standalone ProgrammeSession with its own neural warm-up on the same day.
 function splitConditioningIfPresent(session: ProgrammeSession): ProgrammeSession[] {
-  const condIdx = session.blocks.findIndex(b =>
+  const condBlocks = session.blocks.filter(b =>
     b.title.toLowerCase().includes('conditioning'),
   );
-  if (condIdx === -1) return [session];
+  if (condBlocks.length === 0) return [session];
 
-  const condBlock = session.blocks[condIdx];
   const mainSession: ProgrammeSession = {
     ...session,
-    blocks: session.blocks.filter((_, i) => i !== condIdx),
+    blocks: session.blocks.filter(b => !b.title.toLowerCase().includes('conditioning')),
   };
 
+  const isSpeedWork = condBlocks.every(b => b.title.toLowerCase().includes('speed work'));
   const condSession: ProgrammeSession = {
     mdDay: 'Conditioning',
     dayOfWeek: session.dayOfWeek,
-    objective: `Conditioning Session — ${condBlock.exercises[0]?.name ?? 'Energy System Work'}`,
+    objective: isSpeedWork
+      ? `Speed Session — ${condBlocks[0].exercises[0]?.name ?? 'Speed Work'}`
+      : `Conditioning Session — ${condBlocks[0].exercises[0]?.name ?? 'Energy System Work'}`,
     readinessNote:
       'Complete this after your main strength session — minimum 2 hours gap. Or treat it as an evening session. Short, high-quality work.',
-    durationMin: 25,
-    fvProfile: 'Aerobic / anaerobic energy system development. No strength load.',
+    durationMin: isSpeedWork ? 30 : 25,
+    fvProfile: isSpeedWork
+      ? 'Play-style speed & agility work. Pitch-based — no gym equipment needed.'
+      : 'Aerobic / anaerobic energy system development. No strength load.',
     blocks: [
       {
-        title: '🔥 Conditioning Warm-Up (5 min)',
+        title: isSpeedWork ? '🔥 Speed Warm-Up (8 min)' : '🔥 Conditioning Warm-Up (5 min)',
         methodFocus:
-          'Dynamic neural activation — prepare for high-intensity energy system work. Elevate heart rate progressively.',
+          'Dynamic neural activation — prepare for high-intensity pitch work. Elevate heart rate progressively.',
         exercises: WARMUP_NEURAL,
       },
-      condBlock,
+      ...condBlocks,
     ],
   };
 

@@ -293,6 +293,7 @@ export interface ProgrammeExercise {
   tempo?: string;           // e.g. "3-0-1-0" (eccentric-pause-concentric-pause)
   methodType?: MethodType;
   intensityIntent?: IntensityIntent;
+  isRunning?: boolean;      // true = pitch/speed/agility work → split to Conditioning session
   cue: string;
 }
 
