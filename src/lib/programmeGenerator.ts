@@ -457,26 +457,26 @@ const POWER_PRIMER: Record<GymKey, ProgrammeExercise[]> = {
 // Pogo hops = fast SSC — trains the tendon spring at match-speed loading rates.
 const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
   full: [
-    ex('Isometric Split Squat Hold (Heavy)', '3', '45s each leg', '2:00', 'Bottom of split squat — rear knee 2cm from floor. Add load via barbell or heavy DB. Maximum effort throughout — zero relaxing. Patellar tendon HSR: the tendon stiffens under this load so the quadriceps muscle doesn\'t overwork during sprint deceleration.',
-      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold (Heel Raise Position)', '3', '45s each leg', '2:00', 'Rise onto single-leg tiptoe. Hold at the top. Add weight via DB or barbell if available. Maximum effort. Achilles tendon HSR — stiffness adaptation. The tendon absorbs sprint push-off load so the calf muscle doesn\'t overwork over 90 minutes.',
-      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Isometric Split Squat Hold (Heavy)', '3', '30s each leg', '2:00', 'Bottom of split squat — rear knee 2cm from floor. Add load via barbell or heavy DB. Maximum effort throughout — zero relaxing. Patellar tendon HSR: the tendon stiffens under this load so the quadriceps muscle doesn\'t overwork during sprint deceleration.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Single-Leg Calf Isometric Hold (Heel Raise Position)', '3', '30s each leg', '2:00', 'Rise onto single-leg tiptoe. Hold at the top. Add weight via DB or barbell if available. Maximum effort. Achilles tendon HSR — stiffness adaptation. The tendon absorbs sprint push-off load so the calf muscle doesn\'t overwork over 90 minutes.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles STIFF — no dorsiflexion. Arms punch up. Minimum ground contact time. High frequency tendon-spring training: the holds above build stiffness, pogos train the elastic SSC return at match-speed loading rate.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   basic: [
-    ex('Isometric Split Squat Hold (Heavy DB)', '3', '45s each leg', '2:00', 'Bottom of split squat. Hold heaviest available DB. Maximum effort throughout. Patellar tendon HSR — the tendon stiffens under heavy isometric load so it handles sprint/jump demand instead of the muscle.',
-      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold', '3', '45s each leg', '2:00', 'Single-leg tiptoe hold. Hold heavy DB at side. Maximum effort. Achilles tendon HSR. The stiffer the tendon, the more it acts as a spring — reducing muscle work over the full 90 minutes.',
-      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Isometric Split Squat Hold (Heavy DB)', '3', '30s each leg', '2:00', 'Bottom of split squat. Hold heaviest available DB. Maximum effort throughout. Patellar tendon HSR — the tendon stiffens under heavy isometric load so it handles sprint/jump demand instead of the muscle.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Single-Leg Calf Isometric Hold', '3', '30s each leg', '2:00', 'Single-leg tiptoe hold. Hold heavy DB at side. Maximum effort. Achilles tendon HSR. The stiffer the tendon, the more it acts as a spring — reducing muscle work over the full 90 minutes.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Stiff ankles. Minimum ground contact time. Elastic tendon return — train the spring at match-speed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   none: [
-    ex('Single-Leg Isometric Wall Sit', '3', '45s each leg', '2:00', 'Single-leg at 60° knee flexion against wall. Back flat. Maximum effort. Patellar tendon HSR at 60° is the clinically-validated loading angle — heavy isometric at this position directly increases patellar tendon stiffness.',
-      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold', '3', '45s each leg', '2:00', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — tendon absorbs sprint load so calf muscle capacity is preserved.',
-      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Single-Leg Isometric Wall Sit', '3', '30s each leg', '2:00', 'Single-leg at 60° knee flexion against wall. Back flat. Maximum effort. Patellar tendon HSR at 60° is the clinically-validated loading angle — heavy isometric at this position directly increases patellar tendon stiffness.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Single-Leg Calf Isometric Hold', '3', '30s each leg', '2:00', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — tendon absorbs sprint load so calf muscle capacity is preserved.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles stiff. Minimum ground contact. Elastic SSC tendon return at match-speed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
@@ -695,8 +695,8 @@ const POSITION_SPEED: Partial<Record<PosKey, ProgrammeExercise[]>> = {
 
 const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
   'box-to-box': [
-    ex('45s AMRAP (Air Squat + Lateral Jump + Sprint 10m)', '4', '45s on / 45s off', '45s', 'Simulate box-to-box demands. Quality through fatigue. Bodyweight squat + lateral jump + 10m sprint — no equipment needed.',
-      { methodType: 'mixed', intensityIntent: 'submaximal' }),
+    ex('Box-to-Box Sprint Repeats', '4', '3 × 30m', '2:30', 'Sprint 30m at maximum effort. Walk back as recovery. Box-to-box simulation — repeated acceleration. Every rep maximum intent.',
+      { methodType: 'concentric', intensityIntent: 'maximal' }),
   ],
   'direct': [
     ex('Sprint + Controlled Decel + Sprint', '4', '20m + stop + 20m', '3:00', 'Direct play demands. Burst, brake, repeat.',
@@ -707,8 +707,8 @@ const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
       { methodType: 'reactive', intensityIntent: 'controlled' }),
   ],
   'physical': [
-    ex('Isometric Split Squat Hold', '3', '45s each', '2:00', 'Bottom position hold. Physical duel strength and joint integrity.',
-      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Isometric Split Squat Hold', '3', '30s each', '2:00', 'Bottom position hold. Physical duel strength and joint integrity.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
   ],
   'press-heavy': [
     ex('Short Sprint + Recovery Jog Circuit', '5', '10m sprint / 20m jog', 'Continuous', 'Simulate press trigger and recovery. Press-heavy demands.',
@@ -1315,8 +1315,8 @@ const PREHAB: Record<string, ProgrammeExercise[]> = {
       { methodType: 'mixed', intensityIntent: 'controlled' }),
   ],
   knee: [
-    ex('Isometric Wall Sit — Single-Leg at 60°', '3', '45s each', '2:00', '60° knee flexion against wall — single leg. Maximum effort. This is the clinically-validated patellar tendon HSR angle: heavy isometric at 60° directly increases patellar tendon stiffness. The tendon then absorbs more landing/deceleration load so the quad muscle doesn\'t overwork.',
-      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Isometric Wall Sit — Single-Leg at 60°', '3', '30s each', '2:00', '60° knee flexion against wall — single leg. Maximum effort. This is the clinically-validated patellar tendon HSR angle: heavy isometric at 60° directly increases patellar tendon stiffness. The tendon then absorbs more landing/deceleration load so the quad muscle doesn\'t overwork.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Eccentric Step-Down (4s Lower)', '3', '8 each', '90s', '4s single-leg descent. Knee tracks over second toe. Eccentric quad loading — increases fascicle length. Longer fascicles = individual sarcomeres tolerate more stretch before failure.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
   ],
@@ -1329,8 +1329,8 @@ const PREHAB: Record<string, ProgrammeExercise[]> = {
   calf: [
     ex('Alfredson Eccentric Calf Protocol', '3', '15', '90s', 'Raise with both, lower on single leg over 3s. Knee straight for gastrocnemius, then repeat with knee bent for soleus. Eccentric loading increases fascicle length AND tendon capacity. If symptomatic (Achilles pain), perform 3×15 twice daily.',
       { tempo: '3-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-    ex('Heavy Single-Leg Calf Isometric Hold', '3', '45s each', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort — add weight via DB if possible. Achilles tendon HSR: heavy slow resistance increases tendon stiffness so the tendon (not the calf muscle) absorbs the sprint push-off load.',
-      { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Heavy Single-Leg Calf Isometric Hold', '3', '30s each', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort — add weight via DB if possible. Achilles tendon HSR: heavy slow resistance increases tendon stiffness so the tendon (not the calf muscle) absorbs the sprint push-off load.',
+      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
   ],
   back: [
     ex('Dead Bug', '3', '6 each side', '60s', 'Lower back into floor throughout. Extend opposite arm and leg — do not lose lumbar contact. Anti-extension core stability. No equipment needed.',
@@ -1410,12 +1410,12 @@ function recoverySession(dow: string): ProgrammeSession {
         title: '🧘 Yielding Isometric Holds',
         methodFocus: 'Isometric holds at RPE 3–4 — should feel like a warm hug for the joints, not a workout. No eccentric loading. 2 sets × 45 seconds.',
         exercises: [
-          ex('Single-Leg Glute Bridge Hold', '2', '45s each side', '60s', 'Shoulders on floor, hips extended, squeeze glute. RPE 3–4 — this is analgesia, not strength training. Breathe steadily. The goal is blood flow and pain reduction, not force production.',
-            { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
-          ex('Wall Sit (Bilateral)', '2', '45s', '60s', 'Back flat against wall. Knees at 90°. RPE 3–4. Quadriceps isometric hold — reduces muscle soreness without adding eccentric damage. Breathe steadily throughout.',
-            { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
-          ex('Prone Hamstring Isometric Hold', '2', '45s each side', '60s', 'Face down, ankle hooked under a fixed surface. Pull heel toward glute and hold. RPE 3–4. Hamstring isometric at mid-length — reduces DOMS without the eccentric loading that would add more micro-damage.',
-            { tempo: '0-45s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+          ex('Single-Leg Glute Bridge Hold', '2', '30s each side', '60s', 'Shoulders on floor, hips extended, squeeze glute. RPE 3–4 — this is analgesia, not strength training. Breathe steadily. The goal is blood flow and pain reduction, not force production.',
+            { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+          ex('Wall Sit (Bilateral)', '2', '30s', '60s', 'Back flat against wall. Knees at 90°. RPE 3–4. Quadriceps isometric hold — reduces muscle soreness without adding eccentric damage. Breathe steadily throughout.',
+            { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+          ex('Prone Hamstring Isometric Hold', '2', '30s each side', '60s', 'Face down, ankle hooked under a fixed surface. Pull heel toward glute and hold. RPE 3–4. Hamstring isometric at mid-length — reduces DOMS without the eccentric loading that would add more micro-damage.',
+            { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
         ],
       },
       {
@@ -1560,8 +1560,6 @@ function buildOffSeasonSession(
   const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
   const gymAccessLib = gymLib[gymAccess as GymKey] ?? gymLib.basic;
   const strengthEx = gymAccessLib[loadScheme] ?? gymAccessLib.moderate;
-  const upperPhase = UPPER[phase] ?? UPPER.Build;
-  const upperEx = upperPhase[gymAccess as GymKey] ?? upperPhase.basic;
 
   const posKey = position as PosKey;
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
@@ -1579,6 +1577,14 @@ function buildOffSeasonSession(
   const pogoHops = TENDON_SSC_BLOCK[gymKey].slice(2);
   const prehabIsometric = prehabEx.filter(e => e.methodType === 'isometric' || !e.methodType);
   const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
+
+  // Isometric exercises filtered from play-style and weakness — moved to Isometric Block
+  const playStyleIso = playStyleEx.filter(e => e.methodType === 'isometric');
+  const weaknessIso = biggestWeakness !== 'endurance'
+    ? weaknessEx.filter(e => e.methodType === 'isometric')
+    : [];
+  // Injury-based block ordering: eccentric FIRST if muscle injury present, isometric FIRST otherwise
+  const hasMuscleInjury = injuryHistory.some(a => ['hamstring', 'groin', 'calf', 'knee'].includes(a));
 
   const loadLabel = slot.load === 'heavy' ? 'Heavy Day' : 'Moderate Day';
   const durationBase = slot.load === 'heavy' ? 70 : 60;
@@ -1631,27 +1637,32 @@ function buildOffSeasonSession(
           : 'Moderate load — manage DOMS from last session. Maintain quality. Weakness work last.',
         exercises: applyReadiness(
           [
-            ...strengthEx,
-            ...upperEx.slice(0, 2),
-            ...(playStyleEx.filter(e => e.methodType !== 'eccentric')),
+            // Off-season: 2 main lifts only — 1 vertical + 1 horizontal
+            ...strengthEx.slice(0, 2),
+            ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric')),
             ...(biggestWeakness !== 'endurance'
-              ? weaknessEx.filter(e => e.methodType !== 'eccentric')
+              ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric')
               : []),
           ],
           readiness.level,
           readiness.intensityNote,
         ),
       },
+      ...(hasMuscleInjury ? [{
+        title: '🔴 Eccentric Block',
+        methodFocus: 'Muscle injury present — eccentric work comes first while fresh. Fascicle length adaptation is the primary protective mechanism.',
+        exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
+      }] : []),
       {
         title: '🦴 Isometric Block',
         methodFocus: 'Tendon HSR holds. Patellar + Achilles stiffness adaptation.',
-        exercises: [...tendonIsometrics, ...(prehabIsometric.length > 0 ? prehabIsometric : DEFAULT_PREHAB)],
+        exercises: [...tendonIsometrics, ...playStyleIso, ...weaknessIso, ...(prehabIsometric.length > 0 ? prehabIsometric : DEFAULT_PREHAB)],
       },
-      {
+      ...(!hasMuscleInjury ? [{
         title: '🔴 Eccentric Block — Always Last',
         methodFocus: 'Fascicle length adaptation. DOMS peaks 48h — sessions are spaced to manage this. Non-negotiable every session.',
         exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
-      },
+      }] : []),
       ...(includeConditioning ? [{
         title: '🏃 Conditioning — Always Last',
         methodFocus: 'Off-season conditioning — no match-day fatigue constraints. Build the aerobic base freely.',
@@ -1736,6 +1747,12 @@ function buildSession(
     // Prehab: isometric exercises only (filter out eccentric prehab — it moves to eccentric block)
     const prehabIsometric = prehabEx.filter(e => e.methodType === 'isometric' || !e.methodType);
     const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
+    // Isometric exercises extracted from play-style / weakness — placed in Isometric Block
+    const playStyleIso = playStyleEx.filter(e => e.methodType === 'isometric');
+    const weaknessIso = biggestWeakness !== 'endurance'
+      ? weaknessEx.filter(e => e.methodType === 'isometric')
+      : [];
+    const hasMuscleInjury = injuryHistory.some(a => ['hamstring', 'groin', 'calf', 'knee'].includes(a));
 
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
@@ -1773,32 +1790,40 @@ function buildSession(
               ...strengthEx,
               // 2. Heavy horizontal (upper push/pull) — second
               ...upperEx.slice(0, 2),
-              // 3. Play style — third
-              ...(playStyleEx.filter(e => e.methodType !== 'eccentric')),
-              // 4. Weakness — LAST, and only concentric/isometric (no eccentric)
+              // 3. Play style — concentric only (isometrics moved to Isometric Block)
+              ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric')),
+              // 4. Weakness — LAST, concentric only (isometrics moved to Isometric Block)
               ...(biggestWeakness !== 'endurance'
-                ? weaknessEx.filter(e => e.methodType !== 'eccentric')
+                ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric')
                 : []),
             ],
             readiness.level,
             readiness.intensityNote,
           ),
         },
-        // ③ Isometric — after strength, before eccentric
+        // ③/④ Isometric + Eccentric — order depends on injury history
+        // Muscle injury present → Eccentric FIRST (fascicle adaptation priority)
+        // No recurring muscle injury → Isometric FIRST (tendon stiffness priority)
+        ...(hasMuscleInjury ? [{
+          title: '🔴 Eccentric Block',
+          methodFocus: 'Muscle injury present — eccentric work comes first while fresh. Fascicle length adaptation is the primary protective mechanism.',
+          exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
+        }] : []),
         {
           title: '🦴 Isometric Block',
           methodFocus: 'Heavy isometric holds — tendon stiffness adaptation (HSR protocol). Maximum effort throughout each hold. The tendon stiffens under heavy isometric load so it absorbs sprint/jump force instead of the muscle.',
           exercises: [
             ...tendonIsometrics,
+            ...playStyleIso,
+            ...weaknessIso,
             ...(prehabIsometric.length > 0 ? prehabIsometric : DEFAULT_PREHAB),
           ],
         },
-        // ④ Eccentric — ALWAYS last (before conditioning only)
-        {
+        ...(!hasMuscleInjury ? [{
           title: '🔴 Eccentric Block — Always Last',
           methodFocus: 'Eccentric work placed LAST because it generates the most structural stress and residual DOMS. Nordic Curl fascicle-length adaptation is the primary hamstring strain prevention mechanism. Non-negotiable.',
           exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
-        },
+        }] : []),
         // ⑤ Conditioning — ONLY if included, and always after everything else
         ...(includeConditioning && condEx ? [{
           title: '🏃 Conditioning — Always Last',
