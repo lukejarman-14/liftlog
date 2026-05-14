@@ -24,7 +24,7 @@ export function useStore() {
   const [userSettings, setUserSettings] = useLocalStorage<UserSettings>('ll_settings', DEFAULT_SETTINGS);
   const [baseline, setBaselineRaw] = useLocalStorage<BaselineData | null>('ll_baseline', null);
   const [matchEntries, setMatchEntries] = useLocalStorage<MatchEntry[]>('ll_match_entries', []);
-  const [performanceEntries, setPerformanceEntries] = useLocalStorage<PerformanceEntry[]>('ll_performance_entries', []);
+  const [performanceEntries, setPerformanceEntries] = useLocalStorage<PerformanceEntry[]>('ll_performance_entries', []); // stored for future UI
   const [testSessions, setTestSessions] = useLocalStorage<TestSession[]>('ll_test_sessions', []);
   const [generatedProgrammes, setGeneratedProgrammes] = useLocalStorage<GeneratedProgramme[]>('ll_generated_programmes', []);
   const [activeProgrammeId, setActiveProgrammeId] = useLocalStorage<string | null>('ll_active_programme_id', null);
