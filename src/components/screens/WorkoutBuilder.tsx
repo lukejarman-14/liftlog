@@ -42,7 +42,9 @@ function ExercisePicker({
   const [cat, setCat] = useState<ExerciseCategory | 'All'>('All');
 
   const filtered = exercises.filter(ex => {
+    if (ex.isWarmup) return false;
     const q = query.toLowerCase();
+    if (!q) return cat === 'All' || ex.category === cat;
     return (
       (cat === 'All' || ex.category === cat) &&
       (ex.name.toLowerCase().includes(q) || ex.muscleGroups.some(m => m.toLowerCase().includes(q)))
@@ -60,11 +62,11 @@ function ExercisePicker({
           <div className="relative mb-3">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
-              autoFocus
               placeholder="Search exercises or muscles..."
               value={query}
               onChange={e => setQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              style={{ fontSize: '16px' }}
             />
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -82,11 +84,11 @@ function ExercisePicker({
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-4 pb-24">
-          {filtered.map(ex => {
+          {filtered.map((ex, idx) => {
             const isAdded = selected.includes(ex.id);
             return (
               <button
-                key={ex.id}
+                key={`${ex.id}-${idx}`}
                 onClick={() => onAdd(ex.id)}
                 className={`w-full text-left flex items-center justify-between p-3 rounded-xl mb-1.5 transition-colors ${
                   isAdded ? 'bg-brand-50 border border-brand-200' : 'hover:bg-gray-50'

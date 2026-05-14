@@ -41,8 +41,13 @@ export function Login({ profile, onLogin }: LoginProps) {
     if (isSupabaseConfigured) {
       try {
         const userId = await cloudSignIn(profile.email, password);
-        cloudLoadData(userId);
-        onLogin(userId);
+        const loaded = await cloudLoadData(userId);
+        if (loaded) {
+          // Reload so all useLocalStorage hooks re-read the freshly restored cloud data
+          window.location.reload();
+        } else {
+          onLogin(userId);
+        }
       } catch {
         setError('Incorrect password. Please try again.');
         setPassword('');

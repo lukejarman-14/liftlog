@@ -90,7 +90,9 @@ export function ExerciseLibrary({ exercises, onAddCustom, onDeleteCustom, onNavi
   const defaultIds = new Set(DEFAULT_EXERCISES.map(e => e.id));
 
   const filtered = exercises.filter(ex => {
-    const matchesQuery = ex.name.toLowerCase().includes(query.toLowerCase()) ||
+    if (ex.isWarmup) return false;
+    const matchesQuery = !query ||
+      ex.name.toLowerCase().includes(query.toLowerCase()) ||
       ex.muscleGroups.some(m => m.toLowerCase().includes(query.toLowerCase()));
     const matchesCategory = activeCategory === 'All' || ex.category === activeCategory || ex.secondaryCategory === activeCategory;
     return matchesQuery && matchesCategory;
@@ -113,7 +115,8 @@ export function ExerciseLibrary({ exercises, onAddCustom, onDeleteCustom, onNavi
           placeholder="Search exercises or muscles..."
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          style={{ fontSize: '16px' }}
         />
       </div>
 

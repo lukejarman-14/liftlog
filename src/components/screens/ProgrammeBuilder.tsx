@@ -19,7 +19,7 @@ interface Props {
   onBack: () => void;
 }
 
-const STEPS = ['Schedule', 'Position', 'Goals', 'Injuries', 'Readiness', 'Duration'];
+const STEPS = ['Schedule', 'Position', 'Goals', 'Injuries', 'Duration'];
 
 type Opt<T extends string> = { value: T; label: string; description?: string };
 
@@ -91,36 +91,6 @@ const INJURY_OPTS: { value: InjuryArea; label: string; emoji: string }[] = [
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function ReadinessSlider({
-  label, description, value, onChange, inverted,
-}: {
-  label: string; description: string; value: number;
-  onChange: (v: number) => void; inverted?: boolean;
-}) {
-  const dots = Array.from({ length: 5 }, (_, i) => i + 1);
-  const colour = inverted
-    ? value <= 2 ? 'bg-green-500' : value <= 3 ? 'bg-yellow-500' : 'bg-red-500'
-    : value >= 4 ? 'bg-green-500' : value >= 3 ? 'bg-yellow-500' : 'bg-red-500';
-  return (
-    <div className="mb-5">
-      <div className="flex items-center justify-between mb-1">
-        <div>
-          <span className="text-sm font-semibold text-gray-800">{label}</span>
-          <p className="text-xs text-gray-500">{description}</p>
-        </div>
-        <span className={`text-lg font-bold w-8 text-center rounded-full ${colour} text-white py-0.5`}>{value}</span>
-      </div>
-      <div className="flex gap-1.5 mt-2">
-        {dots.map(d => (
-          <button key={d} onClick={() => onChange(d)}
-            className={`flex-1 h-8 rounded-lg text-xs font-bold transition-all ${
-              d === value ? `${colour} text-white shadow-md scale-110` : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-            }`}>{d}</button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function ChipSelector<T extends string>({
   options, selected, onToggle, multi,
@@ -170,9 +140,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   // Step 3 — Injuries & preferences
   const [injuryHistory, setInjuryHistory] = useState<InjuryArea[]>([]);
   const [preferBackSquat, setPreferBackSquat] = useState(false);
-  // Step 4 — Readiness
-  const [readiness, setReadiness] = useState({ sleep: 4, fatigue: 2, soreness: 2, stress: 2 });
-  // Step 5 — Duration
+  // Step 4 — Duration
   const suggestedWeeks = ({ '<1': 6, '1-3': 8, '3-5': 10, '5+': 12 } as Record<string, number>)[userProfile.experienceYears] ?? 8;
   const [programDuration, setProgramDuration] = useState(suggestedWeeks);
   const [customDurStr, setCustomDurStr] = useState('');
@@ -197,7 +165,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
     'Selecting compound movements…',
     'Building isometric & eccentric blocks…',
     'Scheduling match-day structure…',
-    'Applying readiness calibration…',
+    'Applying injury & prehab protocols…',
     'Optimising conditioning rotation…',
     'Finalising weekly layout…',
     'Programme ready ✓',
@@ -235,7 +203,6 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
       offSeason,
       biggestWeakness,
       injuryHistory,
-      readiness,
       gymAccess: userProfile.gymAccess,
       fvEmphasis: 'balanced',
       customDurationWeeks: programDuration,
@@ -246,7 +213,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   };
 
   const totalSteps = STEPS.length;
-  const stepIcons = [Activity, User, Target, Brain, Zap, Calendar];
+  const stepIcons = [Activity, User, Target, Brain, Calendar];
   const StepIcon = stepIcons[step] ?? Check;
 
   const expWeeks: Record<string, string> = { '<1': '6', '1-3': '8', '3-5': '10', '5+': '12' };
@@ -266,7 +233,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
         </div>
 
         <h2 className="text-gray-900 text-2xl font-bold mb-2 text-center">Building Your Programme</h2>
-        <p className="text-brand-600 text-sm mb-10 text-center">Personalised for your position, goals & readiness</p>
+        <p className="text-brand-600 text-sm mb-10 text-center">Personalised for your position, goals & injury profile</p>
 
         {/* Progress bar */}
         <div className="w-full max-w-xs mb-4">
@@ -317,8 +284,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           {step === 1 && 'Position & Play Style'}
           {step === 2 && 'Goals & Weakness'}
           {step === 3 && 'Injury History'}
-          {step === 4 && "Today's Readiness"}
-          {step === 5 && 'Programme Duration'}
+          {step === 4 && 'Programme Duration'}
         </h2>
       </div>
 
@@ -542,29 +508,8 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
         </div>
       )}
 
-      {/* ── Step 4: Readiness + Generate ── */}
+      {/* ── Step 4: Duration + Generate ── */}
       {step === 4 && (
-        <div>
-          <p className="text-sm text-gray-600 mb-5">Rate how you feel right now. These scores calibrate your programme's starting intensity band.</p>
-          <ReadinessSlider label="Sleep Quality" description="How well did you sleep last night?" value={readiness.sleep} onChange={v => setReadiness(r => ({ ...r, sleep: v }))} />
-          <ReadinessSlider label="Fatigue Level" description="How tired/fatigued do you feel today?" value={readiness.fatigue} onChange={v => setReadiness(r => ({ ...r, fatigue: v }))} inverted />
-          <ReadinessSlider label="Muscle Soreness" description="Any soreness from previous training?" value={readiness.soreness} onChange={v => setReadiness(r => ({ ...r, soreness: v }))} inverted />
-          <ReadinessSlider label="Stress Level" description="Life stress, work, or mental load today?" value={readiness.stress} onChange={v => setReadiness(r => ({ ...r, stress: v }))} inverted />
-          <Card className="p-4 bg-gray-50 mt-2 mb-2">
-            <div className="flex gap-3 flex-wrap">
-              {[
-                { label: '4.5–5 Elite', colour: 'text-emerald-600' },
-                { label: '3.5–4.4 High', colour: 'text-green-600' },
-                { label: '2.5–3.4 Moderate', colour: 'text-yellow-600' },
-                { label: '1–2.4 Low', colour: 'text-red-500' },
-              ].map(b => <span key={b.label} className={`text-xs font-semibold ${b.colour}`}>{b.label}</span>)}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* ── Step 5: Duration + Generate ── */}
-      {step === 5 && (
         <div>
           <p className="text-sm text-gray-600 mb-5">Choose how long your programme should be. Longer programmes allow more progressive phases. You can always regenerate later.</p>
 

@@ -28,47 +28,7 @@ function ex(
   return { name, sets, reps, rest, cue, ...opts };
 }
 
-// ── Conditioning progressive overload ─────────────────────────────────────
-// Normalises base reps to 6, adds 1 every 2 weeks (max +3), reduces rest 15s every 4 weeks.
 
-function parseRestSec(rest: string): number {
-  const mm = rest.match(/(\d+):(\d+)/);
-  if (mm) return parseInt(mm[1]) * 60 + parseInt(mm[2]);
-  const ss = rest.match(/(\d+)\s*s(?:\b|$)/);
-  if (ss) return parseInt(ss[1]);
-  const mn = rest.match(/(\d+)\s*min/);
-  if (mn) return parseInt(mn[1]) * 60;
-  return 0;
-}
-
-function fmtRest(secs: number): string {
-  if (secs <= 0) return 'Continuous';
-  if (secs < 60) return `${secs}s`;
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return s === 0 ? `${m}:00` : `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function progressConditioning(ex: ProgrammeExercise, weekNum: number): ProgrammeExercise {
-  const baseSets = Math.max(parseInt(ex.sets, 10) || 4, 6);
-  const addedReps = Math.min(Math.floor(weekNum / 2), 3);      // +1 every 2 weeks, cap +3
-  const sets = baseSets + addedReps;
-
-  const baseRestSec = parseRestSec(ex.rest);
-  const restCut = Math.min(Math.floor(weekNum / 4) * 15, Math.round(baseRestSec * 0.25));
-  const newRestSec = baseRestSec > 0 ? Math.max(baseRestSec - restCut, Math.round(baseRestSec * 0.75)) : 0;
-
-  const progressNote = weekNum === 0
-    ? '\n\n📈 PROGRESSION: Week 1 baseline — 6 reps, full rest. +1 rep every 2 weeks · -15s rest every 4 weeks.'
-    : `\n\n📈 WEEK ${weekNum + 1}: ${sets} reps · ${fmtRest(newRestSec)} rest${addedReps > 0 || restCut > 0 ? ` (started at 6 reps / ${fmtRest(baseRestSec)} rest)` : ''}`;
-
-  return {
-    ...ex,
-    sets: String(sets),
-    rest: newRestSec > 0 ? fmtRest(newRestSec) : ex.rest,
-    cue: ex.cue + progressNote,
-  };
-}
 
 // ── Readiness — 4-band (1–5 scale) ────────────────────────────────────────
 // score = mean of (sleep + inverted_fatigue + inverted_soreness + inverted_stress) / 4
@@ -81,7 +41,10 @@ export function calcReadiness(r: ProgrammeInputs['readiness']): {
   volumeMultiplier: number;   // applied to set counts
   intensityNote: string;      // appended to exercise intensity labels
 } {
-  const raw = (r.sleep + (6 - r.fatigue) + (6 - r.soreness) + (6 - r.stress)) / 4;
+  // Default to "high" readiness (3,2,2,2) when not supplied — programme is built as a template,
+  // the home-screen daily readiness widget drives per-session adjustments at workout time.
+  const safe = r ?? { sleep: 4, fatigue: 2, soreness: 2, stress: 2 };
+  const raw = (safe.sleep + (6 - safe.fatigue) + (6 - safe.soreness) + (6 - safe.stress)) / 4;
   const score = Math.round(raw * 10) / 10;
 
   if (score >= 4.5) {
@@ -691,26 +654,26 @@ const POWER_PRIMER: Record<GymKey, ProgrammeExercise[]> = {
 // Pogo hops = fast SSC — trains the tendon spring at match-speed loading rates.
 const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
   full: [
-    ex('Isometric Split Squat Hold (Heavy)', '3', '15–20s each leg', '90s', 'Bottom of split squat — rear knee 2cm from floor. Add load via barbell or heavy DB. Maximum effort throughout — zero relaxing. Patellar tendon HSR: the tendon stiffens under this load so the quadriceps muscle doesn\'t overwork during sprint deceleration. Tendon stiffness driver.',
-      { tempo: '0-20s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '30s each leg', '90s', 'Rise onto single-leg tiptoe. Hold at the top. Add weight via DB or barbell if available. Maximum effort. Achilles tendon HSR — stiffness adaptation. The tendon absorbs sprint push-off load so the calf muscle doesn\'t overwork over 90 minutes. Achilles health driver.',
-      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Isometric Split Squat Hold (Heavy)', '3', '10-12s each leg', '90s', 'Bottom of split squat — rear knee 2cm from floor. Add load via barbell or heavy DB. Maximum effort throughout — zero relaxing. Patellar tendon HSR: brief maximal holds at ≥90% MVC optimise tendon stiffness (Arampatzis et al. 2010). Tendon stiffness driver.',
+      { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Rise onto single-leg tiptoe. Hold at the top. Add weight via DB or barbell if available. Maximum effort. Achilles tendon HSR — brief ≥90% MVC holds maximise Achilles stiffness adaptation (Fouré et al. 2011). Tendon stiffness driver.',
+      { tempo: '0-10s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles STIFF — no dorsiflexion. Arms punch up. Minimum ground contact time. High frequency tendon-spring training: the isometric holds above build stiffness, pogos train the elastic SSC return at match-speed loading rate.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   basic: [
-    ex('Isometric Split Squat Hold (Heavy DB)', '3', '15–20s each leg', '90s', 'Bottom of split squat. Hold heaviest available DB. Maximum effort throughout. Patellar tendon HSR — the tendon stiffens under heavy isometric load so it handles sprint/jump demand instead of the muscle. Tendon stiffness driver.',
-      { tempo: '0-20s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '30s each leg', '90s', 'Single-leg tiptoe hold. Hold heavy DB at side. Maximum effort. Achilles tendon HSR. The stiffer the tendon, the more it acts as a spring — reducing muscle work over the full 90 minutes. Achilles health driver.',
-      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Isometric Split Squat Hold (Heavy DB)', '3', '10-12s each leg', '90s', 'Bottom of split squat. Hold heaviest available DB. Maximum effort throughout. Patellar tendon HSR — brief maximal holds at ≥90% MVC drive greater tendon stiffness than longer submaximal holds (Arampatzis et al. 2010). Tendon stiffness driver.',
+      { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Single-leg tiptoe hold. Hold heavy DB at side. Maximum effort. Achilles tendon HSR — brief ≥90% MVC holds maximise Achilles stiffness adaptation (Fouré et al. 2011). Achilles health driver.',
+      { tempo: '0-10s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Stiff ankles. Minimum ground contact time. Elastic tendon return — train the spring at match-speed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   none: [
-    ex('Isometric Split Squat Hold (Bodyweight)', '3', '15–20s each leg', '90s', 'Bottom of split squat, rear knee 2cm from floor, bodyweight. Maximum effort throughout — every second should feel hard. Patellar tendon HSR at full depth: heavy relative load increases patellar tendon stiffness. Tendon stiffness driver.',
-      { tempo: '0-20s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '30s each leg', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — tendon absorbs sprint load so calf muscle capacity is preserved. Achilles health driver.',
-      { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Isometric Split Squat Hold (Bodyweight)', '3', '10-12s each leg', '90s', 'Bottom of split squat, rear knee 2cm from floor, bodyweight. Maximum effort throughout — every second should feel hard. Brief maximal holds at ≥90% MVC drive patellar tendon stiffness (Arampatzis et al. 2010). Tendon stiffness driver.',
+      { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
+    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — brief ≥90% MVC holds maximise stiffness adaptation (Fouré et al. 2011). Tendon absorbs sprint load. Achilles health driver.',
+      { tempo: '0-10s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles stiff. Minimum ground contact. Elastic SSC tendon return at match-speed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
@@ -750,8 +713,8 @@ const ECCENTRIC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
   full: [
     ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s controlled lowering — maximum effort, fight the fall with everything. 2 reps only: every rep must be truly maximal. Physiology: eccentric lengthening increases hamstring fascicle length. Longer fascicles = individual sarcomeres operate over a wider range before failure — the primary mechanism reducing hamstring tear risk at high-speed running. Non-negotiable.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'maximal' }),
-    ex('Copenhagen Plank', '2', '25s each side', '90s', 'Top foot on bench, bottom leg free. Adductor eccentric — groin strain prevention. Most evidenced single exercise for groin protection in football. Build hold time by 5s each week.',
-      { tempo: '0-25s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+    ex('Copenhagen Plank', '2', '15s each side', '90s', 'Top foot on bench, bottom leg free. Adductor eccentric — groin strain prevention. Most evidenced single exercise for groin protection in football (Harøy et al. 2019). Build hold time by 3-5s each week.',
+      { tempo: '0-15s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
   ],
   basic: [
     ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s controlled lowering. Maximum effort — fight the fall with everything. 2 reps only: each rep fully maximal. Partner anchors feet or secure under heavy furniture. Fascicle length adaptation: longer sarcomere operating range = reduced strain risk at max sprint. Non-negotiable.',
@@ -2218,6 +2181,198 @@ export function getRunCondEx(posKey: PosKey, phase: string, weekNum = 0): Progra
   return arr[weekNum % arr.length];
 }
 
+// ── In-session conditioning: Aerobic Base & High Intensity Intervals ──────
+// Evidence basis:
+//   Aerobic base: Helgerud et al. 2001 — cardiac output / Z2 work increases stroke volume,
+//     VO₂max and capillary density. Minimum 2 weeks required before high-intensity loading
+//     (Malone et al. 2017, Gabbett acute:chronic workload ratio principle).
+//   HIIT: Dupont 15/15 (2004), Helgerud 4×4 (2007) — highest VO₂max stimulus per unit time.
+//     RSA protocols (Buchheit 2013) for match-specific repeated sprint fitness.
+//   Progression: weeks 1-2 aerobic only → progressive HIIT introduction → 50/50 maintenance.
+
+// 4 aerobic variants per training phase — rotated via session seed (no back-to-back repeats)
+const CONDITIONING_AEROBIC: Record<string, ProgrammeExercise[]> = {
+  Foundation: [
+    ex('Cardiac Output Run', '1', '30 min @ 65–70% HRmax', '—',
+      'Conversational pace — you should be able to hold a full sentence throughout. This is not easy jogging: it is deliberate cardiac training. 65–70% HRmax builds stroke volume, increases capillary density, and lowers resting heart rate. Foundation phase weeks 1–2: aerobic base only to reduce connective tissue injury risk before higher intensities are introduced. No watch needed — use the talk test.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Extensive Aerobic Intervals', '6', '4 min on · 2 min walk', '2:00 walk',
+      'Run each 4-minute rep at 72–75% HRmax — comfortable but purposeful. Walk recovery between reps. 6 reps = 24 min total work. This protocol maximises aerobic volume while managing fatigue. Evidence: Helgerud et al. (2001) — interval aerobic at 75% HRmax produces superior cardiac adaptations to continuous running at matched volume.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Aerobic Threshold Run', '1', '20 min @ 75% HRmax', '—',
+      'Comfortably hard — you can speak in short phrases but not hold a full conversation. Just below lactate threshold. Builds lactate clearance capacity and aerobic power. Foundation phase: keep strictly to 75% — no heroics. This is infrastructure work.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Progressive Aerobic Run', '1', '25 min (build from 65% → 75%)', '—',
+      'First 10 min @ 65% HRmax (conversational), middle 10 min @ 70% (comfortable effort), final 5 min @ 75% (purposeful push). Progressive cardiac drift training — teaches your aerobic system to sustain output as intensity rises. Football demands sustained output across fatigue: this trains it.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+  ],
+  Build: [
+    ex('Extended Cardiac Output Run', '1', '35 min @ 70–75% HRmax', '—',
+      'Extended aerobic volume session. 70–75% HRmax throughout — sustainable effort with clear intent. Build phase cardiac output run: volume increased from Foundation. Sustained stroke volume stimulus. Fatigue management: this should feel manageable the day before strength training.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Threshold Intervals', '5', '5 min on · 90s walk', '90s walk',
+      '5 min at 78–82% HRmax — firmly at lactate threshold. 90s walk recovery. 5 reps = 25 min threshold work. This is where aerobic power is built. Evidence: Helgerud (2001) — threshold intervals drive the greatest improvement in running economy for football players at this phase.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Sustained Threshold Run', '1', '25 min @ 78% HRmax', '—',
+      'Hold 78% HRmax for the full 25 minutes without letting intensity drop. This is the Build phase benchmark: can you sustain threshold for 25 continuous minutes? If not, drop to 75% and build. If yes, push the pace slightly in the final 5 minutes.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Aerobic Fartlek', '1', '25 min mixed Z2/Z3', '—',
+      'Run 25 minutes at 70% HRmax base pace. Every 5 minutes insert a 1-minute surge to 82% HRmax, then return to base. 4 surges total. Unstructured intensity variation builds adaptability in aerobic energy system. Evidence: Fartlek training (Gerschler 1939, Åstrand 1960) — superior to continuous running for mixed-intensity aerobic development.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+  ],
+  'Strength & Power': [
+    ex('Aerobic Maintenance Run', '1', '30 min @ 70% HRmax', '—',
+      'Aerobic maintenance during peak strength phase. Volume maintained, intensity conservative. The goal here is to not lose the aerobic gains from Foundation/Build while strength work is the priority. 70% HRmax is enough stimulus to maintain cardiac adaptations without adding meaningful fatigue.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Reduced Threshold Intervals', '4', '6 min on · 2 min walk', '2:00 walk',
+      'Volume reduced from Build to manage cumulative fatigue during heavy strength training. 4 reps × 6 min at 78% HRmax. Quality over quantity in Strength & Power phase — the intervals themselves stay hard, there are just fewer of them.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Aerobic Threshold Maintenance', '1', '22 min @ 76% HRmax', '—',
+      'Shorter than Build phase to account for strength fatigue. Hold 76% HRmax for 22 minutes. Maintenance dose for lactate clearance capacity. If feeling strong, final 5 min can push to 80%.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Mixed Aerobic Circuit', '3', '8 min · build 65% → 78%', '2:00 walk',
+      'Three 8-minute aerobic blocks each increasing in intensity: block 1 @ 65%, block 2 @ 72%, block 3 @ 78% HRmax. 2-minute walk between blocks. Progressive stimulus within a lower total volume session — appropriate aerobic maintenance alongside heavy gym work.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+  ],
+  Peak: [
+    ex('Easy Aerobic Run', '1', '20 min @ 65% HRmax', '—',
+      'Peak phase: low volume, low intensity aerobic. Active recovery function only — do not push the effort. The goal is blood flow and recovery, not fitness gains. Fitness is already built. 65% HRmax, fully conversational, enjoy it.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Aerobic Maintenance Intervals', '3', '5 min on · 2 min walk', '2:00 walk',
+      'Minimum effective aerobic dose during taper. 3 reps × 5 min at 75% HRmax. Evidence: Mujika & Padilla (2003) taper research — volume can be reduced by 40–60% with no fitness loss if intensity is maintained. 3 reps is enough.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Light Aerobic Run', '1', '15 min @ 68% HRmax', '—',
+      'Brief aerobic session to maintain blood flow and aerobic feel during peak week. No physiological loading intended. Well below threshold.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+    ex('Activation Jog', '1', '15 min with 3 × 30s pickups', '—',
+      '15 minutes @ 65% HRmax. Every 5 minutes insert one 30-second acceleration to 85%. Peak activation session: minimal fatigue, maximal neural readiness. Last aerobic session before competition.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+  ],
+};
+
+// 4 HIIT variants per training phase — introduced progressively after week 2
+// Evidence: Buchheit & Laursen (2013) — HIIT classification and prescription for team sports
+const CONDITIONING_HIIT: Record<string, ProgrammeExercise[]> = {
+  Foundation: [
+    ex('15/15 HIIT — Introduction', '16', '15s sprint · 15s jog', '—',
+      '16 reps of 15s at 120% MAS (maximal aerobic speed) + 15s active jog. First exposure to HIIT: 16 reps is conservative volume. Evidence: Dupont et al. (2004) — 15/15 at 120% MAS produces the highest VO₂max stimulus per unit time of any running protocol. Find your MAS: pace you can hold for exactly 6 minutes flat-out. 120% = noticeably faster than that pace. Every rep should feel hard but completable.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('Short HIIT Intervals — Foundation', '8', '30s hard · 30s walk', '—',
+      '8 reps of 30s at 95–100% HRmax + 30s passive walk. Foundation HIIT entry point: 8 reps total. Each 30s rep should be near-maximal running effort — not a sprint, but as fast as you can sustain for 30s. Walk completely between reps. Total hard work: 4 minutes at near-maximal. Evidence: Wisloff et al. (2007) — short supramaximal intervals drive VO₂max in less-trained athletes.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('Sprint RSA Introduction', '3', '6 × 30m · 25s rest', '2:00 between sets',
+      '3 sets of 6 × 30m flat-out sprints with 25s passive recovery between sprints, 2 min between sets. RSA introduction at conservative volume. Evidence: Impellizzeri et al. (2008) — repeated sprint ability is a key physical determinant of football performance, and the 30m/25s protocol closely replicates match demands. First exposure: 3 sets only.',
+      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
+    ex('30/30 Protocol — Foundation', '10', '30s @ 105% MAS · 30s jog', '—',
+      '10 reps of 30s at 105–110% MAS + 30s jog. Intermediate HIIT — higher volume than 15/15 but lower peak intensity. 105% MAS = slightly faster than your 6-minute test pace. Evidence: Buchheit & Laursen (2013) — 30/30 at 105% MAS develops both VO₂max and lactate buffering simultaneously.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+  ],
+  Build: [
+    ex('15/15 HIIT — Full Volume', '24', '15s sprint · 15s jog', '—',
+      '24 reps of 15s at 120% MAS + 15s active jog. Full Dupont protocol. Evidence: Dupont et al. (2004) — 24 reps optimises cardiac output stimulus without excessive glycolytic fatigue. 120% MAS: you should feel like you cannot continue past 10-12 seconds but must hold it. Active jog (not walk) between reps is critical — maintains blood lactate clearance.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('Norwegian 4×4 HIIT', '4', '4 min @ 90–95% HRmax · 3 min jog', '3:00 jog',
+      '4 sets of 4 minutes at 90–95% HRmax with 3-minute active jog recovery. Gold-standard VO₂max protocol. Evidence: Helgerud et al. (2007) — 4×4 at 90–95% HRmax produced a 10.8% VO₂max increase in football players over 8 weeks, superior to moderate-intensity training. Finishing sets 3 and 4 should feel very difficult — that is correct.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('RSA Block Training', '4', '8 × 40m · 25s passive rest', '2:00 between sets',
+      '4 sets of 8 × 40m flat-out sprints. 25s passive recovery between sprints, 2 min between sets. Match-replication RSA protocol. Evidence: Buchheit et al. (2010) — 40m/25s closely mirrors the work-to-rest ratios of high-intensity football actions. Rep 8 should be within 5% of Rep 1 for adequate fitness.',
+      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
+    ex('40/20 HIIT Protocol', '10', '40s @ 110% MAS · 20s walk', '—',
+      '10 reps of 40s at 110% MAS + 20s passive walk. Power-endurance development — longer work period than 15/15 builds lactate tolerance alongside VO₂max. Evidence: Buchheit & Laursen (2013) — 40/20 at 110% MAS extends the high-intensity stimulus window compared to shorter protocols while keeping total fatigue manageable.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+  ],
+  'Strength & Power': [
+    ex('15/15 HIIT — Strength Phase', '20', '15s sprint · 15s jog', '—',
+      '20 reps of 15s at 120% MAS + 15s jog. Volume reduced from Build (24 reps → 20) to account for cumulative strength training fatigue. Intensity maintained. Evidence: Mujika & Padilla (2003) — volume reduction with intensity maintenance preserves VO₂max during concurrent training phases.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('3×4 HIIT — Reduced Volume', '3', '4 min @ 92% HRmax · 4 min jog', '4:00 jog',
+      '3 sets of 4 min at 92% HRmax + 4 min jog recovery (increased from 3 to 4 min to support recovery during strength-dominant phase). Reduced from 4×4 Build protocol. Maintains VO₂max stimulus at lower total volume.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('RSA Maintenance Sprints', '3', '6 × 30m · 30s rest', '2:00 between sets',
+      '3 sets of 6 × 30m sprints, 30s passive recovery between sprints. Maintenance RSA dose during Strength & Power phase. Total sprint volume reduced from Build but quality maintained. Every rep flat-out.',
+      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
+    ex('Match Simulation Intervals', '3', '5 min high-intensity · 2 min jog', '2:00 jog',
+      '3 sets of 5 minutes at mixed high intensity (alternating 80% and 95% HRmax within each rep) + 2 min jog. Simulates the irregular high-intensity demand of a football match. No fixed pace — react to effort: hard when it feels manageable, very hard when it does not.',
+      { methodType: 'mixed', intensityIntent: 'maximal', isRunning: true }),
+  ],
+  Peak: [
+    ex('15/15 HIIT — Express', '12', '15s sprint · 15s jog', '—',
+      '12 reps of 15s at 120% MAS + 15s jog. Minimum effective HIIT dose during peak/taper phase. Evidence: Mujika (2010) — 12 reps maintains acute VO₂max stimulus without the fatigue accumulation of full 24-rep protocol. Quality is everything here — 12 perfect reps beats 20 tired ones.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('2×4 HIIT — Peak Taper', '2', '4 min @ 90% HRmax · 4 min jog', '4:00 jog',
+      '2 sets only of 4 min at 90% HRmax + 4 min jog. Bare minimum to maintain cardiovascular sharpness before competition. Low volume, full intensity. The aerobic engine is built — this just keeps it switched on.',
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
+    ex('RSA Activation Sprints', '2', '6 × 30m · 2 min rest', '3:00 between sets',
+      '2 sets of 6 × 30m max sprints. Extended rest (2 min between reps, 3 min between sets) to ensure full CNS recovery. Peak phase: this is sprint quality maintenance, not conditioning. Every rep must feel fast.',
+      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
+    ex('Short Sprint Activation', '3', '4 × 20m · 90s rest', '2:30 between sets',
+      '3 sets of 4 × 20m flat-out sprints with full recovery. CNS activation without fatigue accumulation. Peak-week purpose: stay sharp, stay fast. Do not add volume.',
+      { methodType: 'reactive', intensityIntent: 'explosive', isRunning: true }),
+  ],
+};
+
+// Day-of-week seed — ensures consecutive sessions within and across weeks never repeat
+// e.g. Mon (0) and Wed (2) in the same week produce different variants
+const DAY_SEED: Record<string, number> = {
+  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
+  Friday: 4, Saturday: 5, Sunday: 6,
+};
+
+/**
+ * Selects the in-session conditioning exercise — guarantees TWO DIFFERENT TYPES each week.
+ *
+ * Strategy: split the week into two halves by day index.
+ *   Half-0 (Mon–Wed, dayIdx 0–2) and Half-1 (Thu–Sun, dayIdx 3–6).
+ *   After week 2, one half = aerobic, the other = HIIT.
+ *   Week parity flips which half gets HIIT so types rotate each week.
+ *
+ * Progression model (evidence: Malone et al. 2017, Gabbett 2016):
+ *   Weeks 1–2  → 100% aerobic (injury prevention, connective tissue adaptation)
+ *   Weeks 3+   → Half-week alternation: aerobic one day, HIIT another — both types every week
+ *
+ * Variant rotation: within each type, variants rotate using Math.floor(weekNum / 2)
+ * so each variant gets ~2 weeks before cycling — prevents stagnation without repetition.
+ */
+function getConditioningBlock(
+  phase: string,
+  weekNum: number,
+  dayOfWeek: string,
+): { ex: ProgrammeExercise; blockTitle: string; methodFocus: string } {
+  const dayIdx = DAY_SEED[dayOfWeek] ?? 0;
+
+  // Split week into two halves: Mon/Tue/Wed = 0, Thu/Fri/Sat/Sun = 1
+  const halfWeek = dayIdx >= 3 ? 1 : 0;
+
+  // Weeks 0-1: always aerobic. Week 2+: alternate halves; flip each week so
+  // if Mon was aerobic this week, next week Mon is HIIT.
+  const useHiit = weekNum >= 2 && ((halfWeek + weekNum) % 2 === 1);
+
+  const aerobicArr = CONDITIONING_AEROBIC[phase] ?? CONDITIONING_AEROBIC.Foundation;
+  const hiitArr    = CONDITIONING_HIIT[phase]    ?? CONDITIONING_HIIT.Foundation;
+
+  // Variant index rotates every 2 weeks to avoid the same exercise repeating week-on-week.
+  // halfWeek offset (0 or 1) ensures the two sessions WITHIN a week always use different variants —
+  // even when both sessions are the same type (e.g. both aerobic in weeks 0–1).
+  const baseVariant = Math.floor(weekNum / 2);
+  const variantIdx = baseVariant + halfWeek; // offset by half so Mon ≠ Thu even within same type
+
+  if (useHiit) {
+    return {
+      ex: hiitArr[variantIdx % hiitArr.length],
+      blockTitle: '⚡ High Intensity Intervals',
+      methodFocus: 'Football-specific HIIT. Maximum aerobic power and repeated sprint ability — the key physical determinants of match performance (Dupont 2004, Helgerud 2007, Buchheit 2013). Complements the aerobic session earlier in the week.',
+    };
+  }
+
+  return {
+    ex: aerobicArr[variantIdx % aerobicArr.length],
+    blockTitle: '🏃 Aerobic Base',
+    methodFocus: weekNum < 2
+      ? 'Weeks 1–2: aerobic base only. Connective tissue and cardiac infrastructure built before high-intensity loading — evidence: Malone et al. (2017) injury prevention window.'
+      : 'Cardiac output and aerobic infrastructure. Complements the HIIT session later in the week — both types every week for balanced conditioning development.',
+  };
+}
+
 // ── Weakness exercises ─────────────────────────────────────────────────────
 
 const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
@@ -2518,7 +2673,7 @@ function buildOffSeasonSession(
   weekNum: number,
   readiness: { level: ReadinessLevel; volumeMultiplier: number; intensityNote: string },
 ): ProgrammeSession {
-  const { position, biggestWeakness, injuryHistory, gymAccess } = inputs;
+  const { biggestWeakness, injuryHistory, gymAccess } = inputs;
 
   // Use heavy load on heavy days, moderate on moderate days
   const loadScheme = slot.load === 'heavy' ? 'heavy' : 'moderate';
@@ -2528,7 +2683,6 @@ function buildOffSeasonSession(
   const upperPhase = UPPER[phase] ?? UPPER.Build;
   const upperEx = upperPhase[gymAccess as GymKey] ?? upperPhase.basic;
 
-  const posKey = position as PosKey;
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
   const weaknessEx = WEAKNESS_EX[biggestWeakness]?.slice(0, 2) ?? [];
 
@@ -2543,14 +2697,17 @@ function buildOffSeasonSession(
   const pogoHops = TENDON_SSC_BLOCK[gymKey].slice(2);
   const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
 
-  // Running/speed exercises — rotated weekly, moved to separate Conditioning session on home screen
+  // Running/speed exercises — seeded per (week, day) so every session in the same week
+  // gets a DIFFERENT running exercise. Uses same DAY_SEED logic as getConditioningBlock.
+  const _osDayIdx = DAY_SEED[slot.dayOfWeek] ?? 0;
+  const _osSessionSeed = weekNum * 7 + _osDayIdx;
   const allPlayStyleRunning = (PLAY_STYLE_RUNNING[inputs.playStyle] ?? []).filter(e => e.isRunning);
   const playStyleRunning = allPlayStyleRunning.length > 0
-    ? [allPlayStyleRunning[weekNum % allPlayStyleRunning.length]]
+    ? [allPlayStyleRunning[_osSessionSeed % allPlayStyleRunning.length]]
     : [];
   const allWeaknessRunning = weaknessEx.filter(e => e.isRunning);
   const weaknessRunning = allWeaknessRunning.length > 0
-    ? [allWeaknessRunning[weekNum % allWeaknessRunning.length]]
+    ? [allWeaknessRunning[_osSessionSeed % allWeaknessRunning.length]]
     : [];
   const speedWorkEx = [...playStyleRunning, ...weaknessRunning];
   // Injury-based block ordering: eccentric FIRST if muscle injury present, isometric FIRST otherwise
@@ -2564,9 +2721,7 @@ function buildOffSeasonSession(
 
   // Include conditioning only for endurance-focused athletes
   const includeConditioning = inputs.primaryGoal === 'endurance' || inputs.biggestWeakness === 'endurance';
-  const condExArr = CONDITIONING[posKey]?.[phase] ?? CONDITIONING.CM[phase];
-  const condExRaw = condExArr?.[weekNum % (condExArr?.length ?? 1)];
-  const condEx = condExRaw ? progressConditioning(condExRaw, weekNum) : condExRaw;
+  const condBlock = getConditioningBlock(phase, weekNum, slot.dayOfWeek);
 
   const readinessNote =
     readiness.level === 'elite'
@@ -2639,9 +2794,9 @@ function buildOffSeasonSession(
         exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
       }] : []),
       ...(includeConditioning ? [{
-        title: '🏃 Conditioning — Always Last',
-        methodFocus: 'Off-season conditioning — no match-day fatigue constraints. Build the aerobic base freely.',
-        exercises: [condEx],
+        title: condBlock.blockTitle,
+        methodFocus: condBlock.methodFocus,
+        exercises: [condBlock.ex],
       }] : []),
       ...(speedWorkEx.length > 0 && !includeConditioning ? [{
         title: '🏃 Speed Work — Conditioning',
@@ -2720,19 +2875,20 @@ function buildSession(
 
     // Conditioning — only for endurance-focused athletes, placed LAST
     const includeConditioning = inputs.primaryGoal === 'endurance' || inputs.biggestWeakness === 'endurance';
-    const condExArr2 = CONDITIONING[position as PosKey]?.[phase] ?? CONDITIONING.CM[phase];
-    const condExRaw = condExArr2?.[weekNum % (condExArr2?.length ?? 1)];
-    const condEx = condExRaw ? progressConditioning(condExRaw, weekNum) : condExRaw;
+    const condBlock = getConditioningBlock(phase, weekNum, slot.dayOfWeek);
 
     const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
-    // Running/speed exercises — rotated weekly, moved to separate Conditioning session on home screen
+    // Running/speed exercises — seeded per (week, day) so every session in the same week
+    // gets a DIFFERENT running exercise. Uses same DAY_SEED logic as getConditioningBlock.
+    const _md4DayIdx = DAY_SEED[slot.dayOfWeek] ?? 0;
+    const _md4SessionSeed = weekNum * 7 + _md4DayIdx;
     const allPlayStyleRunning = (PLAY_STYLE_RUNNING[inputs.playStyle] ?? []).filter(e => e.isRunning);
     const playStyleRunning = allPlayStyleRunning.length > 0
-      ? [allPlayStyleRunning[weekNum % allPlayStyleRunning.length]]
+      ? [allPlayStyleRunning[_md4SessionSeed % allPlayStyleRunning.length]]
       : [];
     const allWeaknessRunning = weaknessEx.filter(e => e.isRunning);
     const weaknessRunning = allWeaknessRunning.length > 0
-      ? [allWeaknessRunning[weekNum % allWeaknessRunning.length]]
+      ? [allWeaknessRunning[_md4SessionSeed % allWeaknessRunning.length]]
       : [];
     const speedWorkEx = [...playStyleRunning, ...weaknessRunning];
     const hasMuscleInjury = injuryHistory.some(a => ['hamstring', 'groin', 'calf', 'knee'].includes(a));
@@ -2802,10 +2958,10 @@ function buildSession(
           exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
         }] : []),
         // ⑤ Conditioning — ONLY if included, and always after everything else
-        ...(includeConditioning && condEx ? [{
-          title: '🏃 Conditioning — Always Last',
-          methodFocus: 'Conditioning completed LAST — after all strength and structural work. Energy system development without compromising quality of strength and eccentric stimulus.',
-          exercises: [condEx],
+        ...(includeConditioning ? [{
+          title: condBlock.blockTitle,
+          methodFocus: condBlock.methodFocus,
+          exercises: [condBlock.ex],
         }] : []),
         // ⑥ Speed / play-style running work — split to separate home-screen card
         ...(speedWorkEx.length > 0 && !includeConditioning ? [{

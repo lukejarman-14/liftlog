@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Battery, Zap, X } from 'lucide-react';
 import { useStore } from './hooks/useStore';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/screens/Dashboard';
@@ -41,6 +42,9 @@ export default function App() {
   const [sessionChecking, setSessionChecking] = useState(isSupabaseConfigured);
 
   const cloudUserIdRef = useRef<string | null>(null);
+
+  // ── Low-readiness volume prompt ────────────────────────────────────────────
+  const [pendingWorkout, setPendingWorkout] = useState<{ name: string; items: WorkoutExercise[] } | null>(null);
 
   // ── On mount: restore existing Supabase session ────────────────────────────
   useEffect(() => {
@@ -93,7 +97,7 @@ export default function App() {
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [nav.screen]);
 
-  const handleStartWorkout = (name: string, items: WorkoutExercise[]) => {
+  const launchWorkout = (name: string, items: WorkoutExercise[]) => {
     const session: WorkoutSession = {
       id: `session-${Date.now()}`,
       name: name || 'Workout',
@@ -112,6 +116,15 @@ export default function App() {
     };
     setActiveSession(session);
     setNav({ screen: 'active-workout' });
+  };
+
+  const handleStartWorkout = (name: string, items: WorkoutExercise[]) => {
+    const todayReadiness = store.getTodayReadiness();
+    if (todayReadiness && todayReadiness.level === 'low') {
+      setPendingWorkout({ name, items });
+    } else {
+      launchWorkout(name, items);
+    }
   };
 
   const handleUpdateSession = (session: WorkoutSession) => setActiveSession(session);
@@ -421,6 +434,79 @@ export default function App() {
       {!fullScreens.includes(screen) && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
       )}
+
+      {/* ── Low-readiness volume prompt ─────────────────────────────────── */}
+      {pendingWorkout && (() => {
+        const r = store.getTodayReadiness();
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-5">
+            <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+              {/* Close button */}
+              <div className="flex justify-end mb-1 -mt-1 -mr-1">
+                <button
+                  onClick={() => {
+                    const { name, items } = pendingWorkout;
+                    setPendingWorkout(null);
+                    launchWorkout(name, items);
+                  }}
+                  className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <Battery size={22} className="text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base">Low Readiness Detected</h3>
+                  <p className="text-xs text-amber-600 font-semibold">Score {r?.score.toFixed(1) ?? '—'} / 5 · Low</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-5">
+                Your readiness score is low today. Reducing <strong>volume</strong> (fewer sets) lets you train without overloading a tired body — load and reps stay the same.
+              </p>
+
+              {/* Preview */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-xs text-amber-800">
+                <p className="font-semibold mb-1">If you reduce volume:</p>
+                <p>Each exercise drops by 1 set (minimum 1). Weight, reps, and rest stay unchanged.</p>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    const reduced = pendingWorkout.items.map(ex => ({
+                      ...ex,
+                      targetSets: Math.max(1, ex.targetSets - 1),
+                    }));
+                    setPendingWorkout(null);
+                    launchWorkout(pendingWorkout.name, reduced);
+                  }}
+                  className="w-full py-3 rounded-xl bg-amber-500 text-white font-semibold text-sm hover:bg-amber-600 transition-colors"
+                >
+                  Reduce Volume (−1 set each)
+                </button>
+                <button
+                  onClick={() => {
+                    const { name, items } = pendingWorkout;
+                    setPendingWorkout(null);
+                    launchWorkout(name, items);
+                  }}
+                  className="w-full py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-sm hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Zap size={15} className="text-brand-500" />
+                  Keep Full Volume
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

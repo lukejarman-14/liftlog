@@ -280,7 +280,7 @@ export interface ProgrammeInputs {
   secondMatchDay?: GameDayPref;
   biggestWeakness: Weakness;
   injuryHistory: InjuryArea[];
-  readiness: { sleep: number; fatigue: number; soreness: number; stress: number };
+  readiness?: { sleep: number; fatigue: number; soreness: number; stress: number };
   gymAccess: 'full' | 'basic' | 'none';
   fvEmphasis?: FVEmphasis; // always 'balanced' — kept for historical data compatibility
   offSeason?: boolean;     // when true: no match-day periodisation, DOMS/fatigue managed only
