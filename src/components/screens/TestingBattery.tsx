@@ -132,8 +132,8 @@ function useRsaEngine() {
     setRsaState({ phase: 'countdown', rep: 1, remaining: 5 });
   }, []);
 
-  const sprintDone = useCallback((rep: number) => {
-    const elapsed = (Date.now() - sprintStartRef.current) / 1000;
+  const sprintDone = useCallback((rep: number, manualTime?: number) => {
+    const elapsed = manualTime ?? (Date.now() - sprintStartRef.current) / 1000;
     setSprintTimes(prev => {
       const next = [...prev];
       next[rep - 1] = Math.round(elapsed * 100) / 100;
@@ -143,8 +143,8 @@ function useRsaEngine() {
       beep(880, 0.5, 0.8); // final beep
       setRsaState({ phase: 'done', rep, remaining: 0 });
     } else {
-      endAtRef.current = Date.now() + 20000;
-      setRsaState({ phase: 'rest', rep, remaining: 20 });
+      endAtRef.current = Date.now() + 15000;
+      setRsaState({ phase: 'rest', rep, remaining: 15 });
     }
   }, [beep]);
 
@@ -194,12 +194,87 @@ function ProtocolBox({ items }: { items: string[] }) {
   );
 }
 
+// ── Auto-decimal time input (digit-register style) ────────────────────────
+// Typing "171" auto-formats to "1.71" — last 2 digits are always centiseconds.
+// Used for all inputs with unit === 's'.
+
+function useDigitInput(externalValue: number, onCommit: (v: number) => void) {
+  const toDigits = (v: number) => v > 0 ? Math.round(v * 100).toString() : '';
+  const [digits, setDigits] = useState(() => toDigits(externalValue));
+
+  useEffect(() => {
+    const expected = toDigits(externalValue);
+    setDigits(prev => prev === expected ? prev : expected);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalValue]);
+
+  const format = (d: string): string => {
+    if (!d) return '';
+    if (d.length === 1) return `0.0${d}`;
+    if (d.length === 2) return `0.${d}`;
+    return `${d.slice(0, d.length - 2)}.${d.slice(-2)}`;
+  };
+
+  const handleChange = (raw: string) => {
+    const cleaned = raw.replace(/\D/g, '').slice(-5); // digits only, max 5
+    setDigits(cleaned);
+    onCommit(cleaned ? parseFloat(format(cleaned)) : 0);
+  };
+
+  return { display: format(digits) || '', handleChange };
+}
+
+function TimeDigitInput({
+  value, onChange, autoFocus, placeholder = '0.00',
+}: {
+  value: number; onChange: (v: number) => void; autoFocus?: boolean; placeholder?: string;
+}) {
+  const { display, handleChange } = useDigitInput(value, onChange);
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={display}
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+      onChange={e => handleChange(e.target.value)}
+      className="flex-1 px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-gray-900 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-400 text-center"
+      style={{ fontSize: '16px' }}
+    />
+  );
+}
+
 function NumInput({
   label, value, onChange, unit, placeholder, autoFocus,
 }: {
   label?: string; value: string; onChange: (v: string) => void;
   unit?: string; placeholder?: string; autoFocus?: boolean;
 }) {
+  // For seconds inputs use digit-register style; otherwise standard numeric input
+  const isTime = unit === 's';
+  const numVal = parseFloat(value) || 0;
+
+  if (isTime) {
+    return (
+      <div>
+        {label && (
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+            {label}
+          </label>
+        )}
+        <div className="flex items-center gap-2">
+          <TimeDigitInput
+            value={numVal}
+            onChange={v => onChange(v > 0 ? v.toFixed(2) : '')}
+            autoFocus={autoFocus}
+            placeholder={placeholder ?? '0.00'}
+          />
+          {unit && <span className="text-sm font-semibold text-gray-500 w-8">{unit}</span>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {label && (
@@ -217,6 +292,7 @@ function NumInput({
           placeholder={placeholder ?? '0.00'}
           autoFocus={autoFocus}
           className="flex-1 px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-gray-900 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-400 text-center"
+          style={{ fontSize: '16px' }}
         />
         {unit && <span className="text-sm font-semibold text-gray-500 w-8">{unit}</span>}
       </div>
@@ -252,17 +328,21 @@ function AttemptInputs({
   maxAttempts?: number;
   lowerIsBetter: boolean;
 }) {
+  const isTime = unit === 's';
   const vals = Array.from({ length: maxAttempts }, (_, i) => attempts[i] ?? 0);
   const validVals = vals.filter(v => v > 0);
   const best = validVals.length
     ? (lowerIsBetter ? Math.min(...validVals) : Math.max(...validVals))
     : null;
 
-  const handleChange = (i: number, raw: string) => {
-    const parsed = parseFloat(raw) || 0;
+  const commitVal = (i: number, parsed: number) => {
     const next = [...vals];
     next[i] = parsed;
     onChange(next.filter(v => v > 0));
+  };
+
+  const handleTextChange = (i: number, raw: string) => {
+    commitVal(i, parseFloat(raw) || 0);
   };
 
   return (
@@ -276,15 +356,24 @@ function AttemptInputs({
               Attempt {i + 1}{isBest && <span className="ml-1 text-yellow-600">🏆 Best</span>}
             </label>
             <div className="flex items-center gap-2">
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                value={val > 0 ? val : ''}
-                onChange={e => handleChange(i, e.target.value)}
-                placeholder={placeholder}
-                className="flex-1 px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-gray-900 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-400 text-center"
-              />
+              {isTime ? (
+                <TimeDigitInput
+                  value={val}
+                  onChange={v => commitVal(i, v)}
+                  placeholder={placeholder}
+                />
+              ) : (
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  value={val > 0 ? val : ''}
+                  onChange={e => handleTextChange(i, e.target.value)}
+                  placeholder={placeholder}
+                  className="flex-1 px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-gray-900 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-400 text-center"
+                  style={{ fontSize: '16px' }}
+                />
+              )}
               <span className="text-sm font-semibold text-gray-500 w-8">{unit}</span>
             </div>
           </div>
@@ -344,7 +433,7 @@ const TEST_DESC: Record<TestType, string> = {
   '30m': 'Max velocity + glycolytic power',
   cmj: 'Explosive vertical power',
   broad_jump: 'Horizontal explosive power',
-  rsa: '6 × 20m with 20s rest — fatigue index',
+  rsa: '6 × 20m with 15s rest — fatigue index',
   yoyo: 'Aerobic capacity (IR1)',
 };
 
@@ -636,7 +725,7 @@ function RsaScreen({
   sprintTimes: number[];
   stopwatchMs: number;
   startRsa: () => void;
-  sprintDone: (rep: number) => void;
+  sprintDone: (rep: number, manualTime?: number) => void;
   skipRest: (rep: number) => void;
   resetRsa: () => void;
   draft: TestDraft;
@@ -644,6 +733,8 @@ function RsaScreen({
   onSkip: () => void;
 }) {
   const { phase, rep, remaining } = rsaState;
+  const [usingGates, setUsingGates] = useState(false);
+  const [gateTime, setGateTime] = useState(0);
 
   // Auto-sync sprint times → draft when all done
   useEffect(() => {
@@ -713,7 +804,7 @@ function RsaScreen({
         <Wind size={18} className="text-brand-500" />
         <h2 className="text-2xl font-bold text-gray-900">Repeated Sprint Ability</h2>
       </div>
-      <p className="text-xs text-gray-500 mb-1">6 × 20m · 20s passive rest · Fatigue Index</p>
+      <p className="text-xs text-gray-500 mb-1">6 × 20m · 15s passive rest · Fatigue Index</p>
       <p className="text-xs text-gray-400 italic mb-3">Girard, Mendez-Villanueva & Bishop (2011) Sports Med</p>
 
       {/* Partner disclaimer */}
@@ -730,6 +821,33 @@ function RsaScreen({
       {phase === 'idle' && (
         <div>
           <ProtocolBox items={TEST_PROTOCOLS.rsa.protocol} />
+
+          {/* Timing gates toggle */}
+          <button
+            onClick={() => setUsingGates(g => !g)}
+            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border-2 mb-4 transition-all ${
+              usingGates
+                ? 'border-brand-400 bg-brand-50 text-brand-700'
+                : 'border-gray-200 bg-white text-gray-600'
+            }`}
+          >
+            <div className="text-left">
+              <p className="text-sm font-bold">Use Timing Gates</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {usingGates
+                  ? 'Stopwatch hidden — enter gate times manually'
+                  : 'Tap to switch from stopwatch to manual entry'}
+              </p>
+            </div>
+            <div className={`w-11 h-6 rounded-full transition-colors flex-shrink-0 ml-3 relative ${
+              usingGates ? 'bg-brand-500' : 'bg-gray-300'
+            }`}>
+              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+                usingGates ? 'left-5' : 'left-0.5'
+              }`} />
+            </div>
+          </button>
+
           <button
             onClick={startRsa}
             className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 shadow-sm mb-3"
@@ -780,23 +898,61 @@ function RsaScreen({
           <div className="text-xs font-semibold text-brand-600 bg-brand-50 border border-brand-200 px-3 py-1 rounded-full mb-5">
             Sprint {rep} of {RSA_REPS} — RUN!
           </div>
-          {/* Stopwatch */}
-          <div className="w-44 h-44 rounded-full bg-brand-500 flex flex-col items-center justify-center mb-6 shadow-xl">
-            <span className="text-5xl font-extrabold text-white leading-none tabular-nums tracking-tight">
-              {stopwatchDisplay}
-            </span>
-            <span className="text-xs text-brand-100 mt-1 font-semibold tracking-wider">seconds</span>
-          </div>
-          <p className="text-sm text-gray-500 mb-6 text-center font-medium">
-            Partner: tap the moment they cross 20m
-          </p>
-          <button
-            onClick={() => sprintDone(rep)}
-            className="w-full py-5 rounded-2xl bg-gray-900 text-white font-bold text-lg hover:bg-gray-800 shadow-sm active:scale-95 transition-all"
-          >
-            <Square size={16} className="inline mr-2" />
-            Sprint Done — Record Time
-          </button>
+
+          {usingGates ? (
+            /* Gates mode — manual time entry */
+            <>
+              <div className="w-44 h-44 rounded-full bg-gray-100 border-4 border-brand-200 flex flex-col items-center justify-center mb-6">
+                <span className="text-3xl font-extrabold text-brand-500">🏁</span>
+                <span className="text-xs text-gray-500 mt-2 font-semibold">Enter gate time</span>
+              </div>
+              <div className="w-full mb-5">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block text-center">
+                  Sprint {rep} time (seconds)
+                </label>
+                <div className="flex items-center gap-2">
+                  <TimeDigitInput
+                    value={gateTime}
+                    onChange={setGateTime}
+                    placeholder="3.20"
+                  />
+                  <span className="text-sm font-semibold text-gray-500 w-4">s</span>
+                </div>
+              </div>
+              <button
+                onClick={() => { sprintDone(rep, gateTime > 0 ? gateTime : undefined); setGateTime(0); }}
+                disabled={gateTime <= 0}
+                className={`w-full py-5 rounded-2xl font-bold text-lg shadow-sm active:scale-95 transition-all ${
+                  gateTime > 0
+                    ? 'bg-gray-900 text-white hover:bg-gray-800'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <Check size={16} className="inline mr-2" />
+                Record Sprint {rep}
+              </button>
+            </>
+          ) : (
+            /* Stopwatch mode */
+            <>
+              <div className="w-44 h-44 rounded-full bg-brand-500 flex flex-col items-center justify-center mb-6 shadow-xl">
+                <span className="text-5xl font-extrabold text-white leading-none tabular-nums tracking-tight">
+                  {stopwatchDisplay}
+                </span>
+                <span className="text-xs text-brand-100 mt-1 font-semibold tracking-wider">seconds</span>
+              </div>
+              <p className="text-sm text-gray-500 mb-6 text-center font-medium">
+                Partner: tap the moment they cross 20m
+              </p>
+              <button
+                onClick={() => sprintDone(rep)}
+                className="w-full py-5 rounded-2xl bg-gray-900 text-white font-bold text-lg hover:bg-gray-800 shadow-sm active:scale-95 transition-all"
+              >
+                <Square size={16} className="inline mr-2" />
+                Sprint Done — Record Time
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -814,7 +970,7 @@ function RsaScreen({
                 cx="50" cy="50" r="42" fill="none" stroke="#22c55e" strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 42}`}
-                strokeDashoffset={`${2 * Math.PI * 42 * (1 - remaining / 20)}`}
+                strokeDashoffset={`${2 * Math.PI * 42 * (1 - remaining / 15)}`}
                 className="transition-all duration-900"
               />
             </svg>
