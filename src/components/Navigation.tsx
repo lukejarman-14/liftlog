@@ -22,12 +22,14 @@ export function Navigation({ current, onNavigate }: NavigationProps) {
     (screen === 'plans' && current === 'plan-detail');
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 safe-area-pb z-50">
+    <nav aria-label="Main navigation" className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 safe-area-pb z-50">
       <div className="max-w-lg mx-auto flex">
         {navItems.map(({ screen, label, icon: Icon }) => (
           <button
             key={screen}
             onClick={() => onNavigate(screen)}
+            aria-label={label}
+            aria-current={isActive(screen) ? 'page' : undefined}
             className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
               isActive(screen)
                 ? 'text-brand-500'

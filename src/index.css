@@ -5,11 +5,20 @@
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    overscroll-behavior: none;         /* prevent rubber-band scroll revealing white background on iOS */
+    -webkit-overflow-scrolling: touch;
+    height: 100%;
   }
 
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    /* Prevent text size adjustment on orientation change */
+    -webkit-text-size-adjust: 100%;
   }
 
   input[type='number']::-webkit-inner-spin-button,
@@ -33,5 +42,9 @@
 
   .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-pt {
+    padding-top: env(safe-area-inset-top);
   }
 }

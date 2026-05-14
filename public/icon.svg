@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#f97316"/>
+  <!-- Football / pitch lines -->
+  <circle cx="256" cy="256" r="130" fill="none" stroke="white" stroke-width="18" opacity="0.25"/>
+  <!-- Lightning bolt — speed / power -->
+  <path d="M290 80 L190 272 L248 272 L218 432 L340 216 L278 216 Z"
+        fill="white" stroke="none"/>
+</svg>

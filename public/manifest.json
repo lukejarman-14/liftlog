@@ -1,0 +1,19 @@
+{
+  "name": "Vector Football",
+  "short_name": "Vector",
+  "description": "Elite football strength & conditioning — personalised training, periodised programmes, and fitness testing.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f9fafb",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "health", "fitness"]
+}

@@ -1621,7 +1621,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
 
       {/* Bottom nav */}
       {showBottomNav && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4 flex gap-3">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4 safe-area-pb flex gap-3">
           <button
             onClick={handleBack}
             className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
@@ -1648,7 +1648,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
 
       {/* RSA in-cycle nav (back = exit modal only) */}
       {flowPhase === 'testing' && isRsaActive && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4 safe-area-pb">
           <button
             onClick={() => setExitModalOpen(true)}
             className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
