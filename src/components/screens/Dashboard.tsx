@@ -87,6 +87,7 @@ function IntensityPrompt({ date, onSave }: {
           value={minutesStr}
           onChange={e => setMinutesStr(e.target.value)}
           placeholder="e.g. 90"
+          style={{ fontSize: '16px' }}
           className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
         />
       </div>
@@ -137,7 +138,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
 
   return (
     <Layout
-      title="VectorFootball"
+      title="Vector Football"
       leftAction={
         <button
           onClick={() => onNavigate({ screen: 'profile' })}

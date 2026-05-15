@@ -86,7 +86,7 @@ const INTENT_COLOURS: Record<string, string> = {
 function MethodTag({ type }: { type?: string }) {
   if (!type) return null;
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${METHOD_COLOURS[type] ?? 'bg-gray-100 text-gray-500'}`}>
+    <span className={`text-xs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${METHOD_COLOURS[type] ?? 'bg-gray-100 text-gray-500'}`}>
       {METHOD_LABELS[type] ?? type}
     </span>
   );
@@ -95,7 +95,7 @@ function MethodTag({ type }: { type?: string }) {
 function IntentTag({ intent }: { intent?: string }) {
   if (!intent) return null;
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${INTENT_COLOURS[intent] ?? 'bg-gray-100 text-gray-600'}`}>
+    <span className={`text-xs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${INTENT_COLOURS[intent] ?? 'bg-gray-100 text-gray-600'}`}>
       {intent}
     </span>
   );

@@ -257,7 +257,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
 
   return (
     <Layout
-      title="Build My Program"
+      title="Build My Programme"
       leftAction={
         <button onClick={step === 0 ? onBack : () => setStep(s => s - 1)} className="p-1 -ml-1 text-gray-600">
           <ChevronLeft size={24} />
@@ -556,6 +556,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
                   const n = parseInt(val, 10);
                   if (!isNaN(n) && n >= 1 && n <= 16) setProgramDuration(n);
                 }}
+                style={{ fontSize: '16px' }}
                 className="w-24 text-center text-lg font-bold border-2 border-gray-200 rounded-xl py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               />
               <span className="text-sm text-gray-500 font-medium">weeks (1–16)</span>

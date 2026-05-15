@@ -119,6 +119,7 @@ export function Login({ profile, onLogin }: LoginProps) {
                   type="email"
                   placeholder="your@email.com"
                   autoFocus
+                  style={{ fontSize: '16px' }}
                   className={`w-full px-4 py-3 rounded-xl border ${
                     forgotError ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'
                   } bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400`}
@@ -173,6 +174,7 @@ export function Login({ profile, onLogin }: LoginProps) {
                 placeholder="Enter your password"
                 autoFocus
                 autoComplete="current-password"
+                style={{ fontSize: '16px' }}
                 className={`w-full px-4 py-3 rounded-xl border ${
                   error ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'
                 } bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 pr-11`}
@@ -180,6 +182,7 @@ export function Login({ profile, onLogin }: LoginProps) {
               <button
                 type="button"
                 onClick={() => setShowPassword(p => !p)}
+                aria-label="Toggle password visibility"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}

@@ -98,10 +98,10 @@ export async function getExistingSession(): Promise<string | null> {
 export async function cloudSaveData(userId: string): Promise<void> {
   if (!supabase) return;
   const appData = collectAllData();
-  const { error } = await supabase
+  await supabase
     .from('user_data')
     .upsert({ id: userId, app_data: appData, updated_at: new Date().toISOString() });
-  if (error) console.error('[cloudSync] save error:', error.message);
+  // save errors are silent — data will sync on next successful save
 }
 
 /** Pull data from Supabase and write to localStorage. Returns true if data was found. */

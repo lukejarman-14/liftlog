@@ -110,13 +110,13 @@ function MonthlyCalendarGrid({
               }`}>
                 {dayNum}
               </span>
-              {matchEntry && <span className="text-[9px] leading-none">⚽</span>}
-              {!matchEntry && trainingEntry && <span className="text-[9px] leading-none">🏃</span>}
+              {matchEntry && <span className="text-[10px] leading-none">⚽</span>}
+              {!matchEntry && trainingEntry && <span className="text-[10px] leading-none">🏃</span>}
               {!matchEntry && !trainingEntry && hasProgrammeSession && (
-                <span className="text-[9px] leading-none">💪</span>
+                <span className="text-[10px] leading-none">💪</span>
               )}
               {!matchEntry && !trainingEntry && !hasProgrammeSession && profile.day !== 'free' && (
-                <span className={`text-[8px] font-bold leading-none ${profile.textColour}`}>
+                <span className={`text-[10px] font-bold leading-none ${profile.textColour}`}>
                   {profile.shortLabel}
                 </span>
               )}
@@ -217,6 +217,7 @@ function DayModal({
             value={label}
             onChange={e => setLabel(e.target.value)}
             placeholder="e.g. League vs City FC"
+            style={{ fontSize: '16px' }}
             className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </div>
@@ -232,6 +233,7 @@ function DayModal({
             value={minutes}
             onChange={e => setMinutes(e.target.value)}
             placeholder="e.g. 90"
+            style={{ fontSize: '16px' }}
             className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
           <p className="text-xs text-gray-400 mt-1">Used to auto-adjust recovery session load</p>

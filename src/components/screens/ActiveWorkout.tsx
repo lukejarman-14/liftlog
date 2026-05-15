@@ -19,6 +19,7 @@ interface ActiveWorkoutProps {
   showTutorials: boolean;
   onUpdateSession: (session: WorkoutSession) => void;
   onFinish: (session: WorkoutSession) => void;
+  onDiscard: () => void;
   onNavigate: (nav: NavState) => void;
 }
 
@@ -378,6 +379,7 @@ function SetRow({
                   <input type="number" value={editWeightStr} min="0" step="0.5"
                     onChange={e => setEditWeightStr(e.target.value)}
                     onFocus={e => e.target.select()}
+                    style={{ fontSize: '16px' }}
                     className="w-16 text-center text-sm font-semibold border border-blue-300 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400" />
                   <button onClick={() => setEditWeightStr(w => String(parseFloat((parseFloat(w || '0') + 2.5).toFixed(1))))}
                     className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200">
@@ -394,6 +396,7 @@ function SetRow({
                   <input type="number" value={editRepsStr} min="1"
                     onChange={e => setEditRepsStr(e.target.value)}
                     onFocus={e => e.target.select()}
+                    style={{ fontSize: '16px' }}
                     className="w-12 text-center text-sm font-semibold border border-blue-300 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400" />
                   <button onClick={() => setEditRepsStr(r => String(parseInt(r || '0') + 1))}
                     className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200">
@@ -409,6 +412,7 @@ function SetRow({
                   className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200"><Minus size={12} /></button>
                 <input type="number" value={editRepsStr} min="1"
                   onChange={e => setEditRepsStr(e.target.value)} onFocus={e => e.target.select()}
+                  style={{ fontSize: '16px' }}
                   className="w-14 text-center text-sm font-semibold border border-blue-300 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400" />
                 <button onClick={() => setEditRepsStr(r => String(parseInt(r || '0') + 1))}
                   className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200"><Plus size={12} /></button>
@@ -421,6 +425,7 @@ function SetRow({
                   className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200"><Minus size={12} /></button>
                 <input type="number" value={editWeightStr} min="0" step={editStep}
                   onChange={e => setEditWeightStr(e.target.value)} onFocus={e => e.target.select()}
+                  style={{ fontSize: '16px' }}
                   className="w-20 text-center text-sm font-semibold border border-blue-300 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400" />
                 <button onClick={() => setEditWeightStr(w => String(parseFloat((parseFloat(w || '0') + editStep).toFixed(2))))}
                   className="w-6 h-6 flex items-center justify-center text-blue-400 hover:text-blue-600 bg-white rounded-lg border border-blue-200"><Plus size={12} /></button>
@@ -543,6 +548,7 @@ function SetRow({
                   disabled={!isInteractive}
                   onChange={e => setWeightStr(e.target.value)}
                   onFocus={e => e.target.select()}
+                  style={{ fontSize: '16px' }}
                   className="w-16 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50"
                 />
                 <button
@@ -569,6 +575,7 @@ function SetRow({
                   disabled={!isInteractive}
                   onChange={e => setRepsStr(e.target.value)}
                   onFocus={e => e.target.select()}
+                  style={{ fontSize: '16px' }}
                   className="w-12 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50"
                 />
                 <button
@@ -592,6 +599,7 @@ function SetRow({
               <input type="number" value={repsStr} min="1" placeholder="0" disabled={!isInteractive}
                 onChange={e => setRepsStr(e.target.value)}
                 onFocus={e => e.target.select()}
+                style={{ fontSize: '16px' }}
                 className="w-14 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50" />
               <button disabled={!isInteractive} onClick={() => setRepsStr(r => String((parseInt(r || '0') + 1)))}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
@@ -610,6 +618,7 @@ function SetRow({
               <input type="number" value={weightStr} min="0" step={step} placeholder="0" disabled={!isInteractive}
                 onChange={e => setWeightStr(e.target.value)}
                 onFocus={e => e.target.select()}
+                style={{ fontSize: '16px' }}
                 className="w-20 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50" />
               <button disabled={!isInteractive} onClick={() => setWeightStr(w => String(parseFloat((parseFloat(w || '0') + step).toFixed(2))))}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
@@ -895,7 +904,7 @@ interface NewPBEntry {
   prevReps: number | null;
 }
 
-export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onNavigate }: ActiveWorkoutProps) {
+export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onDiscard, onNavigate: _onNavigate }: ActiveWorkoutProps) {
   const timer = useTimer();
   const { getPB, getExercise } = useStore();
   const [showFinish, setShowFinish] = useState(false);
@@ -1095,7 +1104,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
               <Button fullWidth onClick={() => handleFinishConfirm(session)}>Finish</Button>
             </div>
             <button
-              onClick={() => onNavigate({ screen: 'dashboard' })}
+              onClick={onDiscard}
               className="w-full mt-3 text-xs text-red-400 hover:text-red-500 text-center"
             >
               Discard workout

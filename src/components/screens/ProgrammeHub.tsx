@@ -109,7 +109,7 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, activeProgramme
   };
 
   return (
-    <Layout title="My Program">
+    <Layout title="My Programme">
       {/* ── Primary CTA ── */}
       <button
         onClick={() => onNavigate({ screen: 'programme-builder' })}

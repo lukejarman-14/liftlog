@@ -104,7 +104,7 @@ function ChangePasswordModal({
               <div className="relative">
                 <input value={currentPw} onChange={e => { setCurrentPw(e.target.value); setError(''); }}
                   type={showCur ? 'text' : 'password'} placeholder="Enter current password"
-                  autoComplete="current-password" className={inputCls(!!error && !currentPw)} />
+                  autoComplete="current-password" style={{ fontSize: '16px' }} className={inputCls(!!error && !currentPw)} />
                 <button type="button" onClick={() => setShowCur(p => !p)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                   {showCur ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -118,7 +118,7 @@ function ChangePasswordModal({
             <div className="relative">
               <input value={newPw} onChange={e => { setNewPw(e.target.value); setError(''); }}
                 type={showNew ? 'text' : 'password'} placeholder="Min. 8 characters"
-                autoComplete="new-password" className={inputCls(newPw !== '' && !passwordStrong)} />
+                autoComplete="new-password" style={{ fontSize: '16px' }} className={inputCls(newPw !== '' && !passwordStrong)} />
               <button type="button" onClick={() => setShowNew(p => !p)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                 {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -139,7 +139,7 @@ function ChangePasswordModal({
             <div className="relative">
               <input value={confirmPw} onChange={e => { setConfirmPw(e.target.value); setError(''); }}
                 type="password" placeholder="Re-enter new password"
-                autoComplete="new-password" className={inputCls(confirmPw !== '' && !passwordsMatch)} />
+                autoComplete="new-password" style={{ fontSize: '16px' }} className={inputCls(confirmPw !== '' && !passwordsMatch)} />
               {confirmPw !== '' && passwordsMatch && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500"><Check size={15} /></div>
               )}
@@ -225,6 +225,7 @@ function EditMetricsModal({
               min="100"
               max="230"
               placeholder="e.g. 180"
+              style={{ fontSize: '16px' }}
               className={inputCls}
             />
           </div>
@@ -239,6 +240,7 @@ function EditMetricsModal({
               min="30"
               max="200"
               placeholder="e.g. 75"
+              style={{ fontSize: '16px' }}
               className={inputCls}
             />
           </div>
@@ -491,6 +493,7 @@ export function Profile({
   const [showChangePw,         setShowChangePw]         = useState(false);
   const [showEditMetrics,      setShowEditMetrics]      = useState(false);
   const [showEditTraining,     setShowEditTraining]     = useState(false);
+  const [showDeleteConfirm,    setShowDeleteConfirm]    = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -526,6 +529,7 @@ export function Profile({
             </div>
             <button
               onClick={() => fileInputRef.current?.click()}
+              aria-label="Change profile photo"
               className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-brand-500 text-white flex items-center justify-center shadow-md hover:bg-brand-600 transition-colors"
             >
               <Camera size={14} />
@@ -781,11 +785,7 @@ export function Profile({
           </button>
         )}
         <button
-          onClick={() => {
-            if (window.confirm('⚠️ This will permanently delete your account and ALL data (workouts, programmes, history). This cannot be undone. Continue?')) {
-              onResetProfile();
-            }
-          }}
+          onClick={() => setShowDeleteConfirm(true)}
           className="w-full text-left text-sm text-red-500 py-2.5 flex items-center gap-2 hover:text-red-600 border-t border-gray-100 mt-1 pt-3"
         >
           Delete Account &amp; All Data
@@ -820,6 +820,31 @@ export function Profile({
           onSave={(updates) => onSaveTrainingProfile(updates)}
           onClose={() => setShowEditTraining(false)}
         />
+      )}
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-5">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 className="font-bold text-gray-900 text-base mb-2">Delete Account?</h3>
+            <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+              This permanently deletes your account and all training data. This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowDeleteConfirm(false); onResetProfile(); }}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600"
+              >
+                Delete Forever
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );

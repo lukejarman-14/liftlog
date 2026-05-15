@@ -155,8 +155,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
       }
 
       onLoginSuccess?.();
-    } catch (err) {
-      console.error('Login error:', err);
+    } catch {
       setLoginError('Something went wrong. Please try again.');
     }
     setLoginLoading(false);
@@ -243,7 +242,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
             <div className="w-20 h-20 rounded-3xl bg-brand-500 flex items-center justify-center mb-6 shadow-lg">
               <Dumbbell size={36} className="text-white" />
             </div>
-            <h1 className="text-3xl font-extrabold text-gray-900 mb-2">VectorFootball</h1>
+            <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Vector Football</h1>
             <p className="text-gray-500 text-base mb-10 max-w-xs leading-relaxed">
               Elite football strength and conditioning, personalised to your match schedule and readiness.
             </p>
@@ -281,6 +280,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                   onChange={e => { setLoginEmail(e.target.value); setLoginError(''); }}
                   type="email"
                   placeholder="you@example.com"
+                  style={{ fontSize: '16px' }}
                   className={inputClass()}
                   autoComplete="email"
                 />
@@ -293,6 +293,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                     onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
                     type={showLoginPw ? 'text' : 'password'}
                     placeholder="Your password"
+                    style={{ fontSize: '16px' }}
                     className={inputClass()}
                     autoComplete="current-password"
                   />
@@ -372,6 +373,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                       onChange={e => { setForgotEmail(e.target.value); setForgotError(''); }}
                       type="email"
                       placeholder="your@email.com"
+                      style={{ fontSize: '16px' }}
                       className={inputClass(!!forgotError)}
                     />
                     {forgotError && <p className="text-xs text-red-500 mt-1">{forgotError}</p>}
@@ -432,6 +434,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                     value={firstName}
                     onChange={e => setFirstName(e.target.value)}
                     placeholder="Marcus"
+                    style={{ fontSize: '16px' }}
                     className={inputClass(!firstName.trim() && firstName !== '')}
                     autoComplete="given-name"
                   />
@@ -442,6 +445,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                     value={lastName}
                     onChange={e => setLastName(e.target.value)}
                     placeholder="Rashford"
+                    style={{ fontSize: '16px' }}
                     className={inputClass()}
                     autoComplete="family-name"
                   />
@@ -455,6 +459,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                   onChange={e => setEmail(e.target.value)}
                   type="email"
                   placeholder="you@example.com"
+                  style={{ fontSize: '16px' }}
                   className={inputClass()}
                   autoComplete="email"
                 />
@@ -470,6 +475,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                         onChange={e => { setPassword(e.target.value); setStep1Error(''); }}
                         type={showPassword ? 'text' : 'password'}
                         placeholder="Min. 8 characters"
+                        style={{ fontSize: '16px' }}
                         className={inputClass(password !== '' && !passwordStrong)}
                         autoComplete="new-password"
                       />
@@ -498,6 +504,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                         value={confirmPassword}
                         onChange={e => { setConfirmPassword(e.target.value); setStep1Error(''); }}
                         type={showConfirm ? 'text' : 'password'}
+                        style={{ fontSize: '16px' }}
                         placeholder="Re-enter password"
                         className={inputClass(confirmPassword !== '' && !passwordsMatch)}
                         autoComplete="new-password"
@@ -556,6 +563,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                     min="100"
                     max="230"
                     placeholder="e.g. 180"
+                    style={{ fontSize: '16px' }}
                     className={inputClass()}
                   />
                 </div>
@@ -568,6 +576,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                     min="30"
                     max="200"
                     placeholder="e.g. 75"
+                    style={{ fontSize: '16px' }}
                     className={inputClass()}
                   />
                 </div>

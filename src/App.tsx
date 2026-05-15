@@ -49,13 +49,15 @@ export default function App() {
   // ── On mount: restore existing Supabase session ────────────────────────────
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-    getExistingSession().then(userId => {
-      if (userId) {
-        cloudUserIdRef.current = userId;
-        setIsAuthenticated(true);
-      }
-      setSessionChecking(false);
-    });
+    getExistingSession()
+      .then(userId => {
+        if (userId) {
+          cloudUserIdRef.current = userId;
+          setIsAuthenticated(true);
+        }
+      })
+      .catch(() => { /* session check failed — continue as unauthenticated */ })
+      .finally(() => { setSessionChecking(false); });
   }, []);
 
   // ── Listen for password recovery event (from reset email link) ────────────
@@ -183,13 +185,17 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    // Save current data to cloud before logging out
-    if (isSupabaseConfigured && cloudUserIdRef.current) {
-      await cloudSaveData(cloudUserIdRef.current);
-      await cloudSignOut();
+    try {
+      if (isSupabaseConfigured && cloudUserIdRef.current) {
+        await cloudSaveData(cloudUserIdRef.current);
+        await cloudSignOut();
+      }
+    } catch {
+      // logout proceeds regardless of cloud errors
+    } finally {
+      cloudUserIdRef.current = null;
+      setIsAuthenticated(false);
     }
-    cloudUserIdRef.current = null;
-    setIsAuthenticated(false);
   };
 
   // ── Auth guards ────────────────────────────────────────────────────────────
@@ -296,6 +302,7 @@ export default function App() {
           showTutorials={store.userSettings.showTutorialVideos}
           onUpdateSession={handleUpdateSession}
           onFinish={handleFinishWorkout}
+          onDiscard={() => { setActiveSession(null); navigate({ screen: 'dashboard' }); }}
           onNavigate={navigate}
         />
       )}

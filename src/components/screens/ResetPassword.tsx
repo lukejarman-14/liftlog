@@ -18,7 +18,7 @@ export function ResetPassword({ onDone }: ResetPasswordProps) {
     e.preventDefault();
     if (!password || loading) return;
     if (password !== confirm) { setError('Passwords do not match.'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
 
     setLoading(true);
     setError('');
@@ -59,8 +59,9 @@ export function ResetPassword({ onDone }: ResetPasswordProps) {
                   value={password}
                   onChange={e => { setPassword(e.target.value); setError(''); }}
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   autoFocus
+                  style={{ fontSize: '16px' }}
                   className={`w-full px-4 py-3 rounded-xl border ${
                     error ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'
                   } bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 pr-11`}
@@ -84,6 +85,7 @@ export function ResetPassword({ onDone }: ResetPasswordProps) {
                 onChange={e => { setConfirm(e.target.value); setError(''); }}
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Repeat password"
+                style={{ fontSize: '16px' }}
                 className={`w-full px-4 py-3 rounded-xl border ${
                   error ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'
                 } bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400`}

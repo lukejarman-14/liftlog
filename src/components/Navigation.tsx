@@ -51,6 +51,7 @@ export function TimerBadge({ remaining, onClick }: { remaining: number; onClick:
   return (
     <button
       onClick={onClick}
+      aria-label="Rest timer"
       className="fixed top-4 right-4 z-50 flex items-center gap-1.5 bg-brand-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg animate-pulse"
     >
       <Clock size={14} />

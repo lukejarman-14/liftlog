@@ -25,7 +25,7 @@ function formatDuration(ms: number) {
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  return new Date(dateStr).toLocaleDateString('en-GB', {
     weekday: 'long', month: 'short', day: 'numeric', year: 'numeric',
   });
 }
@@ -68,6 +68,7 @@ function SessionCard({ session, onDelete, onNavigate }: {
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            aria-label="Delete session"
             className="p-1.5 text-gray-300 hover:text-red-500 transition-colors ml-2"
           >
             <Trash2 size={15} />
@@ -337,7 +338,7 @@ export function History({ sessions, onNavigate, onDeleteSession }: HistoryProps)
   // Group by month
   const grouped: Record<string, WorkoutSession[]> = {};
   sorted.forEach(s => {
-    const key = new Date(s.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const key = new Date(s.date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(s);
   });
