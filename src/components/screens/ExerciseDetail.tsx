@@ -22,7 +22,6 @@ function formatSetChip(set: CompletedSet, measureType: MeasureType, unit?: strin
 interface ExerciseDetailProps {
   exercise: Exercise;
   sessions: WorkoutSession[];
-  showTutorials: boolean;
   onNavigate: (nav: NavState) => void;
   onBack: () => void;
 }

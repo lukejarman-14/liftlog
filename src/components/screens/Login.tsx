@@ -30,8 +30,6 @@ export function Login({ profile, onLogin }: LoginProps) {
   const [forgotSent,     setForgotSent]     = useState(false);
   const [forgotError,    setForgotError]    = useState('');
 
-  // Restore from backup
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password || loading) return;

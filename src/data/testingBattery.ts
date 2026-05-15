@@ -60,7 +60,7 @@ interface NormBand {
 }
 
 /** 10m sprint (s) — lower is better */
-export const NORMS_10M: Record<GradeKey, NormBand> = {
+const NORMS_10M: Record<GradeKey, NormBand> = {
   4: { male: 1.65,  female: 1.75 },  // excellent: faster than this
   3: { male: 1.75,  female: 1.85 },  // good
   2: { male: 1.85,  female: 1.95 },  // average
@@ -68,7 +68,7 @@ export const NORMS_10M: Record<GradeKey, NormBand> = {
 };
 
 /** 30m sprint (s) — lower is better */
-export const NORMS_30M: Record<GradeKey, NormBand> = {
+const NORMS_30M: Record<GradeKey, NormBand> = {
   4: { male: 3.90,  female: 4.30 },
   3: { male: 4.10,  female: 4.50 },
   2: { male: 4.30,  female: 4.70 },
@@ -76,7 +76,7 @@ export const NORMS_30M: Record<GradeKey, NormBand> = {
 };
 
 /** CMJ height (cm) — higher is better */
-export const NORMS_CMJ: Record<GradeKey, NormBand> = {
+const NORMS_CMJ: Record<GradeKey, NormBand> = {
   4: { male: 45, female: 35 },  // excellent: above this
   3: { male: 35, female: 27 },
   2: { male: 25, female: 20 },
@@ -84,7 +84,7 @@ export const NORMS_CMJ: Record<GradeKey, NormBand> = {
 };
 
 /** RSA mean time (s) — lower is better (30m × 6, 20 s rest) */
-export const NORMS_RSA_MEAN: Record<GradeKey, NormBand> = {
+const NORMS_RSA_MEAN: Record<GradeKey, NormBand> = {
   4: { male: 4.10, female: 4.50 },
   3: { male: 4.25, female: 4.65 },
   2: { male: 4.45, female: 4.85 },
@@ -92,7 +92,7 @@ export const NORMS_RSA_MEAN: Record<GradeKey, NormBand> = {
 };
 
 /** Fatigue Index (%) — lower is better */
-export const NORMS_FI: Record<GradeKey, NormBand> = {
+const NORMS_FI: Record<GradeKey, NormBand> = {
   4: { male: 3.0, female: 3.5 },  // excellent: below this
   3: { male: 5.0, female: 5.5 },
   2: { male: 8.0, female: 8.5 },
@@ -100,7 +100,7 @@ export const NORMS_FI: Record<GradeKey, NormBand> = {
 };
 
 /** Yo-Yo IR1 level — higher is better */
-export const NORMS_YOYO: Record<GradeKey, NormBand> = {
+const NORMS_YOYO: Record<GradeKey, NormBand> = {
   4: { male: 20,  female: 17  },  // level 20+ = excellent
   3: { male: 17,  female: 14  },
   2: { male: 14,  female: 11  },
@@ -108,7 +108,7 @@ export const NORMS_YOYO: Record<GradeKey, NormBand> = {
 };
 
 /** Broad jump / standing long jump (cm) — higher is better */
-export const NORMS_BROAD_JUMP: Record<GradeKey, NormBand> = {
+const NORMS_BROAD_JUMP: Record<GradeKey, NormBand> = {
   4: { male: 250, female: 210 },
   3: { male: 220, female: 185 },
   2: { male: 190, female: 160 },
@@ -116,7 +116,7 @@ export const NORMS_BROAD_JUMP: Record<GradeKey, NormBand> = {
 };
 
 /** RSA 6 × 20m mean time (s) — lower is better */
-export const NORMS_RSA_20M: Record<GradeKey, NormBand> = {
+const NORMS_RSA_20M: Record<GradeKey, NormBand> = {
   4: { male: 2.80, female: 3.10 },
   3: { male: 2.95, female: 3.25 },
   2: { male: 3.15, female: 3.45 },

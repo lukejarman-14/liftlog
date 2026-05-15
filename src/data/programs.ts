@@ -786,5 +786,3 @@ export const FOOTBALL_PROGRAMS: Program[] = [
     ],
   },
 ];
-
-export const ALL_PROGRAMS = [...FOOTBALL_PROGRAMS, ...BUILT_IN_PROGRAMS];

@@ -1,4 +1,4 @@
-import { Dumbbell, BookOpen, Clock, History, LayoutDashboard, Map } from 'lucide-react';
+import { Dumbbell, BookOpen, History, LayoutDashboard, Map } from 'lucide-react';
 import { Screen } from '../types';
 
 interface NavigationProps {
@@ -42,20 +42,5 @@ export function Navigation({ current, onNavigate }: NavigationProps) {
         ))}
       </div>
     </nav>
-  );
-}
-
-export function TimerBadge({ remaining, onClick }: { remaining: number; onClick: () => void }) {
-  const mins = Math.floor(remaining / 60);
-  const secs = remaining % 60;
-  return (
-    <button
-      onClick={onClick}
-      aria-label="Rest timer"
-      className="fixed top-4 right-4 z-50 flex items-center gap-1.5 bg-brand-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg animate-pulse"
-    >
-      <Clock size={14} />
-      {mins > 0 ? `${mins}:${String(secs).padStart(2, '0')}` : `${secs}s`}
-    </button>
   );
 }

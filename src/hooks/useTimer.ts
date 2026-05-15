@@ -56,9 +56,8 @@ export function useTimer() {
 
   const skip = useCallback(() => stop(), [stop]);
 
-  const seconds = target - remaining;          // elapsed
   const progress = target > 0 ? Math.min((target - remaining) / target, 1) : 0;
   const finished = running && remaining === 0 && target > 0;
 
-  return { seconds, remaining, running, target, progress, finished, start, stop, skip };
+  return { remaining, running, target, progress, finished, start, stop, skip };
 }

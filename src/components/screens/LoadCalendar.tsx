@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Trash2, Calendar, Info } from 'lucide-react'
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { useStore } from '../../hooks/useStore';
-import { MatchEntry, NavState, GeneratedProgramme } from '../../types';
+import { MatchEntry, GeneratedProgramme } from '../../types';
 import { classifyDay, getLoadProfile, getMonthProfiles } from '../../lib/loadManagement';
 
 // ── Programme session date helpers ─────────────────────────────────────────
@@ -39,7 +39,6 @@ function getProgrammeDates(programme: GeneratedProgramme): Map<string, string> {
 }
 
 interface LoadCalendarProps {
-  onNavigate: (nav: NavState) => void;
   onBack: () => void;
   activeProgramme?: GeneratedProgramme | null;
 }
@@ -392,7 +391,7 @@ function PeriodisationGuide() {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
-export function LoadCalendar({ onNavigate: _onNavigate, onBack, activeProgramme }: LoadCalendarProps) {
+export function LoadCalendar({ onBack, activeProgramme }: LoadCalendarProps) {
   const { matchEntries, saveMatchEntry, deleteMatchEntry } = useStore();
   const programmeDates = activeProgramme ? getProgrammeDates(activeProgramme) : new Map<string, string>();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);

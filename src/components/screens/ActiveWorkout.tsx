@@ -10,7 +10,7 @@ import { Button } from '../ui/Button';
 import { RpeSelector } from '../ui/RpeSelector';
 import { useTimer } from '../../hooks/useTimer';
 import { useStore } from '../../hooks/useStore';
-import { WorkoutSession, SessionExercise, CompletedSet, NavState, MeasureType } from '../../types';
+import { WorkoutSession, SessionExercise, CompletedSet, MeasureType } from '../../types';
 import { EXERCISE_DESCRIPTIONS } from '../../data/exerciseDescriptions';
 import { intraSessionSuggestion, interSessionBaseline } from '../../lib/rpeProgression';
 
@@ -20,7 +20,6 @@ interface ActiveWorkoutProps {
   onUpdateSession: (session: WorkoutSession) => void;
   onFinish: (session: WorkoutSession) => void;
   onDiscard: () => void;
-  onNavigate: (nav: NavState) => void;
 }
 
 // ── Sound ──────────────────────────────────────────────────────────────────
@@ -161,7 +160,7 @@ function RpeSuggestionBanner({
 
 // ── Tutorial panel ─────────────────────────────────────────────────────────
 
-function TutorialPanel({ exerciseId, exerciseName: _exerciseName }: { exerciseId: string; exerciseName: string }) {
+function TutorialPanel({ exerciseId }: { exerciseId: string }) {
   const [open, setOpen] = useState(false);
   const desc = EXERCISE_DESCRIPTIONS[exerciseId];
 
@@ -809,7 +808,7 @@ function ExerciseSection({
       {!collapsed && (
         <>
           {showTutorials && (
-            <TutorialPanel exerciseId={exercise.id} exerciseName={exercise.name} />
+            <TutorialPanel exerciseId={exercise.id} />
           )}
 
           <div className="px-4 pb-4">
@@ -908,7 +907,7 @@ interface NewPBEntry {
   prevReps: number | null;
 }
 
-export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onDiscard, onNavigate: _onNavigate }: ActiveWorkoutProps) {
+export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onDiscard }: ActiveWorkoutProps) {
   const timer = useTimer();
   const { getPB, getExercise, userSettings, updateSettings } = useStore();
   const showRir = userSettings.showRir ?? true;

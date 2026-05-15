@@ -63,8 +63,8 @@ export async function cloudDeleteAccount(): Promise<void> {
       // Delete the auth user via the SQL function we created
       await supabase.rpc('delete_user');
     }
-  } catch (err) {
-    console.error('[cloudSync] delete account error:', err);
+  } catch {
+    // deletion errors are silent — local data cleared by caller regardless
   }
   await supabase.auth.signOut();
 }

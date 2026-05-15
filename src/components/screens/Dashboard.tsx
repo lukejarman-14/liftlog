@@ -4,13 +4,12 @@ import { Layout } from '../Layout';
 
 import { WeeklyCalendar } from '../WeeklyCalendar';
 import { DailyReadinessWidget } from '../DailyReadinessWidget';
-import { WorkoutSession, WorkoutTemplate, NavState, ActivePlan, DailyReadiness, GeneratedProgramme, Exercise, WorkoutExercise } from '../../types';
+import { WorkoutSession, NavState, ActivePlan, DailyReadiness, GeneratedProgramme, Exercise, WorkoutExercise } from '../../types';
 import { useStore } from '../../hooks/useStore';
 import { POSITION_PLANS, getCurrentPlanWeek } from '../../data/positionPlans';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
-  templates: WorkoutTemplate[];
   activePlan: ActivePlan | null;
   activeProgramme: GeneratedProgramme | null;
   profilePicture: string | null;

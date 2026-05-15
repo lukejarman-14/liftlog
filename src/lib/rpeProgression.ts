@@ -121,7 +121,7 @@ export function sessionAvgRpe(allSets: CompletedSet[]): number | null {
 }
 
 /** RIR labels for display */
-export const RPE_LABELS: Record<number, string> = {
+const RPE_LABELS: Record<number, string> = {
   0: 'Max effort',
   1: '1 rep left',
   2: '2 reps left',

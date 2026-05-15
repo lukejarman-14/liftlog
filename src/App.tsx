@@ -119,7 +119,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [nav.screen]);
 
   const launchWorkout = (name: string, items: WorkoutExercise[]) => {
     const session: WorkoutSession = {
@@ -269,7 +268,6 @@ export default function App() {
       {screen === 'dashboard' && (
         <Dashboard
           sessions={store.sessions}
-          templates={store.templates}
           activePlan={store.activePlan}
           activeProgramme={store.activeProgrammeId
             ? store.generatedProgrammes.find(p => p.id === store.activeProgrammeId) ?? null
@@ -300,7 +298,6 @@ export default function App() {
           <ExerciseDetail
             exercise={exercise}
             sessions={store.sessions}
-            showTutorials={store.userSettings.showTutorialVideos}
             onNavigate={navigate}
             onBack={() => setNav({ screen: 'exercise-library' })}
           />
@@ -325,7 +322,6 @@ export default function App() {
           onUpdateSession={handleUpdateSession}
           onFinish={handleFinishWorkout}
           onDiscard={() => { setActiveSession(null); navigate({ screen: 'dashboard' }); }}
-          onNavigate={navigate}
         />
       )}
 
@@ -411,7 +407,6 @@ export default function App() {
 
       {screen === 'load-calendar' && (
         <LoadCalendar
-          onNavigate={navigate}
           onBack={() => navigate({ screen: 'dashboard' })}
           activeProgramme={store.activeProgrammeId
             ? store.generatedProgrammes.find(p => p.id === store.activeProgrammeId) ?? null

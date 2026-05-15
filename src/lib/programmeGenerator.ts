@@ -1423,15 +1423,15 @@ function buildOffSeasonSession(
 
   // Running/speed exercises — seeded per (week, day) so every session in the same week
   // gets a DIFFERENT running exercise. Uses same DAY_SEED logic as getConditioningBlock.
-  const _osDayIdx = DAY_SEED[slot.dayOfWeek] ?? 0;
-  const _osSessionSeed = weekNum * 7 + _osDayIdx;
+  const osDayIdx = DAY_SEED[slot.dayOfWeek] ?? 0;
+  const osSessionSeed = weekNum * 7 + osDayIdx;
   const allPlayStyleRunning = (PLAY_STYLE_RUNNING[inputs.playStyle] ?? []).filter(e => e.isRunning);
   const playStyleRunning = allPlayStyleRunning.length > 0
-    ? [allPlayStyleRunning[_osSessionSeed % allPlayStyleRunning.length]]
+    ? [allPlayStyleRunning[osSessionSeed % allPlayStyleRunning.length]]
     : [];
   const allWeaknessRunning = weaknessEx.filter(e => e.isRunning);
   const weaknessRunning = allWeaknessRunning.length > 0
-    ? [allWeaknessRunning[_osSessionSeed % allWeaknessRunning.length]]
+    ? [allWeaknessRunning[osSessionSeed % allWeaknessRunning.length]]
     : [];
   const speedWorkEx = [...playStyleRunning, ...weaknessRunning];
   // Injury-based block ordering: eccentric FIRST if muscle injury present, isometric FIRST otherwise
@@ -1599,15 +1599,15 @@ function buildSession(
     const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
     // Running/speed exercises — seeded per (week, day) so every session in the same week
     // gets a DIFFERENT running exercise. Uses same DAY_SEED logic as getConditioningBlock.
-    const _md4DayIdx = DAY_SEED[slot.dayOfWeek] ?? 0;
-    const _md4SessionSeed = weekNum * 7 + _md4DayIdx;
+    const md4DayIdx = DAY_SEED[slot.dayOfWeek] ?? 0;
+    const md4SessionSeed = weekNum * 7 + md4DayIdx;
     const allPlayStyleRunning = (PLAY_STYLE_RUNNING[inputs.playStyle] ?? []).filter(e => e.isRunning);
     const playStyleRunning = allPlayStyleRunning.length > 0
-      ? [allPlayStyleRunning[_md4SessionSeed % allPlayStyleRunning.length]]
+      ? [allPlayStyleRunning[md4SessionSeed % allPlayStyleRunning.length]]
       : [];
     const allWeaknessRunning = weaknessEx.filter(e => e.isRunning);
     const weaknessRunning = allWeaknessRunning.length > 0
-      ? [allWeaknessRunning[_md4SessionSeed % allWeaknessRunning.length]]
+      ? [allWeaknessRunning[md4SessionSeed % allWeaknessRunning.length]]
       : [];
     const speedWorkEx = [...playStyleRunning, ...weaknessRunning];
     const hasMuscleInjury = injuryHistory.some(a => ['hamstring', 'groin', 'calf', 'knee'].includes(a));
