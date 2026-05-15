@@ -64,21 +64,25 @@ function useRsaEngine() {
     } catch (_) { return null; }
   }
 
-  const beep = useCallback((freq: number, duration: number, vol = 0.5) => {
+  const beep = useCallback((freq: number, duration: number, vol = 0.6) => {
     const ctx = getAudio();
     if (!ctx) return;
-    try {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(vol, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + duration + 0.05);
-    } catch (_) {}
+    const play = () => {
+      try {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + 0.02;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        osc.start(t);
+        osc.stop(t + duration + 0.05);
+      } catch {}
+    };
+    if (ctx.state === 'running') { play(); } else { ctx.resume().then(play).catch(() => {}); }
   }, []);
 
   // Countdown / rest interval — uses Date.now() for accuracy
@@ -1073,43 +1077,51 @@ function useYoyoEngine() {
     } catch { return null; }
   }
 
-  const beep = useCallback((freq: number, dur: number, vol = 0.65) => {
+  const beep = useCallback((freq: number, dur: number, vol = 0.7) => {
     const ctx = getAudio();
     if (!ctx) return;
-    try {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(vol, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + dur + 0.05);
-    } catch {}
-  }, []);
-
-  // Plays a sequence of tones back-to-back using precise AudioContext timing
-  const toneSeq = useCallback((notes: Array<{ freq: number; dur: number; vol?: number }>) => {
-    const ctx = getAudio();
-    if (!ctx) return;
-    let t = ctx.currentTime;
-    for (const note of notes) {
+    const play = () => {
       try {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.type = 'sine';
-        osc.frequency.value = note.freq;
-        gain.gain.setValueAtTime(note.vol ?? 0.7, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + note.dur);
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + 0.02; // small buffer prevents past-scheduling
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
         osc.start(t);
-        osc.stop(t + note.dur + 0.05);
-        t += note.dur + 0.08;
+        osc.stop(t + dur + 0.05);
       } catch {}
-    }
+    };
+    // If context is suspended (iOS lock screen / background), resume first
+    if (ctx.state === 'running') { play(); } else { ctx.resume().then(play).catch(() => {}); }
+  }, []);
+
+  // Plays a sequence of tones back-to-back with precise AudioContext scheduling
+  const toneSeq = useCallback((notes: Array<{ freq: number; dur: number; vol?: number }>) => {
+    const ctx = getAudio();
+    if (!ctx) return;
+    const play = () => {
+      let t = ctx.currentTime + 0.02; // buffer prevents past-scheduling
+      for (const note of notes) {
+        try {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = note.freq;
+          gain.gain.setValueAtTime(note.vol ?? 0.75, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + note.dur);
+          osc.start(t);
+          osc.stop(t + note.dur + 0.05);
+          t += note.dur + 0.08;
+        } catch {}
+      }
+    };
+    if (ctx.state === 'running') { play(); } else { ctx.resume().then(play).catch(() => {}); }
   }, []);
 
   // Store advance logic in a ref to avoid stale closures inside setInterval
@@ -1227,11 +1239,23 @@ function useYoyoEngine() {
   }, [st.phase]);
 
   const start = useCallback(() => {
-    getAudio(); // AudioContext must be created inside a user gesture
+    // Create AudioContext inside the user gesture — required by iOS Safari
+    const ctx = getAudio();
     completedScoreRef.current = 0;
     endAtRef.current = Date.now() + YOYO_COUNTDOWN_SECS * 1000;
-    beep(440, 0.1, 0.35);
-    setSt({ phase: 'countdown', levelIdx: 0, shuttle: 1, remaining: YOYO_COUNTDOWN_SECS, phaseSecs: YOYO_COUNTDOWN_SECS });
+
+    const kick = () => {
+      beep(440, 0.15, 0.8); // audible unlock beep so user knows audio is working
+      setSt({ phase: 'countdown', levelIdx: 0, shuttle: 1, remaining: YOYO_COUNTDOWN_SECS, phaseSecs: YOYO_COUNTDOWN_SECS });
+    };
+
+    // Ensure context is running before scheduling — on iOS resume() must be called
+    // synchronously inside a click handler, but the promise resolves async
+    if (!ctx || ctx.state === 'running') {
+      kick();
+    } else {
+      ctx.resume().then(kick).catch(kick);
+    }
   }, [beep]);
 
   const fail = useCallback(() => {
