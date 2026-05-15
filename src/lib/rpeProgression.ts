@@ -130,3 +130,103 @@ const RPE_LABELS: Record<number, string> = {
 };
 
 export const RIR_LABELS = RPE_LABELS;
+
+// ── Weekly progression ────────────────────────────────────────────────────────
+
+export interface WeeklySuggestion {
+  suggestedWeight: number;
+  goalReps: number;
+  action: RpeAction;
+  reason: string;
+  colour: 'green' | 'blue' | 'amber';
+}
+
+/**
+ * WEEKLY PROGRESSION: Given last session's completed sets for an exercise,
+ * suggest the weight and goal reps for the next session.
+ *
+ * Rep completion drives the primary decision:
+ *   All sets hit target reps  →  progressive overload (increase weight)
+ *   Fell short of target reps →  same weight, goal = avg + 1 rep (build to target)
+ *   Exceeded target reps       →  suggest increase weight, keep same rep target
+ *
+ * RIR data (when present) refines the weight jump:
+ *   avg RIR ≥ targetRir + 2  →  +5 kg (very easy)
+ *   avg RIR ≥ targetRir + 1  →  +2.5 kg (slightly easy)
+ *   avg RIR ≈ targetRir       →  +2.5 kg (on target, earned the increment)
+ *   avg RIR ≤ targetRir - 1  →  maintain (too hard, consolidate before progressing)
+ */
+export function weeklyProgressionSuggestion(
+  lastSets: CompletedSet[],
+  targetSets: number,
+  targetReps: number,
+  targetRir: number = 2,
+): WeeklySuggestion | null {
+  if (!lastSets?.length) return null;
+
+  // Use only the sets that correspond to the prescribed volume
+  const relevantSets = lastSets.slice(0, targetSets);
+  if (!relevantSets.length) return null;
+
+  const lastWeight = relevantSets[relevantSets.length - 1].weight;
+  if (lastWeight <= 0) return null; // bodyweight / reps-only exercises excluded
+
+  const avgReps = relevantSets.reduce((sum, s) => sum + s.reps, 0) / relevantSets.length;
+  const allHitTarget = relevantSets.every(s => s.reps >= targetReps);
+
+  // Average RIR — only from rated sets
+  const ratedSets = relevantSets.filter(s => s.rir !== undefined);
+  const avgRir = ratedSets.length > 0
+    ? ratedSets.reduce((sum, s) => sum + (s.rir ?? 0), 0) / ratedSets.length
+    : null;
+
+  if (!allHitTarget) {
+    // Athlete fell short — consolidate at same weight, give incremental rep goal
+    const avgRepsRounded = Math.round(avgReps);
+    const goalReps = Math.min(targetReps, avgRepsRounded + 1);
+    return {
+      suggestedWeight: lastWeight,
+      goalReps,
+      action: 'maintain',
+      reason: `Avg ${avgRepsRounded} reps last week. Hit ${goalReps} reps this week.`,
+      colour: 'blue',
+    };
+  }
+
+  // All sets hit target — progressive overload
+  let weightStep: number;
+  let reason: string;
+
+  if (avgRir !== null) {
+    const rirDiff = avgRir - targetRir;
+    if (rirDiff >= 2) {
+      weightStep = STRENGTH_STEP * 2; // +5 kg
+      reason = `Avg ${avgRir.toFixed(1)} RIR — well in the tank. +5 kg.`;
+    } else if (rirDiff >= 0) {
+      weightStep = STRENGTH_STEP; // +2.5 kg
+      reason = `Hit all reps at ${avgRir.toFixed(1)} RIR. Progress +2.5 kg.`;
+    } else {
+      // Went too hard (below target RIR) but still completed — maintain weight, consolidate
+      return {
+        suggestedWeight: lastWeight,
+        goalReps: targetReps,
+        action: 'maintain',
+        reason: `Completed all reps but very hard (avg ${avgRir.toFixed(1)} RIR). Same weight.`,
+        colour: 'blue',
+      };
+    }
+  } else {
+    // No RIR data — standard linear progression
+    weightStep = STRENGTH_STEP;
+    reason = `All sets complete. Add 2.5 kg.`;
+  }
+
+  const suggestedWeight = roundKg(lastWeight + weightStep);
+  return {
+    suggestedWeight,
+    goalReps: targetReps,
+    action: 'increase',
+    reason,
+    colour: 'green',
+  };
+}

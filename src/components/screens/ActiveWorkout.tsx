@@ -12,7 +12,7 @@ import { useTimer } from '../../hooks/useTimer';
 import { useStore } from '../../hooks/useStore';
 import { WorkoutSession, SessionExercise, CompletedSet, MeasureType } from '../../types';
 import { EXERCISE_DESCRIPTIONS } from '../../data/exerciseDescriptions';
-import { intraSessionSuggestion, interSessionBaseline } from '../../lib/rpeProgression';
+import { intraSessionSuggestion, interSessionBaseline, weeklyProgressionSuggestion } from '../../lib/rpeProgression';
 
 interface ActiveWorkoutProps {
   session: WorkoutSession;
@@ -154,6 +154,59 @@ function RpeSuggestionBanner({
     <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border mt-1 mb-1 ${styles.bg}`}>
       {styles.icon}
       <span className={`text-xs font-medium ${styles.text}`}>{message}</span>
+    </div>
+  );
+}
+
+// ── Weekly goal card ───────────────────────────────────────────────────────
+
+function WeeklyGoalCard({
+  suggestedWeight,
+  goalReps,
+  targetSets,
+  action,
+  reason,
+}: {
+  suggestedWeight: number;
+  goalReps: number;
+  targetSets: number;
+  action: 'increase' | 'maintain' | 'decrease';
+  reason: string;
+}) {
+  const colours = {
+    increase: {
+      bg:     'bg-green-50 border-green-200',
+      label:  'text-green-600',
+      value:  'text-green-800',
+      icon:   <TrendingUp size={14} className="text-green-600 flex-shrink-0" />,
+      badge:  'bg-green-100 text-green-700',
+    },
+    maintain: {
+      bg:     'bg-blue-50 border-blue-200',
+      label:  'text-blue-500',
+      value:  'text-blue-800',
+      icon:   <span className="text-blue-500 text-sm font-bold flex-shrink-0">→</span>,
+      badge:  'bg-blue-100 text-blue-700',
+    },
+    decrease: {
+      bg:     'bg-amber-50 border-amber-200',
+      label:  'text-amber-500',
+      value:  'text-amber-800',
+      icon:   <TrendingDown size={14} className="text-amber-600 flex-shrink-0" />,
+      badge:  'bg-amber-100 text-amber-700',
+    },
+  }[action];
+
+  return (
+    <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border mx-4 mb-3 ${colours.bg}`}>
+      {colours.icon}
+      <div className="flex-1 min-w-0">
+        <div className={`text-xs font-semibold ${colours.label} mb-0.5`}>This week's goal</div>
+        <div className={`text-sm font-bold ${colours.value}`}>
+          {targetSets} × {goalReps} reps @ {suggestedWeight} kg
+        </div>
+        <div className={`text-xs mt-0.5 ${colours.label}`}>{reason}</div>
+      </div>
     </div>
   );
 }
@@ -755,6 +808,21 @@ function ExerciseSection({
     return { weight: sessionExercise.targetWeight, reps: sessionExercise.targetReps };
   };
 
+  // ── Weekly progression goal (shown before exercise starts) ───────────────
+  const weeklyGoal = (
+    !exercise.isWarmup &&
+    measureType === 'strength' &&
+    completedCount === 0 &&
+    lastSession?.sets.length
+  )
+    ? weeklyProgressionSuggestion(
+        lastSession.sets,
+        sessionExercise.targetSets,
+        sessionExercise.targetReps,
+        targetRir ?? 2,
+      )
+    : null;
+
   // ── Intra-session suggestion (shown after last logged set with RPE) ────
   const lastCompleted = sessionExercise.sets[sessionExercise.sets.length - 1];
   const suggestion = (
@@ -855,6 +923,17 @@ function ExerciseSection({
                 )}
               </div>
             </div>}
+
+            {/* Weekly progression goal */}
+            {weeklyGoal && (
+              <WeeklyGoalCard
+                suggestedWeight={weeklyGoal.suggestedWeight}
+                goalReps={weeklyGoal.goalReps}
+                targetSets={sessionExercise.targetSets}
+                action={weeklyGoal.action}
+                reason={weeklyGoal.reason}
+              />
+            )}
 
             {/* Set rows */}
             <div className="flex flex-col gap-2">
