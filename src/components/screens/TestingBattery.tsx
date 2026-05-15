@@ -244,61 +244,6 @@ function TimeDigitInput({
   );
 }
 
-function NumInput({
-  label, value, onChange, unit, placeholder, autoFocus,
-}: {
-  label?: string; value: string; onChange: (v: string) => void;
-  unit?: string; placeholder?: string; autoFocus?: boolean;
-}) {
-  // For seconds inputs use digit-register style; otherwise standard numeric input
-  const isTime = unit === 's';
-  const numVal = parseFloat(value) || 0;
-
-  if (isTime) {
-    return (
-      <div>
-        {label && (
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
-            {label}
-          </label>
-        )}
-        <div className="flex items-center gap-2">
-          <TimeDigitInput
-            value={numVal}
-            onChange={v => onChange(v > 0 ? v.toFixed(2) : '')}
-            autoFocus={autoFocus}
-            placeholder={placeholder ?? '0.00'}
-          />
-          {unit && <span className="text-sm font-semibold text-gray-500 w-8">{unit}</span>}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      {label && (
-        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
-          {label}
-        </label>
-      )}
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder ?? '0.00'}
-          autoFocus={autoFocus}
-          className="flex-1 px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-gray-900 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-400 text-center"
-          style={{ fontSize: '16px' }}
-        />
-        {unit && <span className="text-sm font-semibold text-gray-500 w-8">{unit}</span>}
-      </div>
-    </div>
-  );
-}
 
 function NormTable({ rows }: { rows: { label: string; m: string; f: string; col: string }[] }) {
   return (
@@ -1060,6 +1005,252 @@ function RsaScreen({
   );
 }
 
+// ── Yo-Yo IR1 level data ───────────────────────────────────────────────────
+
+interface YoyoLevelDef {
+  level: number;    // official level number (5–23)
+  speed: number;    // km/h
+  shuttles: number; // 2×20m shuttle pairs at this level
+}
+
+const YOYO_LEVELS: YoyoLevelDef[] = [
+  { level: 5,  speed: 10.0, shuttles: 2 },
+  { level: 6,  speed: 11.0, shuttles: 4 },
+  { level: 7,  speed: 11.5, shuttles: 4 },
+  { level: 8,  speed: 12.0, shuttles: 4 },
+  { level: 9,  speed: 12.5, shuttles: 4 },
+  { level: 10, speed: 13.0, shuttles: 4 },
+  { level: 11, speed: 13.5, shuttles: 4 },
+  { level: 12, speed: 14.0, shuttles: 4 },
+  { level: 13, speed: 14.5, shuttles: 4 },
+  { level: 14, speed: 15.0, shuttles: 4 },
+  { level: 15, speed: 15.5, shuttles: 4 },
+  { level: 16, speed: 16.0, shuttles: 4 },
+  { level: 17, speed: 16.5, shuttles: 4 },
+  { level: 18, speed: 17.0, shuttles: 4 },
+  { level: 19, speed: 17.5, shuttles: 4 },
+  { level: 20, speed: 18.0, shuttles: 4 },
+  { level: 21, speed: 18.5, shuttles: 4 },
+  { level: 22, speed: 19.0, shuttles: 4 },
+  { level: 23, speed: 19.5, shuttles: 4 },
+];
+
+const YOYO_RECOVERY_SECS = 10;
+const YOYO_COUNTDOWN_SECS = 5;
+
+/** Seconds to run 20m at this level's speed */
+function getYoyoLegSecs(def: YoyoLevelDef): number {
+  return 20 / (def.speed / 3.6);
+}
+
+type YoyoPhase = 'idle' | 'countdown' | 'out' | 'back' | 'recovery' | 'done';
+
+interface YoyoEngineState {
+  phase: YoyoPhase;
+  levelIdx: number;  // index into YOYO_LEVELS
+  shuttle: number;   // 1-based shuttle within current level
+  remaining: number; // seconds for display / progress bar
+  phaseSecs: number; // total phase duration (for progress bar)
+}
+
+// ── Yo-Yo IR1 engine ───────────────────────────────────────────────────────
+
+function useYoyoEngine() {
+  const [st, setSt] = useState<YoyoEngineState>({
+    phase: 'idle', levelIdx: 0, shuttle: 1, remaining: 0, phaseSecs: 1,
+  });
+  const completedScoreRef = useRef<number>(0);
+  const endAtRef = useRef<number>(0);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  function getAudio(): AudioContext | null {
+    try {
+      const Ctx = window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
+      return audioCtxRef.current;
+    } catch { return null; }
+  }
+
+  const beep = useCallback((freq: number, dur: number, vol = 0.65) => {
+    const ctx = getAudio();
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(vol, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + dur + 0.05);
+    } catch {}
+  }, []);
+
+  // Plays a sequence of tones back-to-back using precise AudioContext timing
+  const toneSeq = useCallback((notes: Array<{ freq: number; dur: number; vol?: number }>) => {
+    const ctx = getAudio();
+    if (!ctx) return;
+    let t = ctx.currentTime;
+    for (const note of notes) {
+      try {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = note.freq;
+        gain.gain.setValueAtTime(note.vol ?? 0.7, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + note.dur);
+        osc.start(t);
+        osc.stop(t + note.dur + 0.05);
+        t += note.dur + 0.08;
+      } catch {}
+    }
+  }, []);
+
+  // Store advance logic in a ref to avoid stale closures inside setInterval
+  const advanceRef = useRef<(phase: YoyoPhase, levelIdx: number, shuttle: number) => void>(() => {});
+  advanceRef.current = (phase: YoyoPhase, levelIdx: number, shuttle: number) => {
+    const level = YOYO_LEVELS[levelIdx];
+
+    // ── countdown → start running ──────────────────────────────────────────
+    if (phase === 'countdown') {
+      toneSeq([{ freq: 880, dur: 0.15 }, { freq: 1100, dur: 0.28, vol: 0.8 }]);
+      if ('vibrate' in navigator) navigator.vibrate(150);
+      const legSecs = getYoyoLegSecs(YOYO_LEVELS[0]);
+      endAtRef.current = Date.now() + legSecs * 1000;
+      setSt({ phase: 'out', levelIdx: 0, shuttle: 1, remaining: Math.ceil(legSecs), phaseSecs: legSecs });
+      return;
+    }
+
+    // ── out → turn beep → run back ─────────────────────────────────────────
+    if (phase === 'out') {
+      beep(1320, 0.18, 0.75);
+      if ('vibrate' in navigator) navigator.vibrate(80);
+      const legSecs = getYoyoLegSecs(level);
+      endAtRef.current = Date.now() + legSecs * 1000;
+      setSt(prev => ({ ...prev, phase: 'back', remaining: Math.ceil(legSecs), phaseSecs: legSecs }));
+      return;
+    }
+
+    // ── back → shuttle complete → recovery ────────────────────────────────
+    if (phase === 'back') {
+      completedScoreRef.current = level.level + shuttle / 10;
+      const isLastShuttle = shuttle >= level.shuttles;
+      const isLastLevel = levelIdx >= YOYO_LEVELS.length - 1;
+
+      if (isLastLevel && isLastShuttle) {
+        toneSeq([{ freq: 880, dur: 0.12 }, { freq: 1100, dur: 0.12 }, { freq: 1320, dur: 0.45, vol: 0.85 }]);
+        setSt(prev => ({ ...prev, phase: 'done' }));
+        return;
+      }
+
+      if (isLastShuttle) {
+        // Level-up signal: three ascending beeps
+        toneSeq([{ freq: 660, dur: 0.1 }, { freq: 880, dur: 0.1 }, { freq: 1100, dur: 0.28, vol: 0.8 }]);
+        if ('vibrate' in navigator) navigator.vibrate([80, 50, 80, 50, 180]);
+      } else {
+        // Normal end-of-shuttle: double same-pitch beep
+        toneSeq([{ freq: 660, dur: 0.12 }, { freq: 660, dur: 0.22 }]);
+        if ('vibrate' in navigator) navigator.vibrate([80, 60, 120]);
+      }
+
+      endAtRef.current = Date.now() + YOYO_RECOVERY_SECS * 1000;
+      setSt(prev => ({
+        ...prev, phase: 'recovery',
+        remaining: YOYO_RECOVERY_SECS, phaseSecs: YOYO_RECOVERY_SECS,
+      }));
+      return;
+    }
+
+    // ── recovery → go beep → next shuttle ────────────────────────────────
+    if (phase === 'recovery') {
+      const isLastShuttle = shuttle >= level.shuttles;
+      const nextLevelIdx = isLastShuttle ? levelIdx + 1 : levelIdx;
+      const nextShuttle  = isLastShuttle ? 1 : shuttle + 1;
+      const nextLevel    = YOYO_LEVELS[nextLevelIdx];
+
+      toneSeq([{ freq: 880, dur: 0.15 }, { freq: 1100, dur: 0.28, vol: 0.8 }]);
+      if ('vibrate' in navigator) navigator.vibrate(150);
+      const legSecs = getYoyoLegSecs(nextLevel);
+      endAtRef.current = Date.now() + legSecs * 1000;
+      setSt({ phase: 'out', levelIdx: nextLevelIdx, shuttle: nextShuttle, remaining: Math.ceil(legSecs), phaseSecs: legSecs });
+      return;
+    }
+  };
+
+  // Main timer — ticks every 100ms, advances phase when time expires
+  useEffect(() => {
+    const { phase, levelIdx, shuttle } = st;
+    if (phase === 'idle' || phase === 'done') return;
+
+    let active = true;
+    let lastSecs = -1;
+
+    const id = setInterval(() => {
+      if (!active) return;
+      const secs = Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000));
+
+      if (secs !== lastSecs) {
+        lastSecs = secs;
+        setSt(prev => ({ ...prev, remaining: secs }));
+        // Per-second audio cues
+        if (phase === 'countdown' && secs > 0) beep(440, 0.1, 0.35);
+        if (phase === 'recovery' && secs <= 3 && secs > 0) {
+          beep(600, 0.12, 0.45);
+          if ('vibrate' in navigator) navigator.vibrate(60);
+        }
+      }
+
+      if (secs <= 0) {
+        active = false;
+        clearInterval(id);
+        advanceRef.current(phase, levelIdx, shuttle);
+      }
+    }, 100);
+
+    return () => { active = false; clearInterval(id); };
+  }, [st.phase, st.levelIdx, st.shuttle, beep]); // eslint-disable-next-line react-hooks/exhaustive-deps
+
+  // Screen wake lock — keeps display on during the test
+  useEffect(() => {
+    if (st.phase === 'idle' || st.phase === 'done') return;
+    type WL = { release: () => Promise<void> };
+    let wl: WL | null = null;
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: string) => Promise<WL> } };
+    nav.wakeLock?.request('screen').then(w => { wl = w; }).catch(() => {});
+    return () => { wl?.release().catch(() => {}); };
+  }, [st.phase]);
+
+  const start = useCallback(() => {
+    getAudio(); // AudioContext must be created inside a user gesture
+    completedScoreRef.current = 0;
+    endAtRef.current = Date.now() + YOYO_COUNTDOWN_SECS * 1000;
+    beep(440, 0.1, 0.35);
+    setSt({ phase: 'countdown', levelIdx: 0, shuttle: 1, remaining: YOYO_COUNTDOWN_SECS, phaseSecs: YOYO_COUNTDOWN_SECS });
+  }, [beep]);
+
+  const fail = useCallback(() => {
+    setSt(prev => ({ ...prev, phase: 'done' }));
+  }, []);
+
+  const reset = useCallback(() => {
+    completedScoreRef.current = 0;
+    setSt({ phase: 'idle', levelIdx: 0, shuttle: 1, remaining: 0, phaseSecs: 1 });
+  }, []);
+
+  return {
+    st,
+    completedScoreRef,
+    currentLevel: YOYO_LEVELS[st.levelIdx],
+    start, fail, reset,
+  };
+}
+
 // ── SCREEN: Yo-Yo ──────────────────────────────────────────────────────────
 
 function YoyoScreen({
@@ -1069,31 +1260,45 @@ function YoyoScreen({
   onChangeDraft: (d: TestDraft) => void;
   onSkip: () => void;
 }) {
-  const [levelStr, setLevelStr] = useState(draft.attempts[0] ? String(draft.attempts[0]) : '');
+  const { st, completedScoreRef, currentLevel, start, fail, reset } = useYoyoEngine();
 
-  const handleLevelChange = (v: string) => {
-    setLevelStr(v);
-    const parsed = parseFloat(v);
-    if (parsed > 0) {
-      onChangeDraft({ ...draft, attempts: [parsed], skipped: false });
-    } else {
-      onChangeDraft({ ...draft, attempts: [], skipped: false });
-    }
-  };
+  // Auto-save score when test finishes
+  useEffect(() => {
+    if (st.phase !== 'done') return;
+    const score = completedScoreRef.current;
+    if (score > 0) onChangeDraft({ ...draft, attempts: [score], skipped: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st.phase]);
 
-  return (
-    <div className="flex-1 flex flex-col py-8 pt-14">
-      <div className="flex items-center gap-2 mb-1">
-        <Activity size={18} className="text-brand-500" />
-        <h2 className="text-2xl font-bold text-gray-900">Yo-Yo IR1 Test</h2>
-      </div>
-      <p className="text-xs text-gray-500 mb-1">Best aerobic predictor for football</p>
-      <p className="text-xs text-gray-400 italic mb-1">Bangsbo, Iaia & Krustrup (2008) Sports Med</p>
-      <span className="inline-block text-xs bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full font-medium mb-5 w-max">
-        Optional — skip if not done
-      </span>
+  // Shuttle progress dots for the active view
+  const ShuttleDots = ({ barColour }: { barColour: string }) => (
+    <div className="flex gap-1.5 mb-1">
+      {Array.from({ length: currentLevel.shuttles }, (_, i) => {
+        const n = i + 1;
+        const done    = st.phase === 'recovery' ? n <= st.shuttle : n < st.shuttle;
+        const current = !done && n === st.shuttle;
+        return (
+          <div
+            key={i}
+            className={`flex-1 h-2 rounded-full transition-all duration-300 ${
+              done    ? barColour :
+              current ? barColour + ' opacity-60 animate-pulse' :
+              'bg-gray-200'
+            }`}
+          />
+        );
+      })}
+    </div>
+  );
 
-      {draft.skipped ? (
+  // ── Skipped state ──────────────────────────────────────────────────────────
+  if (draft.skipped) {
+    return (
+      <div className="flex-1 flex flex-col py-8 pt-14">
+        <div className="flex items-center gap-2 mb-5">
+          <Activity size={18} className="text-brand-500" />
+          <h2 className="text-2xl font-bold text-gray-900">Yo-Yo IR1 Test</h2>
+        </div>
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <SkipForward size={28} className="text-gray-300" />
           <p className="text-sm text-gray-500 font-medium">Test skipped</p>
@@ -1101,72 +1306,193 @@ function YoyoScreen({
             onClick={() => onChangeDraft({ ...draft, skipped: false })}
             className="text-xs text-brand-500 font-semibold"
           >
-            Undo — enter result
+            Undo — run test
           </button>
         </div>
-      ) : (
-        <>
-          {/* Yo-Yo video links */}
-          <div className="mb-5">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Videos</p>
-            <div className="flex flex-col gap-2">
-              <a
-                href="https://www.youtube.com/watch?v=HMFMbFFCOjw"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 w-full p-4 rounded-2xl border-2 border-brand-200 bg-brand-50 hover:bg-brand-100 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-xl bg-red-500 flex items-center justify-center flex-shrink-0">
-                  <Play size={18} className="text-white ml-0.5" fill="white" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-900">Full Yo-Yo IR1 Audio Track</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Official beep track — play this during your test</p>
-                </div>
-              </a>
-              <a
-                href="https://www.youtube.com/watch?v=R3eBFQ8XJRU"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 w-full p-4 rounded-2xl border-2 border-gray-200 bg-white hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-xl bg-red-500 flex items-center justify-center flex-shrink-0">
-                  <Play size={18} className="text-white ml-0.5" fill="white" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-900">Yo-Yo IR1 Demonstration</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Setup, distances and how to record your level</p>
-                </div>
-              </a>
+      </div>
+    );
+  }
+
+  // ── Pre-test / idle ────────────────────────────────────────────────────────
+  if (st.phase === 'idle') {
+    return (
+      <div className="flex-1 flex flex-col py-8 pt-14">
+        <div className="flex items-center gap-2 mb-1">
+          <Activity size={18} className="text-brand-500" />
+          <h2 className="text-2xl font-bold text-gray-900">Yo-Yo IR1 Test</h2>
+        </div>
+        <p className="text-xs text-gray-500 mb-1">Best aerobic predictor for football</p>
+        <p className="text-xs text-gray-400 italic mb-5">Bangsbo, Iaia & Krustrup (2008) Sports Med</p>
+
+        <ProtocolBox items={TEST_PROTOCOLS.yoyo.protocol} />
+
+        <NormTable rows={[
+          { label: 'Excellent', m: '≥ Level 20', f: '≥ Level 17', col: 'text-green-600' },
+          { label: 'Good',      m: '≥ Level 17', f: '≥ Level 14', col: 'text-blue-600'  },
+          { label: 'Average',   m: '≥ Level 14', f: '≥ Level 11', col: 'text-yellow-600'},
+          { label: 'Below avg', m: '< Level 14', f: '< Level 11', col: 'text-red-500'   },
+        ]} />
+
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-5 flex gap-2 items-start">
+          <AlertTriangle size={13} className="text-amber-500 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-amber-700">Keep your screen on during the test — the app plays all beeps for you.</p>
+        </div>
+
+        <button
+          onClick={start}
+          className="w-full py-4 bg-brand-500 text-white font-bold text-lg rounded-2xl flex items-center justify-center gap-2 shadow-md active:scale-95 transition-transform mb-3"
+        >
+          <Play size={20} fill="white" />
+          Start Test
+        </button>
+
+        <button
+          onClick={onSkip}
+          className="w-full py-2.5 text-sm text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1.5"
+        >
+          <SkipForward size={14} />
+          Skip this test
+        </button>
+      </div>
+    );
+  }
+
+  // ── Test complete ──────────────────────────────────────────────────────────
+  if (st.phase === 'done') {
+    const score = completedScoreRef.current;
+    const lvlNum = Math.floor(score);
+    const shuttle = Math.round((score - lvlNum) * 10);
+    return (
+      <div className="flex-1 flex flex-col py-8 pt-14">
+        <div className="flex items-center gap-2 mb-6">
+          <Activity size={18} className="text-brand-500" />
+          <h2 className="text-2xl font-bold text-gray-900">Yo-Yo IR1 Test</h2>
+        </div>
+
+        {score > 0 ? (
+          <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-5 mb-4 text-center">
+            <div className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-1">Result</div>
+            <div className="text-4xl font-extrabold text-green-700 mb-1">{score.toFixed(1)}</div>
+            <div className="text-sm text-green-600">
+              Level {lvlNum} · Shuttle {shuttle}
             </div>
           </div>
+        ) : (
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 mb-4 text-center">
+            <div className="text-sm text-gray-500">No score recorded</div>
+          </div>
+        )}
 
-          <ProtocolBox items={TEST_PROTOCOLS.yoyo.protocol} />
+        <button
+          onClick={reset}
+          className="w-full py-3 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 mb-2"
+        >
+          ↺ Try again
+        </button>
+        <button
+          onClick={onSkip}
+          className="w-full py-2.5 text-sm text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1.5"
+        >
+          <SkipForward size={14} />
+          Skip test
+        </button>
+      </div>
+    );
+  }
 
-          <div className="mb-4">
-            <NumInput
-              label="Level reached (e.g. 17.5 = Level 17, Shuttle 5)"
-              value={levelStr}
-              onChange={handleLevelChange}
-              placeholder="17.5"
+  // ── Active test (countdown / out / back / recovery) ───────────────────────
+  const isCountdown = st.phase === 'countdown';
+  const isRecovery  = st.phase === 'recovery';
+  const isRunning   = st.phase === 'out' || st.phase === 'back';
+
+  const phaseLabel = {
+    countdown: String(st.remaining || ''),
+    out:       'RUN →',
+    back:      '← BACK',
+    recovery:  `${st.remaining}s`,
+  }[st.phase] ?? '';
+
+  const phaseSub = {
+    countdown: 'GET READY',
+    out:       'Sprint to the far cone',
+    back:      'Sprint back to start',
+    recovery:  'RECOVER — walk 5m and back',
+  }[st.phase] ?? '';
+
+  const colours = isCountdown
+    ? { text: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200', bar: 'bg-orange-400' }
+    : isRecovery
+    ? { text: 'text-green-600',  bg: 'bg-green-50',  border: 'border-green-200',  bar: 'bg-green-500'  }
+    : st.phase === 'out'
+    ? { text: 'text-brand-600',  bg: 'bg-brand-50',  border: 'border-brand-200',  bar: 'bg-brand-500'  }
+    : { text: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200', bar: 'bg-purple-500' };
+
+  // Progress bar: for recovery = filling (elapsed/total); for run = depleting (remaining/total)
+  const barPct = isRecovery
+    ? Math.round(((st.phaseSecs - st.remaining) / st.phaseSecs) * 100)
+    : Math.round((st.remaining / Math.max(st.phaseSecs, 0.001)) * 100);
+
+  const currentScore = completedScoreRef.current;
+
+  return (
+    <div className="flex-1 flex flex-col py-8 pt-14">
+      {/* Level & speed header */}
+      {!isCountdown && (
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Level</div>
+            <div className="text-2xl font-extrabold text-gray-900">{currentLevel.level}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Speed</div>
+            <div className="text-lg font-bold text-gray-700">{currentLevel.speed} km/h</div>
+          </div>
+        </div>
+      )}
+
+      {/* Shuttle dots */}
+      {isRunning && <ShuttleDots barColour={colours.bar} />}
+      {isRunning && (
+        <div className="text-xs text-gray-400 mb-4 text-center">
+          Shuttle {st.shuttle} of {currentLevel.shuttles}
+        </div>
+      )}
+
+      {/* Main phase card */}
+      <div className={`rounded-2xl border-2 px-6 py-8 mb-4 flex flex-col items-center ${colours.bg} ${colours.border}`}>
+        <div className={`text-5xl font-extrabold mb-2 ${colours.text} ${isCountdown ? 'text-7xl' : ''}`}>
+          {phaseLabel}
+        </div>
+        <div className={`text-sm font-semibold ${colours.text} opacity-80`}>{phaseSub}</div>
+
+        {/* Progress bar */}
+        {!isCountdown && (
+          <div className="w-full mt-5 h-2.5 rounded-full bg-white bg-opacity-60 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-1000 ${colours.bar}`}
+              style={{ width: `${barPct}%` }}
             />
           </div>
+        )}
+      </div>
 
-          <NormTable rows={[
-            { label: 'Excellent', m: '≥ Level 20', f: '≥ Level 17', col: 'text-green-600' },
-            { label: 'Good',      m: '≥ Level 17', f: '≥ Level 14', col: 'text-blue-600'  },
-            { label: 'Average',   m: '≥ Level 14', f: '≥ Level 11', col: 'text-yellow-600'},
-            { label: 'Below avg', m: '< Level 14', f: '< Level 11', col: 'text-red-500'  },
-          ]} />
+      {/* Score if quit now */}
+      {currentScore > 0 && (
+        <div className="text-center mb-4">
+          <span className="text-xs text-gray-400">Score if you stop now: </span>
+          <span className="text-xs font-bold text-gray-600">Level {currentScore.toFixed(1)}</span>
+        </div>
+      )}
 
-          <button
-            onClick={onSkip}
-            className="w-full mt-4 py-2.5 text-sm text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1.5"
-          >
-            <SkipForward size={14} />
-            Skip this test
-          </button>
-        </>
+      {/* FAIL button */}
+      {!isCountdown && (
+        <button
+          onClick={fail}
+          className="w-full py-4 bg-red-500 text-white font-bold text-base rounded-2xl flex items-center justify-center gap-2 shadow active:scale-95 transition-transform"
+        >
+          <Square size={16} fill="white" />
+          STOP — I can't keep up
+        </button>
       )}
     </div>
   );
