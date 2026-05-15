@@ -370,11 +370,10 @@ export default function App() {
           onResetProfile={async () => {
             // Delete from Supabase first
             if (isSupabaseConfigured) await cloudDeleteAccount();
-            // Wipe every vf_* key from localStorage synchronously — before React
-            // can schedule any re-render effects that would write null values back.
-            Object.keys(localStorage)
-              .filter(k => k.startsWith('vf_'))
-              .forEach(k => localStorage.removeItem(k));
+            // Wipe ALL localStorage for this origin — catches vf_*, ll_* (legacy),
+            // Supabase session tokens, and anything else. Must run synchronously
+            // before React can re-render and write values back.
+            localStorage.clear();
             // Hard reload so the app boots clean from empty storage
             window.location.href = '/';
           }}
