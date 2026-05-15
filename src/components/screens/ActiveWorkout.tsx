@@ -545,7 +545,7 @@ function SetRow({
                   <Minus size={12} />
                 </button>
                 <input
-                  type="number" value={weightStr} min="0" step="0.5"
+                  type="number" value={completed ? String(completed.weight) : weightStr} min="0" step="0.5"
                   placeholder="0"
                   disabled={!isInteractive}
                   onChange={e => setWeightStr(e.target.value)}
@@ -572,7 +572,7 @@ function SetRow({
                   <Minus size={12} />
                 </button>
                 <input
-                  type="number" value={repsStr} min="1"
+                  type="number" value={completed ? String(completed.reps) : repsStr} min="1"
                   placeholder="0"
                   disabled={!isInteractive}
                   onChange={e => setRepsStr(e.target.value)}
@@ -598,7 +598,7 @@ function SetRow({
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
                 <Minus size={12} />
               </button>
-              <input type="number" value={repsStr} min="1" placeholder="0" disabled={!isInteractive}
+              <input type="number" value={completed ? String(completed.reps) : repsStr} min="1" placeholder="0" disabled={!isInteractive}
                 onChange={e => setRepsStr(e.target.value)}
                 onFocus={e => e.target.select()}
                 style={{ fontSize: '16px' }}
@@ -617,7 +617,7 @@ function SetRow({
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
                 <Minus size={12} />
               </button>
-              <input type="number" value={weightStr} min="0" step={step} placeholder="0" disabled={!isInteractive}
+              <input type="number" value={completed ? String(completed.weight) : weightStr} min="0" step={step} placeholder="0" disabled={!isInteractive}
                 onChange={e => setWeightStr(e.target.value)}
                 onFocus={e => e.target.select()}
                 style={{ fontSize: '16px' }}
