@@ -582,6 +582,15 @@ export function Profile({
         </div>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+              <span className="text-base leading-none">{POSITION_EMOJI[userProfile.position] ?? '⚽'}</span>
+            </div>
+            <div>
+              <div className="text-xs text-gray-400">Position</div>
+              <div className="text-sm font-semibold text-gray-800">{POSITION_LABELS[userProfile.position] ?? userProfile.position}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
               <User size={14} className="text-blue-600" />
             </div>
