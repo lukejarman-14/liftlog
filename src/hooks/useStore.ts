@@ -237,6 +237,16 @@ export function useStore() {
     saveFootballIntensity,
     getPendingIntensityCheck,
     clearAll: () => {
+      // Remove localStorage keys first so useLocalStorage hooks re-init to defaults
+      const VF_KEYS = [
+        'vf_user_profile', 'vf_custom_exercises', 'vf_templates', 'vf_sessions',
+        'vf_active_plan', 'vf_profile_picture', 'vf_settings', 'vf_baseline',
+        'vf_match_entries', 'vf_performance_entries', 'vf_test_sessions',
+        'vf_generated_programmes', 'vf_active_programme_id', 'vf_daily_readiness',
+        'vf_football_intensity',
+      ];
+      VF_KEYS.forEach(k => localStorage.removeItem(k));
+      // Reset React state
       setUserProfile(null);
       setCustomExercises([]);
       setTemplates([]);

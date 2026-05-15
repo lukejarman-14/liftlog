@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus } from 'lucide-react';
 import { UserProfile } from '../../types';
-import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudResetPassword } from '../../lib/cloudSync';
+import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudSignOut, cloudResetPassword } from '../../lib/cloudSync';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile, recommendedPlanId: string, userId?: string) => void;
@@ -113,18 +113,29 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
         // Try to load data from cloud
         const loaded = await cloudLoadData(userId);
-        const profileRestored = !!localStorage.getItem('vf_user_profile');
-        if (loaded && profileRestored) {
-          // Data including profile loaded — reload so the store picks it up fresh
+
+        if (loaded) {
+          // Cloud data found — reload so all useLocalStorage hooks re-read fresh data
           setRestoreSuccess('Signed in! Loading your data…');
           setTimeout(() => window.location.reload(), 800);
         } else {
-          // Either no cloud data, or profile was missing from cloud.
-          // Back-up whatever is local, then proceed.
-          // If profile is missing, App.tsx will show Onboarding with existingUserId
-          // so the user can set up their profile without re-authenticating.
-          await cloudSaveData(userId);
-          onLoginSuccess?.(userId);
+          // No cloud data for this account. Check for valid local profile.
+          let localProfile: { email?: string } | null = null;
+          try {
+            const raw = localStorage.getItem('vf_user_profile');
+            localProfile = raw ? JSON.parse(raw) : null;
+          } catch { /* ignore */ }
+
+          if (localProfile && typeof localProfile === 'object' && localProfile.email) {
+            // Has valid local data (e.g. offline mode / sync failed) — proceed
+            await cloudSaveData(userId);
+            onLoginSuccess?.(userId);
+          } else {
+            // Signed in to Supabase but zero data exists — account was deleted.
+            await cloudSignOut();
+            setLoginError('No account found for this email. Please create a new account.');
+            setLoginLoading(false);
+          }
         }
         return;
       }

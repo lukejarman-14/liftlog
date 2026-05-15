@@ -368,11 +368,11 @@ export default function App() {
           onSetProfilePicture={store.setProfilePicture}
           onStartBattery={() => navigate({ screen: 'testing-battery' })}
           onResetProfile={async () => {
-            // Delete from Supabase first, then clear local data
+            // Delete from Supabase first, then wipe all local data
             if (isSupabaseConfigured) await cloudDeleteAccount();
             store.clearAll();
-            cloudUserIdRef.current = null;
-            setIsAuthenticated(false);
+            // Hard reload so all hooks re-initialise from the now-empty localStorage
+            window.location.href = '/';
           }}
           onChangePassword={(newHash) => {
             if (store.userProfile) {
