@@ -368,10 +368,14 @@ export default function App() {
           onSetProfilePicture={store.setProfilePicture}
           onStartBattery={() => navigate({ screen: 'testing-battery' })}
           onResetProfile={async () => {
-            // Delete from Supabase first, then wipe all local data
+            // Delete from Supabase first
             if (isSupabaseConfigured) await cloudDeleteAccount();
-            store.clearAll();
-            // Hard reload so all hooks re-initialise from the now-empty localStorage
+            // Wipe every vf_* key from localStorage synchronously — before React
+            // can schedule any re-render effects that would write null values back.
+            Object.keys(localStorage)
+              .filter(k => k.startsWith('vf_'))
+              .forEach(k => localStorage.removeItem(k));
+            // Hard reload so the app boots clean from empty storage
             window.location.href = '/';
           }}
           onChangePassword={(newHash) => {
