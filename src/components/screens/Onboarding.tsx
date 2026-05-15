@@ -113,7 +113,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
         // Try to load data from cloud
         const loaded = await cloudLoadData(userId);
-        const profileRestored = !!localStorage.getItem('ll_user_profile');
+        const profileRestored = !!localStorage.getItem('vf_user_profile');
         if (loaded && profileRestored) {
           // Data including profile loaded — reload so the store picks it up fresh
           setRestoreSuccess('Signed in! Loading your data…');
@@ -130,7 +130,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
       }
 
       // ── Local fallback (no Supabase) ─────────────────────────────────────
-      const raw = localStorage.getItem('ll_user_profile');
+      const raw = localStorage.getItem('vf_user_profile');
       const profile: UserProfile | null = raw ? JSON.parse(raw) : null;
 
       if (!profile || typeof profile !== 'object' || !profile.email) {
@@ -192,7 +192,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
     // Write profile directly to localStorage NOW so cloudSaveData always finds it,
     // regardless of whether React's useEffect has committed yet.
-    localStorage.setItem('ll_user_profile', JSON.stringify(profile));
+    localStorage.setItem('vf_user_profile', JSON.stringify(profile));
 
     let userId: string | undefined = existingUserId;
     if (!userId && isSupabaseConfigured) {

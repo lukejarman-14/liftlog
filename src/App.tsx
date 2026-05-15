@@ -43,6 +43,28 @@ export default function App() {
 
   const cloudUserIdRef = useRef<string | null>(null);
 
+  // ── One-time migration: ll_ → vf_ storage keys ───────────────────────────
+  useEffect(() => {
+    const OLD_KEYS = [
+      'll_user_profile', 'll_custom_exercises', 'll_templates', 'll_sessions',
+      'll_active_plan', 'll_profile_picture', 'll_settings', 'll_baseline',
+      'll_match_entries', 'll_performance_entries', 'll_test_sessions',
+      'll_generated_programmes', 'll_active_programme_id', 'll_daily_readiness',
+      'll_football_intensity',
+    ];
+    let migrated = false;
+    for (const key of OLD_KEYS) {
+      const oldVal = localStorage.getItem(key);
+      const newKey = key.replace('ll_', 'vf_');
+      if (oldVal !== null && localStorage.getItem(newKey) === null) {
+        localStorage.setItem(newKey, oldVal);
+        migrated = true;
+      }
+      localStorage.removeItem(key);
+    }
+    if (migrated) window.location.reload();
+  }, []);
+
   // ── Low-readiness volume prompt ────────────────────────────────────────────
   const [pendingWorkout, setPendingWorkout] = useState<{ name: string; items: WorkoutExercise[] } | null>(null);
 

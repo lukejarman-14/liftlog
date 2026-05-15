@@ -140,11 +140,12 @@ export interface DailyReadiness {
 
 export interface UserSettings {
   showTutorialVideos: boolean;   // show demo videos & how-to guides in workouts + exercise detail
-  // add more preferences here over time
+  showRir: boolean;              // show Reps-in-Reserve selector after each set
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
   showTutorialVideos: true,
+  showRir: true,
 };
 
 // ── User Profile / Onboarding ─────────────────────────────────────────────

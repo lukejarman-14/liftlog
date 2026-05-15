@@ -311,8 +311,10 @@ function SetRow({
 
   const handleSaveEdit = () => {
     if (!completed || !onEdit) return;
-    const newReps   = parseInt(editRepsStr)   || completed.reps;
-    const newWeight = parseFloat(editWeightStr) || completed.weight;
+    const parsedReps   = parseInt(editRepsStr);
+    const parsedWeight = parseFloat(editWeightStr);
+    const newReps   = Number.isFinite(parsedReps)   ? parsedReps   : completed.reps;
+    const newWeight = Number.isFinite(parsedWeight) ? parsedWeight : completed.weight;
     onEdit({ ...completed, reps: newReps, weight: newWeight });
     setIsEditing(false);
   };
@@ -700,6 +702,7 @@ function ExerciseSection({
   sessionExercise,
   sessionId,
   showTutorials,
+  globalShowRir,
   restInfo,
   onCompleteSet,
   onEditSet,
@@ -707,6 +710,7 @@ function ExerciseSection({
   sessionExercise: SessionExercise;
   sessionId: string;
   showTutorials: boolean;
+  globalShowRir: boolean;
   restInfo?: RestInfo;
   onCompleteSet: (setIndex: number, set: CompletedSet) => void;
   onEditSet: (setIndex: number, set: CompletedSet) => void;
@@ -730,7 +734,7 @@ function ExerciseSection({
   const targetRir   = sessionExercise.targetRir ?? exercise.suggestedRir;
   // RIR only applies to strength and eccentric work — not plyometrics, isometrics, speed, warmup etc.
   const RIR_CATEGORIES = new Set(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body', 'Eccentric']);
-  const showRir = !exercise.isWarmup && RIR_CATEGORIES.has(exercise.category);
+  const showRir = globalShowRir && !exercise.isWarmup && RIR_CATEGORIES.has(exercise.category);
 
   const completedCount = sessionExercise.sets.length;
   const totalSets      = sessionExercise.targetSets;
@@ -906,7 +910,8 @@ interface NewPBEntry {
 
 export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onDiscard, onNavigate: _onNavigate }: ActiveWorkoutProps) {
   const timer = useTimer();
-  const { getPB, getExercise } = useStore();
+  const { getPB, getExercise, userSettings, updateSettings } = useStore();
+  const showRir = userSettings.showRir ?? true;
   const [showFinish, setShowFinish] = useState(false);
   const [showPBModal, setShowPBModal] = useState(false);
   const [pendingSession, setPendingSession] = useState<WorkoutSession | null>(null);
@@ -996,8 +1001,8 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
       ...session,
       exercises: session.exercises.map((ex, i) => {
         if (i !== exerciseIdx) return ex;
-        const sets = [...ex.sets];
-        sets[setIndex] = set;
+        // Replace set at setIndex without creating sparse arrays
+        const sets = ex.sets.map((s, si) => si === setIndex ? set : s);
         return { ...ex, sets };
       }),
     };
@@ -1005,19 +1010,24 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   }, [session, onUpdateSession]);
 
   const handleCompleteSet = useCallback((exerciseIdx: number, setIndex: number, set: CompletedSet) => {
+    const ex = session.exercises[exerciseIdx];
+    if (!ex) return; // guard against stale exerciseIdx
+
     const updated: WorkoutSession = {
       ...session,
-      exercises: session.exercises.map((ex, i) => {
-        if (i !== exerciseIdx) return ex;
-        const sets = [...ex.sets];
-        sets[setIndex] = set;
-        return { ...ex, sets };
+      exercises: session.exercises.map((e, i) => {
+        if (i !== exerciseIdx) return e;
+        // Build a dense sets array, replacing or appending at setIndex
+        const prev = (e.sets ?? []).filter(Boolean) as CompletedSet[];
+        const sets: CompletedSet[] = setIndex < prev.length
+          ? prev.map((s, si) => si === setIndex ? set : s)   // replace existing
+          : [...prev, set];                                   // append next set
+        return { ...e, sets };
       }),
     };
     onUpdateSession(updated);
 
-    const ex         = session.exercises[exerciseIdx];
-    const isLastSet      = setIndex === ex.targetSets - 1;
+    const isLastSet      = setIndex >= ex.targetSets - 1;
     const isLastExercise = exerciseIdx === session.exercises.length - 1;
     if (!(isLastSet && isLastExercise) && ex.restSeconds > 0) {
       timer.start(ex.restSeconds);
@@ -1045,11 +1055,25 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
         onBack={() => setShowFinish(true)}
         rightAction={<Button size="sm" onClick={() => setShowFinish(true)}>Finish</Button>}
       >
-        {/* Progress bar */}
+        {/* Progress bar + RIR toggle */}
         <div className="mb-5">
           <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
             <span>{completedSets}/{totalSets} sets · {progressPct}%</span>
-            <span>{elapsedMins}m elapsed</span>
+            <div className="flex items-center gap-2">
+              <span>{elapsedMins}m elapsed</span>
+              <button
+                onClick={() => updateSettings({ showRir: !showRir })}
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-medium transition-colors ${
+                  showRir
+                    ? 'bg-brand-50 border-brand-300 text-brand-600'
+                    : 'bg-gray-100 border-gray-200 text-gray-400'
+                }`}
+                title={showRir ? 'RIR tracking on — tap to hide' : 'RIR tracking off — tap to enable'}
+              >
+                <span className={`w-2 h-2 rounded-full ${showRir ? 'bg-brand-500' : 'bg-gray-300'}`} />
+                RIR
+              </button>
+            </div>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-2">
             <div
@@ -1075,6 +1099,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
                 sessionExercise={ex}
                 sessionId={session.id}
                 showTutorials={showTutorials}
+                globalShowRir={showRir}
                 restInfo={exerciseIdx === restingExerciseIdx ? restInfo : undefined}
                 onCompleteSet={(setIndex, set) => handleCompleteSet(exerciseIdx, setIndex, set)}
                 onEditSet={(setIndex, set) => handleEditSet(exerciseIdx, setIndex, set)}

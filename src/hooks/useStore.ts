@@ -15,21 +15,21 @@ export interface BaselineData {
 }
 
 export function useStore() {
-  const [customExercises, setCustomExercises] = useLocalStorage<Exercise[]>('ll_custom_exercises', []);
-  const [templates, setTemplates] = useLocalStorage<WorkoutTemplate[]>('ll_templates', []);
-  const [sessions, setSessions] = useLocalStorage<WorkoutSession[]>('ll_sessions', []);
-  const [activePlan, setActivePlan] = useLocalStorage<ActivePlan | null>('ll_active_plan', null);
-  const [userProfile, setUserProfile] = useLocalStorage<UserProfile | null>('ll_user_profile', null);
-  const [profilePicture, setProfilePicture] = useLocalStorage<string | null>('ll_profile_picture', null);
-  const [userSettings, setUserSettings] = useLocalStorage<UserSettings>('ll_settings', DEFAULT_SETTINGS);
-  const [baseline, setBaselineRaw] = useLocalStorage<BaselineData | null>('ll_baseline', null);
-  const [matchEntries, setMatchEntries] = useLocalStorage<MatchEntry[]>('ll_match_entries', []);
-  const [performanceEntries, setPerformanceEntries] = useLocalStorage<PerformanceEntry[]>('ll_performance_entries', []); // stored for future UI
-  const [testSessions, setTestSessions] = useLocalStorage<TestSession[]>('ll_test_sessions', []);
-  const [generatedProgrammes, setGeneratedProgrammes] = useLocalStorage<GeneratedProgramme[]>('ll_generated_programmes', []);
-  const [activeProgrammeId, setActiveProgrammeId] = useLocalStorage<string | null>('ll_active_programme_id', null);
-  const [dailyReadinessLog, setDailyReadinessLog] = useLocalStorage<DailyReadiness[]>('ll_daily_readiness', []);
-  const [footballIntensityLog, setFootballIntensityLog] = useLocalStorage<Record<string, number>>('ll_football_intensity', {});
+  const [customExercises, setCustomExercises] = useLocalStorage<Exercise[]>('vf_custom_exercises', []);
+  const [templates, setTemplates] = useLocalStorage<WorkoutTemplate[]>('vf_templates', []);
+  const [sessions, setSessions] = useLocalStorage<WorkoutSession[]>('vf_sessions', []);
+  const [activePlan, setActivePlan] = useLocalStorage<ActivePlan | null>('vf_active_plan', null);
+  const [userProfile, setUserProfile] = useLocalStorage<UserProfile | null>('vf_user_profile', null);
+  const [profilePicture, setProfilePicture] = useLocalStorage<string | null>('vf_profile_picture', null);
+  const [userSettings, setUserSettings] = useLocalStorage<UserSettings>('vf_settings', DEFAULT_SETTINGS);
+  const [baseline, setBaselineRaw] = useLocalStorage<BaselineData | null>('vf_baseline', null);
+  const [matchEntries, setMatchEntries] = useLocalStorage<MatchEntry[]>('vf_match_entries', []);
+  const [performanceEntries, setPerformanceEntries] = useLocalStorage<PerformanceEntry[]>('vf_performance_entries', []); // stored for future UI
+  const [testSessions, setTestSessions] = useLocalStorage<TestSession[]>('vf_test_sessions', []);
+  const [generatedProgrammes, setGeneratedProgrammes] = useLocalStorage<GeneratedProgramme[]>('vf_generated_programmes', []);
+  const [activeProgrammeId, setActiveProgrammeId] = useLocalStorage<string | null>('vf_active_programme_id', null);
+  const [dailyReadinessLog, setDailyReadinessLog] = useLocalStorage<DailyReadiness[]>('vf_daily_readiness', []);
+  const [footballIntensityLog, setFootballIntensityLog] = useLocalStorage<Record<string, number>>('vf_football_intensity', {});
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));

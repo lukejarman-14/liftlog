@@ -1,25 +1,25 @@
 /**
  * Data export / import for cross-device backup and restore.
- * All app data lives in localStorage under 'll_*' keys.
+ * All app data lives in localStorage under 'vf_*' keys.
  * Export creates a single JSON file; import writes all keys back and reloads.
  */
 
 export const STORAGE_KEYS = [
-  'll_user_profile',
-  'll_custom_exercises',
-  'll_templates',
-  'll_sessions',
-  'll_active_plan',
-  'll_profile_picture',
-  'll_settings',
-  'll_baseline',
-  'll_match_entries',
-  'll_performance_entries',
-  'll_test_sessions',
-  'll_generated_programmes',
-  'll_active_programme_id',
-  'll_daily_readiness',
-  'll_football_intensity',
+  'vf_user_profile',
+  'vf_custom_exercises',
+  'vf_templates',
+  'vf_sessions',
+  'vf_active_plan',
+  'vf_profile_picture',
+  'vf_settings',
+  'vf_baseline',
+  'vf_match_entries',
+  'vf_performance_entries',
+  'vf_test_sessions',
+  'vf_generated_programmes',
+  'vf_active_programme_id',
+  'vf_daily_readiness',
+  'vf_football_intensity',
 ] as const;
 
 export type BackupFile = {
@@ -82,7 +82,7 @@ export function importData(file: File): Promise<string> {
         }
 
         // Return the email so the UI can confirm who was restored
-        const profile = backup.data['ll_user_profile'] as { email?: string } | null;
+        const profile = (backup.data['vf_user_profile'] ?? backup.data['ll_user_profile']) as { email?: string } | null;
         resolve(profile?.email ?? 'your account');
       } catch (err) {
         reject(new Error('Could not read the backup file. Make sure it is a valid VectorFootball backup.'));
