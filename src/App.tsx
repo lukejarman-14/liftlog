@@ -442,6 +442,7 @@ export default function App() {
           activeProgramme={store.activeProgrammeId
             ? store.generatedProgrammes.find(p => p.id === store.activeProgrammeId) ?? null
             : null}
+          onUpdateProgramme={(prog) => store.saveGeneratedProgramme(prog)}
         />
       )}
 

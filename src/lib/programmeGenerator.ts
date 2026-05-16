@@ -115,18 +115,18 @@ type OsSlot = { dayOfWeek: string; load: 'heavy' | 'moderate' };
 const OFF_SEASON_SCHEDULES: Record<number, OsSlot[]> = {
   2: [
     { dayOfWeek: 'Tuesday',  load: 'heavy' },
-    { dayOfWeek: 'Friday',   load: 'heavy' },     // 72h gap each way
+    { dayOfWeek: 'Saturday', load: 'heavy' },  // 96h gap — full recovery, uses weekend
   ],
   3: [
     { dayOfWeek: 'Monday',   load: 'heavy' },
-    { dayOfWeek: 'Wednesday', load: 'moderate' },  // 48h — moderate to manage DOMS
-    { dayOfWeek: 'Friday',   load: 'heavy' },      // 48h — recovered from Wed
+    { dayOfWeek: 'Wednesday', load: 'moderate' }, // 48h — moderate to manage DOMS
+    { dayOfWeek: 'Saturday', load: 'heavy' },     // 72h — fully recovered, uses weekend
   ],
   4: [
     { dayOfWeek: 'Monday',   load: 'heavy' },
-    { dayOfWeek: 'Tuesday',  load: 'moderate' },   // 24h — moderate only
-    { dayOfWeek: 'Thursday', load: 'heavy' },      // 48h — recovered
-    { dayOfWeek: 'Friday',   load: 'moderate' },   // 24h — moderate only
+    { dayOfWeek: 'Wednesday', load: 'moderate' }, // 48h — moderate, no consecutive heavy
+    { dayOfWeek: 'Friday',   load: 'heavy' },     // 48h — recovered from Wed
+    { dayOfWeek: 'Sunday',   load: 'moderate' },  // 48h — moderate, uses weekend, no double day
   ],
 };
 

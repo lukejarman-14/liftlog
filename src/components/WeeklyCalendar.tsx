@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Play, Clock } from 'lucide-react';
+import { CheckCircle2, Play, Clock, X, ChevronRight } from 'lucide-react';
 import { WorkoutSession, ActivePlan, NavState, GeneratedProgramme, Exercise, WorkoutExercise, MatchEntry } from '../types';
 import {
   POSITION_PLANS,
@@ -43,6 +43,8 @@ function dateToStr(d: Date): string {
 export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession }: WeeklyCalendarProps) {
   const { matchEntries } = useStore();
   const [previewSession, setPreviewSession] = useState<import('../types').ProgrammeSession | null>(null);
+  // Day picker: when a day with multiple sessions is tapped, show a sheet to pick which to preview
+  const [daySheet, setDaySheet] = useState<import('../types').ProgrammeSession[] | null>(null);
   const weekDates = getWeekDates(0);
   const today = new Date();
 
@@ -66,15 +68,26 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
     ? generatedProgramme.weeks[progWeekIdx] ?? null
     : null;
 
-  // Build map: day index → programme session (for tap-to-preview + dots)
-  const progSessionByDay = new Map<number, import('../types').ProgrammeSession>();
+  // Build map: day index → ALL programme sessions that day (gym + conditioning)
+  const progSessionsByDay = new Map<number, import('../types').ProgrammeSession[]>();
   if (!hasPlan && progWeek) {
     for (const s of progWeek.sessions) {
       const idx = DAY_NAME_TO_INDEX[s.dayOfWeek];
-      if (idx != null) progSessionByDay.set(idx, s);
+      if (idx != null) {
+        const existing = progSessionsByDay.get(idx) ?? [];
+        progSessionsByDay.set(idx, [...existing, s]);
+      }
     }
   }
-  const progDayIndices = new Set(progSessionByDay.keys());
+  const progDayIndices = new Set(progSessionsByDay.keys());
+
+  const handleDayTap = (daySessions: import('../types').ProgrammeSession[]) => {
+    if (daySessions.length === 1) {
+      setPreviewSession(daySessions[0]);
+    } else {
+      setDaySheet(daySessions);
+    }
+  };
 
   // Match entries this week keyed by day index
   const matchByDay = new Map<number, MatchEntry>();
@@ -123,12 +136,13 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
           const done = completedDates.has(dateStr);
           const planned = plannedByDay.has(i) || progDayIndices.has(i);
 
-          const sess = progSessionByDay.get(i);
-          const El = sess ? 'button' : 'div';
+          const daySessions = progSessionsByDay.get(i);
+          const El = daySessions ? 'button' : 'div';
+          const sessionCount = daySessions?.length ?? 0;
           return (
             <El
               key={i}
-              {...(sess ? { onClick: () => setPreviewSession(sess) } : {})}
+              {...(daySessions ? { onClick: () => handleDayTap(daySessions) } : {})}
               className="flex flex-col items-center gap-1"
             >
               <span className={`text-xs font-medium ${isToday ? 'text-brand-500' : 'text-gray-400'}`}>
@@ -151,8 +165,17 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                   date.getDate()
                 )}
               </div>
-              {/* dot indicator */}
-              <div className={`w-1.5 h-1.5 rounded-full ${planned && !done ? 'bg-brand-400' : done ? 'bg-green-400' : 'bg-transparent'}`} />
+              {/* dot(s) — one per session on that day */}
+              <div className="flex gap-0.5">
+                {sessionCount > 0 && !done
+                  ? Array.from({ length: Math.min(sessionCount, 3) }).map((_, di) => (
+                      <div key={di} className={`w-1.5 h-1.5 rounded-full ${di === 0 ? 'bg-brand-400' : 'bg-emerald-400'}`} />
+                    ))
+                  : done
+                  ? <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                  : <div className="w-1.5 h-1.5 rounded-full bg-transparent" />
+                }
+              </div>
             </El>
           );
         })}
@@ -298,6 +321,50 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
           })}
         </div>
       ) : null}
+
+      {/* Day session picker — shown when multiple sessions exist on a tapped day */}
+      {daySheet && (
+        <div className="fixed inset-0 z-[60] flex flex-col justify-end" onClick={() => setDaySheet(null)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative bg-white rounded-t-3xl p-5 pb-10 z-10" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900 text-base">Sessions today</h3>
+              <button onClick={() => setDaySheet(null)} className="p-1.5 rounded-full hover:bg-gray-100">
+                <X size={18} className="text-gray-500" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {daySheet.map((s, i) => {
+                const isCond = s.mdDay === 'Conditioning';
+                return (
+                  <button
+                    key={i}
+                    onClick={() => { setDaySheet(null); setPreviewSession(s); }}
+                    className={`w-full text-left rounded-2xl border p-3.5 flex items-center justify-between transition-all active:scale-[0.98] ${
+                      isCond ? 'bg-emerald-50 border-emerald-200' : 'bg-brand-50 border-brand-200'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          isCond ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-100 text-brand-700'
+                        }`}>
+                          {isCond ? 'Conditioning' : s.mdDay.replace('MD-', 'MD')}
+                        </span>
+                        <span className="text-xs text-gray-400 flex items-center gap-0.5">
+                          <Clock size={10} />{s.durationMin}m
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900 leading-snug">{s.objective}</p>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-300 ml-2 flex-shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Session preview modal */}
       {previewSession && (

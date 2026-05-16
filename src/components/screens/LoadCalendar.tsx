@@ -1,10 +1,37 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Trash2, Calendar, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Calendar, Info, ArrowRightLeft, AlertTriangle, X } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { useStore } from '../../hooks/useStore';
 import { MatchEntry, GeneratedProgramme } from '../../types';
 import { classifyDay, getLoadProfile, getMonthProfiles } from '../../lib/loadManagement';
+
+// ── Session dot type ───────────────────────────────────────────────────────
+
+interface SessionDot {
+  sessionKey: string;   // "wi-dayOfWeek"
+  objective: string;
+  originalDate: string;
+  mdDay: string;
+  type: 'gym' | 'conditioning';
+}
+
+// ── Session type classifier ────────────────────────────────────────────────
+
+function classifySessionType(objective: string, mdDay: string): 'gym' | 'conditioning' {
+  const obj = objective.toLowerCase();
+  const md = mdDay.toLowerCase();
+  // Explicit conditioning mdDay values from the generator
+  if (md === 'md+1' || md === 'conditioning') return 'conditioning';
+  // Objective-based fallbacks (recovery sessions, speed/cardio sessions)
+  if (
+    obj.includes('active recovery') ||
+    obj.includes('conditioning session') ||
+    obj.includes('speed session') ||
+    obj.includes('cardio')
+  ) return 'conditioning';
+  return 'gym';
+}
 
 // ── Programme session date helpers ─────────────────────────────────────────
 
@@ -13,35 +40,78 @@ const DOW_INDEX: Record<string, number> = {
   Friday: 4, Saturday: 5, Sunday: 6,
 };
 
-/** Returns the Monday of the week containing `ts` */
 function getStartMonday(ts: number): Date {
   const d = new Date(ts);
-  const dow = d.getDay(); // 0=Sun
+  const dow = d.getDay();
   d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
-/** Maps all programme session days to actual YYYY-MM-DD date strings */
-function getProgrammeDates(programme: GeneratedProgramme): Map<string, string> {
+function getProgrammeDates(programme: GeneratedProgramme): Map<string, SessionDot[]> {
   const monday = getStartMonday(programme.createdAt);
-  const map = new Map<string, string>(); // date → objective label
+  const overrides = programme.sessionOverrides ?? {};
+  const map = new Map<string, SessionDot[]>();
+
   programme.weeks.forEach((week, wi) => {
-    week.sessions.forEach(session => {
+    week.sessions.forEach((session, si) => {
+      // Use session index (not dayOfWeek) so two sessions on the same day get unique keys
+      const sessionKey = `${wi}-${si}`;
       const dayIdx = DOW_INDEX[session.dayOfWeek] ?? 0;
       const d = new Date(monday);
       d.setDate(monday.getDate() + wi * 7 + dayIdx);
-      const dateStr = d.toISOString().split('T')[0];
-      map.set(dateStr, session.objective);
+      const originalDate = d.toISOString().split('T')[0];
+      const effectiveDate = overrides[sessionKey] ?? originalDate;
+
+      const dot: SessionDot = {
+        sessionKey,
+        objective: session.objective,
+        originalDate,
+        mdDay: session.mdDay,
+        type: classifySessionType(session.objective, session.mdDay),
+      };
+      const existing = map.get(effectiveDate) ?? [];
+      map.set(effectiveDate, [...existing, dot]);
     });
   });
+
   return map;
 }
 
 interface LoadCalendarProps {
   onBack: () => void;
   activeProgramme?: GeneratedProgramme | null;
+  onUpdateProgramme?: (programme: GeneratedProgramme) => void;
 }
+
+// ── Risky day check ────────────────────────────────────────────────────────
+
+function isRiskyDay(dateStr: string, matchEntries: MatchEntry[]): { risky: boolean; reason: string } {
+  const day = classifyDay(dateStr, matchEntries);
+  if (day === 'MD') return { risky: true, reason: 'Match Day — training here will exhaust you before kick-off' };
+  if (day === 'MD-1') return { risky: true, reason: 'Day Before Match — heavy sessions impair match performance' };
+  if (day === 'MD+1') return { risky: true, reason: 'Day After Match — muscles are still recovering, injury risk is high' };
+  return { risky: false, reason: '' };
+}
+
+// ── Session colour config ──────────────────────────────────────────────────
+
+const SESSION_STYLE = {
+  gym: {
+    bg: 'bg-orange-500',
+    lightBg: 'bg-orange-50',
+    border: 'border-orange-200',
+    text: 'text-orange-700',
+    label: '💪 Gym',
+  },
+  conditioning: {
+    bg: 'bg-emerald-500',
+    lightBg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    text: 'text-emerald-700',
+    label: '🏃 Conditioning',
+  },
+};
 
 // ── Month calendar grid ────────────────────────────────────────────────────
 
@@ -51,22 +121,30 @@ function MonthlyCalendarGrid({
   matchEntries,
   programmeDates,
   onSelectDay,
+  dragKey,
+  dropTarget,
+  onSessionDragStart,
+  onDragEnd,
+  onCellDragOver,
+  onCellDrop,
 }: {
   year: number;
   month: number;
   matchEntries: MatchEntry[];
-  programmeDates: Map<string, string>;
+  programmeDates: Map<string, SessionDot[]>;
   onSelectDay: (date: string) => void;
+  dragKey: string | null;
+  dropTarget: string | null;
+  onSessionDragStart: (sessionKey: string) => void;
+  onDragEnd: () => void;
+  onCellDragOver: (date: string, e: React.DragEvent) => void;
+  onCellDrop: (date: string) => void;
 }) {
   const days = getMonthProfiles(matchEntries, year, month);
-  const firstDow = days[0]?.dayOfWeek ?? 0; // 0=Mon padding cells
-
+  const firstDow = days[0]?.dayOfWeek ?? 0;
   const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-  // Pad cells before first day of month
   const paddingCells = Array(firstDow).fill(null);
   const allCells = [...paddingCells, ...days];
-  // Pad to complete last row
   while (allCells.length % 7 !== 0) allCells.push(null);
 
   return (
@@ -80,48 +158,138 @@ function MonthlyCalendarGrid({
         {allCells.map((cell, i) => {
           if (!cell) return <div key={i} className="aspect-square" />;
           const { date, dayNum, isToday, profile, matchEntry, trainingEntry } = cell;
-          const hasProgrammeSession = programmeDates.has(date);
+          const sessions = programmeDates.get(date) ?? [];
+          const gymSessions = sessions.filter(s => s.type === 'gym');
+          const condSessions = sessions.filter(s => s.type === 'conditioning');
+          const isDropTarget = dropTarget === date;
+
           return (
-            <button
+            <div
               key={date}
               onClick={() => onSelectDay(date)}
-              className={`aspect-square flex flex-col items-center justify-center rounded-lg text-xs transition-all ${
+              onDragOver={(e) => onCellDragOver(date, e)}
+              onDrop={() => onCellDrop(date)}
+              className={`aspect-square flex flex-col rounded-lg border overflow-hidden cursor-pointer transition-all ${
                 isToday ? 'ring-2 ring-brand-500' : ''
               } ${
-                matchEntry
-                  ? 'bg-red-50 border border-red-300'
+                isDropTarget
+                  ? 'ring-2 ring-brand-400 border-brand-400 scale-105'
+                  : matchEntry
+                  ? 'bg-red-50 border-red-300'
                   : trainingEntry
-                  ? 'bg-blue-50 border border-blue-300'
-                  : hasProgrammeSession
-                  ? `${profile.day !== 'free' ? profile.bgColour : 'bg-brand-50'} border ${profile.day !== 'free' ? profile.borderColour : 'border-brand-200'}`
+                  ? 'bg-blue-50 border-blue-300'
                   : profile.day !== 'free'
-                  ? `${profile.bgColour} border ${profile.borderColour}`
-                  : 'bg-white border border-gray-100 hover:bg-gray-50'
+                  ? `${profile.bgColour} ${profile.borderColour}`
+                  : sessions.length > 0
+                  ? 'bg-white border-gray-200'
+                  : 'bg-white border-gray-100 hover:bg-gray-50'
               }`}
             >
-              <span className={`font-bold leading-none mb-0.5 ${
-                isToday ? 'text-brand-600' :
-                matchEntry ? 'text-red-700' :
-                trainingEntry ? 'text-blue-700' :
-                hasProgrammeSession && profile.day === 'free' ? 'text-brand-600' :
-                profile.day !== 'free' ? profile.textColour :
-                'text-gray-700'
-              }`}>
-                {dayNum}
-              </span>
-              {matchEntry && <span className="text-[10px] leading-none">⚽</span>}
-              {!matchEntry && trainingEntry && <span className="text-[10px] leading-none">🏃</span>}
-              {!matchEntry && !trainingEntry && hasProgrammeSession && (
-                <span className="text-[10px] leading-none">💪</span>
-              )}
-              {!matchEntry && !trainingEntry && !hasProgrammeSession && profile.day !== 'free' && (
-                <span className={`text-[10px] font-bold leading-none ${profile.textColour}`}>
-                  {profile.shortLabel}
+              {/* Day number */}
+              <div className="flex-1 flex items-center justify-center">
+                <span className={`text-xs font-bold leading-none ${
+                  isToday ? 'text-brand-600' :
+                  matchEntry ? 'text-red-700' :
+                  trainingEntry ? 'text-blue-700' :
+                  profile.day !== 'free' ? profile.textColour :
+                  'text-gray-700'
+                }`}>
+                  {dayNum}
                 </span>
+                {matchEntry && <span className="text-[9px] ml-0.5">⚽</span>}
+                {!matchEntry && trainingEntry && <span className="text-[9px] ml-0.5">🏃</span>}
+                {!matchEntry && !trainingEntry && profile.day !== 'free' && sessions.length === 0 && (
+                  <span className={`text-[9px] ml-0.5 font-bold ${profile.textColour}`}>{profile.shortLabel}</span>
+                )}
+              </div>
+
+              {/* Bottom 60%: coloured session strips */}
+              {sessions.length > 0 && (
+                <div className="h-[60%] flex gap-px">
+                  {gymSessions.map(s => (
+                    <div
+                      key={s.sessionKey}
+                      draggable
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.setData('text/plain', s.sessionKey);
+                        e.dataTransfer.effectAllowed = 'move';
+                        onSessionDragStart(s.sessionKey);
+                      }}
+                      onDragEnd={onDragEnd}
+                      className={`flex-1 bg-orange-500 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none ${s.sessionKey === dragKey ? 'opacity-40' : ''}`}
+                      title="Gym — drag to move"
+                    >
+                      <span className="text-[9px] leading-none">💪</span>
+                      <span className="text-white font-bold leading-none mt-0.5" style={{ fontSize: '7px' }}>GYM</span>
+                    </div>
+                  ))}
+                  {condSessions.map(s => (
+                    <div
+                      key={s.sessionKey}
+                      draggable
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.setData('text/plain', s.sessionKey);
+                        e.dataTransfer.effectAllowed = 'move';
+                        onSessionDragStart(s.sessionKey);
+                      }}
+                      onDragEnd={onDragEnd}
+                      className={`flex-1 bg-emerald-500 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none ${s.sessionKey === dragKey ? 'opacity-40' : ''}`}
+                      title="Conditioning — drag to move"
+                    >
+                      <span className="text-[9px] leading-none">🏃</span>
+                      <span className="text-white font-bold leading-none mt-0.5" style={{ fontSize: '7px' }}>COND</span>
+                    </div>
+                  ))}
+                </div>
               )}
-            </button>
+            </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ── Overload warning confirm ───────────────────────────────────────────────
+
+function OverloadWarningModal({
+  reason,
+  onConfirm,
+  onCancel,
+}: {
+  reason: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-6">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={20} className="text-amber-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900 text-sm mb-1">⚠️ Overload / Injury Risk</h3>
+            <p className="text-xs text-gray-600">{reason}</p>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 mb-5">Moving this session to this date significantly increases injury risk and may impair performance. Are you sure?</p>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onConfirm}
+            className="w-full py-3 rounded-xl bg-amber-500 text-white font-semibold text-sm hover:bg-amber-600 transition-colors"
+          >
+            Move Anyway
+          </button>
+          <button
+            onClick={onCancel}
+            className="w-full py-3 rounded-xl border-2 border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -132,25 +300,30 @@ function MonthlyCalendarGrid({
 function DayModal({
   dateStr,
   matchEntries,
+  programmeSessions,
   onSave,
   onDelete,
   onClose,
-  programmeObjective,
+  onMoveSession,
 }: {
   dateStr: string;
   matchEntries: MatchEntry[];
+  programmeSessions: SessionDot[];
   onSave: (entry: MatchEntry) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
-  programmeObjective?: string;
+  onMoveSession: (sessionKey: string, newDate: string) => void;
 }) {
   const existing = matchEntries.find(e => e.date === dateStr);
   const [label, setLabel] = useState(existing?.label ?? '');
   const [minutes, setMinutes] = useState<string>(existing?.minutes?.toString() ?? '');
+  const [movingSession, setMovingSession] = useState<SessionDot | null>(null);
+  const [moveTarget, setMoveTarget] = useState('');
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningReason, setWarningReason] = useState('');
 
   const d = new Date(dateStr + 'T12:00:00');
   const displayDate = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-
   const loadDay = classifyDay(dateStr, matchEntries);
   const loadProfile = getLoadProfile(loadDay);
 
@@ -171,107 +344,177 @@ function DayModal({
     onClose();
   };
 
+  const handlePickDate = (sessionKey: string, newDate: string) => {
+    const { risky, reason } = isRiskyDay(newDate, matchEntries);
+    if (risky) {
+      setWarningReason(reason);
+      setShowWarning(true);
+      // store pending action
+      setMoveTarget(newDate);
+    } else {
+      onMoveSession(sessionKey, newDate);
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-4 pb-20">
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl mb-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <Calendar size={16} className="text-brand-500" />
-          <h3 className="font-bold text-gray-900">{displayDate}</h3>
-        </div>
-
-        {/* Show load profile for this day */}
-        {loadDay !== 'free' && (
-          <div className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg mb-3 flex items-center gap-1.5 border ${loadProfile.bgColour} ${loadProfile.textColour} ${loadProfile.borderColour}`}>
-            <span>{loadProfile.emoji}</span>
-            <span>{loadProfile.label} — {loadProfile.shortLabel}</span>
-          </div>
-        )}
-
-        {/* Programme session scheduled this day */}
-        {programmeObjective && (
-          <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-brand-50 border border-brand-200 mb-3">
-            <span className="text-base leading-none">💪</span>
-            <div>
-              <p className="text-xs font-bold text-brand-700">Programme Session</p>
-              <p className="text-xs text-brand-600 mt-0.5">{programmeObjective}</p>
+    <>
+      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-4 pb-20">
+        <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl mb-4 max-h-[90vh] overflow-y-auto">
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Calendar size={16} className="text-brand-500" />
+              <h3 className="font-bold text-gray-900">{displayDate}</h3>
             </div>
+
+            {loadDay !== 'free' && (
+              <div className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg mb-3 flex items-center gap-1.5 border ${loadProfile.bgColour} ${loadProfile.textColour} ${loadProfile.borderColour}`}>
+                <span>{loadProfile.emoji}</span>
+                <span>{loadProfile.label} — {loadProfile.shortLabel}</span>
+              </div>
+            )}
+
+            {/* Programme sessions */}
+            {programmeSessions.length > 0 && (
+              <div className="mb-3 flex flex-col gap-2">
+                {programmeSessions.map(s => {
+                  const style = SESSION_STYLE[s.type];
+                  const moved = s.originalDate !== dateStr;
+                  return (
+                    <div key={s.sessionKey}>
+                      <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl ${style.lightBg} border ${style.border}`}>
+                        <div className={`w-3 h-3 rounded-full mt-0.5 flex-shrink-0 ${style.bg}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-bold ${style.text}`}>{style.label}{moved ? ' (moved)' : ''}</p>
+                          <p className="text-xs text-gray-600 mt-0.5 truncate">{s.objective}</p>
+                          {moved && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              Originally: {new Date(s.originalDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setMovingSession(movingSession?.sessionKey === s.sessionKey ? null : s)}
+                          className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                            movingSession?.sessionKey === s.sessionKey
+                              ? `${style.bg} text-white`
+                              : `${style.lightBg} ${style.text} hover:opacity-80`
+                          }`}
+                        >
+                          <ArrowRightLeft size={11} />
+                          Move
+                        </button>
+                      </div>
+
+                      {movingSession?.sessionKey === s.sessionKey && (
+                        <div className="mt-1.5 px-3 py-3 rounded-xl bg-gray-50 border border-gray-200">
+                          <p className="text-xs font-semibold text-gray-600 mb-2">Move to date:</p>
+                          <input
+                            type="date"
+                            defaultValue={s.originalDate}
+                            style={{ fontSize: '16px' }}
+                            className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 mb-2"
+                            onChange={(e) => {
+                              if (e.target.value) handlePickDate(s.sessionKey, e.target.value);
+                            }}
+                          />
+                          <button onClick={() => setMovingSession(null)} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                            <X size={11} /> Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {existing && (
+              <div className={`text-xs font-semibold px-2 py-1 rounded-full mb-4 w-max ${
+                existing.type === 'match' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+              }`}>
+                {existing.type === 'match' ? '⚽ Match' : '🏃 Team Training'}
+                {existing.label && ` — ${existing.label}`}
+              </div>
+            )}
+
+            <div className="mb-3">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+                Label (optional)
+              </label>
+              <input
+                value={label}
+                onChange={e => setLabel(e.target.value)}
+                placeholder="e.g. League vs City FC"
+                style={{ fontSize: '16px' }}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+                Minutes played (optional)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="120"
+                value={minutes}
+                onChange={e => setMinutes(e.target.value)}
+                placeholder="e.g. 90"
+                style={{ fontSize: '16px' }}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              />
+              <p className="text-xs text-gray-400 mt-1">Used to auto-adjust recovery session load</p>
+            </div>
+
+            <div className="flex flex-col gap-2 mb-3">
+              <button
+                onClick={() => handleSave('match')}
+                className="w-full py-3 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition-colors"
+              >
+                ⚽ Mark as Match Day
+              </button>
+              <button
+                onClick={() => handleSave('team_training')}
+                className="w-full py-3 rounded-xl bg-blue-500 text-white font-semibold text-sm hover:bg-blue-600 transition-colors"
+              >
+                🏃 Mark as Team Training
+              </button>
+            </div>
+
+            {existing && (
+              <button
+                onClick={handleDelete}
+                className="w-full py-2 text-sm text-red-400 hover:text-red-600 flex items-center justify-center gap-1.5 mb-2"
+              >
+                <Trash2 size={13} />
+                Remove this entry
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-xl border-2 border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
           </div>
-        )}
-
-        {existing && (
-          <div className={`text-xs font-semibold px-2 py-1 rounded-full mb-4 w-max ${
-            existing.type === 'match' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-          }`}>
-            {existing.type === 'match' ? '⚽ Match' : '🏃 Team Training'}
-            {existing.label && ` — ${existing.label}`}
-          </div>
-        )}
-
-        <div className="mb-3">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
-            Label (optional)
-          </label>
-          <input
-            value={label}
-            onChange={e => setLabel(e.target.value)}
-            placeholder="e.g. League vs City FC"
-            style={{ fontSize: '16px' }}
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
-            Minutes played (optional)
-          </label>
-          <input
-            type="number"
-            min="1"
-            max="120"
-            value={minutes}
-            onChange={e => setMinutes(e.target.value)}
-            placeholder="e.g. 90"
-            style={{ fontSize: '16px' }}
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-          />
-          <p className="text-xs text-gray-400 mt-1">Used to auto-adjust recovery session load</p>
-        </div>
-
-        <div className="flex flex-col gap-2 mb-3">
-          <button
-            onClick={() => handleSave('match')}
-            className="w-full py-3 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition-colors"
-          >
-            ⚽ Mark as Match Day
-          </button>
-          <button
-            onClick={() => handleSave('team_training')}
-            className="w-full py-3 rounded-xl bg-blue-500 text-white font-semibold text-sm hover:bg-blue-600 transition-colors"
-          >
-            🏃 Mark as Team Training
-          </button>
-        </div>
-
-        {existing && (
-          <button
-            onClick={handleDelete}
-            className="w-full py-2 text-sm text-red-400 hover:text-red-600 flex items-center justify-center gap-1.5 mb-2"
-          >
-            <Trash2 size={13} />
-            Remove this entry
-          </button>
-        )}
-
-        <button
-          onClick={onClose}
-          className="w-full py-3 rounded-xl border-2 border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"
-        >
-          Cancel
-        </button>
         </div>
       </div>
-    </div>
+
+      {showWarning && movingSession && (
+        <OverloadWarningModal
+          reason={warningReason}
+          onConfirm={() => {
+            onMoveSession(movingSession.sessionKey, moveTarget);
+            setShowWarning(false);
+            onClose();
+          }}
+          onCancel={() => setShowWarning(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -391,14 +634,19 @@ function PeriodisationGuide() {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
-export function LoadCalendar({ onBack, activeProgramme }: LoadCalendarProps) {
+export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: LoadCalendarProps) {
   const { matchEntries, saveMatchEntry, deleteMatchEntry } = useStore();
-  const programmeDates = activeProgramme ? getProgrammeDates(activeProgramme) : new Map<string, string>();
+  const programmeDates = activeProgramme ? getProgrammeDates(activeProgramme) : new Map<string, SessionDot[]>();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  // Drag state
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ sessionKey: string; newDate: string; reason: string } | null>(null);
 
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -406,13 +654,30 @@ export function LoadCalendar({ onBack, activeProgramme }: LoadCalendarProps) {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
     else setViewMonth(m => m - 1);
   };
-
   const nextMonth = () => {
     if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
     else setViewMonth(m => m + 1);
   };
 
-  // Upcoming events (next 30 days)
+  const handleMoveSession = (sessionKey: string, newDate: string) => {
+    if (!activeProgramme || !onUpdateProgramme) return;
+    const overrides = { ...(activeProgramme.sessionOverrides ?? {}), [sessionKey]: newDate };
+    onUpdateProgramme({ ...activeProgramme, sessionOverrides: overrides });
+    setSelectedDate(null);
+  };
+
+  const handleCellDrop = (toDate: string) => {
+    if (!dragKey) return;
+    setDropTarget(null);
+    const { risky, reason } = isRiskyDay(toDate, matchEntries);
+    if (risky) {
+      setPendingMove({ sessionKey: dragKey, newDate: toDate, reason });
+    } else {
+      handleMoveSession(dragKey, toDate);
+    }
+    setDragKey(null);
+  };
+
   const upcoming = matchEntries
     .filter(e => {
       const d = new Date(e.date + 'T12:00:00');
@@ -435,7 +700,6 @@ export function LoadCalendar({ onBack, activeProgramme }: LoadCalendarProps) {
         </button>
       </div>
 
-      {/* Monthly calendar grid */}
       <Card className="p-3 mb-4">
         <MonthlyCalendarGrid
           year={viewYear}
@@ -443,6 +707,12 @@ export function LoadCalendar({ onBack, activeProgramme }: LoadCalendarProps) {
           matchEntries={matchEntries}
           programmeDates={programmeDates}
           onSelectDay={setSelectedDate}
+          dragKey={dragKey}
+          dropTarget={dropTarget}
+          onSessionDragStart={(key) => setDragKey(key)}
+          onDragEnd={() => { setDragKey(null); setDropTarget(null); }}
+          onCellDragOver={(date, e) => { e.preventDefault(); setDropTarget(date); }}
+          onCellDrop={handleCellDrop}
         />
       </Card>
 
@@ -462,17 +732,23 @@ export function LoadCalendar({ onBack, activeProgramme }: LoadCalendarProps) {
           </div>
         ))}
         {programmeDates.size > 0 && (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-semibold bg-brand-50 text-brand-700 border-brand-200">
-            💪 <span className="font-normal opacity-70">Programme</span>
-          </div>
+          <>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-semibold bg-orange-50 text-orange-700 border-orange-200">
+              <div className="w-2 h-2 rounded-sm bg-orange-500" />
+              Gym
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">
+              <div className="w-2 h-2 rounded-sm bg-emerald-500" />
+              Conditioning
+            </div>
+          </>
         )}
       </div>
 
       <div className="text-xs text-gray-400 text-center mb-5">
-        Tap any day to mark a match or team training session
+        Tap any day to mark a match or training · Drag purple/green strips to reschedule
       </div>
 
-      {/* Upcoming events */}
       {upcoming.length > 0 && (
         <section className="mb-6">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Upcoming</h3>
@@ -508,18 +784,28 @@ export function LoadCalendar({ onBack, activeProgramme }: LoadCalendarProps) {
         </section>
       )}
 
-      {/* Periodisation guide */}
       <PeriodisationGuide />
 
-      {/* Day modal */}
       {selectedDate && (
         <DayModal
           dateStr={selectedDate}
           matchEntries={matchEntries}
+          programmeSessions={programmeDates.get(selectedDate) ?? []}
           onSave={saveMatchEntry}
           onDelete={deleteMatchEntry}
           onClose={() => setSelectedDate(null)}
-          programmeObjective={programmeDates.get(selectedDate)}
+          onMoveSession={handleMoveSession}
+        />
+      )}
+
+      {pendingMove && (
+        <OverloadWarningModal
+          reason={pendingMove.reason}
+          onConfirm={() => {
+            handleMoveSession(pendingMove.sessionKey, pendingMove.newDate);
+            setPendingMove(null);
+          }}
+          onCancel={() => setPendingMove(null)}
         />
       )}
     </Layout>

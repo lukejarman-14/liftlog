@@ -354,6 +354,7 @@ export interface GeneratedProgramme {
   inputs: ProgrammeInputs;
   weeks: ProgrammeWeek[];
   strengthSetup?: StrengthSetup;  // Progressive overload baseline
+  sessionOverrides?: Record<string, string>; // sessionKey ("wi-dow") → new YYYY-MM-DD date
 }
 
 // ── Testing Engine ─────────────────────────────────────────────────────────
