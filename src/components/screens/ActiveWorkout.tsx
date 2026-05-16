@@ -41,7 +41,7 @@ function playRestEndSound() {
       osc.start(ctx.currentTime + offset);
       osc.stop(ctx.currentTime + offset + 0.15);
     });
-  } catch (_) { /* audio not available */ }
+  } catch { /* audio not available */ }
 }
 
 function playTimerDoneSound() {
@@ -64,7 +64,7 @@ function playTimerDoneSound() {
     gain.gain.value = 1.2;
     src.connect(lp); lp.connect(gain); gain.connect(ctx.destination);
     src.start(); src.stop(ctx.currentTime + 0.35);
-  } catch (_) { /* audio not available */ }
+  } catch { /* audio not available */ }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

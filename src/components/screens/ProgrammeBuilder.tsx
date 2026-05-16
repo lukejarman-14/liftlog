@@ -47,7 +47,7 @@ const POSITION_OPTS: Opt<string>[] = [
 ];
 
 const PLAY_STYLE_OPTS: Opt<PlayStyle>[] = [
-  { value: 'box-to-box', label: '🔄 Box-to-Box', description: 'High work rate, covers both thirds' },
+  { value: 'box-to-box', label: '🔄 Box-to-Box', description: 'High work rate, covers all thirds' },
   { value: 'direct', label: '⬆️ Direct', description: 'Quick vertical transitions' },
   { value: 'technical', label: '🎨 Technical', description: 'Ball retention, tight spaces' },
   { value: 'physical', label: '💪 Physical', description: 'Dominant in duels and aerial' },
@@ -129,14 +129,14 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   const [matchDay, setMatchDay] = useState<MatchDayPref>('saturday');
   const [hasSecondMatchDay, setHasSecondMatchDay] = useState(false);
   const [secondMatchDay, setSecondMatchDay] = useState<GameDayPref>('wednesday');
-  // Step 1 — Position & play style
-  const [primaryPos, setPrimaryPos] = useState<string>(userProfile.position);
+  // Step 1 — Position & play style (nothing pre-selected)
+  const [primaryPos, setPrimaryPos] = useState<string>('');
   const [secondaryPos, setSecondaryPos] = useState<string>('');
-  const [playStyle, setPlayStyle] = useState<PlayStyle>('box-to-box');
-  // Step 2 — Goals
-  const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal>('speed');
+  const [playStyle, setPlayStyle] = useState<PlayStyle | ''>('');
+  // Step 2 — Goals (nothing pre-selected)
+  const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal | ''>('');
   const [secondaryGoals, setSecondaryGoals] = useState<string[]>([]);
-  const [biggestWeakness, setBiggestWeakness] = useState<Weakness>('speed');
+  const [biggestWeakness, setBiggestWeakness] = useState<Weakness | ''>('');
   // Step 3 — Injuries & preferences
   const [injuryHistory, setInjuryHistory] = useState<InjuryArea[]>([]);
   const [preferBackSquat, setPreferBackSquat] = useState(false);
@@ -146,8 +146,13 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
   const [customDurStr, setCustomDurStr] = useState('');
   const DURATION_PRESETS = [4, 6, 8, 12, 16];
 
+  // Per-step validation — training history (experience/gym) comes from profile, always valid
+  const step1Valid = primaryPos !== '' && (primaryPos === 'GK' || playStyle !== '');
+  const step2Valid = primaryGoal !== '' && biggestWeakness !== '';
+  const canNext = step === 1 ? step1Valid : step === 2 ? step2Valid : true;
+
   const toggleSecondary = (v: string) => {
-    if (v === primaryGoal) return;
+    if (primaryGoal && v === primaryGoal) return;
     setSecondaryGoals(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v].slice(0, 3));
   };
   const toggleInjury = (v: InjuryArea) => {
@@ -193,15 +198,15 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
     const inputs: ProgrammeInputs = {
       position: primaryPos as ProgrammeInputs['position'],
       secondaryPosition: secondaryPos ? secondaryPos as ProgrammeInputs['secondaryPosition'] : undefined,
-      playStyle,
+      playStyle: playStyle as PlayStyle,
       experienceYears: userProfile.experienceYears,
       sessionsPerWeek,
-      primaryGoal,
+      primaryGoal: primaryGoal as PrimaryGoal,
       secondaryGoals,
       matchDay,
       secondMatchDay: hasSecondMatchDay && !offSeason ? secondMatchDay : undefined,
       offSeason,
-      biggestWeakness,
+      biggestWeakness: biggestWeakness as Weakness,
       injuryHistory,
       gymAccess: userProfile.gymAccess,
       fvEmphasis: 'balanced',
@@ -419,7 +424,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           {primaryPos !== 'GK' && (
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">Play style</p>
-              <ChipSelector options={PLAY_STYLE_OPTS} selected={playStyle} onToggle={setPlayStyle} />
+              <ChipSelector options={PLAY_STYLE_OPTS} selected={playStyle as PlayStyle} onToggle={setPlayStyle} />
             </div>
           )}
           {primaryPos === 'GK' && (
@@ -436,7 +441,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-1">Primary goal</p>
             <p className="text-xs text-gray-500 mb-2">Gets majority of programme focus</p>
-            <ChipSelector options={GOAL_OPTS} selected={primaryGoal} onToggle={setPrimaryGoal} />
+            <ChipSelector options={GOAL_OPTS} selected={primaryGoal as PrimaryGoal} onToggle={setPrimaryGoal} />
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-1">Secondary goals <span className="text-gray-400 font-normal">(up to 3)</span></p>
@@ -454,7 +459,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-2">Biggest physical weakness</p>
-            <ChipSelector options={WEAKNESS_OPTS} selected={biggestWeakness} onToggle={setBiggestWeakness} />
+            <ChipSelector options={WEAKNESS_OPTS} selected={biggestWeakness as Weakness} onToggle={setBiggestWeakness} />
           </div>
         </div>
       )}
@@ -579,7 +584,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
 
       {step < totalSteps - 1 && (
         <div className="mt-8 pb-8">
-          <Button fullWidth size="lg" onClick={() => setStep(s => s + 1)}>
+          <Button fullWidth size="lg" onClick={() => setStep(s => s + 1)} disabled={!canNext}>
             Next <ChevronRight size={18} />
           </Button>
         </div>

@@ -6,7 +6,7 @@
 import { useState, useRef } from 'react';
 import {
   ChevronLeft, ChevronDown, ChevronUp, ChevronRight,
-  Zap, Shield, Clock, TrendingUp, BookOpen, Play, Home, X, GripVertical, AlertTriangle,
+  Clock, TrendingUp, BookOpen, Play, Home, X, GripVertical, AlertTriangle,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -21,24 +21,6 @@ interface Props {
   onRebuild: () => void;
   onApply: () => void;      // set as active + navigate to dashboard
   onDeactivate: () => void; // remove from active (setActiveProgrammeId null)
-}
-
-// ── Readiness badge ────────────────────────────────────────────────────────
-
-function ReadinessBadge({ level, score }: { level: string; score: number }) {
-  const map: Record<string, { bg: string; text: string; border: string; label: string }> = {
-    elite:    { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-300', label: 'Elite Readiness' },
-    high:     { bg: 'bg-green-100',   text: 'text-green-700',   border: 'border-green-300',   label: 'High Readiness' },
-    moderate: { bg: 'bg-yellow-100',  text: 'text-yellow-700',  border: 'border-yellow-300',  label: 'Moderate Readiness' },
-    low:      { bg: 'bg-red-100',     text: 'text-red-700',     border: 'border-red-300',     label: 'Low Readiness' },
-  };
-  const s = map[level] ?? map.high;
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold ${s.bg} ${s.text} ${s.border}`}>
-      <Zap size={11} />
-      {s.label} · {score}/5
-    </span>
-  );
 }
 
 // ── MD day badge ───────────────────────────────────────────────────────────
@@ -223,10 +205,6 @@ export function SessionPreviewModal({ session, onClose }: {
           {session.fvProfile && (
             <p className="text-xs text-indigo-600 font-medium mb-3">⚡ {session.fvProfile}</p>
           )}
-          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-            <Zap size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-amber-800 leading-relaxed">{session.readinessNote}</p>
-          </div>
           {session.blocks.map((block, i) => <BlockCard key={i} block={block} />)}
         </div>
       </div>
@@ -457,14 +435,7 @@ export function GeneratedProgramme({ programme, isActive, onBack, onRebuild, onA
       {/* ── Programme header ── */}
       <Card className="p-5 mb-4">
         <h1 className="text-lg font-bold text-gray-900 leading-tight mb-2">{programme.title}</h1>
-        <ReadinessBadge level={programme.readinessLevel} score={programme.readinessScore} />
-        <p className="text-sm text-gray-600 mt-3 leading-relaxed">{programme.summary}</p>
-        <div className="mt-3 p-3 bg-gray-50 rounded-xl">
-          <div className="flex items-start gap-2">
-            <Shield size={14} className="text-brand-500 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-gray-600 leading-relaxed">{programme.readinessGuidance}</p>
-          </div>
-        </div>
+        <p className="text-sm text-gray-600 mt-2 leading-relaxed">{programme.summary}</p>
       </Card>
 
       {/* ── Plan action buttons ── */}

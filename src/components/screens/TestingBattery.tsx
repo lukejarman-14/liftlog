@@ -53,37 +53,41 @@ function useRsaEngine() {
 
   function getAudio(): AudioContext | null {
     try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-        )();
-      }
-      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
+      const Ctx = window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
       return audioCtxRef.current;
-    } catch (_) { return null; }
+    } catch { return null; }
+  }
+
+  function makeSineBuf(ctx: AudioContext, freq: number, dur: number, vol: number): AudioBuffer {
+    const sr = ctx.sampleRate;
+    const len = Math.max(2, Math.ceil(dur * sr));
+    const buf = ctx.createBuffer(1, len, sr);
+    const d = buf.getChannelData(0);
+    const fade = Math.min(Math.floor(sr * 0.008), Math.floor(len * 0.15));
+    for (let i = 0; i < len; i++) {
+      const env = i < fade ? i / fade : i > len - fade ? (len - i) / fade : 1;
+      d[i] = Math.sin(2 * Math.PI * freq * (i / sr)) * vol * env;
+    }
+    return buf;
+  }
+
+  function playBuf(ctx: AudioContext, buf: AudioBuffer, when?: number) {
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(when ?? ctx.currentTime + 0.02);
   }
 
   const beep = useCallback((freq: number, duration: number, vol = 0.6) => {
     const ctx = getAudio();
     if (!ctx) return;
-    const play = () => {
-      try {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        const t = ctx.currentTime + 0.02;
-        gain.gain.setValueAtTime(vol, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-        osc.start(t);
-        osc.stop(t + duration + 0.05);
-      } catch {}
+    const fire = () => {
+      try { playBuf(ctx, makeSineBuf(ctx, freq, duration, vol)); } catch {}
     };
-    if (ctx.state === 'running') { play(); } else { ctx.resume().then(play).catch(() => {}); }
-  }, []);
+    if (ctx.state === 'running') fire(); else ctx.resume().then(fire).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown / rest interval — uses Date.now() for accuracy
   useEffect(() => {
@@ -131,10 +135,15 @@ function useRsaEngine() {
   }, [rsaState.phase, rsaState.rep]);
 
   const startRsa = useCallback(() => {
-    getAudio(); // must init on user gesture
+    const ctx = getAudio();
+    if (ctx) {
+      // iOS unlock: play inaudible buffer + resume synchronously in this gesture
+      try { playBuf(ctx, makeSineBuf(ctx, 440, 0.001, 0.001), 0); } catch {}
+      ctx.resume().catch(() => {});
+    }
     endAtRef.current = Date.now() + 5000;
     setRsaState({ phase: 'countdown', rep: 1, remaining: 5 });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sprintDone = useCallback((rep: number, manualTime?: number) => {
     const elapsed = manualTime ?? (Date.now() - sprintStartRef.current) / 1000;
@@ -152,6 +161,14 @@ function useRsaEngine() {
     }
   }, [beep]);
 
+  const updateSprintTime = useCallback((rep: number, time: number) => {
+    setSprintTimes(prev => {
+      const next = [...prev];
+      next[rep - 1] = Math.round(time * 100) / 100;
+      return next;
+    });
+  }, []);
+
   const skipRest = useCallback((rep: number) => {
     endAtRef.current = Date.now() + 5000;
     beep(440, 0.12);
@@ -164,7 +181,7 @@ function useRsaEngine() {
     setStopwatchMs(0);
   }, []);
 
-  return { rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa };
+  return { rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa, updateSprintTime };
 }
 
 // ── Small UI helpers ───────────────────────────────────────────────────────
@@ -509,8 +526,7 @@ function SexScreen({ sex, onChange }: { sex: 'male' | 'female'; onChange: (s: 'm
       </div>
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
         <p className="text-xs text-gray-500 leading-relaxed">
-          Norm tables for sprinting and jumping differ significantly between male and female footballers
-          (Haugen et al., 2012; Cometti et al., 2001).
+          Norm tables for sprinting and jumping differ significantly between male and female footballers.
         </p>
       </div>
     </div>
@@ -548,8 +564,7 @@ function SprintScreen({
         <Zap size={18} className="text-brand-500" />
         <h2 className="text-2xl font-bold text-gray-900">{TEST_LABELS[type]}</h2>
       </div>
-      <p className="text-xs text-gray-500 mb-1">{proto.whatItMeasures}</p>
-      <p className="text-xs text-gray-400 italic mb-5">{proto.reference}</p>
+      <p className="text-xs text-gray-500 mb-5">{proto.whatItMeasures}</p>
 
       {draft.skipped ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
@@ -620,8 +635,7 @@ function JumpScreen({
         <TrendingUp size={18} className="text-brand-500" />
         <h2 className="text-2xl font-bold text-gray-900">{TEST_LABELS[type]}</h2>
       </div>
-      <p className="text-xs text-gray-500 mb-1">{proto.whatItMeasures}</p>
-      <p className="text-xs text-gray-400 italic mb-5">{proto.reference}</p>
+      <p className="text-xs text-gray-500 mb-5">{proto.whatItMeasures}</p>
 
       {draft.skipped ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
@@ -668,7 +682,7 @@ function JumpScreen({
 const RSA_REPS = 6;
 
 function RsaScreen({
-  rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa, draft, onChangeDraft, onSkip,
+  rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa, updateSprintTime, draft, onChangeDraft, onSkip,
 }: {
   rsaState: RsaState;
   sprintTimes: number[];
@@ -677,6 +691,7 @@ function RsaScreen({
   sprintDone: (rep: number, manualTime?: number) => void;
   skipRest: (rep: number) => void;
   resetRsa: () => void;
+  updateSprintTime: (rep: number, time: number) => void;
   draft: TestDraft;
   onChangeDraft: (d: TestDraft) => void;
   onSkip: () => void;
@@ -684,6 +699,10 @@ function RsaScreen({
   const { phase, rep, remaining } = rsaState;
   const [usingGates, setUsingGates] = useState(false);
   const [gateTime, setGateTime] = useState(0);
+  const [finalGateEntry, setFinalGateEntry] = useState(false);
+
+  // Clear gate time input when a new sprint starts
+  useEffect(() => { if (phase === 'active') { setGateTime(0); setFinalGateEntry(false); } }, [phase]);
 
   // Auto-sync sprint times → draft when all done
   useEffect(() => {
@@ -753,8 +772,7 @@ function RsaScreen({
         <Wind size={18} className="text-brand-500" />
         <h2 className="text-2xl font-bold text-gray-900">Repeated Sprint Ability</h2>
       </div>
-      <p className="text-xs text-gray-500 mb-1">6 × 20m · 15s passive rest · Fatigue Index</p>
-      <p className="text-xs text-gray-400 italic mb-3">Girard, Mendez-Villanueva & Bishop (2011) Sports Med</p>
+      <p className="text-xs text-gray-500 mb-3">6 × 20m · 15s passive rest · Fatigue Index</p>
 
       {/* Partner disclaimer */}
       <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mb-4">
@@ -849,37 +867,65 @@ function RsaScreen({
           </div>
 
           {usingGates ? (
-            /* Gates mode — manual time entry */
+            /* Gates mode — tap done immediately, enter time during rest */
             <>
-              <div className="w-44 h-44 rounded-full bg-gray-100 border-4 border-brand-200 flex flex-col items-center justify-center mb-6">
-                <span className="text-3xl font-extrabold text-brand-500">🏁</span>
-                <span className="text-xs text-gray-500 mt-2 font-semibold">Enter gate time</span>
-              </div>
-              <div className="w-full mb-5">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block text-center">
-                  Sprint {rep} time (seconds)
-                </label>
-                <div className="flex items-center gap-2">
-                  <TimeDigitInput
-                    value={gateTime}
-                    onChange={setGateTime}
-                    placeholder="3.20"
-                  />
-                  <span className="text-sm font-semibold text-gray-500 w-4">s</span>
+              {finalGateEntry ? (
+                /* Final sprint (rep 6) — enter time before completing */
+                <div className="w-full">
+                  <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 mb-4">
+                    <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide mb-2 text-center">
+                      Sprint 6 — final gate time (seconds)
+                    </p>
+                    <div className="flex items-center gap-2 mb-3">
+                      <TimeDigitInput
+                        value={gateTime}
+                        onChange={setGateTime}
+                        placeholder="3.20"
+                        autoFocus
+                      />
+                      <span className="text-sm font-semibold text-gray-500 w-4">s</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { sprintDone(rep, gateTime > 0 ? gateTime : undefined); }}
+                    disabled={gateTime <= 0}
+                    className={`w-full py-5 rounded-2xl font-bold text-lg shadow-sm active:scale-95 transition-all ${
+                      gateTime > 0
+                        ? 'bg-gray-900 text-white hover:bg-gray-800'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <Check size={16} className="inline mr-2" />
+                    Complete RSA Test
+                  </button>
                 </div>
-              </div>
-              <button
-                onClick={() => { sprintDone(rep, gateTime > 0 ? gateTime : undefined); setGateTime(0); }}
-                disabled={gateTime <= 0}
-                className={`w-full py-5 rounded-2xl font-bold text-lg shadow-sm active:scale-95 transition-all ${
-                  gateTime > 0
-                    ? 'bg-gray-900 text-white hover:bg-gray-800'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                <Check size={16} className="inline mr-2" />
-                Record Sprint {rep}
-              </button>
+              ) : (
+                <>
+                  <div className="w-44 h-44 rounded-full bg-gray-100 border-4 border-brand-200 flex flex-col items-center justify-center mb-6">
+                    <span className="text-3xl font-extrabold text-brand-500">🏁</span>
+                    <span className="text-xs text-gray-500 mt-2 font-semibold">Read your gate time</span>
+                  </div>
+                  <p className="text-sm text-gray-500 text-center mb-6">
+                    {rep < RSA_REPS
+                      ? 'Cross the line → tap done → enter time during rest'
+                      : 'Cross the line → tap done → enter final time'}
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (rep >= RSA_REPS) {
+                        setFinalGateEntry(true);
+                      } else {
+                        sprintDone(rep, 0);
+                        setGateTime(0);
+                      }
+                    }}
+                    className="w-full py-5 rounded-2xl bg-gray-900 text-white font-bold text-lg hover:bg-gray-800 shadow-sm active:scale-95 transition-all"
+                  >
+                    <Check size={16} className="inline mr-2" />
+                    Sprint {rep} Done{rep < RSA_REPS ? ' — Start Rest' : ' — Enter Time'}
+                  </button>
+                </>
+              )}
             </>
           ) : (
             /* Stopwatch mode */
@@ -912,6 +958,28 @@ function RsaScreen({
             Sprint {rep} done — Rest
           </div>
           <p className="text-xs text-gray-400 mb-4">Sprint {rep + 1} of {RSA_REPS} next</p>
+
+          {/* Gates: enter time during rest */}
+          {usingGates && (
+            <div className="w-full mb-5 bg-brand-50 border border-brand-200 rounded-2xl p-4">
+              <label className="text-xs font-semibold text-brand-600 uppercase tracking-wide mb-2 block text-center">
+                Sprint {rep} gate time (seconds)
+              </label>
+              <div className="flex items-center gap-2 mb-3">
+                <TimeDigitInput
+                  value={gateTime}
+                  onChange={v => { setGateTime(v); if (v > 0) updateSprintTime(rep, v); }}
+                  placeholder="3.20"
+                  autoFocus
+                />
+                <span className="text-sm font-semibold text-gray-500 w-4">s</span>
+              </div>
+              {gateTime > 0 && (
+                <p className="text-xs text-center text-brand-600 font-semibold">✓ {gateTime.toFixed(2)}s saved</p>
+              )}
+            </div>
+          )}
+
           <div className="relative w-40 h-40 mb-5">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="42" fill="none" stroke="#f3f4f6" strokeWidth="8" />
@@ -1072,57 +1140,59 @@ function useYoyoEngine() {
       const Ctx = window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
-      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
       return audioCtxRef.current;
     } catch { return null; }
+  }
+
+  /**
+   * Generate a sine-wave PCM buffer — more reliable than OscillatorNode on iOS Safari.
+   * Applies a short fade-in/out envelope to prevent clicks.
+   */
+  function makeSineBuf(ctx: AudioContext, freq: number, dur: number, vol: number): AudioBuffer {
+    const sr = ctx.sampleRate;
+    const len = Math.max(2, Math.ceil(dur * sr));
+    const buf = ctx.createBuffer(1, len, sr);
+    const d = buf.getChannelData(0);
+    const fade = Math.min(Math.floor(sr * 0.008), Math.floor(len * 0.15)); // 8ms fade
+    for (let i = 0; i < len; i++) {
+      const env = i < fade ? i / fade : i > len - fade ? (len - i) / fade : 1;
+      d[i] = Math.sin(2 * Math.PI * freq * (i / sr)) * vol * env;
+    }
+    return buf;
+  }
+
+  /** Play a single tone at `when` (AudioContext time). Defaults to now+20ms. */
+  function playBuf(ctx: AudioContext, buf: AudioBuffer, when?: number) {
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(when ?? ctx.currentTime + 0.02);
   }
 
   const beep = useCallback((freq: number, dur: number, vol = 0.7) => {
     const ctx = getAudio();
     if (!ctx) return;
-    const play = () => {
-      try {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        const t = ctx.currentTime + 0.02; // small buffer prevents past-scheduling
-        gain.gain.setValueAtTime(vol, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-        osc.start(t);
-        osc.stop(t + dur + 0.05);
-      } catch {}
+    const fire = () => {
+      try { playBuf(ctx, makeSineBuf(ctx, freq, dur, vol)); } catch {}
     };
-    // If context is suspended (iOS lock screen / background), resume first
-    if (ctx.state === 'running') { play(); } else { ctx.resume().then(play).catch(() => {}); }
-  }, []);
+    if (ctx.state === 'running') fire(); else ctx.resume().then(fire).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Plays a sequence of tones back-to-back with precise AudioContext scheduling
+  /** Sequence of tones scheduled back-to-back with precise AudioContext timing. */
   const toneSeq = useCallback((notes: Array<{ freq: number; dur: number; vol?: number }>) => {
     const ctx = getAudio();
     if (!ctx) return;
-    const play = () => {
-      let t = ctx.currentTime + 0.02; // buffer prevents past-scheduling
+    const fire = () => {
+      let t = ctx.currentTime + 0.02;
       for (const note of notes) {
         try {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.type = 'sine';
-          osc.frequency.value = note.freq;
-          gain.gain.setValueAtTime(note.vol ?? 0.75, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + note.dur);
-          osc.start(t);
-          osc.stop(t + note.dur + 0.05);
-          t += note.dur + 0.08;
+          playBuf(ctx, makeSineBuf(ctx, note.freq, note.dur, note.vol ?? 0.75), t);
+          t += note.dur + 0.06; // 60ms gap between tones
         } catch {}
       }
     };
-    if (ctx.state === 'running') { play(); } else { ctx.resume().then(play).catch(() => {}); }
-  }, []);
+    if (ctx.state === 'running') fire(); else ctx.resume().then(fire).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Store advance logic in a ref to avoid stale closures inside setInterval
   const advanceRef = useRef<(phase: YoyoPhase, levelIdx: number, shuttle: number) => void>(() => {});
@@ -1239,24 +1309,31 @@ function useYoyoEngine() {
   }, [st.phase]);
 
   const start = useCallback(() => {
-    // Create AudioContext inside the user gesture — required by iOS Safari
     const ctx = getAudio();
+    if (!ctx) return;
+
+    // ── iOS Safari audio unlock ──────────────────────────────────────────────
+    // Must happen synchronously inside the user-gesture call stack:
+    //   1. Play a real (non-silent) buffer — iOS only grants unlock for real audio
+    //   2. Call ctx.resume() synchronously (don't await — just kick the unlock)
+    // After this, the context is unlocked for the session regardless of state.
+    try {
+      const unlockBuf = makeSineBuf(ctx, 880, 0.001, 0.001); // inaudible tone
+      playBuf(ctx, unlockBuf, 0);
+    } catch {}
+    ctx.resume().catch(() => {});
+
     completedScoreRef.current = 0;
     endAtRef.current = Date.now() + YOYO_COUNTDOWN_SECS * 1000;
 
-    const kick = () => {
-      beep(440, 0.15, 0.8); // audible unlock beep so user knows audio is working
-      setSt({ phase: 'countdown', levelIdx: 0, shuttle: 1, remaining: YOYO_COUNTDOWN_SECS, phaseSecs: YOYO_COUNTDOWN_SECS });
+    // Schedule the start beep — fires immediately once context is running
+    const fireStart = () => {
+      try { playBuf(ctx, makeSineBuf(ctx, 880, 0.25, 0.9)); } catch {}
     };
+    if (ctx.state === 'running') fireStart(); else ctx.resume().then(fireStart).catch(() => {});
 
-    // Ensure context is running before scheduling — on iOS resume() must be called
-    // synchronously inside a click handler, but the promise resolves async
-    if (!ctx || ctx.state === 'running') {
-      kick();
-    } else {
-      ctx.resume().then(kick).catch(kick);
-    }
-  }, [beep]);
+    setSt({ phase: 'countdown', levelIdx: 0, shuttle: 1, remaining: YOYO_COUNTDOWN_SECS, phaseSecs: YOYO_COUNTDOWN_SECS });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fail = useCallback(() => {
     setSt(prev => ({ ...prev, phase: 'done' }));
@@ -1345,8 +1422,7 @@ function YoyoScreen({
           <Activity size={18} className="text-brand-500" />
           <h2 className="text-2xl font-bold text-gray-900">Yo-Yo IR1 Test</h2>
         </div>
-        <p className="text-xs text-gray-500 mb-1">Best aerobic predictor for football</p>
-        <p className="text-xs text-gray-400 italic mb-5">Bangsbo, Iaia & Krustrup (2008) Sports Med</p>
+        <p className="text-xs text-gray-500 mb-5">Best aerobic predictor for football</p>
 
         <ProtocolBox items={TEST_PROTOCOLS.yoyo.protocol} />
 
@@ -1579,7 +1655,7 @@ function ResultsScreen({
           {/* Position demand */}
           <div className="border-t border-gray-100 pt-3">
             <p className="text-xs font-semibold text-gray-500 mb-2">
-              {position} demands — Stølen et al. (2005)
+              {position} demands
             </p>
             <div className="flex justify-between text-xs mb-1">
               <span className="text-blue-600 font-medium">Aerobic {posProfile.aerobic}%</span>
@@ -1598,22 +1674,28 @@ function ResultsScreen({
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Test Breakdown</p>
         <div className="flex flex-col gap-4">
           {session.results
-            .filter(r => !r.skipped)
             .map(r => {
+              if (r.skipped) {
+                return (
+                  <div key={r.type} className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-gray-400">{TEST_LABELS[r.type]}</span>
+                    <span className="text-xs font-medium text-gray-400 italic">Waiting</span>
+                  </div>
+                );
+              }
+
               const prev = getPrev(r.type);
               const grade = session.grades[r.type] as 1|2|3|4|undefined;
               const fiGrade = r.type === 'rsa' ? session.grades['rsa_fi'] as 1|2|3|4|undefined : undefined;
               const lowerBetter = TEST_LOWER_IS_BETTER[r.type];
               const unit = TEST_UNIT[r.type];
 
-              // Display value
               const displayVal = r.type === 'rsa' && r.rsaMeanTime
                 ? `${r.rsaMeanTime.toFixed(2)}s avg`
                 : r.type === 'yoyo'
                 ? `Level ${r.best}`
                 : `${r.best}${unit}`;
 
-              // Progression
               const progValue = r.type === 'rsa' ? r.rsaMeanTime : r.best;
               const prevValue = r.type === 'rsa' ? prev?.rsaMeanTime : prev?.best;
               const prog = (progValue && prevValue)
@@ -1630,7 +1712,6 @@ function ResultsScreen({
                     </div>
                   </div>
 
-                  {/* RSA sub-details */}
                   {r.type === 'rsa' && r.fatigueIndex !== undefined && (
                     <div className="flex items-center justify-between gap-2 mt-1 pl-2">
                       <span className="text-xs text-gray-500">Fatigue Index</span>
@@ -1641,14 +1722,11 @@ function ResultsScreen({
                     </div>
                   )}
 
-                  {/* Progression vs previous */}
                   {prog && (
                     <div className={`flex items-center gap-1 mt-1 text-xs font-semibold ${
                       prog.improved ? 'text-green-600' : 'text-red-500'
                     }`}>
-                      {prog.improved
-                        ? <TrendingUp size={12} />
-                        : <TrendingDown size={12} />}
+                      {prog.improved ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                       {prog.improved ? '+' : ''}
                       {lowerBetter
                         ? `${prog.delta.toFixed(2)}s`
@@ -1691,7 +1769,7 @@ function ResultsScreen({
       <Card className="p-4 mb-5 bg-gray-50 border-gray-200">
         <p className="text-xs font-semibold text-gray-700 mb-1.5">Why this matters for your game</p>
         <p className="text-xs text-gray-500 leading-relaxed">
-          Football is ~88–90% aerobic in total energy supply (Stølen et al., 2005), yet every sprint, jump and duel is almost entirely anaerobic. Your Fatigue Index captures how well your aerobic base supports recovery <em>between</em> explosive efforts — because phosphocreatine resynthesis is an aerobic process (Girard et al., 2011). A strong aerobic engine keeps you explosive for the full 90 minutes.
+          Football is ~88–90% aerobic in total energy supply, yet every sprint, jump and duel is almost entirely anaerobic. Your Fatigue Index captures how well your aerobic base supports recovery between explosive efforts — because phosphocreatine resynthesis is an aerobic process. A strong aerobic engine keeps you explosive for the full 90 minutes.
         </p>
       </Card>
 
@@ -1719,7 +1797,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
   const [exitModalOpen, setExitModalOpen] = useState(false);
   const [computedSession, setComputedSession] = useState<TestSession | null>(null);
 
-  const { rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa } = useRsaEngine();
+  const { rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa, updateSprintTime } = useRsaEngine();
 
   const currentTest = selectedTests[currentTestIdx] as TestType | undefined;
 
@@ -1942,6 +2020,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
                 sprintDone={sprintDone}
                 skipRest={skipRest}
                 resetRsa={resetRsa}
+                updateSprintTime={updateSprintTime}
                 draft={getDraft('rsa')}
                 onChangeDraft={d => setDraft('rsa', d)}
                 onSkip={skipCurrentTest}
@@ -1971,7 +2050,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
 
       {/* Bottom nav */}
       {showBottomNav && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4 safe-area-pb flex gap-3">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 pt-4 safe-area-pb-bar flex gap-3">
           <button
             onClick={handleBack}
             className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
@@ -1998,7 +2077,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
 
       {/* RSA in-cycle nav (back = exit modal only) */}
       {flowPhase === 'testing' && isRsaActive && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4 safe-area-pb">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 pt-4 safe-area-pb-bar">
           <button
             onClick={() => setExitModalOpen(true)}
             className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"

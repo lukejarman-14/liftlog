@@ -142,29 +142,16 @@ function SessionCard({ session, onDelete, onNavigate }: {
 function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => void }) {
   const { baseline } = useStore();
 
-  if (!baseline) {
-    return (
-      <Card className="p-4 mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Activity size={14} className="text-brand-500" />
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fitness Profile</h3>
-          </div>
-          <button
-            onClick={() => onNavigate({ screen: 'testing-battery' })}
-            className="text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full hover:bg-brand-100"
-          >
-            Take Test
-          </button>
-        </div>
-        <p className="text-xs text-gray-400 leading-relaxed">
-          Complete the 15-minute fitness testing battery to unlock your aerobic/anaerobic profile and position benchmarks.
-        </p>
-      </Card>
-    );
-  }
+  const results = baseline?.results;
+  const test = baseline?.test;
 
-  const { results, test, savedAt } = baseline;
+  const chips = [
+    { label: '10m Sprint',    value: test?.sprint10m          ? `${test.sprint10m}s`                   : null, grade: results?.sprint10mGrade },
+    { label: '30m Sprint',    value: test?.sprint30m          ? `${test.sprint30m}s`                   : null, grade: results?.sprint30mGrade },
+    { label: 'CMJ (best)',    value: test?.cmjBest            ? `${test.cmjBest}cm`                    : null, grade: results?.cmjGrade },
+    { label: 'Fatigue Index', value: results?.fatigueIndex    ? `${results.fatigueIndex.toFixed(1)}%`  : null, grade: results?.fiGrade },
+    { label: 'Yo-Yo IR1',    value: test?.yoyoLevel          ? `Level ${test.yoyoLevel}`              : null, grade: results?.yoyoGrade },
+  ] as { label: string; value: string | null; grade?: 1|2|3|4 }[];
 
   return (
     <Card className="p-4 mb-5">
@@ -177,18 +164,22 @@ function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => vo
           onClick={() => onNavigate({ screen: 'testing-battery' })}
           className="text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full hover:bg-brand-100"
         >
-          Re-test
+          {baseline ? 'Re-test' : 'Take Test'}
         </button>
       </div>
 
-      <p className="text-xs text-gray-400 mb-3">
-        Last tested {new Date(savedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-      </p>
+      {baseline ? (
+        <p className="text-xs text-gray-400 mb-3">
+          Last tested {new Date(baseline.savedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+        </p>
+      ) : (
+        <p className="text-xs text-gray-400 mb-3">No tests completed yet — tap Take Test to begin.</p>
+      )}
 
-      {/* Energy bars */}
-      {(results.aerobicScore !== undefined || results.anaerobicScore !== undefined) && (
+      {/* Energy bars — only when scores exist */}
+      {(results?.aerobicScore !== undefined || results?.anaerobicScore !== undefined) && (
         <div className="mb-3">
-          {results.aerobicScore !== undefined && (
+          {results?.aerobicScore !== undefined && (
             <div className="mb-2">
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-gray-600 font-medium">🫀 Aerobic</span>
@@ -199,7 +190,7 @@ function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => vo
               </div>
             </div>
           )}
-          {results.anaerobicScore !== undefined && (
+          {results?.anaerobicScore !== undefined && (
             <div>
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-gray-600 font-medium">⚡ Anaerobic</span>
@@ -213,21 +204,23 @@ function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => vo
         </div>
       )}
 
-      {/* Metric chips */}
-      <div className="flex flex-wrap gap-2">
-        {([
-          { label: '10m', value: test.sprint10m ? `${test.sprint10m}s` : null, grade: results.sprint10mGrade },
-          { label: '30m', value: test.sprint30m ? `${test.sprint30m}s` : null, grade: results.sprint30mGrade },
-          { label: 'CMJ', value: test.cmjBest ? `${test.cmjBest}cm` : null, grade: results.cmjGrade },
-          { label: 'FI',  value: results.fatigueIndex ? `${results.fatigueIndex.toFixed(1)}%` : null, grade: results.fiGrade },
-          { label: 'Yo-Yo', value: test.yoyoLevel ? `Lv ${test.yoyoLevel}` : null, grade: results.yoyoGrade },
-        ] as { label: string; value: string | null; grade?: 1|2|3|4 }[]).filter(r => r.value).map(row => (
-          <div key={row.label} className={`px-2.5 py-1 rounded-xl border text-xs ${
-            row.grade ? `${GRADE_COLOURS[row.grade].bg} ${GRADE_COLOURS[row.grade].text} ${GRADE_COLOURS[row.grade].border}` : 'bg-gray-50 text-gray-600 border-gray-200'
-          }`}>
-            <span className="font-semibold">{row.label}</span>
-            <span className="ml-1 font-normal opacity-80">{row.value}</span>
-            {row.grade && <span className="ml-1 opacity-60">{GRADE_LABELS[row.grade]}</span>}
+      {/* Metric rows — always shown, Waiting when not yet tested */}
+      <div className="flex flex-col gap-2">
+        {chips.map(row => (
+          <div key={row.label} className="flex items-center justify-between gap-2">
+            <span className="text-xs text-gray-600 flex-1">{row.label}</span>
+            {row.value ? (
+              <>
+                <span className="text-xs font-bold text-gray-800">{row.value}</span>
+                {row.grade && (
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${GRADE_COLOURS[row.grade].bg} ${GRADE_COLOURS[row.grade].text} ${GRADE_COLOURS[row.grade].border}`}>
+                    {GRADE_LABELS[row.grade]}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-xs font-medium text-gray-400 italic">Waiting</span>
+            )}
           </div>
         ))}
       </div>

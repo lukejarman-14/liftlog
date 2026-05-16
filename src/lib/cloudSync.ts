@@ -72,8 +72,9 @@ export async function cloudDeleteAccount(): Promise<void> {
 /** Send a password reset email to the user. */
 export async function cloudResetPassword(email: string): Promise<void> {
   if (!supabase) throw new Error('not_configured');
+  const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: 'https://vectorfootball.co.uk/',
+    redirectTo: `${origin}/`,
   });
   if (error) throw error;
 }

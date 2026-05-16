@@ -41,7 +41,11 @@
   }
 
   .safe-area-pb {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-area-pb-bar {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
   }
 
   .safe-area-pt {

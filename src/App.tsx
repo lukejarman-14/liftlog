@@ -32,16 +32,29 @@ import {
 } from './lib/cloudSync';
 import { supabase } from './lib/supabase';
 
+// Detect recovery token in URL synchronously (before React mounts).
+// Supabase implicit flow appends #access_token=...&type=recovery to the redirectTo URL.
+// This lets us bypass the session spinner and auth guards immediately.
+function detectRecoveryUrl(): boolean {
+  if (typeof window === 'undefined') return false;
+  const hash = window.location.hash;
+  const search = window.location.search;
+  return hash.includes('type=recovery') || search.includes('type=recovery');
+}
+
 export default function App() {
   const store = useStore();
   const [nav, setNav] = useState<NavState>({ screen: 'dashboard' });
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [currentProgramme, setCurrentProgramme] = useState<GPType | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  // While checking for an existing Supabase session, show nothing to avoid flash
-  const [sessionChecking, setSessionChecking] = useState(isSupabaseConfigured);
+  // true while we confirm whether a Supabase session exists (skip spinner for recovery URLs)
+  const [sessionChecking, setSessionChecking] = useState(isSupabaseConfigured && !detectRecoveryUrl());
+  // true when the user has arrived via a password-reset link — bypasses profile/auth guards
+  const [isRecoveryMode, setIsRecoveryMode] = useState(detectRecoveryUrl);
 
   const cloudUserIdRef = useRef<string | null>(null);
+  const [showProgrammePrompt, setShowProgrammePrompt] = useState(false);
 
   // ── One-time migration: ll_ → vf_ storage keys ───────────────────────────
   useEffect(() => {
@@ -83,12 +96,16 @@ export default function App() {
   }, []);
 
   // ── Listen for password recovery event (from reset email link) ────────────
+  // Supabase replays the initial auth event to new listeners, so even if the token
+  // was processed before this effect runs, we still receive PASSWORD_RECOVERY here.
   useEffect(() => {
     if (!supabase) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         if (session?.user?.id) cloudUserIdRef.current = session.user.id;
         setIsAuthenticated(true);
+        setIsRecoveryMode(true);
+        setSessionChecking(false);   // clear spinner if still showing
         setNav({ screen: 'reset-password' });
       }
     });
@@ -182,6 +199,7 @@ export default function App() {
     activatePlan(recommendedPlanId);
     if (userId) cloudUserIdRef.current = userId;
     navigate({ screen: 'dashboard' });
+    setShowProgrammePrompt(true);
   };
 
   const handleGenerateProgramme = (inputs: ProgrammeInputs) => {
@@ -220,6 +238,19 @@ export default function App() {
   };
 
   // ── Auth guards ────────────────────────────────────────────────────────────
+
+  // Password-reset flow: bypass all auth/profile guards so the reset form is
+  // always reachable regardless of local profile state or auth status.
+  if (isRecoveryMode || nav.screen === 'reset-password') {
+    return (
+      <ResetPassword
+        onDone={() => {
+          setIsRecoveryMode(false);
+          navigate({ screen: 'dashboard' });
+        }}
+      />
+    );
+  }
 
   // While checking for Supabase session, show a minimal loading state
   if (sessionChecking) {
@@ -261,7 +292,7 @@ export default function App() {
   }
 
   const { screen } = nav;
-  const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme', 'reset-password'];
+  const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme'];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -454,12 +485,42 @@ export default function App() {
         );
       })()}
 
-      {screen === 'reset-password' && (
-        <ResetPassword onDone={() => navigate({ screen: 'dashboard' })} />
-      )}
-
       {!fullScreens.includes(screen) && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
+      )}
+
+      {/* ── Post-onboarding: build programme prompt ─────────────────────── */}
+      {showProgrammePrompt && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 pb-8">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-brand-500 flex items-center justify-center mb-4 mx-auto shadow-lg">
+              <Zap size={28} className="text-white" />
+            </div>
+            <h2 className="text-xl font-extrabold text-gray-900 text-center mb-2">
+              Welcome to Vector Football!
+            </h2>
+            <p className="text-sm text-gray-500 text-center leading-relaxed mb-6">
+              Ready to build your personalised training programme? It only takes a minute and uses everything you just told us.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setShowProgrammePrompt(false);
+                  navigate({ screen: 'programme-builder' });
+                }}
+                className="w-full py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md"
+              >
+                Build My Programme
+              </button>
+              <button
+                onClick={() => setShowProgrammePrompt(false)}
+                className="w-full py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors"
+              >
+                Continue to App
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Low-readiness volume prompt ─────────────────────────────────── */}

@@ -155,6 +155,7 @@ export interface UserProfile {
   lastName: string;
   email: string;
   position: 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST';
+  secondaryPosition?: 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST';
   experienceYears: '<1' | '1-3' | '3-5' | '5+';
   gymFrequency: '0' | '1-2' | '3-4' | '5+';
   goals: string[];           // e.g. ['speed', 'strength', 'endurance']
