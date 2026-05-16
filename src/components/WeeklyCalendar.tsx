@@ -28,6 +28,16 @@ interface WeeklyCalendarProps {
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+function isConditioningSession(session: { mdDay: string; objective: string }): boolean {
+  const md = (session.mdDay ?? '').toLowerCase();
+  const obj = (session.objective ?? '').toLowerCase();
+  return md === 'conditioning' || md === 'md+1' ||
+    obj.includes('active recovery') ||
+    obj.includes('conditioning session') ||
+    obj.includes('speed session') ||
+    obj.includes('cardio');
+}
+
 const PHASE_COLOURS: Record<string, string> = {
   Foundation: 'bg-blue-100 text-blue-700',
   Build:      'bg-purple-100 text-purple-700',
@@ -37,7 +47,7 @@ const PHASE_COLOURS: Record<string, string> = {
 };
 
 function dateToStr(d: Date): string {
-  return d.toISOString().split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession }: WeeklyCalendarProps) {
@@ -68,16 +78,31 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
     ? generatedProgramme.weeks[progWeekIdx] ?? null
     : null;
 
-  // Build map: day index → ALL programme sessions that day (gym + conditioning)
+  // Compute effective day for each session, respecting session overrides from Load Calendar
   const progSessionsByDay = new Map<number, import('../types').ProgrammeSession[]>();
+  const progSessionsThisWeek: { session: import('../types').ProgrammeSession; effectiveDayIdx: number; effectiveDate: Date }[] = [];
+
   if (!hasPlan && progWeek) {
-    for (const s of progWeek.sessions) {
-      const idx = DAY_NAME_TO_INDEX[s.dayOfWeek];
-      if (idx != null) {
-        const existing = progSessionsByDay.get(idx) ?? [];
-        progSessionsByDay.set(idx, [...existing, s]);
+    const overrides = generatedProgramme?.sessionOverrides ?? {};
+    progWeek.sessions.forEach((s, si) => {
+      const sessionKey = `${progWeekIdx}-${si}`;
+      const override = overrides[sessionKey];
+      let effectiveDayIdx = -1;
+
+      if (override) {
+        const od = new Date(override + 'T12:00:00');
+        const wIdx = weekDates.findIndex(wd => isSameDay(wd, od));
+        effectiveDayIdx = wIdx; // -1 = moved to a different week, skip
+      } else {
+        effectiveDayIdx = DAY_NAME_TO_INDEX[s.dayOfWeek] ?? -1;
       }
-    }
+
+      if (effectiveDayIdx >= 0) {
+        progSessionsThisWeek.push({ session: s, effectiveDayIdx, effectiveDate: weekDates[effectiveDayIdx] });
+        const existing = progSessionsByDay.get(effectiveDayIdx) ?? [];
+        progSessionsByDay.set(effectiveDayIdx, [...existing, s]);
+      }
+    });
   }
   const progDayIndices = new Set(progSessionsByDay.keys());
 
@@ -186,13 +211,13 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
       {!hasPlan && generatedProgramme && progWeek && (() => {
         return (
           <div className="flex flex-col gap-2 mb-2">
-            {progWeek.sessions.map((session, i) => {
-              const dowIndex = DAY_NAME_TO_INDEX[session.dayOfWeek];
-              const date = dowIndex != null ? weekDates[dowIndex] : null;
-              const dateStr = date ? dateToStr(date) : '';
-              const done = dateStr ? completedDates.has(dateStr) : false;
-              const isToday = date ? isSameDay(date, today) : false;
-              const isCond = session.mdDay === 'Conditioning';
+            {progSessionsThisWeek.map(({ session, effectiveDayIdx, effectiveDate }, i) => {
+              const date = effectiveDate;
+              const dateStr = dateToStr(date);
+              const done = completedDates.has(dateStr);
+              const isToday = isSameDay(date, today);
+              const dowIndex = effectiveDayIdx;
+              const isCond = isConditioningSession(session);
               const mdDisplay = isCond ? 'Conditioning' : session.mdDay.replace('MD-', 'MD');
               // Match entry on the same day (to show opponent)
               const matchOnDay = dowIndex != null ? matchByDay.get(dowIndex) : undefined;
@@ -211,7 +236,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                       }`}>{mdDisplay}</span>
                       <span className={`text-xs font-semibold ${
                         isCond && isToday ? 'text-emerald-600' : isToday ? 'text-brand-500' : 'text-gray-400'
-                      }`}>{session.dayOfWeek}</span>
+                      }`}>{DAY_LABELS[effectiveDayIdx]}</span>
                       <span className="text-xs text-gray-300 flex items-center gap-0.5">
                         <Clock size={10} className="text-gray-300" />{session.durationMin}m
                       </span>
@@ -335,7 +360,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
             </div>
             <div className="flex flex-col gap-2">
               {daySheet.map((s, i) => {
-                const isCond = s.mdDay === 'Conditioning';
+                const isCond = isConditioningSession(s);
                 return (
                   <button
                     key={i}

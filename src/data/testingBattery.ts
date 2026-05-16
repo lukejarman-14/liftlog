@@ -322,10 +322,10 @@ export const TEST_PROTOCOLS = {
       'PARTNER REQUIRED: Your partner holds the phone and taps "Sprint Done" the moment you cross the 20m line.',
       'Stand at the start line. The app counts down 5 seconds — sprint at full effort on "GO".',
       'Your partner taps "Sprint Done" exactly as you cross the finish. The app records the split time automatically.',
-      'Rest 20 seconds passively (no jogging). Walk back to the start during rest.',
+      'Rest 5 seconds passively (no jogging). Walk back to the start during rest.',
       'Repeat for all 6 sprints. Times are recorded automatically — no manual entry needed.',
     ],
-    whyFI: 'The Fatigue Index (Girard et al., 2011) quantifies the % decrease in sprint performance over repeated efforts. Formula: FI = [(Total time − n × Best time) / (n × Best time)] × 100. A low FI means your aerobic system effectively resynthesises phosphocreatine between sprints. Elite footballers typically show FI < 3%.',
+    whyFI: 'The Fatigue Index shows how much your sprint speed drops from your fastest to your slowest rep. A low score means you stayed consistently quick across all 6 sprints. Elite footballers typically score below 3%.',
     reference: 'Girard et al. (2011) Sports Med; Spencer et al. (2005) Sports Med',
   },
   yoyo: {

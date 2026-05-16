@@ -355,6 +355,8 @@ export interface GeneratedProgramme {
   weeks: ProgrammeWeek[];
   strengthSetup?: StrengthSetup;  // Progressive overload baseline
   sessionOverrides?: Record<string, string>; // sessionKey ("wi-dow") → new YYYY-MM-DD date
+  conditioningRepCounts?: Record<string, number>;   // exerciseId → current interval count (auto-adjusts after each session)
+  conditioningStagnation?: Record<string, number>;  // exerciseId → sessions completed at current count without increasing
 }
 
 // ── Testing Engine ─────────────────────────────────────────────────────────

@@ -156,8 +156,8 @@ function useRsaEngine() {
       beep(880, 0.5, 0.8); // final beep
       setRsaState({ phase: 'done', rep, remaining: 0 });
     } else {
-      endAtRef.current = Date.now() + 15000;
-      setRsaState({ phase: 'rest', rep, remaining: 15 });
+      endAtRef.current = Date.now() + 5000;
+      setRsaState({ phase: 'rest', rep, remaining: 5 });
     }
   }, [beep]);
 
@@ -399,7 +399,7 @@ const TEST_DESC: Record<TestType, string> = {
   '30m': 'Max velocity + glycolytic power',
   cmj: 'Explosive vertical power',
   broad_jump: 'Horizontal explosive power',
-  rsa: '6 × 20m with 15s rest — fatigue index',
+  rsa: '6 × 20m with 5s rest — fatigue index',
   yoyo: 'Aerobic capacity (IR1)',
 };
 
@@ -772,7 +772,7 @@ function RsaScreen({
         <Wind size={18} className="text-brand-500" />
         <h2 className="text-2xl font-bold text-gray-900">Repeated Sprint Ability</h2>
       </div>
-      <p className="text-xs text-gray-500 mb-3">6 × 20m · 15s passive rest · Fatigue Index</p>
+      <p className="text-xs text-gray-500 mb-3">6 × 20m · 5s passive rest · Fatigue Index</p>
 
       {/* Partner disclaimer */}
       <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mb-4">
@@ -987,7 +987,7 @@ function RsaScreen({
                 cx="50" cy="50" r="42" fill="none" stroke="#22c55e" strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 42}`}
-                strokeDashoffset={`${2 * Math.PI * 42 * (1 - remaining / 15)}`}
+                strokeDashoffset={`${2 * Math.PI * 42 * (1 - remaining / 5)}`}
                 className="transition-all duration-900"
               />
             </svg>
@@ -1767,9 +1767,9 @@ function ResultsScreen({
 
       {/* Science context */}
       <Card className="p-4 mb-5 bg-gray-50 border-gray-200">
-        <p className="text-xs font-semibold text-gray-700 mb-1.5">Why this matters for your game</p>
+        <p className="text-xs font-semibold text-gray-700 mb-1.5">What this means for your game</p>
         <p className="text-xs text-gray-500 leading-relaxed">
-          Football is ~88–90% aerobic in total energy supply, yet every sprint, jump and duel is almost entirely anaerobic. Your Fatigue Index captures how well your aerobic base supports recovery between explosive efforts — because phosphocreatine resynthesis is an aerobic process. A strong aerobic engine keeps you explosive for the full 90 minutes.
+          In a match you sprint, press, and challenge dozens of times. The quicker you recover between those efforts, the more quality you can produce late in the game. Your Fatigue Index shows how much your speed drops across the 6 sprints — a low score means you stayed fast from start to finish. Elite players typically drop less than 3%.
         </p>
       </Card>
 

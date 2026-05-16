@@ -676,17 +676,18 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
   },
   'hiit-run': {
     how: [
-      'Alternate between sprint efforts (85–100% max effort) and recovery jogs or walks.',
-      'Typical format: 30 s on / 30 s off, or 40 s on / 20 s off, for 8–12 rounds.',
+      'Sprint at 85–100% effort for the work interval.',
+      'When the work interval ends, slowly jog back to the start. Rest for any remaining time before the next rep.',
+      'Typical format: 30 s sprint / 30 s rest, for the prescribed number of rounds.',
     ],
-    tips: ['The work interval must be HARD. If you can keep going comfortably, you are not working hard enough.'],
-    footballContext: 'Mirrors the high-intensity intermittent pattern of a football match. On a pitch: sprint from byline to halfway line (≈52m), walk back — repeat for 8–12 reps with 30 s rest each.',
+    tips: ['The work interval must be HARD. If you can keep going comfortably, you are not working hard enough.', 'The jog back is part of your recovery — do not stand still, keep moving slowly.'],
+    footballContext: 'Mirrors the high-intensity intermittent pattern of a football match. On a pitch: sprint from the byline to the halfway line (≈52m), slowly jog back — rest for any remaining time. Repeat for the prescribed reps.',
   },
   'repeated-sprint': {
     how: [
       'Mark out 30 metres (or use pitch markings — from the penalty spot to 2m inside the centre circle is approximately 30m).',
       'Sprint the full 30m at maximum effort.',
-      'Walk or jog back to the start in the rest period.',
+      'Slowly jog back to the start — this counts as active recovery. Rest for any remaining time before the next rep.',
       'Repeat for the prescribed number of reps.',
     ],
     tips: ['Every sprint should be at 100% effort. If your time drops by >5%, the session is over.', 'Typical protocol: 6–10 × 30m with 30 s rest between each.'],

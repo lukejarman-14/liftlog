@@ -175,6 +175,50 @@ export default function App() {
     setNav({ screen: 'dashboard' });
   };
 
+  const getActiveProgramme = () =>
+    store.activeProgrammeId
+      ? store.generatedProgrammes.find(p => p.id === store.activeProgrammeId) ?? null
+      : null;
+
+  // Default interval counts — used when no stored count or history exists
+  const CONDITIONING_DEFAULTS: Record<string, number> = { 'hiit-run': 8 };
+
+  const handleStartProgrammeSession = (name: string, items: WorkoutExercise[]) => {
+    const activeProg = getActiveProgramme();
+    const adjustedItems = items.map(item => {
+      const exercise = store.getExercise(item.exerciseId);
+      if (exercise?.category !== 'Conditioning') return item;
+      // 1. Programme override (set by post-workout feedback)
+      const stored = activeProg?.conditioningRepCounts?.[item.exerciseId];
+      if (stored != null) return { ...item, targetSets: stored };
+      // 2. Last session volume for continuity
+      const lastEx = store.getLastSession(item.exerciseId, '');
+      if (lastEx && lastEx.targetSets > 0) return { ...item, targetSets: lastEx.targetSets };
+      // 3. Science-based default (hiit-run always starts at 8)
+      const def = CONDITIONING_DEFAULTS[item.exerciseId];
+      if (def != null) return { ...item, targetSets: def };
+      return item;
+    });
+    handleStartWorkout(name, adjustedItems);
+  };
+
+  const handleConditioningFeedback = (updates: Record<string, number>) => {
+    const activeProg = getActiveProgramme();
+    if (!activeProg) return;
+    const currentCounts = activeProg.conditioningRepCounts ?? {};
+    const currentStagnation = activeProg.conditioningStagnation ?? {};
+    const newStagnation = { ...currentStagnation };
+    for (const [id, newCount] of Object.entries(updates)) {
+      const prev = currentCounts[id] ?? CONDITIONING_DEFAULTS[id] ?? newCount;
+      newStagnation[id] = newCount > prev ? 0 : (newStagnation[id] ?? 0) + 1;
+    }
+    store.saveGeneratedProgramme({
+      ...activeProg,
+      conditioningRepCounts: { ...currentCounts, ...updates },
+      conditioningStagnation: newStagnation,
+    });
+  };
+
   const handleStartTemplate = (templateId: string, name: string) => {
     const template = POSITION_TEMPLATES.find(t => t.id === templateId);
     if (template) handleStartWorkout(name || template.name, template.exercises);
@@ -309,7 +353,7 @@ export default function App() {
           onSaveReadiness={store.saveDailyReadiness}
           onNavigate={navigate}
           onStartWorkout={handleStartTemplate}
-          onStartProgrammeSession={handleStartWorkout}
+          onStartProgrammeSession={handleStartProgrammeSession}
         />
       )}
 
@@ -352,6 +396,8 @@ export default function App() {
           showTutorials={store.userSettings.showTutorialVideos}
           onUpdateSession={handleUpdateSession}
           onFinish={handleFinishWorkout}
+          onConditioningFeedback={handleConditioningFeedback}
+          conditioningStagnation={getActiveProgramme()?.conditioningStagnation}
           onDiscard={() => { setActiveSession(null); navigate({ screen: 'dashboard' }); }}
         />
       )}

@@ -146,14 +146,23 @@ export function sessionToWorkoutExercises(
         id = found?.id;
       }
 
-      if (id && !used.has(id) && exercises.find(e => e.id === id)) {
+      const exercise = id ? exercises.find(e => e.id === id) : undefined;
+      if (id && !used.has(id) && exercise) {
         used.add(id);
+        const isCond = exercise.category === 'Conditioning';
+        // Conditioning: pe.sets = number of intervals, each interval = 1 rep.
+        // Bypass the 6-set cap and skip the time-based reps field.
+        const targetSets = isCond
+          ? Math.min(Math.max(parseInt(pe.sets, 10) || 1, 1), 25)
+          : parseSets(pe.sets);
+        const targetReps = isCond ? 1 : parseReps(pe.reps);
+        const restSeconds = isCond ? 30 : parseRest(pe.rest);
         result.push({
           exerciseId: id,
-          targetSets: parseSets(pe.sets),
-          targetReps: parseReps(pe.reps),
+          targetSets,
+          targetReps,
           targetWeight: 0,
-          restSeconds: parseRest(pe.rest),
+          restSeconds,
           blockTitle: isFirstInBlock ? block.title : undefined,
         });
         isFirstInBlock = false;

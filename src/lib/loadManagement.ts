@@ -16,6 +16,11 @@
 
 import { MatchEntry, LoadDay } from '../types';
 
+/** YYYY-MM-DD in local timezone — avoids UTC offset shifting midnight dates by a day */
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export interface LoadProfile {
   day: LoadDay;
   label: string;
@@ -117,7 +122,7 @@ export function getLoadProfile(day: LoadDay): LoadProfile {
 }
 
 export function getTodayProfile(matchEntries: MatchEntry[]): LoadProfile {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr(new Date());
   return PROFILES[classifyDay(today, matchEntries)];
 }
 
@@ -136,7 +141,7 @@ export function getMonthProfiles(
 
   return Array.from({ length: daysInMonth }, (_, i) => {
     const d = new Date(year, month, i + 1);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = localDateStr(d);
     const matchEntry = matchEntries.find(e => e.date === dateStr && e.type === 'match');
     const trainingEntry = matchEntries.find(e => e.date === dateStr && e.type === 'team_training');
     return {
@@ -169,7 +174,7 @@ export function getTwoWeekProfiles(
   return Array.from({ length: 14 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = localDateStr(d);
     return {
       date: dateStr,
       dayLabel: SHORT_DAYS[i % 7],

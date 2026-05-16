@@ -99,13 +99,13 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'lateral-bound', name: 'Lateral Bound', category: 'Speed', secondaryCategory: 'Agility', defaultRestSeconds: 90, muscleGroups: ['Glutes', 'Adductors', 'Calves'], measureType: 'reps' },
 
   // Conditioning
-  { id: 'aerobic-threshold-run', name: 'Aerobic Threshold Run', category: 'Conditioning', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'], measureType: 'time', unit: 'min' },
-  { id: 'tempo-run', name: 'Tempo Run', category: 'Conditioning', defaultRestSeconds: 120, muscleGroups: ['Cardiovascular'], measureType: 'time', unit: 's' },
-  { id: 'hiit-run', name: 'HIIT Run Interval', category: 'Conditioning', defaultRestSeconds: 60, muscleGroups: ['Cardiovascular'], measureType: 'time', unit: 's' },
-  { id: 'repeated-sprint', name: 'Repeated Sprint (30m)', category: 'Conditioning', defaultRestSeconds: 30, muscleGroups: ['Hamstrings', 'Glutes', 'Cardiovascular'], measureType: 'time', unit: 's' },
-  { id: 'shuttle-run', name: 'Shuttle Run (5-10-5m)', category: 'Conditioning', defaultRestSeconds: 45, muscleGroups: ['Full Body', 'Cardiovascular'], measureType: 'time', unit: 's' },
-  { id: 'ssg-simulation', name: 'SSG Simulation Run', category: 'Conditioning', defaultRestSeconds: 180, muscleGroups: ['Cardiovascular', 'Full Body'], measureType: 'time', unit: 'min' },
-  { id: 'lactate-threshold-run', name: 'Lactate Threshold Run', category: 'Conditioning', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'], measureType: 'time', unit: 'min' },
+  { id: 'aerobic-threshold-run', name: 'Aerobic Threshold Run', category: 'Conditioning', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'], measureType: 'reps' },
+  { id: 'tempo-run', name: 'Tempo Run', category: 'Conditioning', defaultRestSeconds: 120, muscleGroups: ['Cardiovascular'], measureType: 'reps' },
+  { id: 'hiit-run', name: 'HIIT Run Interval', category: 'Conditioning', defaultRestSeconds: 30, muscleGroups: ['Cardiovascular'], measureType: 'reps' },
+  { id: 'repeated-sprint', name: 'Repeated Sprint (30m)', category: 'Conditioning', defaultRestSeconds: 30, muscleGroups: ['Hamstrings', 'Glutes', 'Cardiovascular'], measureType: 'reps' },
+  { id: 'shuttle-run', name: 'Shuttle Run (5-10-5m)', category: 'Conditioning', defaultRestSeconds: 45, muscleGroups: ['Full Body', 'Cardiovascular'], measureType: 'reps' },
+  { id: 'ssg-simulation', name: 'SSG Simulation Run', category: 'Conditioning', defaultRestSeconds: 180, muscleGroups: ['Cardiovascular', 'Full Body'], measureType: 'reps' },
+  { id: 'lactate-threshold-run', name: 'Lactate Threshold Run', category: 'Conditioning', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'], measureType: 'reps' },
 
   // Testing — Sprint (also Speed)
   { id: 'test-5m-sprint', name: '5m Sprint', category: 'Testing', secondaryCategory: 'Speed', defaultRestSeconds: 180, muscleGroups: ['Acceleration'], measureType: 'time', unit: 's' },

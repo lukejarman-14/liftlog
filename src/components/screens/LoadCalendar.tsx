@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import type React from 'react';
+
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 import { ChevronLeft, ChevronRight, Trash2, Calendar, Info, ArrowRightLeft, AlertTriangle, X } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -60,7 +65,7 @@ function getProgrammeDates(programme: GeneratedProgramme): Map<string, SessionDo
       const dayIdx = DOW_INDEX[session.dayOfWeek] ?? 0;
       const d = new Date(monday);
       d.setDate(monday.getDate() + wi * 7 + dayIdx);
-      const originalDate = d.toISOString().split('T')[0];
+      const originalDate = localDateStr(d);
       const effectiveDate = overrides[sessionKey] ?? originalDate;
 
       const dot: SessionDot = {
@@ -138,7 +143,7 @@ function MonthlyCalendarGrid({
   onSessionDragStart: (sessionKey: string) => void;
   onDragEnd: () => void;
   onCellDragOver: (date: string, e: React.DragEvent) => void;
-  onCellDrop: (date: string) => void;
+  onCellDrop: (date: string, e: React.DragEvent) => void;
 }) {
   const days = getMonthProfiles(matchEntries, year, month);
   const firstDow = days[0]?.dayOfWeek ?? 0;
@@ -168,7 +173,7 @@ function MonthlyCalendarGrid({
               key={date}
               onClick={() => onSelectDay(date)}
               onDragOver={(e) => onCellDragOver(date, e)}
-              onDrop={() => onCellDrop(date)}
+              onDrop={(e) => onCellDrop(date, e)}
               className={`aspect-square flex flex-col rounded-lg border overflow-hidden cursor-pointer transition-all ${
                 isToday ? 'ring-2 ring-brand-500' : ''
               } ${
@@ -666,16 +671,19 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
     setSelectedDate(null);
   };
 
-  const handleCellDrop = (toDate: string) => {
-    if (!dragKey) return;
+  const handleCellDrop = (toDate: string, e: React.DragEvent) => {
+    e.preventDefault();
+    // Read sessionKey from dataTransfer — more reliable than React state which may be stale
+    const sessionKey = e.dataTransfer.getData('text/plain');
+    if (!sessionKey) return;
     setDropTarget(null);
+    setDragKey(null);
     const { risky, reason } = isRiskyDay(toDate, matchEntries);
     if (risky) {
-      setPendingMove({ sessionKey: dragKey, newDate: toDate, reason });
+      setPendingMove({ sessionKey, newDate: toDate, reason });
     } else {
-      handleMoveSession(dragKey, toDate);
+      handleMoveSession(sessionKey, toDate);
     }
-    setDragKey(null);
   };
 
   const upcoming = matchEntries
@@ -712,7 +720,7 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
           onSessionDragStart={(key) => setDragKey(key)}
           onDragEnd={() => { setDragKey(null); setDropTarget(null); }}
           onCellDragOver={(date, e) => { e.preventDefault(); setDropTarget(date); }}
-          onCellDrop={handleCellDrop}
+          onCellDrop={(date, e) => handleCellDrop(date, e)}
         />
       </Card>
 

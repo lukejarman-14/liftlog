@@ -19,6 +19,8 @@ interface ActiveWorkoutProps {
   showTutorials: boolean;
   onUpdateSession: (session: WorkoutSession) => void;
   onFinish: (session: WorkoutSession) => void;
+  onConditioningFeedback?: (updates: Record<string, number>) => void;
+  conditioningStagnation?: Record<string, number>;
   onDiscard: () => void;
 }
 
@@ -986,7 +988,7 @@ interface NewPBEntry {
   prevReps: number | null;
 }
 
-export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onDiscard }: ActiveWorkoutProps) {
+export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onConditioningFeedback, conditioningStagnation, onDiscard }: ActiveWorkoutProps) {
   const timer = useTimer();
   const { getPB, getExercise, userSettings, updateSettings } = useStore();
   const showRir = userSettings.showRir ?? true;
@@ -995,6 +997,8 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   const [pendingSession, setPendingSession] = useState<WorkoutSession | null>(null);
   const [newPBs, setNewPBs] = useState<NewPBEntry[]>([]);
   const [restingExerciseIdx, setRestingExerciseIdx] = useState<number | null>(null);
+  const [showCondModal, setShowCondModal] = useState(false);
+  const [pendingFinishSession, setPendingFinishSession] = useState<WorkoutSession | null>(null);
 
   // Capture pre-session PBs on mount (before any sets are saved)
   const prePBsRef = useRef<Record<string, { weight: number; reps: number } | null>>({});
@@ -1013,6 +1017,33 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     timer.skip();
     setRestingExerciseIdx(null);
   }, [timer]);
+
+  const conditioningExercises = session.exercises.filter(ex => {
+    const exercise = getExercise(ex.exerciseId);
+    return exercise?.category === 'Conditioning';
+  });
+
+  const doFinish = useCallback((s: WorkoutSession) => {
+    if (conditioningExercises.length > 0 && onConditioningFeedback) {
+      setPendingFinishSession(s);
+      setShowCondModal(true);
+    } else {
+      onFinish(s);
+    }
+  }, [conditioningExercises.length, onConditioningFeedback, onFinish]);
+
+  const handleCondFeedback = useCallback((delta: number) => {
+    if (!pendingFinishSession || !onConditioningFeedback) return;
+    const updates: Record<string, number> = {};
+    conditioningExercises.forEach(ex => {
+      // targetSets = number of intervals for conditioning exercises
+      updates[ex.exerciseId] = Math.max(4, Math.min(25, ex.targetSets + delta));
+    });
+    onConditioningFeedback(updates);
+    setShowCondModal(false);
+    onFinish(pendingFinishSession);
+    setPendingFinishSession(null);
+  }, [pendingFinishSession, conditioningExercises, onConditioningFeedback, onFinish]);
 
   const computeNewPBs = useCallback((s: WorkoutSession): NewPBEntry[] => {
     return s.exercises.flatMap(ex => {
@@ -1048,14 +1079,14 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
       setNewPBs(pbs);
       setShowPBModal(true);
     } else {
-      onFinish(finalSession);
+      doFinish(finalSession);
     }
-  }, [computeNewPBs, onFinish]);
+  }, [computeNewPBs, doFinish]);
 
   const handleKeepPBs = useCallback(() => {
-    if (pendingSession) onFinish(pendingSession);
+    if (pendingSession) doFinish(pendingSession);
     setShowPBModal(false);
-  }, [pendingSession, onFinish]);
+  }, [pendingSession, doFinish]);
 
   const handleDiscardPBs = useCallback(() => {
     if (!pendingSession) return;
@@ -1070,9 +1101,9 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
         return { ...ex, sets: kept };
       }),
     };
-    onFinish(updated);
+    doFinish(updated);
     setShowPBModal(false);
-  }, [pendingSession, newPBs, onFinish]);
+  }, [pendingSession, newPBs, doFinish]);
 
   const handleEditSet = useCallback((exerciseIdx: number, setIndex: number, set: CompletedSet) => {
     const updated: WorkoutSession = {
@@ -1215,6 +1246,64 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
           </div>
         </div>
       )}
+
+      {/* ── Conditioning feedback modal ── */}
+      {showCondModal && pendingFinishSession && (() => {
+        const stagnationCount = Math.max(
+          ...conditioningExercises.map(ex => conditioningStagnation?.[ex.exerciseId] ?? 0)
+        );
+        return (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+            <p className="text-lg font-bold text-gray-900 mb-1">How was the conditioning?</p>
+            <p className="text-sm text-gray-500 mb-1">
+              {conditioningExercises.map(ex => getExercise(ex.exerciseId)?.name ?? '').join(', ')}
+            </p>
+            <p className="text-xs text-gray-400 mb-3">
+              {conditioningExercises[0]?.targetSets ?? '—'} intervals done — your answer adjusts next session.
+            </p>
+            {stagnationCount >= 3 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4">
+                <p className="text-xs font-semibold text-amber-700 mb-0.5">💡 Ready to progress?</p>
+                <p className="text-xs text-amber-600">
+                  You've held the same volume for {stagnationCount} sessions. Adding 1–2 more intervals will keep your fitness improving — select "1–2 more" below if you're ready.
+                </p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleCondFeedback(-2)}
+                className="flex flex-col items-center gap-1 p-3 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-medium active:scale-95 transition-transform"
+              >
+                <span className="text-xl">😓</span>
+                Too hard
+              </button>
+              <button
+                onClick={() => handleCondFeedback(0)}
+                className="flex flex-col items-center gap-1 p-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 text-sm font-medium active:scale-95 transition-transform"
+              >
+                <span className="text-xl">✅</span>
+                Just right
+              </button>
+              <button
+                onClick={() => handleCondFeedback(1)}
+                className="flex flex-col items-center gap-1 p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium active:scale-95 transition-transform"
+              >
+                <span className="text-xl">💪</span>
+                1–2 more
+              </button>
+              <button
+                onClick={() => handleCondFeedback(2)}
+                className="flex flex-col items-center gap-1 p-3 rounded-xl border border-brand-200 bg-brand-50 text-brand-700 text-sm font-medium active:scale-95 transition-transform"
+              >
+                <span className="text-xl">🔥</span>
+                3+ more
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
 
       {/* ── PB review modal ── */}
       {showPBModal && (
