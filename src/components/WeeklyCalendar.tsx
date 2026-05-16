@@ -301,7 +301,12 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
 
       {/* Session preview modal */}
       {previewSession && (
-        <SessionPreviewModal session={previewSession} onClose={() => setPreviewSession(null)} />
+        <SessionPreviewModal
+          session={previewSession}
+          weekNumber={1}
+          totalWeeks={1}
+          onClose={() => setPreviewSession(null)}
+        />
       )}
     </section>
   );

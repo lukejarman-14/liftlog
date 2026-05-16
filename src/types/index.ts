@@ -326,6 +326,21 @@ export interface ProgrammeWeek {
   sessions: ProgrammeSession[];
 }
 
+// ── Progressive Overload Setup ─────────────────────────────────────────────
+
+export interface LiftBaseline {
+  key: string;             // LiftKey e.g. 'squat', 'hipThrust'
+  exerciseName: string;    // Display name e.g. 'Back Squat'
+  workingWeightKg: number; // Weight entered by user
+  workingReps: number;     // Reps entered by user
+  estimated1RM: number;    // Epley formula result
+}
+
+export interface StrengthSetup {
+  lifts: LiftBaseline[];
+  configuredAt: number;
+}
+
 export interface GeneratedProgramme {
   id: string;
   createdAt: number;
@@ -338,6 +353,7 @@ export interface GeneratedProgramme {
   durationWeeks: number;
   inputs: ProgrammeInputs;
   weeks: ProgrammeWeek[];
+  strengthSetup?: StrengthSetup;  // Progressive overload baseline
 }
 
 // ── Testing Engine ─────────────────────────────────────────────────────────

@@ -471,6 +471,11 @@ export default function App() {
               navigate({ screen: 'dashboard' });
             }}
             onDeactivate={() => store.setActiveProgrammeId(null)}
+            onSaveStrengthSetup={(setup) => {
+              const updated = { ...prog, strengthSetup: setup };
+              store.saveGeneratedProgramme(updated);
+              setCurrentProgramme(updated);
+            }}
             onSaveReorder={(weekIdx, newSessions) => {
               const updated = {
                 ...prog,

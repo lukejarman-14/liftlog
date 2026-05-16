@@ -179,6 +179,25 @@ function ChangePasswordModal({
 }
 
 
+function UnitToggle({ imperial, onChange }: { imperial: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+      <button
+        onClick={() => onChange(false)}
+        className={`px-2.5 py-1 transition-colors ${!imperial ? 'bg-brand-500 text-white' : 'text-gray-400 hover:bg-gray-50'}`}
+      >
+        Metric
+      </button>
+      <button
+        onClick={() => onChange(true)}
+        className={`px-2.5 py-1 transition-colors ${imperial ? 'bg-brand-500 text-white' : 'text-gray-400 hover:bg-gray-50'}`}
+      >
+        Imperial
+      </button>
+    </div>
+  );
+}
+
 function EditMetricsModal({
   currentHeight,
   currentWeight,
@@ -190,15 +209,68 @@ function EditMetricsModal({
   onSave: (heightCm?: number, weightKg?: number) => void;
   onClose: () => void;
 }) {
-  const [heightStr, setHeightStr] = useState(currentHeight ? String(currentHeight) : '');
-  const [weightStr, setWeightStr] = useState(currentWeight ? String(currentWeight) : '');
+  // Height state
+  const [heightImperial, setHeightImperial] = useState(false);
+  const [cmStr, setCmStr] = useState(currentHeight ? String(currentHeight) : '');
+  const [ftStr, setFtStr] = useState(currentHeight ? String(Math.floor(currentHeight / 2.54 / 12)) : '');
+  const [inStr, setInStr] = useState(currentHeight ? String(Math.round((currentHeight / 2.54) % 12)) : '');
+
+  // Weight state
+  const [weightImperial, setWeightImperial] = useState(false);
+  const [kgStr,  setKgStr]  = useState(currentWeight ? String(currentWeight) : '');
+  const [lbsStr, setLbsStr] = useState(currentWeight ? String(Math.round(currentWeight / 0.453592)) : '');
+
   const [saved, setSaved] = useState(false);
 
+  const switchHeightUnit = (toImperial: boolean) => {
+    if (toImperial) {
+      const cm = parseFloat(cmStr);
+      if (cm > 0) {
+        const totalIn = cm / 2.54;
+        setFtStr(String(Math.floor(totalIn / 12)));
+        setInStr(String(Math.round(totalIn % 12)));
+      }
+    } else {
+      const ft = parseFloat(ftStr) || 0;
+      const inches = parseFloat(inStr) || 0;
+      const cm = Math.round((ft * 12 + inches) * 2.54);
+      if (cm > 0) setCmStr(String(cm));
+    }
+    setHeightImperial(toImperial);
+  };
+
+  const switchWeightUnit = (toImperial: boolean) => {
+    if (toImperial) {
+      const kg = parseFloat(kgStr);
+      if (kg > 0) setLbsStr(String(Math.round(kg / 0.453592)));
+    } else {
+      const lbs = parseFloat(lbsStr);
+      if (lbs > 0) setKgStr(String(Math.round(lbs * 0.453592 * 10) / 10));
+    }
+    setWeightImperial(toImperial);
+  };
+
   const handleSave = () => {
-    const h = heightStr ? parseFloat(heightStr) : undefined;
-    const w = weightStr ? parseFloat(weightStr) : undefined;
+    let heightCm: number | undefined;
+    let weightKg: number | undefined;
+
+    if (heightImperial) {
+      const ft = parseFloat(ftStr) || 0;
+      const inches = parseFloat(inStr) || 0;
+      if (ft > 0 || inches > 0) heightCm = Math.round((ft * 12 + inches) * 2.54);
+    } else {
+      if (cmStr) heightCm = parseFloat(cmStr);
+    }
+
+    if (weightImperial) {
+      const lbs = parseFloat(lbsStr);
+      if (lbs > 0) weightKg = Math.round(lbs * 0.453592 * 10) / 10;
+    } else {
+      if (kgStr) weightKg = parseFloat(kgStr);
+    }
+
     setSaved(true);
-    setTimeout(() => { onSave(h, w); onClose(); }, 600);
+    setTimeout(() => { onSave(heightCm, weightKg); onClose(); }, 600);
   };
 
   const inputCls = `w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-400`;
@@ -213,36 +285,84 @@ function EditMetricsModal({
           <h3 className="font-bold text-gray-900">Body Metrics</h3>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
+          {/* Height */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
-              Height (cm)
-            </label>
-            <input
-              value={heightStr}
-              onChange={e => setHeightStr(e.target.value)}
-              type="number"
-              min="100"
-              max="230"
-              placeholder="e.g. 180"
-              style={{ fontSize: '16px' }}
-              className={inputCls}
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Height</label>
+              <UnitToggle imperial={heightImperial} onChange={switchHeightUnit} />
+            </div>
+            {heightImperial ? (
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <input
+                    value={ftStr}
+                    onChange={e => setFtStr(e.target.value)}
+                    type="number" min="3" max="8"
+                    placeholder="5"
+                    style={{ fontSize: '16px' }}
+                    className={inputCls + ' pr-8'}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-semibold">ft</span>
+                </div>
+                <div className="flex-1 relative">
+                  <input
+                    value={inStr}
+                    onChange={e => setInStr(e.target.value)}
+                    type="number" min="0" max="11"
+                    placeholder="11"
+                    style={{ fontSize: '16px' }}
+                    className={inputCls + ' pr-8'}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-semibold">in</span>
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  value={cmStr}
+                  onChange={e => setCmStr(e.target.value)}
+                  type="number" min="100" max="230"
+                  placeholder="e.g. 180"
+                  style={{ fontSize: '16px' }}
+                  className={inputCls + ' pr-10'}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-semibold">cm</span>
+              </div>
+            )}
           </div>
+
+          {/* Weight */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
-              Weight (kg)
-            </label>
-            <input
-              value={weightStr}
-              onChange={e => setWeightStr(e.target.value)}
-              type="number"
-              min="30"
-              max="200"
-              placeholder="e.g. 75"
-              style={{ fontSize: '16px' }}
-              className={inputCls}
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Weight</label>
+              <UnitToggle imperial={weightImperial} onChange={switchWeightUnit} />
+            </div>
+            {weightImperial ? (
+              <div className="relative">
+                <input
+                  value={lbsStr}
+                  onChange={e => setLbsStr(e.target.value)}
+                  type="number" min="66" max="440"
+                  placeholder="e.g. 165"
+                  style={{ fontSize: '16px' }}
+                  className={inputCls + ' pr-10'}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-semibold">lbs</span>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  value={kgStr}
+                  onChange={e => setKgStr(e.target.value)}
+                  type="number" min="30" max="200"
+                  placeholder="e.g. 75"
+                  style={{ fontSize: '16px' }}
+                  className={inputCls + ' pr-10'}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-semibold">kg</span>
+              </div>
+            )}
           </div>
 
           {saved && (

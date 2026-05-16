@@ -7,12 +7,21 @@ import { useState, useRef } from 'react';
 import {
   ChevronLeft, ChevronDown, ChevronUp, ChevronRight,
   Clock, TrendingUp, BookOpen, Play, Home, X, GripVertical, AlertTriangle,
+  Target, Check, Pencil,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import {
   GeneratedProgramme as GPType, ProgrammeSession, SessionBlock, ProgrammeExercise,
+  StrengthSetup, LiftBaseline,
 } from '../../types';
+import {
+  LIFT_META, LiftKey,
+  findTrackedLiftsInProgramme,
+  getLiftKey,
+  prescribeWeekLoad,
+  epley1RM,
+} from '../../lib/progressiveOverload';
 
 interface Props {
   programme: GPType;
@@ -21,6 +30,7 @@ interface Props {
   onRebuild: () => void;
   onApply: () => void;      // set as active + navigate to dashboard
   onDeactivate: () => void; // remove from active (setActiveProgrammeId null)
+  onSaveStrengthSetup: (setup: StrengthSetup) => void;
 }
 
 // ── MD day badge ───────────────────────────────────────────────────────────
@@ -85,10 +95,28 @@ function IntentTag({ intent }: { intent?: string }) {
 
 // ── Exercise row ───────────────────────────────────────────────────────────
 
-function ExerciseRow({ exercise }: { exercise: ProgrammeExercise }) {
+function ExerciseRow({
+  exercise,
+  weekNumber,
+  totalWeeks,
+  strengthSetup,
+}: {
+  exercise: ProgrammeExercise;
+  weekNumber: number;
+  totalWeeks: number;
+  strengthSetup?: StrengthSetup;
+}) {
   const [open, setOpen] = useState(false);
   const { name, sets, reps, rest, intensity, tempo, methodType, intensityIntent, cue } = exercise;
   const isIsometric = methodType === 'isometric';
+
+  // Progressive overload target weight
+  const liftKey = getLiftKey(name);
+  const liftBaseline = liftKey ? strengthSetup?.lifts.find(l => l.key === liftKey) : null;
+  const prescription = liftBaseline
+    ? prescribeWeekLoad(liftBaseline.estimated1RM, intensity, weekNumber, totalWeeks)
+    : null;
+
   return (
     <div className="border-b border-gray-100 last:border-0">
       <button className="w-full text-left py-3 px-3 flex items-start justify-between" onClick={() => setOpen(o => !o)}>
@@ -102,6 +130,9 @@ function ExerciseRow({ exercise }: { exercise: ProgrammeExercise }) {
             {isIsometric && <Pill label="⏸ hold" colour="bg-purple-50 text-purple-600" />}
             {rest && <Pill label={`${rest} rest`} colour="bg-gray-100 text-gray-600" />}
             {intensity && <Pill label={intensity} colour="bg-orange-100 text-orange-600" />}
+            {prescription && (
+              <Pill label={`🎯 ${prescription.label}`} colour="bg-green-100 text-green-700" />
+            )}
             {tempo && <Pill label={`⏱ ${tempo}`} colour="bg-indigo-50 text-indigo-600" />}
           </div>
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
@@ -148,7 +179,14 @@ function Pill({ label, colour }: { label: string; colour: string }) {
 
 // ── Block card ─────────────────────────────────────────────────────────────
 
-function BlockCard({ block }: { block: SessionBlock }) {
+function BlockCard({
+  block, weekNumber, totalWeeks, strengthSetup,
+}: {
+  block: SessionBlock;
+  weekNumber: number;
+  totalWeeks: number;
+  strengthSetup?: StrengthSetup;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <Card className="overflow-hidden mb-3">
@@ -169,7 +207,15 @@ function BlockCard({ block }: { block: SessionBlock }) {
       </button>
       {open && (
         <div>
-          {block.exercises.map((ex, i) => <ExerciseRow key={i} exercise={ex} />)}
+          {block.exercises.map((ex, i) => (
+            <ExerciseRow
+              key={i}
+              exercise={ex}
+              weekNumber={weekNumber}
+              totalWeeks={totalWeeks}
+              strengthSetup={strengthSetup}
+            />
+          ))}
         </div>
       )}
     </Card>
@@ -178,8 +224,13 @@ function BlockCard({ block }: { block: SessionBlock }) {
 
 // ── Session preview modal ──────────────────────────────────────────────────
 
-export function SessionPreviewModal({ session, onClose }: {
+export function SessionPreviewModal({
+  session, weekNumber, totalWeeks, strengthSetup, onClose,
+}: {
   session: ProgrammeSession;
+  weekNumber: number;
+  totalWeeks: number;
+  strengthSetup?: StrengthSetup;
   onClose: () => void;
 }) {
   return (
@@ -205,7 +256,15 @@ export function SessionPreviewModal({ session, onClose }: {
           {session.fvProfile && (
             <p className="text-xs text-indigo-600 font-medium mb-3">⚡ {session.fvProfile}</p>
           )}
-          {session.blocks.map((block, i) => <BlockCard key={i} block={block} />)}
+          {session.blocks.map((block, i) => (
+            <BlockCard
+              key={i}
+              block={block}
+              weekNumber={weekNumber}
+              totalWeeks={totalWeeks}
+              strengthSetup={strengthSetup}
+            />
+          ))}
         </div>
       </div>
     </div>
@@ -233,7 +292,7 @@ function WeekAccordion({
 }: {
   week: import('../../types').ProgrammeWeek;
   defaultOpen: boolean;
-  onPreview: (s: ProgrammeSession) => void;
+  onPreview: (s: ProgrammeSession, weekNumber: number) => void;
   onReorderSessions: (newSessions: ProgrammeSession[]) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -319,7 +378,7 @@ function WeekAccordion({
               </div>
               {/* Session info — tappable */}
               <button
-                onClick={() => onPreview(session)}
+                onClick={() => onPreview(session, week.weekNumber)}
                 className="flex-1 text-left flex items-center gap-3 py-3 pr-3 min-w-0"
               >
                 <MdBadge mdDay={session.mdDay} />
@@ -395,12 +454,181 @@ function MethodLegend() {
   );
 }
 
+// ── Strength Setup Modal ───────────────────────────────────────────────────
+
+function StrengthSetupModal({
+  programme,
+  onSave,
+  onClose,
+}: {
+  programme: GPType;
+  onSave: (setup: StrengthSetup) => void;
+  onClose: () => void;
+}) {
+  const trackedKeys = findTrackedLiftsInProgramme(programme);
+
+  type Draft = { weightStr: string; repsStr: string };
+  const initDrafts = () => {
+    const d: Record<string, Draft> = {};
+    trackedKeys.forEach(k => { d[k] = { weightStr: '', repsStr: '' }; });
+    // Pre-fill from existing setup if editing
+    if (programme.strengthSetup) {
+      for (const l of programme.strengthSetup.lifts) {
+        if (d[l.key]) {
+          d[l.key] = { weightStr: String(l.workingWeightKg), repsStr: String(l.workingReps) };
+        }
+      }
+    }
+    return d;
+  };
+
+  const [drafts, setDrafts] = useState<Record<string, Draft>>(initDrafts);
+  const [saved, setSaved] = useState(false);
+
+  const setField = (key: string, field: 'weightStr' | 'repsStr', val: string) =>
+    setDrafts(prev => ({ ...prev, [key]: { ...prev[key], [field]: val } }));
+
+  // At least one lift must be filled to save
+  const canSave = trackedKeys.some(k => {
+    const d = drafts[k];
+    return d && parseFloat(d.weightStr) > 0 && parseInt(d.repsStr) > 0;
+  });
+
+  const handleSave = () => {
+    const lifts: LiftBaseline[] = [];
+    for (const key of trackedKeys) {
+      const d = drafts[key];
+      const w = parseFloat(d.weightStr);
+      const r = parseInt(d.repsStr);
+      if (w > 0 && r > 0) {
+        lifts.push({
+          key,
+          exerciseName: LIFT_META[key as LiftKey].askName,
+          workingWeightKg: w,
+          workingReps: r,
+          estimated1RM: Math.round(epley1RM(w, r) * 10) / 10,
+        });
+      }
+    }
+    setSaved(true);
+    setTimeout(() => { onSave({ lifts, configuredAt: Date.now() }); onClose(); }, 600);
+  };
+
+  const inputCls = 'flex-1 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 text-center font-semibold';
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-4 pb-6">
+      <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="p-6 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-2xl bg-green-100 flex items-center justify-center flex-shrink-0">
+              <Target size={20} className="text-green-600" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-gray-900 text-base">Set Strength Targets</h3>
+              <p className="text-xs text-gray-500">Enter your best working set for each lift</p>
+            </div>
+          </div>
+          <div className="bg-green-50 rounded-xl px-3 py-2 mt-3">
+            <p className="text-xs text-green-700 leading-relaxed">
+              <span className="font-bold">How it works:</span> Enter any set you've done recently — e.g. 100 kg × 5. We estimate your 1RM and calculate the exact weight for every session, week by week, with built-in progressive overload.
+            </p>
+          </div>
+        </div>
+
+        {/* Lift inputs */}
+        <div className="overflow-y-auto px-6 py-4 flex flex-col gap-5">
+          {trackedKeys.map(key => {
+            const meta = LIFT_META[key as LiftKey];
+            const d = drafts[key];
+            const w = parseFloat(d.weightStr);
+            const r = parseInt(d.repsStr);
+            const oneRM = w > 0 && r > 0 ? Math.round(epley1RM(w, r)) : null;
+            return (
+              <div key={key}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">{meta.label}</label>
+                  {oneRM && (
+                    <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                      ~{oneRM} kg 1RM
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mb-2">{meta.hint}</p>
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1 relative">
+                    <input
+                      value={d.weightStr}
+                      onChange={e => setField(key, 'weightStr', e.target.value)}
+                      type="number" min="0" max="500" placeholder="kg"
+                      style={{ fontSize: '16px' }}
+                      className={inputCls}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-semibold pointer-events-none">kg</span>
+                  </div>
+                  <span className="text-gray-300 font-bold">×</span>
+                  <div className="w-20 relative">
+                    <input
+                      value={d.repsStr}
+                      onChange={e => setField(key, 'repsStr', e.target.value)}
+                      type="number" min="1" max="30" placeholder="reps"
+                      style={{ fontSize: '16px' }}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {saved && (
+            <div className="flex items-center justify-center gap-2 text-green-600 font-semibold text-sm">
+              <Check size={16} /> Targets saved!
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 pt-3 border-t border-gray-100 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!canSave || saved}
+            className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
+              canSave && !saved
+                ? 'bg-green-500 text-white hover:bg-green-600'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            Save Targets
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function GeneratedProgramme({ programme, isActive, onBack, onRebuild, onApply, onDeactivate, onSaveReorder }: Props & { onSaveReorder?: (weekIdx: number, newSessions: ProgrammeSession[]) => void }) {
+export function GeneratedProgramme({
+  programme, isActive, onBack, onRebuild, onApply, onDeactivate,
+  onSaveStrengthSetup, onSaveReorder,
+}: Props & {
+  onSaveReorder?: (weekIdx: number, newSessions: ProgrammeSession[]) => void;
+}) {
   const [showExplanation, setShowExplanation] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
-  const [previewSession, setPreviewSession] = useState<ProgrammeSession | null>(null);
+  const [showStrengthSetup, setShowStrengthSetup] = useState(false);
+  const [previewSession, setPreviewSession] = useState<{ session: ProgrammeSession; weekNumber: number } | null>(null);
+
+  const trackedLifts = findTrackedLiftsInProgramme(programme);
+  const hasTrackedLifts = trackedLifts.length > 0;
 
   // Default-open the current week
   const currentWeekIdx = (() => {
@@ -437,6 +665,45 @@ export function GeneratedProgramme({ programme, isActive, onBack, onRebuild, onA
         <h1 className="text-lg font-bold text-gray-900 leading-tight mb-2">{programme.title}</h1>
         <p className="text-sm text-gray-600 mt-2 leading-relaxed">{programme.summary}</p>
       </Card>
+
+      {/* ── Progressive Overload Banner ── */}
+      {hasTrackedLifts && (
+        <button
+          onClick={() => setShowStrengthSetup(true)}
+          className={`w-full mb-4 rounded-2xl p-4 flex items-center gap-3 text-left transition-all active:scale-[0.98] ${
+            programme.strengthSetup
+              ? 'bg-green-50 border-2 border-green-200'
+              : 'bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg shadow-green-200'
+          }`}
+        >
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+            programme.strengthSetup ? 'bg-green-100' : 'bg-white/20'
+          }`}>
+            {programme.strengthSetup
+              ? <Check size={20} className="text-green-600" />
+              : <Target size={20} className="text-white" />
+            }
+          </div>
+          <div className="flex-1 min-w-0">
+            {programme.strengthSetup ? (
+              <>
+                <p className="text-sm font-bold text-green-800">Weight Targets Active</p>
+                <p className="text-xs text-green-600">
+                  {programme.strengthSetup.lifts.length} lift{programme.strengthSetup.lifts.length !== 1 ? 's' : ''} configured — open sessions to see your week-by-week targets
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-bold text-white">Set Your Strength Targets</p>
+                <p className="text-xs text-white/80">Enter your working weights — we'll calculate exact kg for every session</p>
+              </>
+            )}
+          </div>
+          <div className={programme.strengthSetup ? 'text-green-400' : 'text-white/60'}>
+            {programme.strengthSetup ? <Pencil size={16} /> : <ChevronRight size={18} />}
+          </div>
+        </button>
+      )}
 
       {/* ── Plan action buttons ── */}
       {isActive ? (
@@ -540,7 +807,7 @@ export function GeneratedProgramme({ programme, isActive, onBack, onRebuild, onA
           key={i}
           week={week}
           defaultOpen={i === currentWeekIdx}
-          onPreview={setPreviewSession}
+          onPreview={(session, weekNumber) => setPreviewSession({ session, weekNumber })}
           onReorderSessions={newSessions => onSaveReorder?.(i, newSessions)}
         />
       ))}
@@ -549,7 +816,22 @@ export function GeneratedProgramme({ programme, isActive, onBack, onRebuild, onA
 
       {/* ── Session preview modal ── */}
       {previewSession && (
-        <SessionPreviewModal session={previewSession} onClose={() => setPreviewSession(null)} />
+        <SessionPreviewModal
+          session={previewSession.session}
+          weekNumber={previewSession.weekNumber}
+          totalWeeks={programme.durationWeeks}
+          strengthSetup={programme.strengthSetup}
+          onClose={() => setPreviewSession(null)}
+        />
+      )}
+
+      {/* ── Strength setup modal ── */}
+      {showStrengthSetup && (
+        <StrengthSetupModal
+          programme={programme}
+          onSave={onSaveStrengthSetup}
+          onClose={() => setShowStrengthSetup(false)}
+        />
       )}
     </Layout>
   );
