@@ -19,6 +19,7 @@ interface DashboardProps {
   onNavigate: (nav: NavState) => void;
   onStartWorkout: (templateId: string, name: string) => void;
   onStartProgrammeSession: (name: string, items: WorkoutExercise[]) => void;
+  onStartTodayProgrammeSession?: (session: import('../../types').ProgrammeSession) => void;
 }
 
 // ── Football session intensity prompt ──────────────────────────────────────
@@ -109,7 +110,7 @@ function IntensityPrompt({ date, onSave }: {
   );
 }
 
-export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession }: DashboardProps) {
+export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession }: DashboardProps) {
   const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
 
@@ -235,6 +236,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         onNavigate={onNavigate}
         onStartWorkout={onStartWorkout}
         onStartProgrammeSession={onStartProgrammeSession}
+        onStartTodayProgrammeSession={onStartTodayProgrammeSession}
       />
 
       {/* Daily readiness check-in */}

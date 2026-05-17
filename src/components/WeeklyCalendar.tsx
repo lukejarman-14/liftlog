@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle2, Play, Clock, X, ChevronRight } from 'lucide-react';
-import { WorkoutSession, ActivePlan, NavState, GeneratedProgramme, Exercise, WorkoutExercise, MatchEntry } from '../types';
+import { WorkoutSession, ActivePlan, NavState, GeneratedProgramme, Exercise, WorkoutExercise, MatchEntry, ProgrammeSession } from '../types';
 import {
   POSITION_PLANS,
   POSITION_TEMPLATES,
@@ -8,7 +8,7 @@ import {
   getWeekDates,
   isSameDay,
 } from '../data/positionPlans';
-import { sessionToWorkoutExercises, getProgrammeWeekIndex } from '../lib/sessionUtils';
+import { sessionToWorkoutExercises, getProgrammeWeekIndex, getProgrammeAnchorMonday } from '../lib/sessionUtils';
 import { SessionPreviewModal } from './screens/GeneratedProgramme';
 import { useStore } from '../hooks/useStore';
 
@@ -24,6 +24,7 @@ interface WeeklyCalendarProps {
   onNavigate: (nav: NavState) => void;
   onStartWorkout: (templateId: string, name: string) => void;
   onStartProgrammeSession?: (name: string, items: WorkoutExercise[]) => void;
+  onStartTodayProgrammeSession?: (session: ProgrammeSession) => void;
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -50,7 +51,7 @@ function dateToStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession }: WeeklyCalendarProps) {
   const { matchEntries } = useStore();
   const [previewSession, setPreviewSession] = useState<import('../types').ProgrammeSession | null>(null);
   // Day picker: when a day with multiple sessions is tapped, show a sheet to pick which to preview
@@ -78,12 +79,14 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
     ? generatedProgramme.weeks[progWeekIdx] ?? null
     : null;
 
-  // Compute effective day for each session, respecting session overrides from Load Calendar
+  // Compute effective day for each session using absolute dates from the anchor Monday.
+  // This prevents sessions mapping to past dates when the programme starts next week.
   const progSessionsByDay = new Map<number, import('../types').ProgrammeSession[]>();
   const progSessionsThisWeek: { session: import('../types').ProgrammeSession; effectiveDayIdx: number; effectiveDate: Date }[] = [];
 
-  if (!hasPlan && progWeek) {
-    const overrides = generatedProgramme?.sessionOverrides ?? {};
+  if (!hasPlan && progWeek && generatedProgramme) {
+    const anchorMonday = getProgrammeAnchorMonday(generatedProgramme);
+    const overrides = generatedProgramme.sessionOverrides ?? {};
     progWeek.sessions.forEach((s, si) => {
       const sessionKey = `${progWeekIdx}-${si}`;
       const override = overrides[sessionKey];
@@ -91,10 +94,15 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
 
       if (override) {
         const od = new Date(override + 'T12:00:00');
-        const wIdx = weekDates.findIndex(wd => isSameDay(wd, od));
-        effectiveDayIdx = wIdx; // -1 = moved to a different week, skip
+        effectiveDayIdx = weekDates.findIndex(wd => isSameDay(wd, od));
       } else {
-        effectiveDayIdx = DAY_NAME_TO_INDEX[s.dayOfWeek] ?? -1;
+        // Absolute date: anchorMonday + week offset + day-of-week offset
+        const dayOffset = DAY_NAME_TO_INDEX[s.dayOfWeek] ?? -1;
+        if (dayOffset >= 0) {
+          const sessionDate = new Date(anchorMonday);
+          sessionDate.setDate(anchorMonday.getDate() + progWeekIdx * 7 + dayOffset);
+          effectiveDayIdx = weekDates.findIndex(wd => isSameDay(wd, sessionDate));
+        }
       }
 
       if (effectiveDayIdx >= 0) {
@@ -132,7 +140,9 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
   return (
     <section className="mb-6">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">This Week</h2>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+          {progWeek && progSessionsThisWeek.length === 0 ? 'Upcoming' : 'This Week'}
+        </h2>
         {hasPlan && planWeek && (
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PHASE_COLOURS[planWeek.phase] ?? 'bg-gray-100 text-gray-600'}`}>
             {plan!.shortName} · Wk {planWeek.weekNumber} · {planWeek.phase}
@@ -205,6 +215,48 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
           );
         })}
       </div>
+
+      {/* Banner when programme hasn't started yet this week — offer to start today */}
+      {!hasPlan && generatedProgramme && progWeek && progSessionsThisWeek.length === 0 && (() => {
+        const anchorMonday = getProgrammeAnchorMonday(generatedProgramme);
+        const firstSession = generatedProgramme.weeks[0]?.sessions[0];
+        const firstDayOffset = firstSession ? (DAY_NAME_TO_INDEX[firstSession.dayOfWeek] ?? 0) : 0;
+        const firstDate = new Date(anchorMonday);
+        firstDate.setDate(anchorMonday.getDate() + firstDayOffset);
+        const label = firstDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+        const isCond = firstSession ? isConditioningSession(firstSession) : false;
+        return (
+          <div className="rounded-2xl border border-brand-200 bg-brand-50 p-4 mb-2 flex flex-col gap-3">
+            <div>
+              <p className="text-sm font-semibold text-brand-700">Want to train today?</p>
+              <p className="text-xs text-brand-500 mt-0.5">
+                First scheduled session is <span className="font-semibold">{label}</span>.
+                You can start your Week 1 session now instead.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {firstSession && onStartTodayProgrammeSession && (
+                <button
+                  onClick={() => onStartTodayProgrammeSession(firstSession)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white ${
+                    isCond ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-brand-500 hover:bg-brand-600'
+                  } transition-colors`}
+                >
+                  <Play size={12} /> Start Session
+                </button>
+              )}
+              {firstSession && (
+                <button
+                  onClick={() => setPreviewSession(firstSession)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  Preview
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Session cards for planned days */}
       {/* Generated programme sessions (shown when no activePlan) */}

@@ -12,7 +12,7 @@ import { PlanDetail } from './components/screens/PlanDetail';
 import { Onboarding } from './components/screens/Onboarding';
 import { Login } from './components/screens/Login';
 import { Profile } from './components/screens/Profile';
-import { NavState, WorkoutExercise, WorkoutSession, UserProfile, TestSession } from './types';
+import { NavState, WorkoutExercise, WorkoutSession, UserProfile, TestSession, ProgrammeSession } from './types';
 import { POSITION_TEMPLATES } from './data/positionPlans';
 import { TestingBattery } from './components/screens/TestingBattery';
 import { sessionToLegacyTest, calcBaselineResults } from './data/testingBattery';
@@ -22,6 +22,7 @@ import { GeneratedProgramme } from './components/screens/GeneratedProgramme';
 import { ProgrammeHub } from './components/screens/ProgrammeHub';
 import { ResetPassword } from './components/screens/ResetPassword';
 import { generateProgramme } from './lib/programmeGenerator';
+import { sessionToWorkoutExercises } from './lib/sessionUtils';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 import {
   isSupabaseConfigured,
@@ -202,6 +203,23 @@ export default function App() {
     handleStartWorkout(name, adjustedItems);
   };
 
+  const handleStartTodayProgrammeSession = (session: ProgrammeSession) => {
+    const activeProg = getActiveProgramme();
+    if (!activeProg) return;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const updated = {
+      ...activeProg,
+      programmeStartDate: todayStr,
+      sessionOverrides: {
+        ...(activeProg.sessionOverrides ?? {}),
+        '0-0': todayStr,
+      },
+    };
+    store.saveGeneratedProgramme(updated);
+    const items = sessionToWorkoutExercises(session, store.exercises);
+    handleStartProgrammeSession(`Week 1 · ${session.dayOfWeek}`, items);
+  };
+
   const handleConditioningFeedback = (updates: Record<string, number>) => {
     const activeProg = getActiveProgramme();
     if (!activeProg) return;
@@ -354,6 +372,7 @@ export default function App() {
           onNavigate={navigate}
           onStartWorkout={handleStartTemplate}
           onStartProgrammeSession={handleStartProgrammeSession}
+          onStartTodayProgrammeSession={handleStartTodayProgrammeSession}
         />
       )}
 
