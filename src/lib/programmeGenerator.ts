@@ -532,6 +532,88 @@ const BSS_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeExerci
   },
 };
 
+// ── Trap Bar Deadlift Library — primary lower compound for acceleration-based play styles ──
+// Used for box-to-box, press-heavy, counter-attack when gym access includes a barbell.
+// Replaces the vertical squat slot (slot 1 in Max Strength block).
+const TRAP_BAR_LIBRARY: Record<string, Record<string, Record<LoadKey, ProgrammeExercise>>> = {
+  Foundation: {
+    full: {
+      heavy: ex('Trap Bar Deadlift', '3', '4', '3:00',
+        'Primary lower compound. Hip hinge from neutral grip — hips and shoulders rise simultaneously. Drive the floor away with full hip extension. Bridges squat and deadlift patterns. 2–1 RIR. Every rep explosive concentric.',
+        { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      moderate: ex('Trap Bar Deadlift', '3', '5', '2:30',
+        'Foundation moderate. Neutral grip, hip-hinge pattern. Controlled descent, explosive drive. 3–2 RIR. Consistent mechanics — build the pattern before loading.',
+        { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    },
+    basic: {
+      heavy: ex('Trap Bar Deadlift', '3', '4', '3:00',
+        'Primary lower compound. Hip hinge — drive floor away. 2–1 RIR. Explosive concentric every rep.',
+        { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      moderate: ex('Trap Bar Deadlift', '3', '5', '2:30',
+        'Controlled hip hinge. 3–2 RIR. Build pattern quality.',
+        { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    },
+  },
+  Build: {
+    full: {
+      heavy: ex('Trap Bar Deadlift', '3', '3', '3:30',
+        'Build phase — push load. 87% 1RM. Brace maximally, drive hips through hard. 1–0 RIR on each rep. Bar speed is your autoregulation signal.',
+        { intensity: '87% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      moderate: ex('Trap Bar Deadlift', '3', '4', '3:00',
+        'Build moderate. High intent on every rep. 2 RIR. Consistent hip extension pattern.',
+        { intensity: '83% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    },
+    basic: {
+      heavy: ex('Trap Bar Deadlift', '3', '3', '3:30',
+        'Heavy trap bar. Brace, hinge, drive. 1–0 RIR.',
+        { intensity: '86% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      moderate: ex('Trap Bar Deadlift', '3', '4', '3:00',
+        'Controlled load. Max intent. 2 RIR.',
+        { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+    },
+  },
+  'Strength & Power': {
+    full: {
+      heavy: ex('Trap Bar Deadlift', '3', '3', '3:30',
+        'Strength & Power — near maximal. 90% 1RM. Explosive from the floor. If bar slows on rep 2, that is fine — fight it. 1 RIR.',
+        { intensity: '90% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      moderate: ex('Trap Bar Deadlift', '2', '4', '3:00',
+        'Moderate — quality over volume in peak strength phase. 2 RIR. Full hip extension.',
+        { intensity: '86% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    },
+    basic: {
+      heavy: ex('Trap Bar Deadlift', '3', '3', '3:30',
+        'Near maximal. 1 RIR. Full drive through.',
+        { intensity: '89% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      moderate: ex('Trap Bar Deadlift', '2', '4', '3:00',
+        'Quality over volume. 2 RIR.',
+        { intensity: '85% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    },
+  },
+  Peak: {
+    full: {
+      heavy: ex('Trap Bar Deadlift', '2', '3', '4:00',
+        'Peak expression — low volume, maximum quality. 1–0 RIR. Do not rush: full reset between reps. Express the strength built across the programme.',
+        { intensity: '92% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      moderate: ex('Trap Bar Deadlift', '2', '3', '3:30',
+        'Peak moderate. Quality maintenance. 2 RIR.',
+        { intensity: '88% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    },
+    basic: {
+      heavy: ex('Trap Bar Deadlift', '2', '3', '4:00',
+        'Peak quality. 1–0 RIR. Full hip extension, full reset.',
+        { intensity: '91% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      moderate: ex('Trap Bar Deadlift', '2', '3', '3:30',
+        'Maintain quality. 2 RIR.',
+        { intensity: '87% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    },
+  },
+};
+
+// Play styles that use Trap Bar Deadlift as the primary lower compound
+// (horizontal force base for acceleration, repeated sprints, and press triggers)
+const TRAP_BAR_PLAY_STYLES = new Set(['box-to-box', 'press-heavy', 'counter-attack']);
+
 /**
  * Returns true → use Back Squat as vertical compound.
  * Returns false → use Bulgarian Split Squat.
@@ -557,7 +639,7 @@ function useBackSquat(inputs: ProgrammeInputs, phase: string): boolean {
   return false;
 }
 
-/** Select vertical compound — Back Squat or BSS — based on athlete context. */
+/** Select primary lower compound — Trap Bar, Back Squat, or BSS — based on play style and athlete context. */
 function selectVerticalSquat(
   inputs: ProgrammeInputs,
   phase: string,
@@ -565,6 +647,12 @@ function selectVerticalSquat(
   loadScheme: LoadKey,
   strengthEx: ProgrammeExercise[],
 ): ProgrammeExercise {
+  // Trap Bar replaces the squat for acceleration / horizontal-force play styles
+  if (TRAP_BAR_PLAY_STYLES.has(inputs.playStyle) && gymKey !== 'none') {
+    const tbPhase = TRAP_BAR_LIBRARY[phase] ?? TRAP_BAR_LIBRARY.Build;
+    const tbGym = tbPhase[gymKey] ?? tbPhase.basic;
+    return (tbGym[loadScheme] ?? tbGym.moderate) as ProgrammeExercise;
+  }
   if (useBackSquat(inputs, phase)) {
     return strengthEx[0]; // Back Squat from STRENGTH_LIBRARY
   }
@@ -609,33 +697,134 @@ function buildMaxStrengthBlock(
   return forceMaximal(sequence.filter((e): e is ProgrammeExercise => e !== undefined).slice(0, 5));
 }
 
-// ── Max Velocity Block — sprinting & jumping FIRST (fresh CNS required) ────
-// Science: max velocity sprinting and jumping require a completely fresh nervous system.
-// Always immediately after warm-up, BEFORE any heavy strength work.
-// No weighted exercises — sprints and jumps only.
-
-// Explosive plyometrics: low reps (2–3), long rest (3 min). Max CNS output every rep.
-// These are NOT conditioning — every rep must be 100% intent. Full 3 min rest is non-negotiable.
-const POWER_PRIMER: Record<GymKey, ProgrammeExercise[]> = {
+// ── Explosive Plyometric Pool — rotated weekly ────────────────────────────
+// Each sub-array = one week's pair. Rotated by weekNum % pool.length.
+// Low reps (2–3), full 3 min rest. Max CNS output every rep.
+const EXPLOSIVE_PLYO_POOL: Record<GymKey, ProgrammeExercise[][]> = {
   full: [
-    ex('Broad Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Max horizontal displacement every rep. Swing arms back, load hips, drive hard. Stick the landing — absorb with hips and knees. Full reset between reps: this is maximal neural output, not conditioning.',
-      { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ex('Box Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Step back, drive arms, explode onto box. Land softly in partial squat. Step down every time — never jump down. Complete CNS reset between reps.',
-      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    [
+      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement every rep. Load hips, drive arms hard. Stick the landing — absorb with hips and knees. Full CNS reset between reps.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Box Jump', '3', '3', '3:00', 'Drive arms, explode onto box. Land softly in partial squat. Step down every time — never jump down. Full rest before next rep.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    [
+      ex('Depth Jump', '3', '3', '3:00', 'Step off box, hit the ground, immediately explode up. Ground contact as brief as possible — this is reactive strength, not a squat. Full rest between reps.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Hurdle Jump', '3', '3', '3:00', 'Jump over hurdle (or cone), land and immediately rebound over the next. Stiffen ankles on contact. Continuous explosive rhythm — no pausing between hurdles.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    [
+      ex('Single-Leg Box Jump', '3', '3 each leg', '3:00', 'Drive off one leg, land two-footed on box. Switch legs each set. Single-leg power production — directly replicates sprint push-off mechanics.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Standing Bounding', '3', '6 bounds', '3:00', 'Maximal alternating single-leg bounds. Drive knee up, push ground back hard. Distance per bound is your metric — aim further every rep.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    [
+      ex('Tuck Jump', '3', '4', '3:00', 'Maximum height, knees drive to chest at peak. Absorb landing fast, immediate rebound. CNS power expression — every rep identical intent.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement. Load hips, drive arms, push the ground back hard. Stick the landing. Full reset between reps.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
   ],
   basic: [
-    ex('Broad Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Max horizontal displacement every rep. Drive arms, load hips, push the ground back hard. Stick the landing. Full reset between reps: maximal neural output only.',
-      { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ex('Box Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Step back, drive arms, explode onto box. Land softly in partial squat. Step down every time — never jump down. Complete CNS reset between reps.',
-      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    [
+      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement every rep. Drive arms, load hips, push the ground back hard. Stick the landing. Full reset between reps.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Box Jump', '3', '3', '3:00', 'Drive arms, explode onto box. Land softly in partial squat. Step down every time — never jump down. Full rest before next rep.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    [
+      ex('Depth Jump', '3', '3', '3:00', 'Step off box, hit the ground, immediately explode up. Ground contact as brief as possible. Full rest between reps.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Countermovement Jump', '3', '3', '3:00', 'Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    [
+      ex('Standing Bounding', '3', '6 bounds', '3:00', 'Maximal alternating single-leg bounds. Drive knee up, push ground back. Distance per bound is the metric.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Hurdle Jump', '3', '3', '3:00', 'Jump over hurdle (or cone), land, immediately rebound. Stiffen ankles on contact. Full rest between sets.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    [
+      ex('Single-Leg Broad Jump', '3', '3 each leg', '3:00', 'Single-leg takeoff, land two-footed. Max distance. Switch legs each set. Replicates sprint push-off power.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement. Load hips, drive arms, push the ground back hard. Stick the landing. Full reset between reps.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
   ],
   none: [
-    ex('Countermovement Jump', '3', '3', '3:00', 'EXPLOSIVE — 3 reps, full 3 min rest. Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset between reps: this is maximal neural output, not conditioning.',
-      { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ex('Broad Jump', '3', '2', '3:00', 'EXPLOSIVE — 2 reps, full 3 min rest. Max horizontal displacement. Swing arms, load hips, drive. Stick the landing. Full reset between every rep.',
-      { methodType: 'reactive', intensityIntent: 'explosive' }),
+    [
+      ex('Countermovement Jump', '3', '3', '3:00', 'Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset between reps.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement. Swing arms, load hips, drive. Stick the landing. Full reset between every rep.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    [
+      ex('Tuck Jump', '3', '4', '3:00', 'Maximum height, knees to chest at peak. Absorb landing fast, immediate rebound. Every rep max intent.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Standing Bounding', '3', '6 bounds', '3:00', 'Maximal alternating single-leg bounds. Drive knee, push ground hard. Distance per bound is the metric.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    [
+      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement. Load hips, drive arms. Stick the landing. Full reset between reps.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Lateral Bound', '3', '5 each side', '3:00', 'Single-leg lateral push, stick the landing on the opposite leg. Max lateral displacement. Replicates change-of-direction power.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+    [
+      ex('Squat Jump', '3', '4', '3:00', 'No countermovement — drop into quarter squat, pause 1s, explode up. Pure concentric power. Max height every rep.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Countermovement Jump', '3', '3', '3:00', 'Arms back, deep dip, drive hard through the ceiling. Max height. Full CNS reset between reps.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
   ],
 };
+
+function pickExplosivePlyo(gymKey: GymKey, weekNum: number): ProgrammeExercise[] {
+  const pool = EXPLOSIVE_PLYO_POOL[gymKey];
+  return pool[weekNum % pool.length];
+}
+
+// ── Reactive Plyometric Pool — rotated weekly ─────────────────────────────
+// Pogo hops and variations. Tendon-spring / SSC training after max strength.
+const REACTIVE_PLYO_POOL: Record<GymKey, ProgrammeExercise[][]> = {
+  full: [
+    [ex('Pogo Hops', '3', '20', '90s', 'Ankles STIFF — no dorsiflexion. Arms punch up. Minimum ground contact time. Tendon spring at match-speed loading rate.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+    [ex('Lateral Ankle Hops', '3', '20 each direction', '90s', 'Rapid side-to-side hops off both feet. Stiff ankles throughout. Stay on balls of feet — no heel contact. Trains lateral SSC spring.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+    [ex('Single-Leg Pogo Hops', '3', '12 each leg', '90s', 'Same stiff-ankle mechanics as double-leg pogos, one leg only. Unilateral SSC spring — directly loads the Achilles as in sprinting.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+    [ex('Skipping (Fast Cadence)', '3', '20m', '90s', 'Maximal frequency skipping — knee drives fast, short ground contact. Ball of foot only. Neural speed training: same high-cadence CNS demand as sprinting.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+  ],
+  basic: [
+    [ex('Pogo Hops', '3', '20', '90s', 'Ankles STIFF — no dorsiflexion. Arms punch up. Minimum ground contact time. Tendon spring at match-speed.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+    [ex('Lateral Ankle Hops', '3', '20 each direction', '90s', 'Rapid side-to-side hops. Stiff ankles, stay on balls of feet. Lateral SSC spring.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+    [ex('Single-Leg Pogo Hops', '3', '12 each leg', '90s', 'One-leg stiff-ankle hops. Unilateral Achilles SSC spring — matches sprinting load pattern.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+    [ex('Skipping (Fast Cadence)', '3', '20m', '90s', 'Max frequency skipping. Knee drives fast, short ground contact. Ball of foot only. High-cadence CNS stimulus.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+  ],
+  none: [
+    [ex('Pogo Hops', '3', '20', '90s', 'Ankles stiff. Minimum ground contact. Elastic SSC tendon return at match-speed.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+    [ex('Lateral Ankle Hops', '3', '20 each direction', '90s', 'Rapid side-to-side hops. Stiff ankles, balls of feet. Lateral SSC spring.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+    [ex('Single-Leg Pogo Hops', '3', '12 each leg', '90s', 'One-leg stiff-ankle hops. Unilateral Achilles SSC spring.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+    [ex('Skipping (Fast Cadence)', '3', '20m', '90s', 'Max frequency skipping. Short ground contact, ball of foot. High-cadence neural stimulus.',
+      { methodType: 'reactive', intensityIntent: 'reactive' })],
+  ],
+};
+
+function pickReactivePlyo(gymKey: GymKey, weekNum: number): ProgrammeExercise[] {
+  const pool = REACTIVE_PLYO_POOL[gymKey];
+  return pool[weekNum % pool.length];
+}
 
 // ── Tendon & SSC Block — between strength and eccentrics ──────────────────
 // Science: tendon stiffness = heavy slow resistance isometrics + fast reactive plyometrics (short GCT).
@@ -732,79 +921,79 @@ const ECCENTRIC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
 const UPPER: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
   Foundation: {
     full: [
-      ex('DB Bench Press', '3', '6', '2:30', 'Retract shoulder blades. Explosive push — treat every rep like a max attempt. 2 RIR. DBs allow full range — use it.',
+      ex('DB Bench Press', '2', '6', '2:30', 'Retract shoulder blades. Explosive push — treat every rep like a max attempt. 2 RIR. DBs allow full range — use it.',
         { intensity: '75% effort', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Row', '3', '6', '2:00', 'Hinge 45°. Pull elbow hard to hip. Squeeze lat at the top. Maximum intent — not a warm-down.',
+      ex('DB Row', '2', '6', '2:00', 'Hinge 45°. Pull elbow hard to hip. Squeeze lat at the top. Maximum intent — not a warm-down.',
         { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Shoulder Press', '3', '6', '2:00', 'Drive bar straight up. Brace through the core. Full lockout every rep. 2 RIR.',
+      ex('DB Shoulder Press', '2', '6', '2:00', 'Drive bar straight up. Brace through the core. Full lockout every rep. 2 RIR.',
         { intensity: '75% effort', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
     basic: [
-      ex('DB Bench Press', '3', '6', '2:30', 'Explosive push. Full range. 2 RIR. DBs allow natural arc — elbows at 45°, not flared.',
+      ex('DB Bench Press', '2', '6', '2:30', 'Explosive push. Full range. 2 RIR. DBs allow natural arc — elbows at 45°, not flared.',
         { intensity: '75% effort', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Barbell Bent-Over Row', '3', '6', '2:00', 'Hinge at 45°. Pull bar to lower chest hard. Squeeze lats at top. Explosive pull.',
+      ex('Barbell Bent-Over Row', '2', '6', '2:00', 'Hinge at 45°. Pull bar to lower chest hard. Squeeze lats at top. Explosive pull.',
         { intensity: '75% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Shoulder Press', '3', '6', '2:00', 'Neutral spine. Drive hard. Full lockout overhead. 2 RIR.',
+      ex('DB Shoulder Press', '2', '6', '2:00', 'Neutral spine. Drive hard. Full lockout overhead. 2 RIR.',
         { intensity: '75% effort', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
     none: [
-      ex('Push-Up (Max Effort)', '3', '6', '2:00', 'Hands just outside shoulders. Lower chest within 3cm of floor. Drive up explosively — leave the floor if possible. 2 RIR, not a comfortable set.',
+      ex('Push-Up (Max Effort)', '2', '6', '2:00', 'Hands just outside shoulders. Lower chest within 3cm of floor. Drive up explosively — leave the floor if possible. 2 RIR, not a comfortable set.',
         { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Inverted Row (Table or Low Bar)', '3', '6', '2:00', 'Pull chest hard to bar. Heels on floor, body straight. Maximum effort — add a backpack for load if 6 reps is easy.',
+      ex('Inverted Row (Table or Low Bar)', '2', '6', '2:00', 'Pull chest hard to bar. Heels on floor, body straight. Maximum effort — add a backpack for load if 6 reps is easy.',
         { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Pike Push-Up', '3', '6', '90s', 'Hips high, inverted V. Lower head toward floor. Explode back up. 2 RIR. Vertical push at max effort.',
+      ex('Pike Push-Up', '2', '6', '90s', 'Hips high, inverted V. Lower head toward floor. Explode back up. 2 RIR. Vertical push at max effort.',
         { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
   },
   Build: {
     full: [
-      ex('Bench Press', '3', '5', '3:00', 'Explosive push. 2 RIR. Bar speed is your autoregulation — rack when velocity drops. Heavy horizontal push.',
+      ex('Bench Press', '2', '5', '3:00', 'Explosive push. 2 RIR. Bar speed is your autoregulation — rack when velocity drops. Heavy horizontal push.',
         { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Weighted Pull-Up', '3', '4', '3:00', 'Dead hang start. Drive elbows down hard. Chin over bar. Add 5–10kg. 2 RIR.',
+      ex('Weighted Pull-Up', '2', '4', '3:00', 'Dead hang start. Drive elbows down hard. Chin over bar. Add 5–10kg. 2 RIR.',
         { intensity: 'Add 5–10kg', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Push Press', '3', '4', '2:30', 'Dip and drive hips explosively. Aggressive lockout. Bar over heels. Maximum rate of force development.',
+      ex('Push Press', '2', '4', '2:30', 'Dip and drive hips explosively. Aggressive lockout. Bar over heels. Maximum rate of force development.',
         { intensity: '75% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
     ],
     basic: [
-      ex('Barbell Bench Press', '3', '5', '3:00', 'Explosive push. 2 RIR. Bar moves fast. Barbell allows heavier load — use it.',
+      ex('Barbell Bench Press', '2', '5', '3:00', 'Explosive push. 2 RIR. Bar moves fast. Barbell allows heavier load — use it.',
         { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Barbell Bent-Over Row', '3', '5', '2:30', 'Pull bar to lower chest explosively. Horizontal pull for upper back strength. 2 RIR.',
+      ex('Barbell Bent-Over Row', '2', '5', '2:30', 'Pull bar to lower chest explosively. Horizontal pull for upper back strength. 2 RIR.',
         { intensity: '78% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Push Press', '3', '5', '2:30', 'Dip and drive hips. Explosive lockout overhead. DBs allow each arm to work independently.',
+      ex('DB Push Press', '2', '5', '2:30', 'Dip and drive hips. Explosive lockout overhead. DBs allow each arm to work independently.',
         { intensity: 'Moderate-heavy', methodType: 'concentric', intensityIntent: 'explosive' }),
     ],
     none: [
-      ex('Plyometric Push-Up', '3', '6', '2:30', 'Explosive push — hands leave the floor. Land softly. Maximum upper body power expression. Every rep full intent.',
+      ex('Plyometric Push-Up', '2', '6', '2:30', 'Explosive push — hands leave the floor. Land softly. Maximum upper body power expression. Every rep full intent.',
         { tempo: '2-0-x-0', methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Inverted Row (Table or Low Bar)', '3', '6', '2:00', 'Pull chest hard to bar, heels on floor. Max effort — elevate feet if 6 reps is not near failure.',
+      ex('Inverted Row (Table or Low Bar)', '2', '6', '2:00', 'Pull chest hard to bar, heels on floor. Max effort — elevate feet if 6 reps is not near failure.',
         { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Pike Push-Up', '3', '6', '2:00', 'Hips high. Lower head toward floor. Drive up hard. Vertical push at max effort.',
+      ex('Pike Push-Up', '2', '6', '2:00', 'Hips high. Lower head toward floor. Drive up hard. Vertical push at max effort.',
         { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
   },
   'Strength & Power': {
     full: [
-      ex('Bench Press', '3', '3', '3:30', 'Maximum force intent. Bar moves with authority every rep. 1–2 RIR. Heavy horizontal push.',
+      ex('Bench Press', '2', '3', '3:30', 'Maximum force intent. Bar moves with authority every rep. 1–2 RIR. Heavy horizontal push.',
         { intensity: '84% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Weighted Pull-Up', '3', '3', '3:00', 'Drive elbows down hard. Explosive concentric. 1–2 RIR. Add enough weight to make 3 reps a real effort.',
+      ex('Weighted Pull-Up', '2', '3', '3:00', 'Drive elbows down hard. Explosive concentric. 1–2 RIR. Add enough weight to make 3 reps a real effort.',
         { intensity: 'Challenging', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Push Press', '3', '4', '2:30', 'Dip and drive hips aggressively. Lockout at full extension. Maximum rate of force development.',
+      ex('Push Press', '2', '4', '2:30', 'Dip and drive hips aggressively. Lockout at full extension. Maximum rate of force development.',
         { intensity: '78% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
     ],
     basic: [
-      ex('Barbell Bench Press', '3', '4', '3:30', 'Maximum force intent. Bar moves fast on every rep. 1–2 RIR.',
+      ex('Barbell Bench Press', '2', '4', '3:30', 'Maximum force intent. Bar moves fast on every rep. 1–2 RIR.',
         { intensity: '83% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Barbell Bent-Over Row', '3', '4', '3:00', 'Pull bar to lower chest with intent. Explosive pull. 1–2 RIR.',
+      ex('Barbell Bent-Over Row', '2', '4', '3:00', 'Pull bar to lower chest with intent. Explosive pull. 1–2 RIR.',
         { intensity: '82% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Push Press', '3', '4', '2:30', 'Dip and drive hips. Explosive lockout. Maximum rate of force development.',
+      ex('DB Push Press', '2', '4', '2:30', 'Dip and drive hips. Explosive lockout. Maximum rate of force development.',
         { intensity: 'Heavy DB', methodType: 'concentric', intensityIntent: 'explosive' }),
     ],
     none: [
-      ex('Archer Push-Up', '3', '5 each side', '3:00', 'Wide hands. Lower to one side — that arm takes full load. Alternate sides. Maximum effort, unilateral bodyweight strength.',
+      ex('Archer Push-Up', '2', '5 each side', '3:00', 'Wide hands. Lower to one side — that arm takes full load. Alternate sides. Maximum effort, unilateral bodyweight strength.',
         { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Inverted Row (Feet Elevated)', '3', '6', '2:30', 'Feet elevated, pull chest to bar. Maximum effort — close to failure. Maximal bodyweight horizontal pull.',
+      ex('Inverted Row (Feet Elevated)', '2', '6', '2:30', 'Feet elevated, pull chest to bar. Maximum effort — close to failure. Maximal bodyweight horizontal pull.',
         { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Pike Push-Up (Deficit)', '3', '6', '2:00', 'Hands on elevated surface. Increase depth below hand level. Drive hard on every rep. Max effort vertical push.',
+      ex('Pike Push-Up (Deficit)', '2', '6', '2:00', 'Hands on elevated surface. Increase depth below hand level. Drive hard on every rep. Max effort vertical push.',
         { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
   },
@@ -894,13 +1083,21 @@ const PLAY_STYLE_RUNNING: Record<string, ProgrammeExercise[]> = {
   ],
 };
 
+// Lateral Bound — fill exercise for play styles requiring lateral CoD power
+const LATERAL_BOUND_FILL: ProgrammeExercise = ex(
+  'Lateral Bound',
+  '3', '4 each side', '2:00',
+  'Explosive lateral push off outside foot — stick landing on opposite leg. Maximum lateral displacement. Trains the force direction used in wide pitch coverage and pressing approach angles. Knee tracks over toe on landing.',
+  { methodType: 'concentric', intensityIntent: 'maximal' },
+);
+
 // Non-running play-style gym exercises (strength / isometric / plyometric)
 const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
-  'box-to-box': [],
+  'box-to-box': [LATERAL_BOUND_FILL],
   'direct': [],
   'technical': PLAY_STYLE_RUNNING['technical'],
   'physical': PLAY_STYLE_RUNNING['physical'],
-  'press-heavy': [],
+  'press-heavy': [LATERAL_BOUND_FILL],
   'counter-attack': [],
 };
 
@@ -1460,17 +1657,17 @@ function buildOffSeasonSession(
   }
   if (prehabEx.length === 0) prehabEx.push(...DEFAULT_PREHAB);
 
-  const gymKey = (gymAccess as GymKey) in POWER_PRIMER ? (gymAccess as GymKey) : 'basic';
+  const gymKey = (gymAccess as GymKey) in EXPLOSIVE_PLYO_POOL ? (gymAccess as GymKey) : 'basic';
 
-  // Heavy days: full pogo volume (3×20). Moderate days: reduced (2×12) — same tendon stimulus, lower fatigue.
-  const pogoHops = TENDON_SSC_BLOCK[gymKey].slice(2).map(e =>
+  // Heavy days: full pogo volume (3×20). Moderate days: reduced (2×12).
+  const pogoHops = pickReactivePlyo(gymKey, weekNum).map(e =>
     loadScheme === 'moderate'
-      ? { ...e, sets: '2', reps: '12', cue: e.cue.replace(/20 reps/, '12 reps') + ' Moderate day — 2 sets of 12.' }
+      ? { ...e, sets: '2', reps: e.reps.includes('20') ? '12' : e.reps }
       : e,
   );
 
   // Heavy days: 3 sets × 3 reps explosive plyometrics. Moderate: same sets, 1 rep — neural quality without CNS fatigue accumulation.
-  const explosivePlyo = POWER_PRIMER[gymKey].map(e =>
+  const explosivePlyo = pickExplosivePlyo(gymKey, weekNum).map(e =>
     loadScheme === 'moderate' ? { ...e, reps: '1' } : e,
   );
 
@@ -1524,24 +1721,21 @@ function buildOffSeasonSession(
     objective: `Off Season — ${loadLabel} · ${phase} · Wk ${weekNum}`,
     readinessNote,
     durationMin,
-    fvProfile: slot.load === 'heavy'
+    fvProfile: inputs.playStyle === 'press-heavy'
+      ? slot.load === 'heavy'
+        ? 'High-press heavy day. Trap bar deadlift builds the explosive hip extension behind every press trigger. Lateral bound trains the closing-down approach angle — the most-used athletic quality in a high-press system. Aerobic conditioning on moderate days sustains the 90-minute pressing demand.'
+        : 'High-press moderate day. Aerobic run is non-negotiable — a high-press system places the highest sustained aerobic load in football. Controlled gym load lets you absorb today\'s run at quality intensity.'
+      : slot.load === 'heavy'
       ? 'Off-season heavy day. High load, low reps, explosive concentric intent. No match to manage around — push the quality ceiling.'
       : 'Off-season moderate day. Controlled load, higher reps. Manage DOMS from the previous session — quality over intensity today.',
     blocks: [
       {
-        title: '🔥 Warm-Up (12 min)',
-        methodFocus: 'Mobility + concentric ramp — full joint prep before heavy loading',
-        exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 2)],
+        title: '🔄 Mobilisation (6 min)',
+        methodFocus: 'Hip, thoracic and glute activation — full joint prep before loading',
+        exercises: [...WARMUP_MOBILITY],
       },
       {
-        title: '🦘 Reactive Plyometrics — Pogos',
-        methodFocus: loadScheme === 'heavy'
-          ? 'High reps (20), 90s rest. Stiff ankles. Tendon spring at match-speed loading rate.'
-          : 'Moderate day — 2 sets × 12 reps. Same stiffness stimulus, lower total volume. Ankle spring quality over quantity.',
-        exercises: pogoHops,
-      },
-      {
-        title: '⚡ Explosive Plyometrics — CMJ / Broad Jump',
+        title: '⚡ Explosive Plyometrics',
         methodFocus: loadScheme === 'heavy'
           ? 'Low reps (3), full 3 min rest. Maximum neural output. No match to manage — express full power quality.'
           : 'Moderate day — 1 rep per set, full 3 min rest. Single maximal effort only: quality over volume, protect CNS recovery.',
@@ -1569,6 +1763,13 @@ function buildOffSeasonSession(
           readiness.level,
           readiness.intensityNote,
         ),
+      },
+      {
+        title: '🦘 Reactive Plyometrics',
+        methodFocus: loadScheme === 'heavy'
+          ? 'High reps (20), 90s rest. Stiff ankles. Tendon spring at match-speed loading rate.'
+          : 'Moderate day — 2 sets × 12 reps. Same stiffness stimulus, lower total volume. Ankle spring quality over quantity.',
+        exercises: pogoHops,
       },
       ...buildInjuryOrderedBlocks(
         muscleInjury, gymKey, prehabEccentric, eccentricBlock,
@@ -1649,10 +1850,9 @@ function buildSession(
   // 6. Conditioning          (only when included — always after everything else)
 
   if (slot.mdDay === 'MD-4') {
-    const gymKey = (gymAccess as GymKey) in POWER_PRIMER ? (gymAccess as GymKey) : 'basic';
+    const gymKey = (gymAccess as GymKey) in EXPLOSIVE_PLYO_POOL ? (gymAccess as GymKey) : 'basic';
 
-    // Pogo hops (reactive) → Speed & Plyometrics block
-    const pogoHops = TENDON_SSC_BLOCK[gymKey].slice(2);
+    const pogoHops = pickReactivePlyo(gymKey, weekNum);
 
     // Conditioning — only for endurance-focused athletes, placed LAST
     const includeConditioning = inputs.primaryGoal === 'endurance' || inputs.biggestWeakness === 'endurance';
@@ -1666,24 +1866,20 @@ function buildSession(
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
       objective: `MD-4 — ${MD4_OBJ[phase] ?? MD4_OBJ.Build}`,
       readinessNote, durationMin,
-      fvProfile: fv.profile,
+      fvProfile: inputs.playStyle === 'press-heavy'
+        ? 'High-press system: trap bar deadlift and lateral bound train the explosive hip extension and lateral closing speed that define a high-press midfielder. Aerobic conditioning built on moderate days sustains the 90-minute pressing demand.'
+        : fv.profile,
       blocks: [
         {
-          title: '🔥 Warm-Up (12 min)',
-          methodFocus: 'Mobility + concentric ramp — full joint prep before heavy loading',
-          exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 2)],
+          title: '🔄 Mobilisation (6 min)',
+          methodFocus: 'Hip, thoracic and glute activation — full joint prep before loading',
+          exercises: [...WARMUP_MOBILITY],
         },
-        // ① Reactive Plyometrics — FIRST (Pogos / Ankle Hops)
+        // ① Explosive Plyometrics — FIRST (fresh CNS required)
         {
-          title: '🦘 Reactive Plyometrics — Pogos / Ankle Hops',
-          methodFocus: 'High-rep, medium rest (60–90s). Stiff ankles — minimise ground contact time. Trains the tendon spring at match-speed loading rate.',
-          exercises: pogoHops,
-        },
-        // ② Explosive Plyometrics — after reactive (CMJ / Broad Jump)
-        {
-          title: '⚡ Explosive Plyometrics — CMJ / Broad Jump',
+          title: '⚡ Explosive Plyometrics',
           methodFocus: 'Low reps (2–3), full 3 min rest between sets. Every rep is maximal intent. This is NOT conditioning — if you cannot give 100% on the next rep, extend the rest.',
-          exercises: POWER_PRIMER[gymKey],
+          exercises: pickExplosivePlyo(gymKey, weekNum),
         },
         // ② Maximum Strength — strict order: vertical → horizontal → accessory → weakness LAST
         // NO eccentric exercises in this block — they go to block ④ only.
@@ -1707,6 +1903,12 @@ function buildSession(
             readiness.level,
             readiness.intensityNote,
           ),
+        },
+        // ③ Reactive Plyometrics — after strength (lower CNS demand, tendon spring work)
+        {
+          title: '🦘 Reactive Plyometrics',
+          methodFocus: 'High-rep, medium rest (60–90s). Stiff ankles — minimise ground contact time. Trains the tendon spring at match-speed loading rate.',
+          exercises: pogoHops,
         },
         ...buildInjuryOrderedBlocks(
           muscleInjury, gymKey, prehabEccentric, ECCENTRIC_BLOCK[gymKey],
@@ -1774,7 +1976,7 @@ function buildSession(
       blocks: [
         // No speed/plyometrics on MD-3 — structural day only
         {
-          title: '🔥 Warm-Up (10 min)',
+          title: '🔄 Mobilisation (6 min)',
           methodFocus: 'Mobility and light activation — prepare joints for loaded eccentric work',
           exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 1)],
         },
@@ -1836,7 +2038,7 @@ function buildSession(
       durationMin: 30, fvProfile: fv.profile,
       blocks: [
         {
-          title: '🔥 Minimal Warm-Up (8 min)',
+          title: '🔄 Mobilisation (6 min)',
           methodFocus: 'Light activation only — prepare for micro-dosed power work',
           exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_NEURAL.slice(0, 1)],
         },
