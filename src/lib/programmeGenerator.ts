@@ -685,7 +685,7 @@ function buildMaxStrengthBlock(
   fill: ProgrammeExercise[],
 ): ProgrammeExercise[] {
   const cleanFill = fill.filter(
-    e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning,
+    e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && e.methodType !== 'reactive' && !e.isRunning,
   );
   const sequence: (ProgrammeExercise | undefined)[] = [
     vertical,      // lower 1 — vertical compound
@@ -1084,20 +1084,13 @@ const PLAY_STYLE_RUNNING: Record<string, ProgrammeExercise[]> = {
 };
 
 // Lateral Bound — fill exercise for play styles requiring lateral CoD power
-const LATERAL_BOUND_FILL: ProgrammeExercise = ex(
-  'Lateral Bound',
-  '3', '4 each side', '2:00',
-  'Explosive lateral push off outside foot — stick landing on opposite leg. Maximum lateral displacement. Trains the force direction used in wide pitch coverage and pressing approach angles. Knee tracks over toe on landing.',
-  { methodType: 'concentric', intensityIntent: 'maximal' },
-);
-
 // Non-running play-style gym exercises (strength / isometric / plyometric)
 const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
-  'box-to-box': [LATERAL_BOUND_FILL],
+  'box-to-box': [],
   'direct': [],
   'technical': PLAY_STYLE_RUNNING['technical'],
   'physical': PLAY_STYLE_RUNNING['physical'],
-  'press-heavy': [LATERAL_BOUND_FILL],
+  'press-heavy': [],
   'counter-attack': [],
 };
 
