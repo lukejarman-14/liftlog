@@ -14,7 +14,6 @@ export const STORAGE_KEYS = [
   'vf_settings',
   'vf_baseline',
   'vf_match_entries',
-  'vf_performance_entries',
   'vf_test_sessions',
   'vf_generated_programmes',
   'vf_active_programme_id',

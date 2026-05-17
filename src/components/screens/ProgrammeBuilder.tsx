@@ -209,7 +209,6 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack }: Props) {
       biggestWeakness: biggestWeakness as Weakness,
       injuryHistory,
       gymAccess: userProfile.gymAccess,
-      fvEmphasis: 'balanced',
       customDurationWeeks: programDuration,
       preferBackSquat: userProfile.gymAccess !== 'none' ? preferBackSquat : undefined,
     };

@@ -3,8 +3,7 @@ import {
   Exercise, WorkoutTemplate, WorkoutSession, ActivePlan,
   UserProfile, UserSettings, DEFAULT_SETTINGS,
   BaselineTest, BaselineResults,
-  MatchEntry, PerformanceEntry,
-  TestSession, GeneratedProgramme, DailyReadiness,
+  MatchEntry, TestSession, GeneratedProgramme, DailyReadiness,
 } from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
@@ -24,7 +23,6 @@ export function useStore() {
   const [userSettings, setUserSettings] = useLocalStorage<UserSettings>('vf_settings', DEFAULT_SETTINGS);
   const [baseline, setBaselineRaw] = useLocalStorage<BaselineData | null>('vf_baseline', null);
   const [matchEntries, setMatchEntries] = useLocalStorage<MatchEntry[]>('vf_match_entries', []);
-  const [performanceEntries, setPerformanceEntries] = useLocalStorage<PerformanceEntry[]>('vf_performance_entries', []); // stored for future UI
   const [testSessions, setTestSessions] = useLocalStorage<TestSession[]>('vf_test_sessions', []);
   const [generatedProgrammes, setGeneratedProgrammes] = useLocalStorage<GeneratedProgramme[]>('vf_generated_programmes', []);
   const [activeProgrammeId, setActiveProgrammeId] = useLocalStorage<string | null>('vf_active_programme_id', null);
@@ -47,17 +45,6 @@ export function useStore() {
 
   const deleteMatchEntry = (id: string) =>
     setMatchEntries(prev => prev.filter(e => e.id !== id));
-
-  // Performance entries
-  const savePerformanceEntry = (entry: PerformanceEntry) =>
-    setPerformanceEntries(prev => {
-      const idx = prev.findIndex(e => e.id === entry.id);
-      if (idx >= 0) { const next = [...prev]; next[idx] = entry; return next; }
-      return [...prev, entry];
-    });
-
-  const deletePerformanceEntry = (id: string) =>
-    setPerformanceEntries(prev => prev.filter(e => e.id !== id));
 
   // Test sessions (historical — never overwritten)
   const saveTestSession = (session: TestSession) =>
@@ -220,9 +207,6 @@ export function useStore() {
     matchEntries,
     saveMatchEntry,
     deleteMatchEntry,
-    performanceEntries,
-    savePerformanceEntry,
-    deletePerformanceEntry,
     testSessions,
     saveTestSession,
     generatedProgrammes,
@@ -241,7 +225,7 @@ export function useStore() {
       const VF_KEYS = [
         'vf_user_profile', 'vf_custom_exercises', 'vf_templates', 'vf_sessions',
         'vf_active_plan', 'vf_profile_picture', 'vf_settings', 'vf_baseline',
-        'vf_match_entries', 'vf_performance_entries', 'vf_test_sessions',
+        'vf_match_entries', 'vf_test_sessions',
         'vf_generated_programmes', 'vf_active_programme_id', 'vf_daily_readiness',
         'vf_football_intensity',
       ];
@@ -255,7 +239,6 @@ export function useStore() {
       setProfilePicture(null);
       setBaselineRaw(null);
       setMatchEntries([]);
-      setPerformanceEntries([]);
       setTestSessions([]);
       setGeneratedProgrammes([]);
       setActiveProgrammeId(null);

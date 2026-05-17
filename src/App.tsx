@@ -512,9 +512,11 @@ export default function App() {
             isActive={store.activeProgrammeId === prog.id}
             onBack={() => navigate({ screen: 'plans' })}
             onRebuild={() => navigate({ screen: 'programme-builder' })}
-            onApply={() => {
+            onApply={(startDate) => {
+              const updated = { ...prog, programmeStartDate: startDate };
+              store.saveGeneratedProgramme(updated);
               store.setActiveProgrammeId(prog.id);
-              setCurrentProgramme(prog);
+              setCurrentProgramme(updated);
               navigate({ screen: 'dashboard' });
             }}
             onDeactivate={() => store.setActiveProgrammeId(null)}

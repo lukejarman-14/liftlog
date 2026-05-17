@@ -13,6 +13,8 @@
 
 import { CompletedSet } from '../types';
 
+const ratedSets = (sets: CompletedSet[]) => sets.filter(s => s.rir !== undefined);
+
 export type RpeAction = 'increase' | 'maintain' | 'decrease';
 
 export interface RpeSuggestion {
@@ -88,7 +90,7 @@ export function interSessionBaseline(
 ): { weight: number; reps: number; confidence: 'calibrated' | 'estimated' } | null {
   if (!lastSets?.length) return null;
 
-  const rated = lastSets.filter(s => s.rir !== undefined);
+  const rated = ratedSets(lastSets);
 
   if (rated.length > 0) {
     // Closest to target RIR
@@ -114,7 +116,7 @@ export function interSessionBaseline(
  * Compute the average RIR logged across all completed sets in a session.
  */
 export function sessionAvgRpe(allSets: CompletedSet[]): number | null {
-  const rated = allSets.filter(s => s.rir !== undefined);
+  const rated = ratedSets(allSets);
   if (!rated.length) return null;
   const avg = rated.reduce((a, s) => a + (s.rir ?? 0), 0) / rated.length;
   return Math.round(avg * 10) / 10;
@@ -174,10 +176,9 @@ export function weeklyProgressionSuggestion(
   const avgReps = relevantSets.reduce((sum, s) => sum + s.reps, 0) / relevantSets.length;
   const allHitTarget = relevantSets.every(s => s.reps >= targetReps);
 
-  // Average RIR — only from rated sets
-  const ratedSets = relevantSets.filter(s => s.rir !== undefined);
-  const avgRir = ratedSets.length > 0
-    ? ratedSets.reduce((sum, s) => sum + (s.rir ?? 0), 0) / ratedSets.length
+  const rated = ratedSets(relevantSets);
+  const avgRir = rated.length > 0
+    ? rated.reduce((sum, s) => sum + (s.rir ?? 0), 0) / rated.length
     : null;
 
   if (!allHitTarget) {

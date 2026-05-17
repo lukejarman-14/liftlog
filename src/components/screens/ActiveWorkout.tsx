@@ -531,7 +531,7 @@ function SetRow({
           <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
           <div className="flex flex-col items-center gap-2 py-2 w-full">
             <div className="text-3xl font-black tabular-nums text-brand-600">
-              {timerSecs}s
+              {formatRestTime(timerSecs)}
             </div>
             <div className="w-full bg-gray-100 rounded-full h-2">
               <div
@@ -545,7 +545,7 @@ function SetRow({
                   onClick={() => setTimerRunning(true)}
                   className="px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-bold hover:bg-brand-600"
                 >
-                  Start {defaultReps}s
+                  Start {formatRestTime(defaultReps)}
                 </button>
               )}
               {timerRunning && (

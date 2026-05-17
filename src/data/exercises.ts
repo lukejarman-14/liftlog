@@ -99,7 +99,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'lateral-bound', name: 'Lateral Bound', category: 'Speed', secondaryCategory: 'Agility', defaultRestSeconds: 90, muscleGroups: ['Glutes', 'Adductors', 'Calves'], measureType: 'reps' },
 
   // Conditioning
-  { id: 'aerobic-threshold-run', name: 'Aerobic Threshold Run', category: 'Conditioning', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'], measureType: 'reps' },
+  { id: 'aerobic-threshold-run', name: 'Aerobic Threshold Run', category: 'Conditioning', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'], measureType: 'time', unit: 's' },
   { id: 'tempo-run', name: 'Tempo Run', category: 'Conditioning', defaultRestSeconds: 120, muscleGroups: ['Cardiovascular'], measureType: 'reps' },
   { id: 'hiit-run', name: 'HIIT Run Interval', category: 'Conditioning', defaultRestSeconds: 30, muscleGroups: ['Cardiovascular'], measureType: 'reps' },
   { id: 'repeated-sprint', name: 'Repeated Sprint (30m)', category: 'Conditioning', defaultRestSeconds: 30, muscleGroups: ['Hamstrings', 'Glutes', 'Cardiovascular'], measureType: 'reps' },

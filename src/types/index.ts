@@ -198,23 +198,6 @@ export interface BaselineResults {
   aerobicScore?: number;         // 0–100
 }
 
-// ── Performance Tracking ──────────────────────────────────────────────────
-
-export type PerformanceMetric =
-  | 'sprint_10m'         // seconds
-  | 'sprint_20m'         // seconds
-  | 'sprint_30m'         // seconds
-  | 'cmj'               // cm
-  | 'broad_jump'        // m
-  | 'rsa_fatigue_index'; // %
-
-export interface PerformanceEntry {
-  id: string;
-  date: string;          // YYYY-MM-DD
-  metric: PerformanceMetric;
-  value: number;
-}
-
 // ── Match Load Management ─────────────────────────────────────────────────
 
 export type MatchEntryType = 'match' | 'team_training';
@@ -264,7 +247,6 @@ export type GameDayPref = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'fri
 export type Weakness = 'speed' | 'strength' | 'endurance' | 'power' | 'agility' | 'injury_prone';
 export type InjuryArea = 'hamstring' | 'ankle' | 'knee' | 'groin' | 'calf' | 'back' | 'shoulder';
 export type PlayStyle = 'box-to-box' | 'direct' | 'technical' | 'physical' | 'press-heavy' | 'counter-attack';
-export type FVEmphasis = 'speed' | 'strength' | 'balanced';
 // 4-band readiness: 1–3 low, 4–6 moderate, 7–8 high, 9–10 elite
 export type ReadinessLevel = 'elite' | 'high' | 'moderate' | 'low';
 export type MethodType = 'concentric' | 'eccentric' | 'isometric' | 'reactive' | 'mixed';
@@ -284,7 +266,6 @@ export interface ProgrammeInputs {
   injuryHistory: InjuryArea[];
   readiness?: { sleep: number; fatigue: number; soreness: number; stress: number };
   gymAccess: 'full' | 'basic' | 'none';
-  fvEmphasis?: FVEmphasis; // always 'balanced' — kept for historical data compatibility
   offSeason?: boolean;     // when true: no match-day periodisation, DOMS/fatigue managed only
   customDurationWeeks?: number; // user-chosen programme length (overrides experience-based default)
   preferBackSquat?: boolean;   // player enjoys/prefers Back Squat — enables selection in eligible phases
@@ -357,6 +338,7 @@ export interface GeneratedProgramme {
   sessionOverrides?: Record<string, string>; // sessionKey ("wi-dow") → new YYYY-MM-DD date
   conditioningRepCounts?: Record<string, number>;   // exerciseId → current interval count (auto-adjusts after each session)
   conditioningStagnation?: Record<string, number>;  // exerciseId → sessions completed at current count without increasing
+  programmeStartDate?: string;                      // YYYY-MM-DD chosen by user when activating — week 1 anchors here
 }
 
 // ── Testing Engine ─────────────────────────────────────────────────────────

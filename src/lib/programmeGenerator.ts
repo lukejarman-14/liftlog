@@ -6,7 +6,7 @@
 
 import {
   GeneratedProgramme, ProgrammeInputs, ProgrammeWeek, ProgrammeSession,
-  ProgrammeExercise, ReadinessLevel, MethodType, IntensityIntent,
+  ProgrammeExercise, SessionBlock, ReadinessLevel, MethodType, IntensityIntent,
 } from '../types';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -648,25 +648,25 @@ const POWER_PRIMER: Record<GymKey, ProgrammeExercise[]> = {
 // Pogo hops = fast SSC — trains the tendon spring at match-speed loading rates.
 const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
   full: [
-    ex('Isometric Split Squat Hold (Heavy)', '3', '10-12s each leg', '90s', 'Bottom of split squat — rear knee 2cm from floor. Add load via barbell or heavy DB. Maximum effort throughout — zero relaxing. Patellar tendon HSR: brief maximal holds at ≥90% MVC optimise tendon stiffness (Arampatzis et al. 2010). Tendon stiffness driver.',
+    ex('Isometric Split Squat Hold (Heavy)', '3', '10-12s each leg', '90s', 'Bottom of split squat — rear knee 2cm from floor. Add load via barbell or heavy DB. Maximum effort throughout — zero relaxing. Patellar tendon HSR: brief maximal holds at ≥90% MVC optimise tendon stiffness. Tendon stiffness driver.',
       { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Rise onto single-leg tiptoe. Hold at the top. Add weight via DB or barbell if available. Maximum effort. Achilles tendon HSR — brief ≥90% MVC holds maximise Achilles stiffness adaptation (Fouré et al. 2011). Tendon stiffness driver.',
+    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Rise onto single-leg tiptoe. Hold at the top. Add weight via DB or barbell if available. Maximum effort. Achilles tendon HSR — brief ≥90% MVC holds maximise Achilles stiffness adaptation. Tendon stiffness driver.',
       { tempo: '0-10s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles STIFF — no dorsiflexion. Arms punch up. Minimum ground contact time. High frequency tendon-spring training: the isometric holds above build stiffness, pogos train the elastic SSC return at match-speed loading rate.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   basic: [
-    ex('Isometric Split Squat Hold (Heavy DB)', '3', '10-12s each leg', '90s', 'Bottom of split squat. Hold heaviest available DB. Maximum effort throughout. Patellar tendon HSR — brief maximal holds at ≥90% MVC drive greater tendon stiffness than longer submaximal holds (Arampatzis et al. 2010). Tendon stiffness driver.',
+    ex('Isometric Split Squat Hold (Heavy DB)', '3', '10-12s each leg', '90s', 'Bottom of split squat. Hold heaviest available DB. Maximum effort throughout. Patellar tendon HSR — brief maximal holds at ≥90% MVC drive greater tendon stiffness than longer submaximal holds. Tendon stiffness driver.',
       { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Single-leg tiptoe hold. Hold heavy DB at side. Maximum effort. Achilles tendon HSR — brief ≥90% MVC holds maximise Achilles stiffness adaptation (Fouré et al. 2011). Achilles health driver.',
+    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Single-leg tiptoe hold. Hold heavy DB at side. Maximum effort. Achilles tendon HSR — brief ≥90% MVC holds maximise Achilles stiffness adaptation. Achilles health driver.',
       { tempo: '0-10s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Stiff ankles. Minimum ground contact time. Elastic tendon return — train the spring at match-speed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   none: [
-    ex('Isometric Split Squat Hold (Bodyweight)', '3', '10-12s each leg', '90s', 'Bottom of split squat, rear knee 2cm from floor, bodyweight. Maximum effort throughout — every second should feel hard. Brief maximal holds at ≥90% MVC drive patellar tendon stiffness (Arampatzis et al. 2010). Tendon stiffness driver.',
+    ex('Isometric Split Squat Hold (Bodyweight)', '3', '10-12s each leg', '90s', 'Bottom of split squat, rear knee 2cm from floor, bodyweight. Maximum effort throughout — every second should feel hard. Brief maximal holds at ≥90% MVC drive patellar tendon stiffness. Tendon stiffness driver.',
       { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — brief ≥90% MVC holds maximise stiffness adaptation (Fouré et al. 2011). Tendon absorbs sprint load. Achilles health driver.',
+    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — brief ≥90% MVC holds maximise stiffness adaptation. Tendon absorbs sprint load. Achilles health driver.',
       { tempo: '0-10s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles stiff. Minimum ground contact. Elastic SSC tendon return at match-speed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
@@ -707,7 +707,7 @@ const ECCENTRIC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
   full: [
     ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s controlled lowering — maximum effort, fight the fall with everything. 2 reps only: every rep must be truly maximal. Physiology: eccentric lengthening increases hamstring fascicle length. Longer fascicles = individual sarcomeres operate over a wider range before failure — the primary mechanism reducing hamstring tear risk at high-speed running. Non-negotiable.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'maximal' }),
-    ex('Copenhagen Plank', '2', '15s each side', '90s', 'Top foot on bench, bottom leg free. Adductor eccentric — groin strain prevention. Most evidenced single exercise for groin protection in football (Harøy et al. 2019). Build hold time by 3-5s each week.',
+    ex('Copenhagen Plank', '2', '15s each side', '90s', 'Top foot on bench, bottom leg free. Adductor eccentric — the best groin protection exercise in football. Build hold time by 3-5s each week.',
       { tempo: '0-15s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
   ],
   basic: [
@@ -907,11 +907,11 @@ const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
 
 // ── In-session conditioning: Aerobic Base & High Intensity Intervals ──────
 // Evidence basis:
-//   Aerobic base: Helgerud et al. 2001 — cardiac output / Z2 work increases stroke volume,
+
 //     VO₂max and capillary density. Minimum 2 weeks required before high-intensity loading
-//     (Malone et al. 2017, Gabbett acute:chronic workload ratio principle).
-//   HIIT: Dupont 15/15 (2004), Helgerud 4×4 (2007) — highest VO₂max stimulus per unit time.
-//     RSA protocols (Buchheit 2013) for match-specific repeated sprint fitness.
+
+
+//     RSA protocols for match-specific repeated sprint fitness.
 //   Progression: weeks 1-2 aerobic only → progressive HIIT introduction → 50/50 maintenance.
 
 // 4 aerobic variants per training phase — rotated via session seed (no back-to-back repeats)
@@ -921,7 +921,7 @@ const CONDITIONING_AEROBIC: Record<string, ProgrammeExercise[]> = {
       'Conversational pace — you should be able to hold a full sentence throughout. This is not easy jogging: it is deliberate cardiac training. 65–70% HRmax builds stroke volume, increases capillary density, and lowers resting heart rate. Foundation phase weeks 1–2: aerobic base only to reduce connective tissue injury risk before higher intensities are introduced. No watch needed — use the talk test.',
       { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
     ex('Extensive Aerobic Intervals', '6', '4 min on · 2 min walk', '2:00 walk',
-      'Run each 4-minute rep at 72–75% HRmax — comfortable but purposeful. Walk recovery between reps. 6 reps = 24 min total work. This protocol maximises aerobic volume while managing fatigue. Evidence: Helgerud et al. (2001) — interval aerobic at 75% HRmax produces superior cardiac adaptations to continuous running at matched volume.',
+      'Run each 4-minute rep at 72–75% HRmax — comfortable but purposeful. Walk recovery between reps. 6 reps = 24 min total work. This protocol maximises aerobic volume while managing fatigue.. (2001) — interval aerobic at 75% HRmax produces superior cardiac adaptations to continuous running at matched volume.',
       { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
     ex('Aerobic Threshold Run', '1', '20 min @ 75% HRmax', '—',
       'Comfortably hard — you can speak in short phrases but not hold a full conversation. Just below lactate threshold. Builds lactate clearance capacity and aerobic power. Foundation phase: keep strictly to 75% — no heroics. This is infrastructure work.',
@@ -935,13 +935,13 @@ const CONDITIONING_AEROBIC: Record<string, ProgrammeExercise[]> = {
       'Extended aerobic volume session. 70–75% HRmax throughout — sustainable effort with clear intent. Build phase cardiac output run: volume increased from Foundation. Sustained stroke volume stimulus. Fatigue management: this should feel manageable the day before strength training.',
       { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
     ex('Threshold Intervals', '5', '5 min on · 90s walk', '90s walk',
-      '5 min at 78–82% HRmax — firmly at lactate threshold. 90s walk recovery. 5 reps = 25 min threshold work. This is where aerobic power is built. Evidence: Helgerud (2001) — threshold intervals drive the greatest improvement in running economy for football players at this phase.',
+      '5 min at 78–82% HRmax — firmly at lactate threshold. 90s walk recovery. 5 reps = 25 min threshold work. This is where aerobic power is built..',
       { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
     ex('Sustained Threshold Run', '1', '25 min @ 78% HRmax', '—',
       'Hold 78% HRmax for the full 25 minutes without letting intensity drop. This is the Build phase benchmark: can you sustain threshold for 25 continuous minutes? If not, drop to 75% and build. If yes, push the pace slightly in the final 5 minutes.',
       { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
     ex('Aerobic Fartlek', '1', '25 min mixed Z2/Z3', '—',
-      'Run 25 minutes at 70% HRmax base pace. Every 5 minutes insert a 1-minute surge to 82% HRmax, then return to base. 4 surges total. Unstructured intensity variation builds adaptability in aerobic energy system. Evidence: Fartlek training (Gerschler 1939, Åstrand 1960) — superior to continuous running for mixed-intensity aerobic development.',
+      'Run 25 minutes at 70% HRmax base pace. Every 5 minutes insert a 1-minute surge to 82% HRmax, then return to base. 4 surges total. Unstructured intensity variation builds adaptability in aerobic energy system..',
       { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
   ],
   'Strength & Power': [
@@ -963,7 +963,7 @@ const CONDITIONING_AEROBIC: Record<string, ProgrammeExercise[]> = {
       'Peak phase: low volume, low intensity aerobic. Active recovery function only — do not push the effort. The goal is blood flow and recovery, not fitness gains. Fitness is already built. 65% HRmax, fully conversational, enjoy it.',
       { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
     ex('Aerobic Maintenance Intervals', '3', '5 min on · 2 min walk', '2:00 walk',
-      'Minimum effective aerobic dose during taper. 3 reps × 5 min at 75% HRmax. Evidence: Mujika & Padilla (2003) taper research — volume can be reduced by 40–60% with no fitness loss if intensity is maintained. 3 reps is enough.',
+      'Minimum effective aerobic dose during taper. 3 reps × 5 min at 75% HRmax.. 3 reps is enough.',
       { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
     ex('Light Aerobic Run', '1', '15 min @ 68% HRmax', '—',
       'Brief aerobic session to maintain blood flow and aerobic feel during peak week. No physiological loading intended. Well below threshold.',
@@ -975,39 +975,39 @@ const CONDITIONING_AEROBIC: Record<string, ProgrammeExercise[]> = {
 };
 
 // 4 HIIT variants per training phase — introduced progressively after week 2
-// Evidence: Buchheit & Laursen (2013) — HIIT classification and prescription for team sports
+
 const CONDITIONING_HIIT: Record<string, ProgrammeExercise[]> = {
   Foundation: [
     ex('15/15 HIIT — Introduction', '16', '15s sprint · 15s jog', '—',
-      '16 reps of 15s at 120% MAS (maximal aerobic speed) + 15s active jog. First exposure to HIIT: 16 reps is conservative volume. Evidence: Dupont et al. (2004) — 15/15 at 120% MAS produces the highest VO₂max stimulus per unit time of any running protocol. Find your MAS: pace you can hold for exactly 6 minutes flat-out. 120% = noticeably faster than that pace. Every rep should feel hard but completable.',
+      '16 reps of 15s at 120% MAS (maximal aerobic speed) + 15s active jog. First exposure to HIIT: 16 reps is conservative volume.. (2004) — 15/15 at 120% MAS produces the highest VO₂max stimulus per unit time of any running protocol. Find your MAS: pace you can hold for exactly 6 minutes flat-out. 120% = noticeably faster than that pace. Every rep should feel hard but completable.',
       { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
     ex('Short HIIT Intervals — Foundation', '8', '30s hard · 30s rest', '—',
-      '8 reps of 30s at 95–100% HRmax + 30s rest. After each rep, slowly jog back to the start — rest for any remaining seconds. Near-maximal effort every rep: as fast as you can sustain for 30s. Total hard work: 4 minutes. Evidence: Wisloff et al. (2007) — short supramaximal intervals drive VO₂max in less-trained athletes.',
+      '8 reps of 30s at 95–100% HRmax + 30s rest. After each rep, slowly jog back to the start — rest for any remaining seconds. Near-maximal effort every rep: as fast as you can sustain for 30s. Total hard work: 4 minutes.. (2007) — short supramaximal intervals drive VO₂max in less-trained athletes.',
       { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
     ex('Sprint RSA Introduction', '3', '6 × 30m · 25s rest', '2:00 between sets',
-      '3 sets of 6 × 30m flat-out sprints with 25s passive recovery between sprints, 2 min between sets. RSA introduction at conservative volume. Evidence: Impellizzeri et al. (2008) — repeated sprint ability is a key physical determinant of football performance, and the 30m/25s protocol closely replicates match demands. First exposure: 3 sets only.',
+      '3 sets of 6 × 30m flat-out sprints with 25s passive recovery between sprints, 2 min between sets. RSA introduction at conservative volume.. (2008) — repeated sprint ability is a key physical determinant of football performance, and the 30m/25s protocol closely replicates match demands. First exposure: 3 sets only.',
       { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
     ex('30/30 Protocol — Foundation', '10', '30s @ 105% MAS · 30s jog', '—',
-      '10 reps of 30s at 105–110% MAS + 30s jog. Intermediate HIIT — higher volume than 15/15 but lower peak intensity. 105% MAS = slightly faster than your 6-minute test pace. Evidence: Buchheit & Laursen (2013) — 30/30 at 105% MAS develops both VO₂max and lactate buffering simultaneously.',
+      '10 reps of 30s at 105–110% MAS + 30s jog. Intermediate HIIT — higher volume than 15/15 but lower peak intensity. 105% MAS = slightly faster than your 6-minute test pace..',
       { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
   ],
   Build: [
     ex('15/15 HIIT — Full Volume', '24', '15s sprint · 15s jog', '—',
-      '24 reps of 15s at 120% MAS + 15s active jog. Full Dupont protocol. Evidence: Dupont et al. (2004) — 24 reps optimises cardiac output stimulus without excessive glycolytic fatigue. 120% MAS: you should feel like you cannot continue past 10-12 seconds but must hold it. Active jog (not walk) between reps is critical — maintains blood lactate clearance.',
+      '24 reps of 15s at 120% MAS + 15s active jog. Full Dupont protocol.. (2004) — 24 reps optimises cardiac output stimulus without excessive glycolytic fatigue. 120% MAS: you should feel like you cannot continue past 10-12 seconds but must hold it. Active jog (not walk) between reps is critical — maintains blood lactate clearance.',
       { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
     ex('Norwegian 4×4 HIIT', '4', '4 min @ 90–95% HRmax · 3 min jog', '3:00 jog',
-      '4 sets of 4 minutes at 90–95% HRmax with 3-minute active jog recovery. Gold-standard VO₂max protocol. Evidence: Helgerud et al. (2007) — 4×4 at 90–95% HRmax produced a 10.8% VO₂max increase in football players over 8 weeks, superior to moderate-intensity training. Finishing sets 3 and 4 should feel very difficult — that is correct.',
+      '4 sets of 4 minutes at 90–95% HRmax with 3-minute active jog recovery. Gold-standard VO₂max protocol.. (2007) — 4×4 at 90–95% HRmax produced a 10.8% VO₂max increase in football players over 8 weeks, superior to moderate-intensity training. Finishing sets 3 and 4 should feel very difficult — that is correct.',
       { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
     ex('RSA Block Training', '4', '8 × 40m · 25s passive rest', '2:00 between sets',
-      '4 sets of 8 × 40m flat-out sprints. 25s passive recovery between sprints, 2 min between sets. Match-replication RSA protocol. Evidence: Buchheit et al. (2010) — 40m/25s closely mirrors the work-to-rest ratios of high-intensity football actions. Rep 8 should be within 5% of Rep 1 for adequate fitness.',
+      '4 sets of 8 × 40m flat-out sprints. 25s passive recovery between sprints, 2 min between sets. Match-replication RSA protocol.. (2010) — 40m/25s closely mirrors the work-to-rest ratios of high-intensity football actions. Rep 8 should be within 5% of Rep 1 for adequate fitness.',
       { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
     ex('40/20 HIIT Protocol', '10', '40s @ 110% MAS · 20s rest', '—',
-      '10 reps of 40s at 110% MAS + 20s rest. After each rep, slowly jog back to the start — rest for any remaining seconds. Longer work period than 15/15 builds lactate tolerance alongside VO₂max. Evidence: Buchheit & Laursen (2013) — 40/20 at 110% MAS extends the high-intensity stimulus window compared to shorter protocols while keeping total fatigue manageable.',
+      '10 reps of 40s at 110% MAS + 20s rest. After each rep, slowly jog back to the start — rest for any remaining seconds. Longer work period than 15/15 builds lactate tolerance alongside VO₂max..',
       { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
   ],
   'Strength & Power': [
     ex('15/15 HIIT — Strength Phase', '20', '15s sprint · 15s jog', '—',
-      '20 reps of 15s at 120% MAS + 15s jog. Volume reduced from Build (24 reps → 20) to account for cumulative strength training fatigue. Intensity maintained. Evidence: Mujika & Padilla (2003) — volume reduction with intensity maintenance preserves VO₂max during concurrent training phases.',
+      '20 reps of 15s at 120% MAS + 15s jog. Volume reduced from Build (24 reps → 20) to account for cumulative strength training fatigue. Intensity maintained..',
       { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
     ex('3×4 HIIT — Reduced Volume', '3', '4 min @ 92% HRmax · 4 min jog', '4:00 jog',
       '3 sets of 4 min at 92% HRmax + 4 min jog recovery (increased from 3 to 4 min to support recovery during strength-dominant phase). Reduced from 4×4 Build protocol. Maintains VO₂max stimulus at lower total volume.',
@@ -1021,7 +1021,7 @@ const CONDITIONING_HIIT: Record<string, ProgrammeExercise[]> = {
   ],
   Peak: [
     ex('15/15 HIIT — Express', '12', '15s sprint · 15s jog', '—',
-      '12 reps of 15s at 120% MAS + 15s jog. Minimum effective HIIT dose during peak/taper phase. Evidence: Mujika (2010) — 12 reps maintains acute VO₂max stimulus without the fatigue accumulation of full 24-rep protocol. Quality is everything here — 12 perfect reps beats 20 tired ones.',
+      '12 reps of 15s at 120% MAS + 15s jog. Minimum effective HIIT dose during peak/taper phase.. Quality is everything here — 12 perfect reps beats 20 tired ones.',
       { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
     ex('2×4 HIIT — Peak Taper', '2', '4 min @ 90% HRmax · 4 min jog', '4:00 jog',
       '2 sets only of 4 min at 90% HRmax + 4 min jog. Bare minimum to maintain cardiovascular sharpness before competition. Low volume, full intensity. The aerobic engine is built — this just keeps it switched on.',
@@ -1050,7 +1050,7 @@ const DAY_SEED: Record<string, number> = {
  *   After week 2, one half = aerobic, the other = HIIT.
  *   Week parity flips which half gets HIIT so types rotate each week.
  *
- * Progression model (evidence: Malone et al. 2017, Gabbett 2016):
+ * Progression model:
  *   Weeks 1–2  → 100% aerobic (injury prevention, connective tissue adaptation)
  *   Weeks 3+   → Half-week alternation: aerobic one day, HIIT another — both types every week
  *
@@ -1061,6 +1061,7 @@ function getConditioningBlock(
   phase: string,
   weekNum: number,
   dayOfWeek: string,
+  forceAerobic = false,
 ): { ex: ProgrammeExercise; blockTitle: string; methodFocus: string } {
   const dayIdx = DAY_SEED[dayOfWeek] ?? 0;
 
@@ -1069,7 +1070,7 @@ function getConditioningBlock(
 
   // Weeks 0-1: always aerobic. Week 2+: alternate halves; flip each week so
   // if Mon was aerobic this week, next week Mon is HIIT.
-  const useHiit = weekNum >= 2 && ((halfWeek + weekNum) % 2 === 1);
+  const useHiit = !forceAerobic && weekNum >= 2 && ((halfWeek + weekNum) % 2 === 1);
 
   const aerobicArr = CONDITIONING_AEROBIC[phase] ?? CONDITIONING_AEROBIC.Foundation;
   const hiitArr    = CONDITIONING_HIIT[phase]    ?? CONDITIONING_HIIT.Foundation;
@@ -1092,7 +1093,7 @@ function getConditioningBlock(
     ex: aerobicArr[variantIdx % aerobicArr.length],
     blockTitle: '🏃 Aerobic Base',
     methodFocus: weekNum < 2
-      ? 'Weeks 1–2: aerobic base only. Connective tissue and cardiac infrastructure built before high-intensity loading — evidence: Malone et al. (2017) injury prevention window.'
+      ? 'Weeks 1–2: aerobic base only. Connective tissue and cardiac infrastructure built before high-intensity loading is introduced.'
       : 'Cardiac output and aerobic infrastructure. Complements the HIIT session later in the week — both types every week for balanced conditioning development.',
   };
 }
@@ -1139,8 +1140,8 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
       { methodType: 'reactive', intensityIntent: 'reactive', isRunning: true }),
   ],
   injury_prone: [
-    ex('Single-Leg Romanian Deadlift (Stability)', '2', '6 each', '90s', 'Hinge to shin — full hip extension at the top. Drive through the standing heel. Hip stability and hamstring activation for injury-resilient athletes.',
-      { tempo: '2-0-1-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ex('Eccentric Step-Down (Single-Leg)', '3', '8 each', '90s', '4s controlled descent off a step — one leg only. Knee tracks over second toe throughout. Slow eccentric loads the quad and controls the knee, building the tissue resilience that reduces re-injury risk. Different pattern from the hip thrust and squat — covers the knee-dominant deceleration demand.',
+      { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
   ],
 };
 
@@ -1386,6 +1387,48 @@ const MD2_OBJ: Record<string, string> = {
   Peak: 'The Forbidden Zone — 2 days from match. Zero gym fatigue. Rest, eat, sleep. Arrive Saturday sharp.',
 };
 
+// ── Shared helpers ─────────────────────────────────────────────────────────
+
+const MUSCLE_INJURY_AREAS = ['hamstring', 'groin', 'calf', 'knee'] as const;
+
+function hasMuscleInjury(injuryHistory: string[]): boolean {
+  return injuryHistory.some(a => (MUSCLE_INJURY_AREAS as readonly string[]).includes(a));
+}
+
+function buildSpeedWorkExercises(
+  playStyle: string,
+  weaknessEx: ProgrammeExercise[],
+  weekNum: number,
+  dayOfWeek: string,
+): ProgrammeExercise[] {
+  const seed = weekNum * 7 + (DAY_SEED[dayOfWeek] ?? 0);
+  const styleRunning = (PLAY_STYLE_RUNNING[playStyle] ?? []).filter(e => e.isRunning);
+  const weakRunning = weaknessEx.filter(e => e.isRunning);
+  const pick = (arr: ProgrammeExercise[]) => arr.length > 0 ? [arr[seed % arr.length]] : [];
+  return [...pick(styleRunning), ...pick(weakRunning)];
+}
+
+function buildInjuryOrderedBlocks(
+  muscleInjury: boolean,
+  gymKey: GymKey,
+  prehabEccentric: ProgrammeExercise[],
+  eccentricBlock: ProgrammeExercise[],
+  isometricMethodFocus: string,
+  eccentricMethodFocus: string,
+): SessionBlock[] {
+  const isoBlock: SessionBlock = {
+    title: '🦴 Isometric Block',
+    methodFocus: isometricMethodFocus,
+    exercises: buildIsometricBlock(gymKey),
+  };
+  const eccBlock: SessionBlock = {
+    title: muscleInjury ? '🔴 Eccentric Block' : '🔴 Eccentric Block — Always Last',
+    methodFocus: eccentricMethodFocus,
+    exercises: [...eccentricBlock, ...prehabEccentric],
+  };
+  return muscleInjury ? [eccBlock, isoBlock] : [isoBlock, eccBlock];
+}
+
 // ── Off-season session builder ─────────────────────────────────────────────
 // No match-day context. Load alternates Heavy/Moderate based on schedule spacing.
 // Full 5-block structure every session. DOMS managed by session spacing alone.
@@ -1418,24 +1461,35 @@ function buildOffSeasonSession(
   if (prehabEx.length === 0) prehabEx.push(...DEFAULT_PREHAB);
 
   const gymKey = (gymAccess as GymKey) in POWER_PRIMER ? (gymAccess as GymKey) : 'basic';
-  const pogoHops = TENDON_SSC_BLOCK[gymKey].slice(2);
-  const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
 
-  // Running/speed exercises — seeded per (week, day) so every session in the same week
-  // gets a DIFFERENT running exercise. Uses same DAY_SEED logic as getConditioningBlock.
-  const osDayIdx = DAY_SEED[slot.dayOfWeek] ?? 0;
-  const osSessionSeed = weekNum * 7 + osDayIdx;
-  const allPlayStyleRunning = (PLAY_STYLE_RUNNING[inputs.playStyle] ?? []).filter(e => e.isRunning);
-  const playStyleRunning = allPlayStyleRunning.length > 0
-    ? [allPlayStyleRunning[osSessionSeed % allPlayStyleRunning.length]]
-    : [];
-  const allWeaknessRunning = weaknessEx.filter(e => e.isRunning);
-  const weaknessRunning = allWeaknessRunning.length > 0
-    ? [allWeaknessRunning[osSessionSeed % allWeaknessRunning.length]]
-    : [];
-  const speedWorkEx = [...playStyleRunning, ...weaknessRunning];
-  // Injury-based block ordering: eccentric FIRST if muscle injury present, isometric FIRST otherwise
-  const hasMuscleInjury = injuryHistory.some(a => ['hamstring', 'groin', 'calf', 'knee'].includes(a));
+  // Heavy days: full pogo volume (3×20). Moderate days: reduced (2×12) — same tendon stimulus, lower fatigue.
+  const pogoHops = TENDON_SSC_BLOCK[gymKey].slice(2).map(e =>
+    loadScheme === 'moderate'
+      ? { ...e, sets: '2', reps: '12', cue: e.cue.replace(/20 reps/, '12 reps') + ' Moderate day — 2 sets of 12.' }
+      : e,
+  );
+
+  // Heavy days: 3 sets × 3 reps explosive plyometrics. Moderate: same sets, 1 rep — neural quality without CNS fatigue accumulation.
+  const explosivePlyo = POWER_PRIMER[gymKey].map(e =>
+    loadScheme === 'moderate' ? { ...e, reps: '1' } : e,
+  );
+
+  // Upper body alternation: heavy days get both push + pull (upperEx[0] + upperEx[1]).
+  // Moderate days rotate between push-only and pull-only each week — no back-to-back same stimulus.
+  const upperExForSlot: ProgrammeExercise[] = loadScheme === 'moderate'
+    ? [weekNum % 2 === 0 ? upperEx[0] : upperEx[1]].filter((e): e is ProgrammeExercise => e !== undefined)
+    : upperEx;
+
+  // Nordic volume: moderate days → 2×2 (vs 3×2 heavy) to keep DOMS manageable with 48h spacing.
+  const eccentricBlock = ECCENTRIC_BLOCK[gymKey].map(e =>
+    loadScheme === 'moderate' && e.name.toLowerCase().includes('nordic')
+      ? { ...e, sets: '2' }
+      : e,
+  );
+
+  const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
+  const speedWorkEx = buildSpeedWorkExercises(inputs.playStyle, weaknessEx, weekNum, slot.dayOfWeek);
+  const muscleInjury = hasMuscleInjury(injuryHistory);
 
   const loadLabel = slot.load === 'heavy' ? 'Heavy Day' : 'Moderate Day';
   const durationBase = slot.load === 'heavy' ? 70 : 60;
@@ -1443,9 +1497,17 @@ function buildOffSeasonSession(
     : readiness.level === 'elite' ? durationBase + 10
     : durationBase;
 
-  // Include conditioning only for endurance-focused athletes
-  const includeConditioning = inputs.primaryGoal === 'endurance' || inputs.biggestWeakness === 'endurance';
-  const condBlock = getConditioningBlock(phase, weekNum, slot.dayOfWeek);
+  // Moderate days always include conditioning — lighter gym load leaves room for aerobic work.
+  // Heavy days never include conditioning — pure strength/power focus.
+  const includeConditioning = loadScheme === 'moderate';
+  // Moderate days: fixed 30-min aerobic run (aerobic-threshold-run, measureType: 'time' → shows as timer).
+  // Bike option noted in cue for heavy-leg days.
+  const moderateAerobicEx: ProgrammeExercise = ex(
+    'Aerobic Base Run',
+    '1', '30 min', '—',
+    'Easy run at 65–70% max heart rate — conversational pace throughout. This is cardiac output training that builds aerobic base without adding fatigue to the strength work.\n\nLegs still heavy from yesterday? Swap for 30 min easy cycling at the same effort level instead — the impact load is removed but the cardiac training effect is identical.',
+    { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true },
+  );
 
   const readinessNote =
     readiness.level === 'elite'
@@ -1473,54 +1535,54 @@ function buildOffSeasonSession(
       },
       {
         title: '🦘 Reactive Plyometrics — Pogos',
-        methodFocus: 'High reps (15–20), 90s rest. Stiff ankles. Tendon spring at match-speed loading rate.',
+        methodFocus: loadScheme === 'heavy'
+          ? 'High reps (20), 90s rest. Stiff ankles. Tendon spring at match-speed loading rate.'
+          : 'Moderate day — 2 sets × 12 reps. Same stiffness stimulus, lower total volume. Ankle spring quality over quantity.',
         exercises: pogoHops,
       },
       {
         title: '⚡ Explosive Plyometrics — CMJ / Broad Jump',
-        methodFocus: 'Low reps (2–3), full 3 min rest. Maximum neural output. No match to manage — express full power quality.',
-        exercises: POWER_PRIMER[gymKey],
+        methodFocus: loadScheme === 'heavy'
+          ? 'Low reps (3), full 3 min rest. Maximum neural output. No match to manage — express full power quality.'
+          : 'Moderate day — 1 rep per set, full 3 min rest. Single maximal effort only: quality over volume, protect CNS recovery.',
+        exercises: explosivePlyo,
       },
       {
         title: '💪 Maximum Strength',
-        methodFocus: slot.load === 'heavy'
-          ? 'Off-season: no match day ceiling — push load to the limit. 5 exercises max · 3 lower / 2 upper · all maximum effort. Lower and upper interleaved — each group recovers while the other works.'
-          : 'Moderate load — 5 exercises max · 3 lower / 2 upper · all maximum effort. Interleaved lower/upper. Quality over quantity.',
+        methodFocus: loadScheme === 'heavy'
+          ? 'Off-season heavy day: no match ceiling — push load to the limit. 5 exercises max · 3 lower / 2 upper (push + pull) · explosive intent.'
+          : 'Moderate day: 4 exercises max · 3 lower / 1 upper (alternating push or pull). Controlled load, higher reps. Manage DOMS — quality over intensity.',
         exercises: applyReadiness(
           buildMaxStrengthBlock(
             selectVerticalSquat(inputs, phase, gymKey, loadScheme, strengthEx),
             strengthEx[1],
-            upperEx,
-            [
-              ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
-              ...(biggestWeakness !== 'endurance'
-                ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)
-                : []),
-            ],
+            upperExForSlot,
+            loadScheme === 'heavy'
+              ? [
+                  ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
+                  ...(biggestWeakness !== 'endurance'
+                    ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)
+                    : []),
+                ]
+              : [], // moderate days: no fill exercise — 4 slots max keeps total load lower
           ),
           readiness.level,
           readiness.intensityNote,
         ),
       },
-      ...(hasMuscleInjury ? [{
-        title: '🔴 Eccentric Block',
-        methodFocus: 'Muscle injury present — eccentric work comes first while fresh. Fascicle length adaptation is the primary protective mechanism.',
-        exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
-      }] : []),
-      {
-        title: '🦴 Isometric Block',
-        methodFocus: 'Tendon HSR holds. Patellar + Achilles stiffness adaptation.',
-        exercises: buildIsometricBlock(gymKey),
-      },
-      ...(!hasMuscleInjury ? [{
-        title: '🔴 Eccentric Block — Always Last',
-        methodFocus: 'Fascicle length adaptation. DOMS peaks 48h — sessions are spaced to manage this. Non-negotiable every session.',
-        exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
-      }] : []),
+      ...buildInjuryOrderedBlocks(
+        muscleInjury, gymKey, prehabEccentric, eccentricBlock,
+        'Tendon HSR holds. Patellar + Achilles stiffness adaptation.',
+        muscleInjury
+          ? 'Muscle injury present — eccentric work comes first while fresh.'
+          : loadScheme === 'heavy'
+          ? 'Fascicle length adaptation. DOMS peaks 48h — sessions are spaced to manage this. Non-negotiable every session.'
+          : 'Moderate day — Nordic reduced to 2×2 to keep DOMS manageable with 48h to next session. Copenhagen Plank unchanged.',
+      ),
       ...(includeConditioning ? [{
-        title: condBlock.blockTitle,
-        methodFocus: condBlock.methodFocus,
-        exercises: [condBlock.ex],
+        title: '🏃 Aerobic Base',
+        methodFocus: 'Cardiac output training — easy effort, big aerobic return. The gym work is today\'s priority; this tops up the aerobic system without adding fatigue.',
+        exercises: [moderateAerobicEx],
       }] : []),
       ...(speedWorkEx.length > 0 && !includeConditioning ? [{
         title: '🏃 Speed Work — Conditioning',
@@ -1597,20 +1659,8 @@ function buildSession(
     const condBlock = getConditioningBlock(phase, weekNum, slot.dayOfWeek);
 
     const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
-    // Running/speed exercises — seeded per (week, day) so every session in the same week
-    // gets a DIFFERENT running exercise. Uses same DAY_SEED logic as getConditioningBlock.
-    const md4DayIdx = DAY_SEED[slot.dayOfWeek] ?? 0;
-    const md4SessionSeed = weekNum * 7 + md4DayIdx;
-    const allPlayStyleRunning = (PLAY_STYLE_RUNNING[inputs.playStyle] ?? []).filter(e => e.isRunning);
-    const playStyleRunning = allPlayStyleRunning.length > 0
-      ? [allPlayStyleRunning[md4SessionSeed % allPlayStyleRunning.length]]
-      : [];
-    const allWeaknessRunning = weaknessEx.filter(e => e.isRunning);
-    const weaknessRunning = allWeaknessRunning.length > 0
-      ? [allWeaknessRunning[md4SessionSeed % allWeaknessRunning.length]]
-      : [];
-    const speedWorkEx = [...playStyleRunning, ...weaknessRunning];
-    const hasMuscleInjury = injuryHistory.some(a => ['hamstring', 'groin', 'calf', 'knee'].includes(a));
+    const speedWorkEx = buildSpeedWorkExercises(inputs.playStyle, weaknessEx, weekNum, slot.dayOfWeek);
+    const muscleInjury = hasMuscleInjury(injuryHistory);
 
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
@@ -1658,24 +1708,13 @@ function buildSession(
             readiness.intensityNote,
           ),
         },
-        // ③/④ Isometric + Eccentric — order depends on injury history
-        // Muscle injury present → Eccentric FIRST (fascicle adaptation priority)
-        // No recurring muscle injury → Isometric FIRST (tendon stiffness priority)
-        ...(hasMuscleInjury ? [{
-          title: '🔴 Eccentric Block',
-          methodFocus: 'Muscle injury present — eccentric work comes first while fresh. Fascicle length adaptation is the primary protective mechanism.',
-          exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
-        }] : []),
-        {
-          title: '🦴 Isometric Block',
-          methodFocus: 'Heavy isometric holds — tendon stiffness adaptation (HSR protocol). Maximum effort throughout each hold. The tendon stiffens under heavy isometric load so it absorbs sprint/jump force instead of the muscle.',
-          exercises: buildIsometricBlock(gymKey),
-        },
-        ...(!hasMuscleInjury ? [{
-          title: '🔴 Eccentric Block — Always Last',
-          methodFocus: 'Eccentric work placed LAST because it generates the most structural stress and residual DOMS. Nordic Curl fascicle-length adaptation is the primary hamstring strain prevention mechanism. Non-negotiable.',
-          exercises: [...ECCENTRIC_BLOCK[gymKey], ...prehabEccentric],
-        }] : []),
+        ...buildInjuryOrderedBlocks(
+          muscleInjury, gymKey, prehabEccentric, ECCENTRIC_BLOCK[gymKey],
+          'Heavy isometric holds — tendon stiffness adaptation. Maximum effort throughout each hold.',
+          muscleInjury
+            ? 'Muscle injury present — eccentric work comes first while fresh.'
+            : 'Eccentric work placed LAST — most structural stress. Nordic Curl fascicle-length adaptation is the primary hamstring strain prevention mechanism.',
+        ),
         // ⑤ Conditioning — ONLY if included, and always after everything else
         ...(includeConditioning ? [{
           title: condBlock.blockTitle,
@@ -1844,7 +1883,8 @@ function progressNote(week: number): string {
 // as a standalone ProgrammeSession with its own neural warm-up on the same day.
 function splitConditioningIfPresent(session: ProgrammeSession): ProgrammeSession[] {
   const condBlocks = session.blocks.filter(b =>
-    b.title.toLowerCase().includes('conditioning'),
+    b.title.toLowerCase().includes('conditioning') ||
+    b.exercises.some(e => e.isRunning),
   );
   if (condBlocks.length === 0) return [session];
 

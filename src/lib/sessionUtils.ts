@@ -16,7 +16,10 @@ function getStartMonday(ts: number): Date {
  * Clamped to [0, durationWeeks-1].
  */
 export function getProgrammeWeekIndex(programme: GeneratedProgramme): number {
-  const startMonday = getStartMonday(programme.createdAt);
+  const anchor = programme.programmeStartDate
+    ? new Date(programme.programmeStartDate + 'T12:00:00').getTime()
+    : programme.createdAt;
+  const startMonday = getStartMonday(anchor);
   const nowMonday = getStartMonday(Date.now());
   const diff = Math.floor(
     (nowMonday.getTime() - startMonday.getTime()) / (7 * 24 * 60 * 60 * 1000),
@@ -87,6 +90,7 @@ export const NAME_TO_ID: Record<string, string> = {
   't-drill': 'pro-agility',
   'reactive cone drill (partner)': 'pro-agility',
   'aerobic threshold run': 'aerobic-threshold-run',
+  'aerobic base run': 'aerobic-threshold-run',
   'cardiac output circuit': 'hiit-run',
 };
 
@@ -150,13 +154,15 @@ export function sessionToWorkoutExercises(
       if (id && !used.has(id) && exercise) {
         used.add(id);
         const isCond = exercise.category === 'Conditioning';
-        // Conditioning: pe.sets = number of intervals, each interval = 1 rep.
-        // Bypass the 6-set cap and skip the time-based reps field.
-        const targetSets = isCond
-          ? Math.min(Math.max(parseInt(pe.sets, 10) || 1, 1), 25)
+        // Time-based aerobic (measureType: 'time'): show as 1 set × duration-in-seconds timer.
+        const isTimedAerobic = isCond && exercise.measureType === 'time';
+        const targetSets = isTimedAerobic ? 1
+          : isCond ? Math.min(Math.max(parseInt(pe.sets, 10) || 1, 1), 25)
           : parseSets(pe.sets);
-        const targetReps = isCond ? 1 : parseReps(pe.reps);
-        const restSeconds = isCond ? 30 : parseRest(pe.rest);
+        const targetReps = isTimedAerobic
+          ? (() => { const m = pe.reps.match(/(\d+)\s*min/); return m ? parseInt(m[1], 10) * 60 : 1800; })()
+          : isCond ? 1 : parseReps(pe.reps);
+        const restSeconds = isTimedAerobic ? 0 : isCond ? 30 : parseRest(pe.rest);
         result.push({
           exerciseId: id,
           targetSets,

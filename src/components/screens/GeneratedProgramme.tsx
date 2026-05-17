@@ -28,8 +28,8 @@ interface Props {
   isActive: boolean;
   onBack: () => void;
   onRebuild: () => void;
-  onApply: () => void;      // set as active + navigate to dashboard
-  onDeactivate: () => void; // remove from active (setActiveProgrammeId null)
+  onApply: (startDate: string) => void;  // chosen start date (YYYY-MM-DD)
+  onDeactivate: () => void;
   onSaveStrengthSetup: (setup: StrengthSetup) => void;
 }
 
@@ -626,6 +626,26 @@ export function GeneratedProgramme({
   const [showEndModal, setShowEndModal] = useState(false);
   const [showStrengthSetup, setShowStrengthSetup] = useState(false);
   const [previewSession, setPreviewSession] = useState<{ session: ProgrammeSession; weekNumber: number } | null>(null);
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
+  const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
+  const [pickerMonth, setPickerMonth] = useState(() => new Date().getMonth());
+  const [chosenStartDate, setChosenStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+  const localDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const todayStr = localDateStr(new Date());
+
+  const getTomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return localDateStr(d); };
+  const getFollowingMonday = () => {
+    const d = new Date();
+    const dow = d.getDay(); // 0=Sun
+    const daysUntilMon = dow === 0 ? 1 : dow === 1 ? 7 : 8 - dow;
+    d.setDate(d.getDate() + daysUntilMon);
+    return localDateStr(d);
+  };
+
+  const confirmStart = (date: string) => { setShowStartModal(false); setShowCustomPicker(false); onApply(date); };
 
   const trackedLifts = findTrackedLiftsInProgramme(programme);
   const hasTrackedLifts = trackedLifts.length > 0;
@@ -732,12 +752,130 @@ export function GeneratedProgramme({
             Home Screen
           </button>
           <button
-            onClick={onApply}
+            onClick={() => { setChosenStartDate(todayStr); setShowStartModal(true); }}
             className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md active:scale-[0.98]"
           >
             <Play size={18} />
             Start Plan
           </button>
+        </div>
+      )}
+
+      {/* ── Start date picker modal ── */}
+      {showStartModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center p-4 pb-10">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-base font-bold text-gray-900">When do you want to start?</h3>
+              <button onClick={() => setShowStartModal(false)}><X size={18} className="text-gray-400" /></button>
+            </div>
+            <p className="text-xs text-gray-500 mb-5">Week 1 anchors to the Monday of your chosen week.</p>
+
+            <div className="flex flex-col gap-2.5">
+              {[
+                { label: 'Start today', sub: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }), date: todayStr },
+                { label: 'Start tomorrow', sub: (() => { const d = new Date(); d.setDate(d.getDate()+1); return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }); })(), date: getTomorrow() },
+                { label: 'Following Monday', sub: (() => { const d = new Date(); const dow = d.getDay(); d.setDate(d.getDate() + (dow === 0 ? 1 : dow === 1 ? 7 : 8 - dow)); return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }); })(), date: getFollowingMonday() },
+              ].map(({ label, sub, date }) => (
+                <button
+                  key={date}
+                  onClick={() => confirmStart(date)}
+                  className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl border border-gray-200 hover:border-brand-400 hover:bg-brand-50 transition-colors text-left active:scale-[0.98]"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{label}</p>
+                    <p className="text-xs text-gray-400">{sub}</p>
+                  </div>
+                  <ChevronRight size={16} className="text-gray-300" />
+                </button>
+              ))}
+
+              <button
+                onClick={() => { setPickerYear(new Date().getFullYear()); setPickerMonth(new Date().getMonth()); setShowCustomPicker(true); }}
+                className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl border border-gray-200 hover:border-brand-400 hover:bg-brand-50 transition-colors text-left active:scale-[0.98]"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Custom date</p>
+                  <p className="text-xs text-gray-400">Pick any date from the calendar</p>
+                </div>
+                <ChevronRight size={16} className="text-gray-300" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom date calendar popup ── */}
+      {showCustomPicker && (
+        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl">
+            {/* Month nav */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => { if (pickerMonth === 0) { setPickerMonth(11); setPickerYear(y => y - 1); } else setPickerMonth(m => m - 1); }}
+                className="p-2 rounded-xl hover:bg-gray-100"
+              ><ChevronLeft size={18} /></button>
+              <p className="text-sm font-bold text-gray-900">
+                {new Date(pickerYear, pickerMonth).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+              </p>
+              <button
+                onClick={() => { if (pickerMonth === 11) { setPickerMonth(0); setPickerYear(y => y + 1); } else setPickerMonth(m => m + 1); }}
+                className="p-2 rounded-xl hover:bg-gray-100"
+              ><ChevronRight size={18} /></button>
+            </div>
+            {/* Day headers */}
+            <div className="grid grid-cols-7 mb-1">
+              {['M','T','W','T','F','S','S'].map((d, i) => (
+                <div key={i} className="text-center text-xs font-semibold text-gray-400 py-1">{d}</div>
+              ))}
+            </div>
+            {/* Day cells */}
+            {(() => {
+              const daysInMonth = new Date(pickerYear, pickerMonth + 1, 0).getDate();
+              const firstDow = (new Date(pickerYear, pickerMonth, 1).getDay() + 6) % 7; // 0=Mon
+              const today = new Date(); today.setHours(0,0,0,0);
+              const cells: (number | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+              while (cells.length % 7 !== 0) cells.push(null);
+              return (
+                <div className="grid grid-cols-7 gap-1">
+                  {cells.map((day, i) => {
+                    if (!day) return <div key={i} />;
+                    const d = new Date(pickerYear, pickerMonth, day);
+                    const dateStr = localDateStr(d);
+                    const isPast = d < today;
+                    const isSelected = dateStr === chosenStartDate;
+                    const isTodayCell = dateStr === todayStr;
+                    return (
+                      <button
+                        key={i}
+                        disabled={isPast}
+                        onClick={() => setChosenStartDate(dateStr)}
+                        className={`aspect-square rounded-xl text-sm font-medium flex items-center justify-center transition-colors ${
+                          isSelected ? 'bg-brand-500 text-white font-bold' :
+                          isTodayCell ? 'ring-2 ring-brand-400 text-brand-600 font-bold' :
+                          isPast ? 'text-gray-200 cursor-not-allowed' :
+                          'text-gray-800 hover:bg-brand-50'
+                        }`}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setShowCustomPicker(false)}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm"
+              >Back</button>
+              <button
+                onClick={() => confirmStart(chosenStartDate)}
+                disabled={!chosenStartDate || chosenStartDate < todayStr}
+                className="flex-1 py-3 rounded-xl bg-brand-500 text-white font-bold text-sm hover:bg-brand-600 disabled:opacity-40"
+              >Start Plan</button>
+            </div>
+          </div>
         </div>
       )}
 
