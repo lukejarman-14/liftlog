@@ -81,7 +81,7 @@ export function importData(file: File): Promise<string> {
         }
 
         // Return the email so the UI can confirm who was restored
-        const profile = (backup.data['vf_user_profile'] ?? backup.data['ll_user_profile']) as { email?: string } | null;
+        const profile = backup.data['vf_user_profile'] as { email?: string } | null;
         resolve(profile?.email ?? 'your account');
       } catch (err) {
         reject(new Error('Could not read the backup file. Make sure it is a valid VectorFootball backup.'));
