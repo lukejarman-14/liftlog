@@ -15,7 +15,7 @@ import { GeneratedProgramme } from '../types';
 
 // ── Lift catalogue ────────────────────────────────────────────────────────
 
-export const LIFT_KEYS = ['squat', 'hipThrust', 'hinge', 'bss', 'upperPush', 'upperPull'] as const;
+export const LIFT_KEYS = ['squat', 'trapBar', 'hipThrust', 'hinge', 'bss', 'upperPush', 'upperPull'] as const;
 export type LiftKey = typeof LIFT_KEYS[number];
 
 export interface LiftMeta {
@@ -27,10 +27,16 @@ export interface LiftMeta {
 
 export const LIFT_META: Record<LiftKey, LiftMeta> = {
   squat: {
-    label: 'Squat',
+    label: 'Back Squat',
     askName: 'Back Squat',
-    hint: 'Enter your best Back Squat or Trap Bar Deadlift working set.',
-    patterns: ['back squat', 'trap bar deadlift'],
+    hint: 'Enter your best Back Squat working set. Full depth, explosive concentric.',
+    patterns: ['back squat'],
+  },
+  trapBar: {
+    label: 'Trap Bar Deadlift',
+    askName: 'Trap Bar Deadlift',
+    hint: 'Enter your best Trap Bar Deadlift working set. Hip hinge from the handles — drive the floor away.',
+    patterns: ['trap bar deadlift'],
   },
   hipThrust: {
     label: 'Hip Thrust',
@@ -39,10 +45,10 @@ export const LIFT_META: Record<LiftKey, LiftMeta> = {
     patterns: ['hip thrust', 'barbell hip thrust'],
   },
   hinge: {
-    label: 'RDL / Deadlift',
+    label: 'RDL',
     askName: 'Romanian Deadlift',
-    hint: 'Enter your best Romanian Deadlift or conventional Deadlift working set.',
-    patterns: ['romanian deadlift', 'rdl', 'trap bar deadlift'],
+    hint: 'Enter your best Romanian Deadlift working set. Hinge to mid-shin, drive hips through.',
+    patterns: ['romanian deadlift', 'rdl'],
   },
   bss: {
     label: 'Bulgarian Split Squat',
