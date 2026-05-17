@@ -302,6 +302,8 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
           { intensity: '80% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
         ex('Barbell Hip Thrust', '2', '5', '2:30', 'Horizontal force. Strong hip extension. 3 RIR.',
           { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
+        ex('Barbell Romanian Deadlift', '2', '5', '2:30', 'Hinge to mid-shin — drive hips through powerfully. 3–2 RIR.',
+          { intensity: '76% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'controlled' }),
       ],
     },
     none: {
@@ -354,6 +356,8 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
           { intensity: '85% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
         ex('Barbell Hip Thrust', '2', '4', '2:30', 'Horizontal force. Full extension. 2 RIR.',
           { intensity: '82% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Romanian Deadlift', '2', '4', '2:30', 'Hinge to mid-shin — drive hips through powerfully. 2 RIR.',
+          { intensity: '80% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
     },
     none: {
@@ -396,6 +400,8 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
           { intensity: '91% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
         ex('Barbell Hip Thrust', '2', '3', '3:00', 'Peak horizontal hip extension. Heavy barbell. 2–1 RIR. Express sprint-specific force.',
           { intensity: '87% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+        ex('Barbell Romanian Deadlift', '2', '3', '3:00', 'Peak hip hinge. Drive hips through hard. 1–2 RIR.',
+          { intensity: '85% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ],
       moderate: [
         ex('Barbell Back Squat', '2', '4', '4:00', 'High quality. Full rest. Max intent. 2 RIR.',
@@ -648,7 +654,7 @@ function selectVerticalSquat(
   strengthEx: ProgrammeExercise[],
 ): ProgrammeExercise {
   // Trap Bar replaces the squat for acceleration / horizontal-force play styles
-  if (TRAP_BAR_PLAY_STYLES.has(inputs.playStyle) && gymKey !== 'none') {
+  if (TRAP_BAR_PLAY_STYLES.has(inputs.playStyle) && gymKey === 'full') {
     const tbPhase = TRAP_BAR_LIBRARY[phase] ?? TRAP_BAR_LIBRARY.Build;
     const tbGym = tbPhase[gymKey] ?? tbPhase.basic;
     return (tbGym[loadScheme] ?? tbGym.moderate) as ProgrammeExercise;
@@ -931,8 +937,8 @@ const UPPER: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
     basic: [
       ex('DB Bench Press', '2', '6', '2:30', 'Explosive push. Full range. 2 RIR. DBs allow natural arc — elbows at 45°, not flared.',
         { intensity: '75% effort', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Barbell Bent-Over Row', '2', '6', '2:00', 'Hinge at 45°. Pull bar to lower chest hard. Squeeze lats at top. Explosive pull.',
-        { intensity: '75% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Pull-Up', '2', '6', '2:00', 'Dead hang start. Drive elbows down hard. Chin over bar. Full range every rep. 2 RIR — add a backpack if 6 reps is easy.',
+        { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ex('DB Shoulder Press', '2', '6', '2:00', 'Neutral spine. Drive hard. Full lockout overhead. 2 RIR.',
         { intensity: '75% effort', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
@@ -957,8 +963,8 @@ const UPPER: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
     basic: [
       ex('Barbell Bench Press', '2', '5', '3:00', 'Explosive push. 2 RIR. Bar moves fast. Barbell allows heavier load — use it.',
         { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Barbell Bent-Over Row', '2', '5', '2:30', 'Pull bar to lower chest explosively. Horizontal pull for upper back strength. 2 RIR.',
-        { intensity: '78% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Weighted Pull-Up', '2', '4', '3:00', 'Dead hang start. Drive elbows down hard. Chin over bar. Add weight via belt or backpack. 2 RIR.',
+        { intensity: 'Add 5–10kg', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ex('DB Push Press', '2', '5', '2:30', 'Dip and drive hips. Explosive lockout overhead. DBs allow each arm to work independently.',
         { intensity: 'Moderate-heavy', methodType: 'concentric', intensityIntent: 'explosive' }),
     ],
@@ -983,8 +989,8 @@ const UPPER: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
     basic: [
       ex('Barbell Bench Press', '2', '4', '3:30', 'Maximum force intent. Bar moves fast on every rep. 1–2 RIR.',
         { intensity: '83% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Barbell Bent-Over Row', '2', '4', '3:00', 'Pull bar to lower chest with intent. Explosive pull. 1–2 RIR.',
-        { intensity: '82% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Weighted Pull-Up', '2', '3', '3:00', 'Drive elbows down hard. Explosive concentric. 1–2 RIR. Add enough weight to make 3 reps a real effort.',
+        { intensity: 'Challenging', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
       ex('DB Push Press', '2', '4', '2:30', 'Dip and drive hips. Explosive lockout. Maximum rate of force development.',
         { intensity: 'Heavy DB', methodType: 'concentric', intensityIntent: 'explosive' }),
     ],
@@ -1009,8 +1015,8 @@ const UPPER: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
     basic: [
       ex('Barbell Bench Press', '2', '3', '4:00', 'Max intent. Full recovery. Express peak upper strength.',
         { intensity: '88% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Barbell Bent-Over Row', '2', '3', '3:30', 'Peak horizontal pull. Maximum intent. Full rest.',
-        { intensity: '86% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Weighted Pull-Up', '3', '3', '4:00', 'Explosive concentric. Full recovery. Express peak upper strength.',
+        { intensity: 'Heavy', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
     none: [
       ex('Explosive Push-Up', '2', '5 @ 1 RIR', '3:00', 'Maximum explosive intent on every rep. 1 RIR. Peak bodyweight upper expression.',
