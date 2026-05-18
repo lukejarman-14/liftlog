@@ -213,9 +213,9 @@ export function Paywall({
           {!showCodeInput ? (
             <button
               onClick={() => setShowCodeInput(true)}
-              className="w-full py-2 text-xs text-gray-400 flex items-center justify-center gap-1.5 hover:text-gray-600 transition-colors"
+              className="w-full py-3 rounded-2xl border-2 border-dashed border-gray-200 text-gray-500 text-sm font-semibold flex items-center justify-center gap-2 hover:border-brand-300 hover:text-brand-600 hover:bg-brand-50 transition-colors"
             >
-              <Tag size={12} />
+              <Tag size={14} />
               Have a promo code?
             </button>
           ) : promoSuccess ? (
