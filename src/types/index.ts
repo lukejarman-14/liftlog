@@ -229,7 +229,8 @@ export type Screen =
   | 'load-calendar'
   | 'programme-builder'
   | 'generated-programme'
-  | 'reset-password';
+  | 'reset-password'
+  | 'paywall';
 
 export interface NavState {
   screen: Screen;
@@ -339,6 +340,17 @@ export interface GeneratedProgramme {
   conditioningRepCounts?: Record<string, number>;   // exerciseId → current interval count (auto-adjusts after each session)
   conditioningStagnation?: Record<string, number>;  // exerciseId → sessions completed at current count without increasing
   programmeStartDate?: string;                      // YYYY-MM-DD chosen by user when activating — week 1 anchors here
+}
+
+// ── Premium / Paywall ─────────────────────────────────────────────────────
+
+export interface PremiumStatus {
+  isPremium: boolean;
+  plan?: 'monthly' | 'annual';           // which subscription tier
+  trialStartedAt?: number;               // timestamp — when 14-day trial began
+  purchasedAt?: number;                  // timestamp — when they became premium
+  expiresAt?: number;                    // timestamp — subscription expiry
+  rcCustomerId?: string;                 // RevenueCat customer ID (set when integrating)
 }
 
 // ── Testing Engine ─────────────────────────────────────────────────────────

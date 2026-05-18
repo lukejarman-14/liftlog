@@ -2,12 +2,26 @@ import { ProgrammeSession, WorkoutExercise, Exercise, GeneratedProgramme } from 
 
 // ── Programme week helpers ─────────────────────────────────────────────────
 
-/** Returns the Monday (00:00) of the week containing `ts` */
-function getStartMonday(ts: number): Date {
+/** Monday of the week containing ts (rolls back). */
+function getCurrentWeekMonday(ts: number): Date {
   const d = new Date(ts);
-  const dow = d.getDay(); // 0=Sun
+  const dow = d.getDay();
   d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
   d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Monday ON OR AFTER ts.
+ * Sunday → next Monday. Monday → same day. Tue-Sat → following Monday.
+ * Ensures Week 1 sessions always fall in the future when user picks a start date.
+ */
+function getAnchorMonday(ts: number): Date {
+  const d = new Date(ts);
+  const dow = d.getDay();
+  d.setHours(0, 0, 0, 0);
+  if (dow === 1) return d;
+  d.setDate(d.getDate() + (dow === 0 ? 1 : 8 - dow));
   return d;
 }
 
@@ -19,12 +33,27 @@ export function getProgrammeWeekIndex(programme: GeneratedProgramme): number {
   const anchor = programme.programmeStartDate
     ? new Date(programme.programmeStartDate + 'T12:00:00').getTime()
     : programme.createdAt;
-  const startMonday = getStartMonday(anchor);
-  const nowMonday = getStartMonday(Date.now());
+  const startMonday = programme.programmeStartDate
+    ? getAnchorMonday(anchor)
+    : getCurrentWeekMonday(anchor);
+  const nowMonday = getCurrentWeekMonday(Date.now());
   const diff = Math.floor(
     (nowMonday.getTime() - startMonday.getTime()) / (7 * 24 * 60 * 60 * 1000),
   );
   return Math.max(0, Math.min(diff, programme.durationWeeks - 1));
+}
+
+/**
+ * Returns the Monday ON OR AFTER the programme start date.
+ * Exported so WeeklyCalendar can compute absolute session dates.
+ */
+export function getProgrammeAnchorMonday(programme: GeneratedProgramme): Date {
+  const anchor = programme.programmeStartDate
+    ? new Date(programme.programmeStartDate + 'T12:00:00').getTime()
+    : programme.createdAt;
+  return programme.programmeStartDate
+    ? getAnchorMonday(anchor)
+    : getCurrentWeekMonday(anchor);
 }
 
 // ── Name → exercise-library ID map (shared between GeneratedProgramme & WeeklyCalendar) ──

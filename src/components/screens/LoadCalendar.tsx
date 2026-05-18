@@ -45,16 +45,21 @@ const DOW_INDEX: Record<string, number> = {
   Friday: 4, Saturday: 5, Sunday: 6,
 };
 
-function getStartMonday(ts: number): Date {
+/** Monday ON OR AFTER ts — snaps forward so sessions always start in the future. */
+function getAnchorMonday(ts: number): Date {
   const d = new Date(ts);
   const dow = d.getDay();
-  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
   d.setHours(0, 0, 0, 0);
+  if (dow === 1) return d;
+  d.setDate(d.getDate() + (dow === 0 ? 1 : 8 - dow));
   return d;
 }
 
 function getProgrammeDates(programme: GeneratedProgramme): Map<string, SessionDot[]> {
-  const monday = getStartMonday(programme.createdAt);
+  const anchor = programme.programmeStartDate
+    ? new Date(programme.programmeStartDate + 'T12:00:00').getTime()
+    : programme.createdAt;
+  const monday = getAnchorMonday(anchor);
   const overrides = programme.sessionOverrides ?? {};
   const map = new Map<string, SessionDot[]>();
 

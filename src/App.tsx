@@ -24,6 +24,8 @@ import { ResetPassword } from './components/screens/ResetPassword';
 import { generateProgramme } from './lib/programmeGenerator';
 import { sessionToWorkoutExercises } from './lib/sessionUtils';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
+import { usePremium } from './hooks/usePremium';
+import { Paywall } from './components/screens/Paywall';
 import {
   isSupabaseConfigured,
   cloudSignOut,
@@ -56,6 +58,10 @@ export default function App() {
 
   const cloudUserIdRef = useRef<string | null>(null);
   const [showProgrammePrompt, setShowProgrammePrompt] = useState(false);
+
+  // ── Freemium ───────────────────────────────────────────────────────────────
+  const premium = usePremium();
+  const [paywallFeatureLabel, setPaywallFeatureLabel] = useState<string | undefined>();
 
   // ── Low-readiness volume prompt ────────────────────────────────────────────
   const [pendingWorkout, setPendingWorkout] = useState<{ name: string; items: WorkoutExercise[] } | null>(null);
@@ -114,6 +120,16 @@ export default function App() {
     setNav(next);
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
+
+  /** Navigate to a gated screen — show paywall if no access. */
+  const navigateGated = useCallback((gatedNav: NavState, featureLabel: string) => {
+    if (premium.hasAccess) {
+      navigate(gatedNav);
+    } else {
+      setPaywallFeatureLabel(featureLabel);
+      navigate({ screen: 'paywall' });
+    }
+  }, [premium.hasAccess, navigate]);
 
 
   const launchWorkout = (name: string, items: WorkoutExercise[]) => {
@@ -245,7 +261,6 @@ export default function App() {
   const handleGenerateProgramme = (inputs: ProgrammeInputs) => {
     const programme = generateProgramme(inputs);
     store.saveGeneratedProgramme(programme);
-    // Do NOT auto-activate — user presses "Start Plan" to activate
     setCurrentProgramme(programme);
     navigate({ screen: 'generated-programme' });
   };
@@ -332,7 +347,7 @@ export default function App() {
   }
 
   const { screen } = nav;
-  const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme'];
+  const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme', 'paywall'];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -347,7 +362,13 @@ export default function App() {
           todayReadiness={store.getTodayReadiness()}
           exercises={store.exercises}
           onSaveReadiness={store.saveDailyReadiness}
-          onNavigate={navigate}
+          onNavigate={(nav) => {
+            if (nav.screen === 'programme-builder') {
+              navigateGated(nav, 'Programme Builder');
+            } else {
+              navigate(nav);
+            }
+          }}
           onStartWorkout={handleStartTemplate}
           onStartProgrammeSession={handleStartProgrammeSession}
           onStartTodayProgrammeSession={handleStartTodayProgrammeSession}
@@ -412,7 +433,13 @@ export default function App() {
           userProfile={store.userProfile}
           generatedProgrammes={store.generatedProgrammes}
           activeProgrammeId={store.activeProgrammeId}
-          onNavigate={navigate}
+          onNavigate={(nav) => {
+            if (nav.screen === 'programme-builder') {
+              navigateGated(nav, 'Programme Builder');
+            } else {
+              navigate(nav);
+            }
+          }}
           onViewProgramme={handleViewProgramme}
           onDeleteProgramme={store.deleteGeneratedProgramme}
         />
@@ -488,11 +515,29 @@ export default function App() {
         />
       )}
 
-      {screen === 'programme-builder' && store.userProfile && (
+      {screen === 'programme-builder' && store.userProfile && premium.hasAccess && (
         <ProgrammeBuilder
           userProfile={store.userProfile}
           onGenerate={handleGenerateProgramme}
           onBack={() => navigate({ screen: 'plans' })}
+        />
+      )}
+
+      {screen === 'paywall' && (
+        <Paywall
+          featureLabel={paywallFeatureLabel}
+          trialDaysLeft={premium.trialDaysLeft}
+          isTrialExpired={premium.isTrialExpired}
+          onStartTrial={() => {
+            premium.startTrial();
+            navigate({ screen: 'programme-builder' });
+          }}
+          onSelectPlan={(plan) => {
+            // RevenueCat purchase flow goes here — for now just unlock
+            premium.setPremium(plan);
+            navigate({ screen: 'programme-builder' });
+          }}
+          onDismiss={() => navigate({ screen: 'plans' })}
         />
       )}
 
@@ -556,7 +601,7 @@ export default function App() {
               <button
                 onClick={() => {
                   setShowProgrammePrompt(false);
-                  navigate({ screen: 'programme-builder' });
+                  navigateGated({ screen: 'programme-builder' }, 'Programme Builder');
                 }}
                 className="w-full py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md"
               >

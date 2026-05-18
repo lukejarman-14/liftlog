@@ -22,6 +22,7 @@ import {
   prescribeWeekLoad,
   epley1RM,
 } from '../../lib/progressiveOverload';
+import { getProgrammeWeekIndex } from '../../lib/sessionUtils';
 
 interface Props {
   programme: GPType;
@@ -651,19 +652,7 @@ export function GeneratedProgramme({
   const hasTrackedLifts = trackedLifts.length > 0;
 
   // Default-open the current week
-  const currentWeekIdx = (() => {
-    const start = (() => {
-      const d = new Date(programme.createdAt);
-      const dow = d.getDay();
-      d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-      d.setHours(0, 0, 0, 0);
-      return d;
-    })();
-    const now = new Date();
-    const nowMon = (() => { const d = new Date(now); const dow = d.getDay(); d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)); d.setHours(0,0,0,0); return d; })();
-    const diff = Math.floor((nowMon.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
-    return Math.max(0, Math.min(diff, programme.durationWeeks - 1));
-  })();
+  const currentWeekIdx = getProgrammeWeekIndex(programme);
 
   return (
     <Layout
