@@ -13,6 +13,7 @@ interface PaywallProps {
   onStartTrial: () => void;
   onRestore: () => void;
   onRedeemCode: (code: string) => Promise<string | null>;
+  onRedeemReferral: (code: string) => Promise<string | null>;
   onDismiss: () => void;
 }
 
@@ -42,6 +43,7 @@ export function Paywall({
   onStartTrial,
   onRestore,
   onRedeemCode,
+  onRedeemReferral,
   onDismiss,
 }: PaywallProps) {
   const [selected, setSelected] = useState<RCPlan>('lifetime');
@@ -50,6 +52,12 @@ export function Paywall({
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoSuccess, setPromoSuccess] = useState(false);
+
+  const [showReferralInput, setShowReferralInput] = useState(false);
+  const [referralCode, setReferralCode] = useState('');
+  const [referralError, setReferralError] = useState<string | null>(null);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralSuccess, setReferralSuccess] = useState(false);
 
   const noTrialYet = trialDaysLeft === null;
   const trialActive = trialDaysLeft !== null && trialDaysLeft > 0;
@@ -206,6 +214,60 @@ export function Paywall({
               </>
             )}
           </button>
+        </div>
+
+        {/* Referral code */}
+        <div className="mt-4">
+          {!showReferralInput ? (
+            <button
+              onClick={() => setShowReferralInput(true)}
+              className="w-full py-3 rounded-2xl border-2 border-dashed border-brand-200 text-brand-600 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-brand-50 transition-colors"
+            >
+              🤝 Been referred by a friend?
+            </button>
+          ) : referralSuccess ? (
+            <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-center">
+              <p className="text-sm font-bold text-green-700">Referral applied!</p>
+              <p className="text-xs text-green-600 mt-0.5">You've got 21 days free — enjoy!</p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1.5 px-1">Enter your friend's referral code for 21 days free</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={referralCode}
+                  onChange={e => { setReferralCode(e.target.value.toUpperCase()); setReferralError(null); }}
+                  placeholder="e.g. VFABC123"
+                  style={{ fontSize: '16px' }}
+                  className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-400"
+                />
+                <button
+                  onClick={async () => {
+                    if (!referralCode.trim()) return;
+                    setReferralLoading(true);
+                    setReferralError(null);
+                    const err = await onRedeemReferral(referralCode);
+                    setReferralLoading(false);
+                    if (err) {
+                      setReferralError(err);
+                    } else {
+                      setReferralSuccess(true);
+                    }
+                  }}
+                  disabled={referralLoading || !referralCode.trim()}
+                  className="px-4 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold disabled:opacity-40 hover:bg-brand-600 transition-colors"
+                >
+                  {referralLoading ? (
+                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin block" />
+                  ) : 'Apply'}
+                </button>
+              </div>
+              {referralError && (
+                <p className="text-xs text-red-600 mt-1.5 px-1">{referralError}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Promo code */}

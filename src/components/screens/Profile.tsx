@@ -16,6 +16,7 @@ interface ProfileProps {
   profilePicture: string | null;
   totalSessions: number;
   baseline: BaselineData | null;
+  referralCode?: string;
   onSetProfilePicture: (pic: string | null) => void;
   onStartBattery: () => void;
   onResetProfile: () => void;
@@ -606,7 +607,7 @@ function EditTrainingProfileModal({
 
 export function Profile({
   userProfile, profilePicture, totalSessions,
-  baseline, onSetProfilePicture,
+  baseline, referralCode, onSetProfilePicture,
   onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onSaveTrainingProfile, onLogout, onBack,
 }: ProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -874,6 +875,36 @@ export function Profile({
           </div>
         </div>
       </Card>
+
+      {/* ── Referral ──────────────────────────────────────────────────── */}
+      {referralCode && (
+        <Card className="p-4 mb-4">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Refer a Friend</h3>
+          <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+            Share your code — your friend gets <strong>21 days free</strong>, you get <strong>+14 days</strong> added to your subscription.
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 px-4 py-3 rounded-xl bg-brand-50 border-2 border-brand-200 text-center">
+              <span className="text-lg font-extrabold text-brand-600 tracking-widest">{referralCode}</span>
+            </div>
+            <button
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({
+                    title: 'Join Vector Football',
+                    text: `Use my referral code ${referralCode} on Vector Football and get 21 days free! vectorfootball.co.uk`,
+                  });
+                } else {
+                  navigator.clipboard.writeText(referralCode);
+                }
+              }}
+              className="px-4 py-3 rounded-xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600 transition-colors"
+            >
+              Share
+            </button>
+          </div>
+        </Card>
+      )}
 
       {/* ── Account ───────────────────────────────────────────────────── */}
       <Card className="p-4 mb-8">

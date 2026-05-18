@@ -59,6 +59,7 @@ export default function App() {
 
   const cloudUserIdRef = useRef<string | null>(null);
   const [showProgrammePrompt, setShowProgrammePrompt] = useState(false);
+  const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
 
   // ── Freemium ───────────────────────────────────────────────────────────────
   const premium = usePremium();
@@ -78,6 +79,10 @@ export default function App() {
           // Boot RevenueCat and sync entitlement status
           await rcConfigure(userId);
           await premium.syncFromRC();
+          // Register referral code + claim any pending referral rewards
+          const code = await premium.getOrCreateReferralCode(userId);
+          setMyReferralCode(code);
+          await premium.claimReferralRewardsForUser(userId);
         }
       })
       .catch(() => { /* session check failed — continue as unauthenticated */ })
@@ -467,6 +472,7 @@ export default function App() {
           profilePicture={store.profilePicture}
           totalSessions={store.sessions.length}
           baseline={store.baseline}
+          referralCode={myReferralCode}
           onSetProfilePicture={store.setProfilePicture}
           onStartBattery={() => navigate({ screen: 'testing-battery' })}
           onResetProfile={async () => {
@@ -550,6 +556,12 @@ export default function App() {
           }}
           onRedeemCode={async (code) => {
             const err = await premium.redeemPromo(code);
+            if (!err) setTimeout(() => navigate({ screen: 'programme-builder' }), 1500);
+            return err;
+          }}
+          onRedeemReferral={async (code) => {
+            const userId = cloudUserIdRef.current ?? '';
+            const err = await premium.redeemReferral(code, userId);
             if (!err) setTimeout(() => navigate({ screen: 'programme-builder' }), 1500);
             return err;
           }}

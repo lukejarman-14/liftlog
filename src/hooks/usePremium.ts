@@ -11,6 +11,7 @@ import { useState, useCallback } from 'react';
 import { PremiumStatus } from '../types';
 import { rcPurchase, rcRestore, rcCheckEntitlement, RCPlan } from '../lib/revenueCat';
 import { redeemPromoCode } from '../lib/promoCodes';
+import { redeemReferralCode, claimReferralRewards, registerReferralCode } from '../lib/referrals';
 
 export type { RCPlan };
 
@@ -45,8 +46,14 @@ export function usePremium() {
 
   /** True if user currently has access (paid OR active trial). */
   const hasAccess = (() => {
-    if (status.isPremium) return true;
+    if (status.isPremium) {
+      // Check expiry if set (subscription lapsed)
+      if (status.expiresAt && status.expiresAt < Date.now()) return false;
+      return true;
+    }
     if (!status.trialStartedAt) return false;
+    // Use expiresAt if set (extended referral trial), else standard 14-day window
+    if (status.expiresAt) return status.expiresAt > Date.now();
     const elapsed = Date.now() - status.trialStartedAt;
     return elapsed < TRIAL_DAYS * MS_PER_DAY;
   })();
@@ -147,6 +154,56 @@ export function usePremium() {
     }
   }, []);
 
+  /** Redeem a referral code — grants 21-day trial. Returns error string or null on success. */
+  const redeemReferral = useCallback(async (code: string, userId: string): Promise<string | null> => {
+    const result = await redeemReferralCode(code, userId);
+    if (!result.success) {
+      const msgs: Record<string, string> = {
+        invalid: 'That referral code is not valid.',
+        self: "You can't use your own referral code.",
+        already_used: 'You have already used a referral code.',
+        error: 'Could not verify the code. Check your connection and try again.',
+      };
+      return msgs[result.reason] ?? 'Something went wrong.';
+    }
+    // Grant 21-day trial
+    const updated: PremiumStatus = {
+      ...load(),
+      trialStartedAt: Date.now(),
+      // Extend trial end by using a longer duration — store expiresAt for trial
+    };
+    // Store extended trial expiry in expiresAt so hasAccess uses it
+    const trialExpiry = Date.now() + result.trialMs;
+    const withExpiry: PremiumStatus = { ...updated, expiresAt: trialExpiry };
+    save(withExpiry);
+    setStatusRaw(withExpiry);
+    return null;
+  }, []);
+
+  /** Check and apply any pending referral rewards (call on boot). Returns ms added. */
+  const claimReferralRewardsForUser = useCallback(async (userId: string): Promise<void> => {
+    const msToAdd = await claimReferralRewards(userId);
+    if (msToAdd <= 0) return;
+    const current = load();
+    // Add time to existing expiry, or from now if no expiry set
+    const base = current.expiresAt && current.expiresAt > Date.now()
+      ? current.expiresAt
+      : Date.now();
+    const updated: PremiumStatus = {
+      ...current,
+      isPremium: true,
+      expiresAt: base + msToAdd,
+      purchasedAt: current.purchasedAt ?? Date.now(),
+    };
+    save(updated);
+    setStatusRaw(updated);
+  }, []);
+
+  /** Register this user's referral code in Supabase and return it. */
+  const getOrCreateReferralCode = useCallback(async (userId: string): Promise<string> => {
+    return registerReferralCode(userId);
+  }, []);
+
   /** Redeem a promo code — grants 30 days premium. Returns error string or null on success. */
   const redeemPromo = useCallback(async (code: string): Promise<string | null> => {
     const result = await redeemPromoCode(code);
@@ -192,6 +249,9 @@ export function usePremium() {
     purchase,
     restore,
     redeemPromo,
+    redeemReferral,
+    claimReferralRewardsForUser,
+    getOrCreateReferralCode,
     syncFromRC,
     revokePremium,
     refresh,
