@@ -101,8 +101,13 @@ export function Paywall({
               <div className="absolute -top-2.5 right-4 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                 BEST VALUE
               </div>
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                  selected === 'annual' ? 'border-brand-500 bg-brand-500' : 'border-gray-300 bg-white'
+                }`}>
+                  {selected === 'annual' && <Check size={10} className="text-white" strokeWidth={3} />}
+                </div>
+                <div className="flex-1">
                   <p className="font-bold text-gray-900 text-sm">Annual</p>
                   <p className="text-xs text-gray-400 mt-0.5">Billed once per year</p>
                 </div>
@@ -111,11 +116,6 @@ export function Paywall({
                   <p className="text-xs text-gray-400">≈ £7.50/mo</p>
                 </div>
               </div>
-              {selected === 'annual' && (
-                <div className="absolute top-3.5 right-14 w-4 h-4 rounded-full bg-brand-500 flex items-center justify-center">
-                  <Check size={10} className="text-white" strokeWidth={3} />
-                </div>
-              )}
             </button>
 
             {/* Monthly */}
@@ -127,8 +127,13 @@ export function Paywall({
                   : 'border-gray-200 bg-white'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                  selected === 'monthly' ? 'border-brand-500 bg-brand-500' : 'border-gray-300 bg-white'
+                }`}>
+                  {selected === 'monthly' && <Check size={10} className="text-white" strokeWidth={3} />}
+                </div>
+                <div className="flex-1">
                   <p className="font-bold text-gray-900 text-sm">Monthly</p>
                   <p className="text-xs text-gray-400 mt-0.5">Cancel anytime</p>
                 </div>
@@ -136,11 +141,6 @@ export function Paywall({
                   <p className="font-extrabold text-gray-700 text-lg">£7.99<span className="text-xs font-normal text-gray-400">/mo</span></p>
                 </div>
               </div>
-              {selected === 'monthly' && (
-                <div className="absolute right-14 w-4 h-4 rounded-full bg-brand-500 flex items-center justify-center" style={{ marginTop: '-2.4rem', position: 'relative', float: 'right' }}>
-                  <Check size={10} className="text-white" strokeWidth={3} />
-                </div>
-              )}
             </button>
           </div>
         </div>
