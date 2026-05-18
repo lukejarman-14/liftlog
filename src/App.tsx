@@ -26,6 +26,7 @@ import { sessionToWorkoutExercises } from './lib/sessionUtils';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 import { usePremium } from './hooks/usePremium';
 import { Paywall } from './components/screens/Paywall';
+import { rcConfigure } from './lib/revenueCat';
 import {
   isSupabaseConfigured,
   cloudSignOut,
@@ -66,18 +67,22 @@ export default function App() {
   // ── Low-readiness volume prompt ────────────────────────────────────────────
   const [pendingWorkout, setPendingWorkout] = useState<{ name: string; items: WorkoutExercise[] } | null>(null);
 
-  // ── On mount: restore existing Supabase session ────────────────────────────
+  // ── On mount: restore existing Supabase session + configure RevenueCat ───────
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     getExistingSession()
-      .then(userId => {
+      .then(async userId => {
         if (userId) {
           cloudUserIdRef.current = userId;
           setIsAuthenticated(true);
+          // Boot RevenueCat and sync entitlement status
+          await rcConfigure(userId);
+          await premium.syncFromRC();
         }
       })
       .catch(() => { /* session check failed — continue as unauthenticated */ })
       .finally(() => { setSessionChecking(false); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Listen for password recovery event (from reset email link) ────────────
@@ -528,14 +533,20 @@ export default function App() {
           featureLabel={paywallFeatureLabel}
           trialDaysLeft={premium.trialDaysLeft}
           isTrialExpired={premium.isTrialExpired}
+          purchasing={premium.purchasing}
+          restoring={premium.restoring}
+          purchaseError={premium.purchaseError}
           onStartTrial={() => {
             premium.startTrial();
             navigate({ screen: 'programme-builder' });
           }}
-          onSelectPlan={(plan) => {
-            // RevenueCat purchase flow goes here — for now just unlock
-            premium.setPremium(plan);
-            navigate({ screen: 'programme-builder' });
+          onSelectPlan={async (plan) => {
+            const ok = await premium.purchase(plan);
+            if (ok) navigate({ screen: 'programme-builder' });
+          }}
+          onRestore={async () => {
+            const ok = await premium.restore();
+            if (ok) navigate({ screen: 'programme-builder' });
           }}
           onDismiss={() => navigate({ screen: 'plans' })}
         />

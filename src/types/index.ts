@@ -346,7 +346,7 @@ export interface GeneratedProgramme {
 
 export interface PremiumStatus {
   isPremium: boolean;
-  plan?: 'monthly' | 'annual';           // which subscription tier
+  plan?: 'monthly' | 'yearly' | 'lifetime'; // which subscription tier
   trialStartedAt?: number;               // timestamp — when 14-day trial began
   purchasedAt?: number;                  // timestamp — when they became premium
   expiresAt?: number;                    // timestamp — subscription expiry

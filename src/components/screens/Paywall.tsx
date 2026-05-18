@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { X, Zap, Check, Shield, Lock } from 'lucide-react';
+import { X, Zap, Check, Shield, Lock, RotateCcw } from 'lucide-react';
+import { RCPlan } from '../../hooks/usePremium';
 
 interface PaywallProps {
-  /** Why the paywall appeared — shown in subtitle */
   featureLabel?: string;
-  /** Days left in trial (null = no trial started) */
   trialDaysLeft: number | null;
-  /** Trial has expired (started but > 14 days ago) */
   isTrialExpired: boolean;
-  onSelectPlan: (plan: 'monthly' | 'annual') => void;
+  purchasing: boolean;
+  restoring: boolean;
+  purchaseError: string | null;
+  onSelectPlan: (plan: RCPlan) => void;
   onStartTrial: () => void;
+  onRestore: () => void;
   onDismiss: () => void;
 }
 
@@ -22,18 +24,31 @@ const FEATURES = [
   'Strength setup — 1RM-based weekly load prescriptions',
 ];
 
+const PLANS: { id: RCPlan; label: string; price: string; sub: string; badge?: string }[] = [
+  { id: 'lifetime', label: 'Lifetime', price: '£49.99', sub: 'One-time payment — forever', badge: 'BEST VALUE' },
+  { id: 'yearly',   label: 'Annual',   price: '£89.99', sub: 'Billed once per year · ≈ £7.50/mo' },
+  { id: 'monthly',  label: 'Monthly',  price: '£7.99',  sub: 'Cancel anytime' },
+];
+
 export function Paywall({
   featureLabel,
   trialDaysLeft,
   isTrialExpired,
+  purchasing,
+  restoring,
+  purchaseError,
   onSelectPlan,
   onStartTrial,
+  onRestore,
   onDismiss,
 }: PaywallProps) {
-  const [selected, setSelected] = useState<'monthly' | 'annual'>('annual');
+  const [selected, setSelected] = useState<RCPlan>('lifetime');
 
   const noTrialYet = trialDaysLeft === null;
   const trialActive = trialDaysLeft !== null && trialDaysLeft > 0;
+
+  const selectedPlan = PLANS.find(p => p.id === selected)!;
+  const busy = purchasing || restoring;
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-white overflow-y-auto">
@@ -41,7 +56,8 @@ export function Paywall({
       <div className="relative flex items-center justify-center pt-14 pb-6 px-6 bg-gradient-to-b from-brand-600 to-brand-500 text-white">
         <button
           onClick={onDismiss}
-          className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+          disabled={busy}
+          className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-40"
         >
           <X size={16} />
         </button>
@@ -89,61 +105,49 @@ export function Paywall({
         <div className="mb-5">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Choose a plan</p>
           <div className="flex flex-col gap-3">
-            {/* Annual — recommended */}
-            <button
-              onClick={() => setSelected('annual')}
-              className={`w-full text-left p-4 rounded-2xl border-2 transition-all relative ${
-                selected === 'annual'
-                  ? 'border-brand-500 bg-brand-50'
-                  : 'border-gray-200 bg-white'
-              }`}
-            >
-              <div className="absolute -top-2.5 right-4 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                BEST VALUE
-              </div>
-              <div className="flex items-center gap-3">
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                  selected === 'annual' ? 'border-brand-500 bg-brand-500' : 'border-gray-300 bg-white'
-                }`}>
-                  {selected === 'annual' && <Check size={10} className="text-white" strokeWidth={3} />}
+            {PLANS.map(plan => (
+              <button
+                key={plan.id}
+                onClick={() => setSelected(plan.id)}
+                disabled={busy}
+                className={`w-full text-left p-4 rounded-2xl border-2 transition-all relative disabled:opacity-50 ${
+                  selected === plan.id
+                    ? 'border-brand-500 bg-brand-50'
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
+                {plan.badge && (
+                  <div className="absolute -top-2.5 right-4 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {plan.badge}
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                    selected === plan.id ? 'border-brand-500 bg-brand-500' : 'border-gray-300 bg-white'
+                  }`}>
+                    {selected === plan.id && <Check size={10} className="text-white" strokeWidth={3} />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-gray-900 text-sm">{plan.label}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{plan.sub}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-extrabold text-lg ${selected === plan.id ? 'text-brand-600' : 'text-gray-700'}`}>
+                      {plan.price}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="font-bold text-gray-900 text-sm">Annual</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Billed once per year</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-extrabold text-brand-600 text-lg">£89.99<span className="text-xs font-normal text-gray-400">/yr</span></p>
-                  <p className="text-xs text-gray-400">≈ £7.50/mo</p>
-                </div>
-              </div>
-            </button>
-
-            {/* Monthly */}
-            <button
-              onClick={() => setSelected('monthly')}
-              className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
-                selected === 'monthly'
-                  ? 'border-brand-500 bg-brand-50'
-                  : 'border-gray-200 bg-white'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                  selected === 'monthly' ? 'border-brand-500 bg-brand-500' : 'border-gray-300 bg-white'
-                }`}>
-                  {selected === 'monthly' && <Check size={10} className="text-white" strokeWidth={3} />}
-                </div>
-                <div className="flex-1">
-                  <p className="font-bold text-gray-900 text-sm">Monthly</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Cancel anytime</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-extrabold text-gray-700 text-lg">£7.99<span className="text-xs font-normal text-gray-400">/mo</span></p>
-                </div>
-              </div>
-            </button>
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Error */}
+        {purchaseError && (
+          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200">
+            <p className="text-sm text-red-700 font-medium">{purchaseError}</p>
+          </div>
+        )}
 
         {/* CTA */}
         <div className="flex flex-col gap-3">
@@ -151,7 +155,8 @@ export function Paywall({
             <>
               <button
                 onClick={onStartTrial}
-                className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors"
+                disabled={busy}
+                className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50"
               >
                 Start 14-Day Free Trial
               </button>
@@ -163,9 +168,14 @@ export function Paywall({
             <>
               <button
                 onClick={() => onSelectPlan(selected)}
-                className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors"
+                disabled={busy}
+                className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Subscribe — {selected === 'annual' ? '£89.99/yr' : '£7.99/mo'}
+                {purchasing ? (
+                  <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  `${selected === 'lifetime' ? 'Buy' : 'Subscribe'} — ${selectedPlan.price}`
+                )}
               </button>
               {trialActive && (
                 <p className="text-center text-xs text-gray-400">
@@ -174,12 +184,27 @@ export function Paywall({
               )}
             </>
           )}
+
+          <button
+            onClick={onRestore}
+            disabled={busy}
+            className="w-full py-2.5 rounded-2xl border border-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors disabled:opacity-40"
+          >
+            {restoring ? (
+              <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
+            ) : (
+              <>
+                <RotateCcw size={13} />
+                Restore purchases
+              </>
+            )}
+          </button>
         </div>
 
         {/* Trust signals */}
-        <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-gray-400">
+        <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">
           <Shield size={12} />
-          <span>Secure payment · Cancel anytime · Restore purchases</span>
+          <span>Secure payment · Cancel anytime · Apple-verified</span>
         </div>
       </div>
     </div>

@@ -1,18 +1,22 @@
 /**
- * usePremium — reads and writes PremiumStatus from localStorage.
+ * usePremium — manages premium status via RevenueCat (native) or localStorage (web).
  *
  * Trial logic:
  *   - First time a free user hits a gated feature we stamp trialStartedAt.
  *   - Trial lasts 14 days. After that, isPremium must be true (paid).
- *   - RevenueCat sets isPremium + purchasedAt via setPremium() when wired up.
+ *   - RevenueCat sets isPremium on successful purchase / restore.
  */
 
 import { useState, useCallback } from 'react';
 import { PremiumStatus } from '../types';
+import { rcPurchase, rcRestore, rcCheckEntitlement, RCPlan } from '../lib/revenueCat';
+
+export type { RCPlan };
 
 const KEY = 'vf_premium';
 const TRIAL_DAYS = 14;
 const MS_PER_DAY = 86_400_000;
+
 
 function load(): PremiumStatus {
   try {
@@ -28,6 +32,9 @@ function save(status: PremiumStatus) {
 
 export function usePremium() {
   const [status, setStatusRaw] = useState<PremiumStatus>(load);
+  const [purchasing, setPurchasing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     const fresh = load();
@@ -63,19 +70,81 @@ export function usePremium() {
     setStatusRaw(updated);
   }, []);
 
-  /** Called by RevenueCat webhook / purchase callback. */
-  const setPremium = useCallback((plan: 'monthly' | 'annual', expiresAt?: number, rcCustomerId?: string) => {
+  /** Unlock premium locally (called after successful RC purchase or restore). */
+  const setPremium = useCallback((plan: 'monthly' | 'yearly' | 'lifetime', expiresAt?: number, rcCustomerId?: string) => {
     const updated: PremiumStatus = {
       isPremium: true,
       plan,
       purchasedAt: Date.now(),
       expiresAt,
       rcCustomerId,
-      trialStartedAt: status.trialStartedAt,
+      trialStartedAt: load().trialStartedAt,
     };
     save(updated);
     setStatusRaw(updated);
-  }, [status.trialStartedAt]);
+  }, []);
+
+  /** Trigger a RevenueCat purchase. Returns success flag. */
+  const purchase = useCallback(async (plan: RCPlan): Promise<boolean> => {
+    setPurchaseError(null);
+    setPurchasing(true);
+    try {
+      const { success, cancelled } = await rcPurchase(plan);
+      if (success) {
+        setPremium(plan);
+        return true;
+      }
+      if (!cancelled) setPurchaseError('Purchase failed. Please try again.');
+      return false;
+    } catch {
+      setPurchaseError('Purchase failed. Please try again.');
+      return false;
+    } finally {
+      setPurchasing(false);
+    }
+  }, [setPremium]);
+
+  /** Restore previous purchases (App Store requirement). */
+  const restore = useCallback(async (): Promise<boolean> => {
+    setPurchaseError(null);
+    setRestoring(true);
+    try {
+      // Check RC first
+      const active = await rcRestore();
+      if (active) {
+        // Determine plan from RC entitlement check (best effort — default yearly for restore)
+        const current = load();
+        const updated: PremiumStatus = {
+          ...current,
+          isPremium: true,
+          purchasedAt: current.purchasedAt ?? Date.now(),
+        };
+        save(updated);
+        setStatusRaw(updated);
+        return true;
+      }
+      setPurchaseError('No previous purchases found.');
+      return false;
+    } catch {
+      setPurchaseError('Restore failed. Please try again.');
+      return false;
+    } finally {
+      setRestoring(false);
+    }
+  }, []);
+
+  /** Sync premium status from RC (call on app boot after RC is configured). */
+  const syncFromRC = useCallback(async () => {
+    const active = await rcCheckEntitlement();
+    if (active) {
+      const current = load();
+      if (!current.isPremium) {
+        const updated: PremiumStatus = { ...current, isPremium: true };
+        save(updated);
+        setStatusRaw(updated);
+      }
+    }
+  }, []);
 
   /** Remove premium (e.g. subscription lapsed). */
   const revokePremium = useCallback(() => {
@@ -90,8 +159,14 @@ export function usePremium() {
     isTrialActive,
     isTrialExpired,
     trialDaysLeft,
+    purchasing,
+    restoring,
+    purchaseError,
     startTrial,
     setPremium,
+    purchase,
+    restore,
+    syncFromRC,
     revokePremium,
     refresh,
   };
