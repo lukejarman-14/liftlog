@@ -10,6 +10,7 @@
 import { useState, useCallback } from 'react';
 import { PremiumStatus } from '../types';
 import { rcPurchase, rcRestore, rcCheckEntitlement, RCPlan } from '../lib/revenueCat';
+import { redeemPromoCode } from '../lib/promoCodes';
 
 export type { RCPlan };
 
@@ -146,6 +147,30 @@ export function usePremium() {
     }
   }, []);
 
+  /** Redeem a promo code — grants 30 days premium. Returns error string or null on success. */
+  const redeemPromo = useCallback(async (code: string): Promise<string | null> => {
+    const result = await redeemPromoCode(code);
+    if (!result.success) {
+      const msgs: Record<string, string> = {
+        invalid: 'That code is not valid.',
+        already_used: 'This code has already been used on this device.',
+        inactive: 'That code is no longer active.',
+        error: 'Could not verify the code. Check your connection and try again.',
+      };
+      return msgs[result.reason] ?? 'Something went wrong.';
+    }
+    const updated: PremiumStatus = {
+      ...load(),
+      isPremium: true,
+      plan: 'monthly',
+      purchasedAt: Date.now(),
+      expiresAt: result.expiresAt,
+    };
+    save(updated);
+    setStatusRaw(updated);
+    return null;
+  }, []);
+
   /** Remove premium (e.g. subscription lapsed). */
   const revokePremium = useCallback(() => {
     const updated: PremiumStatus = { ...load(), isPremium: false, plan: undefined, expiresAt: undefined };
@@ -166,6 +191,7 @@ export function usePremium() {
     setPremium,
     purchase,
     restore,
+    redeemPromo,
     syncFromRC,
     revokePremium,
     refresh,

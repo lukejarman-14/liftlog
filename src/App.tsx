@@ -548,6 +548,11 @@ export default function App() {
             const ok = await premium.restore();
             if (ok) navigate({ screen: 'programme-builder' });
           }}
+          onRedeemCode={async (code) => {
+            const err = await premium.redeemPromo(code);
+            if (!err) setTimeout(() => navigate({ screen: 'programme-builder' }), 1500);
+            return err;
+          }}
           onDismiss={() => navigate({ screen: 'plans' })}
         />
       )}

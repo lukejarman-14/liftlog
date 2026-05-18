@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Zap, Check, Shield, Lock, RotateCcw } from 'lucide-react';
+import { X, Zap, Check, Shield, Lock, RotateCcw, Tag } from 'lucide-react';
 import { RCPlan } from '../../hooks/usePremium';
 
 interface PaywallProps {
@@ -12,6 +12,7 @@ interface PaywallProps {
   onSelectPlan: (plan: RCPlan) => void;
   onStartTrial: () => void;
   onRestore: () => void;
+  onRedeemCode: (code: string) => Promise<string | null>;
   onDismiss: () => void;
 }
 
@@ -40,9 +41,15 @@ export function Paywall({
   onSelectPlan,
   onStartTrial,
   onRestore,
+  onRedeemCode,
   onDismiss,
 }: PaywallProps) {
   const [selected, setSelected] = useState<RCPlan>('lifetime');
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoSuccess, setPromoSuccess] = useState(false);
 
   const noTrialYet = trialDaysLeft === null;
   const trialActive = trialDaysLeft !== null && trialDaysLeft > 0;
@@ -199,6 +206,60 @@ export function Paywall({
               </>
             )}
           </button>
+        </div>
+
+        {/* Promo code */}
+        <div className="mt-4">
+          {!showCodeInput ? (
+            <button
+              onClick={() => setShowCodeInput(true)}
+              className="w-full py-2 text-xs text-gray-400 flex items-center justify-center gap-1.5 hover:text-gray-600 transition-colors"
+            >
+              <Tag size={12} />
+              Have a promo code?
+            </button>
+          ) : promoSuccess ? (
+            <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-center">
+              <p className="text-sm font-bold text-green-700">Code applied!</p>
+              <p className="text-xs text-green-600 mt-0.5">30 days of Premium unlocked.</p>
+            </div>
+          ) : (
+            <div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={promoCode}
+                  onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoError(null); }}
+                  placeholder="Enter code"
+                  style={{ fontSize: '16px' }}
+                  className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-400"
+                />
+                <button
+                  onClick={async () => {
+                    if (!promoCode.trim()) return;
+                    setPromoLoading(true);
+                    setPromoError(null);
+                    const err = await onRedeemCode(promoCode);
+                    setPromoLoading(false);
+                    if (err) {
+                      setPromoError(err);
+                    } else {
+                      setPromoSuccess(true);
+                    }
+                  }}
+                  disabled={promoLoading || !promoCode.trim()}
+                  className="px-4 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold disabled:opacity-40 hover:bg-brand-600 transition-colors"
+                >
+                  {promoLoading ? (
+                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin block" />
+                  ) : 'Apply'}
+                </button>
+              </div>
+              {promoError && (
+                <p className="text-xs text-red-600 mt-1.5 px-1">{promoError}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Trust signals */}
