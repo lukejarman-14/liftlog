@@ -25,7 +25,7 @@ const FEATURES = [
 ];
 
 const PLANS: { id: RCPlan; label: string; price: string; sub: string; badge?: string }[] = [
-  { id: 'lifetime', label: 'Lifetime', price: '£49.99', sub: 'One-time payment — forever', badge: 'BEST VALUE' },
+  { id: 'lifetime', label: 'Lifetime', price: '£150.00', sub: 'One-time payment — forever', badge: 'BEST VALUE' },
   { id: 'yearly',   label: 'Annual',   price: '£89.99', sub: 'Billed once per year · ≈ £7.50/mo' },
   { id: 'monthly',  label: 'Monthly',  price: '£7.99',  sub: 'Cancel anytime' },
 ];
