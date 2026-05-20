@@ -395,6 +395,11 @@ export default function App() {
           if (userId) { cloudUserIdRef.current = userId; identifyUser(userId); }
           setIsAuthenticated(true);
         }}
+        onStartOver={() => {
+          store.clearAll();
+          resetAnalyticsUser();
+          cloudUserIdRef.current = null;
+        }}
       />
     );
   }

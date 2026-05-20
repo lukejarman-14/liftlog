@@ -6,6 +6,7 @@ import { isSupabaseConfigured, cloudSignIn, cloudLoadData, cloudResetPassword } 
 interface LoginProps {
   profile: UserProfile;
   onLogin: (userId?: string) => void;
+  onStartOver: () => void;
 }
 
 async function hashPassword(password: string): Promise<string> {
@@ -17,7 +18,7 @@ async function hashPassword(password: string): Promise<string> {
     .join('');
 }
 
-export function Login({ profile, onLogin }: LoginProps) {
+export function Login({ profile, onLogin, onStartOver }: LoginProps) {
   const [password,     setPassword]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error,        setError]        = useState('');
@@ -29,6 +30,9 @@ export function Login({ profile, onLogin }: LoginProps) {
   const [forgotLoading,  setForgotLoading]  = useState(false);
   const [forgotSent,     setForgotSent]     = useState(false);
   const [forgotError,    setForgotError]    = useState('');
+
+  // Start over confirmation
+  const [confirmStartOver, setConfirmStartOver] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,6 +213,35 @@ export function Login({ profile, onLogin }: LoginProps) {
         >
           Forgot password?
         </button>
+
+        {/* Start over */}
+        {!confirmStartOver ? (
+          <button
+            onClick={() => setConfirmStartOver(true)}
+            className="w-full mt-1 text-xs text-gray-400 hover:text-gray-600 text-center py-2"
+          >
+            Create new account
+          </button>
+        ) : (
+          <div className="mt-2 p-4 rounded-xl border border-red-200 bg-red-50 text-center">
+            <p className="text-xs text-red-700 font-semibold mb-1">This will delete all local data</p>
+            <p className="text-xs text-red-500 mb-3">Your account and cloud data are kept — you'll just need to sign in again.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmStartOver(false)}
+                className="flex-1 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onStartOver}
+                className="flex-1 py-2 rounded-lg bg-red-500 text-white text-xs font-bold hover:bg-red-600"
+              >
+                Start fresh
+              </button>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
