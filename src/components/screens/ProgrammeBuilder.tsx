@@ -646,6 +646,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   const [injuryHistory, setInjuryHistory] = useState<InjuryArea[]>([]);
   const [preferBackSquat, setPreferBackSquat] = useState(false);
   // Step 4 — Lift baselines (optional, pre-filled if existing)
+  const [upperPullChoice, setUpperPullChoice] = useState<'pull-up' | 'row'>('pull-up');
   type LiftInput = { weightKg: string; reps: string };
   const [liftInputs, setLiftInputs] = useState<Partial<Record<LiftKey, LiftInput>>>(() => {
     if (!existingStrengthSetup?.lifts.length) return {};
@@ -701,7 +702,12 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
     let elapsed = 0;
     const timer = setInterval(() => {
       elapsed += interval;
-      setGenProgress(Math.min(elapsed / total, 1));
+      const t = Math.min(elapsed / total, 1);
+      // Ease-out: fast to 85% then slow crawl to 100%, giving a "nearly there" feel
+      const eased = t < 0.8
+        ? 0.85 * (1 - Math.pow(1 - t / 0.8, 2))  // ease-out quad to 85% over first 80% of time
+        : 0.85 + ((t - 0.8) / 0.2) * 0.15;        // linear crawl 85%→100% over last 20%
+      setGenProgress(eased);
       if (elapsed >= total) {
         clearInterval(timer);
         setIsGenerating(false);
@@ -744,6 +750,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
       gymAccess: userProfile.gymAccess,
       customDurationWeeks: programDuration,
       preferBackSquat: userProfile.gymAccess !== 'none' ? preferBackSquat : undefined,
+      upperPullChoice: userProfile.gymAccess !== 'none' ? upperPullChoice : undefined,
       lifts: computedLifts.length > 0 ? computedLifts : undefined,
     };
     genCallbackRef.current = () => onGenerate(inputs);
@@ -1205,6 +1212,32 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mb-2.5">{meta.hint}</p>
+                  {key === 'upperPull' && (
+                    <div className="flex gap-1.5 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setUpperPullChoice('pull-up')}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          upperPullChoice === 'pull-up'
+                            ? 'bg-brand-500 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        Pull-Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUpperPullChoice('row')}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          upperPullChoice === 'row'
+                            ? 'bg-brand-500 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        Row
+                      </button>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Weight (kg)</label>

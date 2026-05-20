@@ -274,6 +274,7 @@ export interface ProgrammeInputs {
   offSeason?: boolean;
   customDurationWeeks?: number; // user-chosen programme length (overrides experience-based default)
   preferBackSquat?: boolean;   // player enjoys/prefers Back Squat — enables selection in eligible phases
+  upperPullChoice?: 'pull-up' | 'row';  // whether the player uses pull-ups or rows for the upper-pull slot
   lifts?: LiftBaseline[];      // collected during wizard for personalised load prescriptions
 }
 

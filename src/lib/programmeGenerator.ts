@@ -1186,6 +1186,113 @@ const UPPER: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
   },
 };
 
+// ── Upper body — ROW variant (used when upperPullChoice === 'row') ─────────
+// Mirrors UPPER but replaces pull-up / weighted pull-up slots with row variants.
+// Foundation.full and all .none entries are unchanged (DB Row / Inverted Row).
+
+const UPPER_ROW: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
+  Foundation: {
+    full: [
+      ex('DB Bench Press', '2', '6', '2:30', 'Retract shoulder blades. Explosive push — treat every rep like a max attempt. 2 RIR. DBs allow full range — use it.',
+        { intensity: '75% effort', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('DB Row', '2', '6', '2:00', 'Hinge 45°. Pull elbow hard to hip. Squeeze lat at the top. Maximum intent — not a warm-down.',
+        { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('DB Shoulder Press', '2', '6', '2:00', 'Drive bar straight up. Brace through the core. Full lockout every rep. 2 RIR.',
+        { intensity: '75% effort', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ],
+    basic: [
+      ex('DB Bench Press', '2', '6', '2:30', 'Explosive push. Full range. 2 RIR. DBs allow natural arc — elbows at 45°, not flared.',
+        { intensity: '75% effort', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('DB Row', '2', '6', '2:00', 'Hinge 45°. Pull elbow hard to hip. Squeeze lat at the top. Full range every rep. 2 RIR — load up when 6 reps is easy.',
+        { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('DB Shoulder Press', '2', '6', '2:00', 'Neutral spine. Drive hard. Full lockout overhead. 2 RIR.',
+        { intensity: '75% effort', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ],
+    none: [
+      ex('Push-Up (Max Effort)', '2', '6', '2:00', 'Hands just outside shoulders. Lower chest within 3cm of floor. Drive up explosively — leave the floor if possible. 2 RIR, not a comfortable set.',
+        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Inverted Row (Table or Low Bar)', '2', '6', '2:00', 'Pull chest hard to bar. Heels on floor, body straight. Maximum effort — add a backpack for load if 6 reps is easy.',
+        { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Pike Push-Up', '2', '6', '90s', 'Hips high, inverted V. Lower head toward floor. Explode back up. 2 RIR. Vertical push at max effort.',
+        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ],
+  },
+  Build: {
+    full: [
+      ex('Bench Press', '2', '5', '3:00', 'Explosive push. 2 RIR. Bar speed is your autoregulation — rack when velocity drops. Heavy horizontal push.',
+        { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Row', '2', '5', '3:00', 'Hinge to 45°. Drive bar to lower chest. Squeeze lats hard at the top. 2 RIR — add weight every week.',
+        { intensity: '78% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Push Press', '2', '4', '2:30', 'Dip and drive hips explosively. Aggressive lockout. Bar over heels. Maximum rate of force development.',
+        { intensity: '75% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    basic: [
+      ex('Barbell Bench Press', '2', '5', '3:00', 'Explosive push. 2 RIR. Bar moves fast. Barbell allows heavier load — use it.',
+        { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Row', '2', '5', '3:00', 'Hinge to 45°. Drive bar to lower chest. Squeeze lats hard at the top. 2 RIR — add weight every week.',
+        { intensity: '78% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('DB Push Press', '2', '5', '2:30', 'Dip and drive hips. Explosive lockout overhead. DBs allow each arm to work independently.',
+        { intensity: 'Moderate-heavy', methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    none: [
+      ex('Plyometric Push-Up', '2', '6', '2:30', 'Explosive push — hands leave the floor. Land softly. Maximum upper body power expression. Every rep full intent.',
+        { tempo: '2-0-x-0', methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Inverted Row (Table or Low Bar)', '2', '6', '2:00', 'Pull chest hard to bar, heels on floor. Max effort — elevate feet if 6 reps is not near failure.',
+        { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Pike Push-Up', '2', '6', '2:00', 'Hips high. Lower head toward floor. Drive up hard. Vertical push at max effort.',
+        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ],
+  },
+  'Strength & Power': {
+    full: [
+      ex('Bench Press', '2', '3', '3:30', 'Maximum force intent. Bar moves with authority every rep. 1–2 RIR. Heavy horizontal push.',
+        { intensity: '84% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Row', '2', '4', '3:00', 'Hinge 45°. Drive bar hard to lower chest. 1–2 RIR. Heavy horizontal pull to match the bench.',
+        { intensity: '84% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Push Press', '2', '4', '2:30', 'Dip and drive hips aggressively. Lockout at full extension. Maximum rate of force development.',
+        { intensity: '78% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    basic: [
+      ex('Barbell Bench Press', '2', '4', '3:30', 'Maximum force intent. Bar moves fast on every rep. 1–2 RIR.',
+        { intensity: '83% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Row', '2', '4', '3:00', 'Hinge 45°. Drive bar hard to lower chest. 1–2 RIR. Add enough weight to make 4 reps a real effort.',
+        { intensity: '83% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('DB Push Press', '2', '4', '2:30', 'Dip and drive hips. Explosive lockout. Maximum rate of force development.',
+        { intensity: 'Heavy DB', methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    none: [
+      ex('Archer Push-Up', '2', '5 each side', '3:00', 'Wide hands. Lower to one side — that arm takes full load. Alternate sides. Maximum effort, unilateral bodyweight strength.',
+        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Inverted Row (Feet Elevated)', '2', '6', '2:30', 'Feet elevated, pull chest to bar. Maximum effort — close to failure. Maximal bodyweight horizontal pull.',
+        { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Pike Push-Up (Deficit)', '2', '6', '2:00', 'Hands on elevated surface. Increase depth below hand level. Drive hard on every rep. Max effort vertical push.',
+        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ],
+  },
+  Peak: {
+    full: [
+      ex('Bench Press', '3', '2', '4:00', 'Peak expression. Maximum intent. Full rest between sets.',
+        { intensity: '90% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Row', '3', '3', '4:00', 'Explosive concentric. Full recovery. Express peak horizontal pull strength.',
+        { intensity: 'Heavy', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Push Press', '3', '3', '2:30', 'Explosive dip and drive. Express upper body rate of force development at peak intensity.',
+        { intensity: '80% 1RM', methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+    basic: [
+      ex('Barbell Bench Press', '2', '3', '4:00', 'Max intent. Full recovery. Express peak upper strength.',
+        { intensity: '88% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Row', '3', '3', '4:00', 'Explosive concentric. Full recovery. Express peak horizontal pull strength.',
+        { intensity: 'Heavy', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ],
+    none: [
+      ex('Explosive Push-Up', '2', '5 @ 1 RIR', '3:00', 'Maximum explosive intent on every rep. 1 RIR. Peak bodyweight upper expression.',
+        { tempo: '2-0-x-0', methodType: 'reactive', intensityIntent: 'explosive' }),
+      ex('Inverted Row (Feet Elevated)', '2', '6 @ 1 RIR', '3:00', 'Peak bodyweight horizontal pull. 1 RIR. Full rest between sets.',
+        { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+    ],
+  },
+};
+
 // ── Play-style specific exercises ──────────────────────────────────────────
 
 // Play-style running exercises — 3 variants each, rotated weekly so sessions feel fresh.
@@ -1736,7 +1843,8 @@ function buildOffSeasonSession(
   const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
   const gymAccessLib = gymLib[gymAccess as GymKey] ?? gymLib.basic;
   const strengthEx = gymAccessLib[loadScheme] ?? gymAccessLib.moderate;
-  const upperPhase = UPPER[phase] ?? UPPER.Build;
+  const upperBlock = inputs.upperPullChoice === 'row' ? UPPER_ROW : UPPER;
+  const upperPhase = upperBlock[phase] ?? upperBlock.Build;
   const upperEx = upperPhase[gymAccess as GymKey] ?? upperPhase.basic;
 
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
@@ -1884,7 +1992,8 @@ function buildSession(
   const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
   const gymAccessLib = gymLib[gymAccess] ?? gymLib.basic;
   const strengthEx = gymAccessLib[fv.loadScheme === 'heavy' ? 'heavy' : 'moderate'] ?? gymAccessLib.moderate;
-  const upperPhase = UPPER[phase] ?? UPPER.Build;
+  const upperBlock = inputs.upperPullChoice === 'row' ? UPPER_ROW : UPPER;
+  const upperPhase = upperBlock[phase] ?? upperBlock.Build;
   const upperEx = upperPhase[gymAccess as GymKey] ?? upperPhase.basic;
 
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
