@@ -140,6 +140,22 @@ export const NAME_TO_ID: Record<string, string> = {
   'cardiac output circuit': 'hiit-run',
 };
 
+/**
+ * For distance-based RSA exercises like "6 × 30m · 25s rest" with pe.sets = "3",
+ * the programme means 3 groups × 6 sprints each. Returns the reps-per-set multiplier.
+ * Returns 1 when the reps string is timed (not distance) or has no leading "N ×" pattern,
+ * or when N equals the sets count (meaning sets already = individual reps).
+ */
+function parseDistanceRepsPerSet(setsStr: string, repsStr: string): number {
+  const m = repsStr.match(/^(\d+)\s*×/);
+  if (!m) return 1;
+  const repsPerSet = parseInt(m[1], 10);
+  const sets = parseInt(setsStr, 10) || 1;
+  // Only multiply when the rep count differs from sets count, to avoid double-counting
+  // exercises where sets already represents individual reps (e.g. "6 sets × 6 × 30m" descriptive).
+  return repsPerSet !== sets ? repsPerSet : 1;
+}
+
 /** Parse a raw time string like "30s", "4 min", "3:00", "90s" → seconds (0 if unrecognised). */
 function parseTimeSecs(s: string): number {
   if (!s) return 0;
@@ -251,12 +267,17 @@ export function sessionToWorkoutExercises(
         const isCond = exercise.category === 'Conditioning';
         // Time-based aerobic (measureType: 'time'): show as 1 set × duration-in-seconds timer.
         const isTimedAerobic = isCond && exercise.measureType === 'time';
-        const targetSets = isTimedAerobic ? 1
-          : isCond ? Math.min(Math.max(parseInt(pe.sets, 10) || 1, 1), 25)
-          : parseSets(pe.sets);
         // For interval conditioning: parse actual work duration from pe.reps.
-        // e.g. "30s hard · 30s rest" → 30s work. Distance-based ("8 × 30m") → 1 (tap to complete).
+        // e.g. "30s hard · 30s rest" → 30s work. Distance-based ("8 × 30m") → 0 (no timer).
         const condWorkSecs = isCond && !isTimedAerobic ? parseCondWorkSecs(pe.reps) : 0;
+        // For distance-based RSA exercises ("3 sets × 6 × 30m"), multiply sets × reps-per-set
+        // so the guided sprint flow shows all individual sprints (e.g. 3×6 = 18 total).
+        const distanceRepsPerSet = isCond && !isTimedAerobic && condWorkSecs === 0
+          ? parseDistanceRepsPerSet(pe.sets, pe.reps)
+          : 1;
+        const targetSets = isTimedAerobic ? 1
+          : isCond ? Math.min(Math.max(parseInt(pe.sets, 10) || 1, 1) * distanceRepsPerSet, 25)
+          : parseSets(pe.sets);
         const targetReps = isTimedAerobic
           ? (() => { const m = pe.reps.match(/(\d+)\s*min/); return m ? parseInt(m[1], 10) * 60 : 1800; })()
           : isCond ? (condWorkSecs > 0 ? condWorkSecs : 1)
