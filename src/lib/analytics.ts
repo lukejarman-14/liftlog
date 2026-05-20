@@ -32,7 +32,6 @@ if (key) {
 /** Fire a named analytics event with optional properties. No-ops if PostHog key not set. */
 export function trackEvent(eventName: string, properties?: Record<string, unknown>): void {
   if (!key) {
-    // eslint-disable-next-line no-console
     console.log('[Analytics]', eventName, properties ?? {});
     return;
   }
