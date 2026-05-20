@@ -33,10 +33,17 @@ function isConditioningSession(session: { mdDay: string; objective: string }): b
   const md = (session.mdDay ?? '').toLowerCase();
   const obj = (session.objective ?? '').toLowerCase();
   return md === 'conditioning' || md === 'md+1' ||
+    // Off-season / in-season conditioning mdDay values from the programme generator
+    md === 'zone 2' || md === 'high aerobic' || md === 'hi aerobic' || md === 'rsa' ||
+    md.includes('aerobic') || md.includes('zone') ||
     obj.includes('active recovery') ||
     obj.includes('conditioning session') ||
     obj.includes('speed session') ||
-    obj.includes('cardio');
+    obj.includes('cardio') ||
+    obj.includes('aerobic base') ||
+    obj.includes('zone 2') ||
+    obj.includes('anaerobic') ||
+    obj.includes('high intensity aerobic');
 }
 
 const PHASE_COLOURS: Record<string, string> = {
@@ -55,6 +62,8 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
   const { matchEntries } = useStore();
   const [previewSession, setPreviewSession] = useState<import('../types').ProgrammeSession | null>(null);
   const [previewWeekNumber, setPreviewWeekNumber] = useState<number>(1);
+  // Callback to fire when user taps "Start Workout" inside the preview modal (set when opened from a Start button)
+  const [previewOnStart, setPreviewOnStart] = useState<(() => void) | null>(null);
   // Day picker: when a day with multiple sessions is tapped, show a sheet to pick which to preview
   const [daySheet, setDaySheet] = useState<import('../types').ProgrammeSession[] | null>(null);
   const weekDates = getWeekDates(0);
@@ -316,8 +325,13 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                       : isToday && onStartProgrammeSession
                       ? <button
                           onClick={() => {
-                            const items = sessionToWorkoutExercises(session, exercises);
-                            onStartProgrammeSession(`${mdDisplay} · ${session.dayOfWeek}`, items);
+                            const wk = progWeekIdx >= 0 ? progWeekIdx + 1 : 1;
+                            setPreviewWeekNumber(wk);
+                            setPreviewOnStart(() => () => {
+                              const items = sessionToWorkoutExercises(session, exercises);
+                              onStartProgrammeSession(`${mdDisplay} · ${session.dayOfWeek}`, items);
+                            });
+                            setPreviewSession(session);
                           }}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-colors ${
                             isCond ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-brand-500 hover:bg-brand-600'
@@ -455,7 +469,8 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
           weekNumber={previewWeekNumber}
           totalWeeks={generatedProgramme?.durationWeeks ?? 1}
           strengthSetup={generatedProgramme?.strengthSetup}
-          onClose={() => setPreviewSession(null)}
+          onClose={() => { setPreviewSession(null); setPreviewOnStart(null); }}
+          onStart={previewOnStart ?? undefined}
         />
       )}
     </section>

@@ -750,6 +750,90 @@ function SetRow({
   );
 }
 
+// ── Conditioning sprint row ────────────────────────────────────────────────
+// Used for distance-based conditioning exercises (e.g. "Repeated Sprint 30m").
+// Shows: idle → Start Sprint → elapsed timer running → Done → (parent handles rest)
+
+function CondSprintRow({
+  setIndex, totalSets, completed, isActive, onComplete,
+}: {
+  setIndex: number;
+  totalSets: number;
+  completed: CompletedSet | null;
+  isActive: boolean;
+  onComplete: (set: CompletedSet) => void;
+}) {
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!running) return;
+    startRef.current = Date.now() - elapsed * 1000;
+    const tick = () => {
+      if (startRef.current !== null) setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+    };
+    const id = setInterval(tick, 250);
+    const onVis = () => { if (!document.hidden) tick(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [running]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fmtEl = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+  if (completed) {
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-100">
+        <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
+        <span className="flex-1 text-sm font-semibold text-green-600">✓ Sprint {setIndex + 1} complete</span>
+      </div>
+    );
+  }
+
+  if (running) {
+    return (
+      <div className="p-3 rounded-xl bg-emerald-50 border-2 border-emerald-300">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold text-emerald-700 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
+          <div className="flex-1 flex flex-col items-center gap-0.5">
+            <div className="text-3xl font-black tabular-nums text-emerald-600">{fmtEl(elapsed)}</div>
+            <div className="text-xs text-emerald-500 font-semibold uppercase tracking-wide">
+              Sprint {setIndex + 1} of {totalSets} · running
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setRunning(false);
+              onComplete({ reps: 1, weight: elapsed, completedAt: Date.now() });
+              playTimerDoneSound();
+              if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
+            }}
+            className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 active:scale-95 transition-all"
+          >
+            Done ✓
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // idle — active row shows Start button; queued rows are greyed out
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${isActive ? 'bg-gray-50' : 'bg-gray-50 opacity-40'}`}>
+      <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
+      <span className="flex-1 text-sm text-gray-500">Sprint {setIndex + 1} of {totalSets}</span>
+      {isActive && (
+        <button
+          onClick={() => { setElapsed(0); setRunning(true); }}
+          className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all"
+        >
+          Start Sprint
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Exercise section ───────────────────────────────────────────────────────
 
 function ExerciseSection({
@@ -783,6 +867,9 @@ function ExerciseSection({
     (exercise.category === 'Conditioning' && sessionExercise.targetReps > 1)
       ? 'time'
       : (exercise.measureType ?? 'strength');
+
+  // Distance-based conditioning sprints (targetReps === 1) get the guided Start→timer→Done flow
+  const isCondSprint = exercise.category === 'Conditioning' && measureType !== 'time';
   const unit        = exercise.unit;
 
   const lastSession = getLastSession(sessionExercise.exerciseId, sessionId);
@@ -947,24 +1034,34 @@ function ExerciseSection({
                 return (
                   <div key={i}>
                     {/* Show suggestion banner just before the next uncompleted set */}
-                    {suggestion && i === completedCount && (
+                    {!isCondSprint && suggestion && i === completedCount && (
                       <RpeSuggestionBanner
                         action={suggestion.action}
                         message={suggestion.message}
                       />
                     )}
-                    <SetRow
-                      setIndex={i}
-                      completed={sessionExercise.sets[i] ?? null}
-                      defaultWeight={defaults.weight}
-                      defaultReps={defaults.reps}
-                      measureType={measureType}
-                      unit={unit}
-                      targetRir={showRir ? targetRir : undefined}
-                      isWarmup={(exercise.isWarmup ?? false) || exercise.category === 'Conditioning'}
-                      onComplete={set => onCompleteSet(i, set)}
-                      onEdit={set => onEditSet(i, set)}
-                    />
+                    {isCondSprint ? (
+                      <CondSprintRow
+                        setIndex={i}
+                        totalSets={totalSets}
+                        completed={sessionExercise.sets[i] ?? null}
+                        isActive={i === completedCount}
+                        onComplete={set => onCompleteSet(i, set)}
+                      />
+                    ) : (
+                      <SetRow
+                        setIndex={i}
+                        completed={sessionExercise.sets[i] ?? null}
+                        defaultWeight={defaults.weight}
+                        defaultReps={defaults.reps}
+                        measureType={measureType}
+                        unit={unit}
+                        targetRir={showRir ? targetRir : undefined}
+                        isWarmup={(exercise.isWarmup ?? false) || exercise.category === 'Conditioning'}
+                        onComplete={set => onCompleteSet(i, set)}
+                        onEdit={set => onEditSet(i, set)}
+                      />
+                    )}
                     {/* Rest timer appears between last completed set and next pending set */}
                     {restInfo && i === completedCount - 1 && (
                       <InlineRestTimer restInfo={restInfo} />

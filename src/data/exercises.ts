@@ -53,6 +53,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'calf-raise', name: 'Calf Raise', category: 'Legs', defaultRestSeconds: 60, muscleGroups: ['Calves'] },
 
   // Core
+  { id: 'dead-bug', name: 'Dead Bug', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Abs', 'Hip Flexors', 'Core'], measureType: 'reps' },
   { id: 'plank', name: 'Plank', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Abs', 'Obliques'], measureType: 'time' },
   { id: 'crunch', name: 'Crunch', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Abs'] },
   { id: 'ab-wheel', name: 'Ab Wheel Rollout', category: 'Core', defaultRestSeconds: 90, muscleGroups: ['Abs', 'Obliques'] },
@@ -81,7 +82,8 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'eccentric-nordic', name: 'Eccentric Nordic Curl', category: 'Eccentric', defaultRestSeconds: 120, muscleGroups: ['Hamstrings'], measureType: 'reps' },
   { id: 'eccentric-slider-curl', name: 'Eccentric Slider Curl', category: 'Eccentric', defaultRestSeconds: 120, muscleGroups: ['Hamstrings'], measureType: 'reps' },
   { id: 'eccentric-calf-raise', name: 'Eccentric Calf Raise', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Gastrocnemius'], measureType: 'reps' },
-  { id: 'eccentric-sl-rdl', name: 'Eccentric Single Leg RDL', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Hamstrings', 'Glutes'], measureType: 'reps' },
+  { id: 'eccentric-sl-rdl', name: 'Eccentric Single-Leg RDL', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Hamstrings', 'Glutes'], measureType: 'reps' },
+  { id: 'eccentric-rdl', name: 'Eccentric RDL', category: 'Eccentric', defaultRestSeconds: 150, muscleGroups: ['Hamstrings', 'Glutes'], measureType: 'reps' },
   { id: 'copenhagen-adductor', name: 'Copenhagen Adductor', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Adductors', 'Core'] },
   { id: 'lateral-band-walk', name: 'Lateral Band Walk', category: 'Eccentric', defaultRestSeconds: 45, muscleGroups: ['Glutes', 'Adductors', 'Abductors'], measureType: 'reps' },
   { id: 'reverse-nordic', name: 'Reverse Nordic Curl', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Hip Flexors'], measureType: 'reps' },

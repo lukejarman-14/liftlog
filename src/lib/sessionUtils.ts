@@ -61,8 +61,18 @@ export function getProgrammeAnchorMonday(programme: GeneratedProgramme): Date {
 
 export const NAME_TO_ID: Record<string, string> = {
   'back squat': 'squat', 'front squat': 'front-squat',
+  // RDL variants — full names first so they aren't grabbed by 'deadlift' fuzzy match
+  'barbell romanian deadlift (eccentric emphasis)': 'eccentric-rdl',
+  'barbell romanian deadlift (concentric focus)': 'rdl',
+  'barbell romanian deadlift': 'rdl',
+  'single-leg romanian deadlift': 'rdl',
+  'db single-leg romanian deadlift': 'rdl',
+  'eccentric single-leg rdl': 'eccentric-sl-rdl',
   'romanian deadlift': 'rdl', 'rdl': 'rdl',
+  // Deadlift variants
   'trap bar deadlift': 'deadlift', 'hex bar deadlift': 'deadlift', 'deadlift': 'deadlift',
+  // Dead Bug — explicit to prevent fuzzy match on 'dead-hang' / 'deadlift'
+  'dead bug': 'dead-bug',
   'bench press': 'bench-press', 'db bench press': 'db-bench',
   'pull-up': 'pull-up', 'weighted pull-up': 'pull-up',
   'push press': 'ohp', 'overhead press': 'ohp',
@@ -83,7 +93,7 @@ export const NAME_TO_ID: Record<string, string> = {
   'box jump': 'box-jump',
   'broad jump': 'broad-jump',
   'countermovement jump': 'test-cmj', 'cmj': 'test-cmj',
-  'pogo hops': 'pogo-jump', 'pogo hop': 'pogo-jump', 'pogo jumps': 'pogo-jump',
+  'pogo hop': 'pogo-jump', 'pogo jumps': 'pogo-jump',
   'nordic hamstring curl': 'eccentric-nordic', 'nordic curl': 'nordic-curl', 'leg curl': 'leg-curl',
   'eccentric slider curl': 'eccentric-slider-curl',
   // Isometric holds — explicit to prevent fuzzy mis-matching to 'lunge' / 'calf-raise' etc.
@@ -101,6 +111,11 @@ export const NAME_TO_ID: Record<string, string> = {
   'lateral shuffle': 'lateral-shuffle',
   'a-skip': 'a-skip',
   'high knees': 'high-knees',
+  // Reactive plyometrics — explicit entries prevent fuzzy matcher hitting 'Lat Pulldown' for 'lateral ankle hops'
+  'pogo hops': 'pogo-jump',
+  'single-leg pogo hops': 'pogo-jump',
+  'lateral ankle hops': 'ankle-hop',
+  'skipping (fast cadence)': 'repeated-sprint',
   // Running / speed / conditioning — explicit to prevent fuzzy collision with box-jump etc.
   'box-to-box sprint': 'repeated-sprint',
   'box-to-box sprint repeats': 'repeated-sprint',
@@ -206,10 +221,12 @@ export function sessionToWorkoutExercises(
     let isFirstInBlock = true;
 
     for (const pe of block.exercises) {
-      const key = pe.name.toLowerCase().split('(')[0].trim();
+      const fullKey = pe.name.toLowerCase();
+      const key = fullKey.split('(')[0].trim();
       let id: string | undefined;
 
-      id = NAME_TO_ID[key];
+      // Full-name lookup first (catches variants like "Barbell Romanian Deadlift (Eccentric Emphasis)")
+      id = NAME_TO_ID[fullKey] ?? NAME_TO_ID[key];
 
       if (!id) {
         for (const [pattern, mappedId] of Object.entries(NAME_TO_ID)) {

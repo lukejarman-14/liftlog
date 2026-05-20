@@ -208,13 +208,14 @@ function BlockCard({
 // ── Session preview modal ──────────────────────────────────────────────────
 
 export function SessionPreviewModal({
-  session, weekNumber, totalWeeks, strengthSetup, onClose,
+  session, weekNumber, totalWeeks, strengthSetup, onClose, onStart,
 }: {
   session: ProgrammeSession;
   weekNumber: number;
   totalWeeks: number;
   strengthSetup?: StrengthSetup;
   onClose: () => void;
+  onStart?: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end pb-20">
@@ -234,7 +235,7 @@ export function SessionPreviewModal({
           </button>
         </div>
         {/* scrollable body */}
-        <div className="overflow-y-auto p-4 pb-8">
+        <div className={`overflow-y-auto p-4 ${onStart ? 'pb-24' : 'pb-8'}`}>
           <p className="text-sm font-semibold text-gray-800 mb-2 leading-snug">{session.objective}</p>
           {session.fvProfile && (
             <p className="text-xs text-indigo-600 font-medium mb-3">⚡ {session.fvProfile}</p>
@@ -249,6 +250,18 @@ export function SessionPreviewModal({
             />
           ))}
         </div>
+        {/* sticky Start Workout button */}
+        {onStart && (
+          <div className="sticky bottom-0 px-4 py-4 border-t border-gray-100 bg-white">
+            <button
+              onClick={onStart}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-md active:scale-[0.98]"
+            >
+              <Play size={18} />
+              Start Workout
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
