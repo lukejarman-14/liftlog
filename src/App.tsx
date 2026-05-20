@@ -192,6 +192,8 @@ export default function App() {
         restSeconds: item.restSeconds,
         targetRir: item.targetRir,
         blockTitle: item.blockTitle,
+        displayName: item.displayName,
+        coachingCue: item.coachingCue,
         sets: [],
       })),
       startTime: Date.now(),

@@ -215,11 +215,11 @@ function WeeklyGoalCard({
 
 // ── Tutorial panel ─────────────────────────────────────────────────────────
 
-function TutorialPanel({ exerciseId }: { exerciseId: string }) {
+function TutorialPanel({ exerciseId, coachingCue }: { exerciseId: string; coachingCue?: string }) {
   const [open, setOpen] = useState(false);
   const desc = EXERCISE_DESCRIPTIONS[exerciseId];
 
-  if (!desc) return null;
+  if (!desc && !coachingCue) return null;
 
   return (
     <div className="border-t border-gray-100 mt-1">
@@ -238,6 +238,16 @@ function TutorialPanel({ exerciseId }: { exerciseId: string }) {
 
       {open && (
         <div className="px-4 pb-4 bg-gray-50/60">
+          {/* Programme-specific coaching cue takes priority */}
+          {coachingCue && (
+            <div className="mb-3">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Lightbulb size={12} className="text-brand-500" />
+                <span className="text-xs font-semibold text-brand-600">Coaching cue</span>
+              </div>
+              <p className="text-xs text-gray-700 leading-relaxed">{coachingCue}</p>
+            </div>
+          )}
           {desc && (
             <>
               <div className="flex items-center gap-1.5 mb-2">
@@ -952,7 +962,7 @@ function ExerciseSection({
           {allDone  && <CheckCircle2 size={18} className="text-green-500 flex-shrink-0" />}
           {isNewPB  && <Trophy size={16} className="text-yellow-500 flex-shrink-0" />}
           <div className="min-w-0 text-left">
-            <div className="font-semibold text-gray-900 text-sm">{exercise.name}</div>
+            <div className="font-semibold text-gray-900 text-sm">{sessionExercise.displayName ?? exercise.name}</div>
             <div className="text-xs text-gray-400 flex items-center gap-2">
               <span>{completedCount}/{totalSets} {exercise.category === 'Testing' ? 'trials' : 'sets'}</span>
               {sessionExercise.restSeconds > 0 && <span>· {sessionExercise.restSeconds}s rest</span>}
@@ -968,7 +978,7 @@ function ExerciseSection({
       {!collapsed && (
         <>
           {showTutorials && (
-            <TutorialPanel exerciseId={exercise.id} />
+            <TutorialPanel exerciseId={exercise.id} coachingCue={sessionExercise.coachingCue} />
           )}
 
           <div className="px-4 pb-4">

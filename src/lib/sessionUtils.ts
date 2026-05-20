@@ -138,6 +138,36 @@ export const NAME_TO_ID: Record<string, string> = {
   'aerobic threshold run': 'aerobic-threshold-run',
   'aerobic base run': 'aerobic-threshold-run',
   'cardiac output circuit': 'hiit-run',
+  // Aerobic running variants — all single-effort continuous runs
+  'cardiac output run': 'aerobic-threshold-run',
+  'extended cardiac output run': 'aerobic-threshold-run',
+  'progressive aerobic run': 'aerobic-threshold-run',
+  'sustained threshold run': 'aerobic-threshold-run',
+  'aerobic fartlek': 'aerobic-threshold-run',
+  'aerobic maintenance run': 'aerobic-threshold-run',
+  'aerobic threshold maintenance': 'aerobic-threshold-run',
+  'mixed aerobic circuit': 'aerobic-threshold-run',
+  'easy aerobic run': 'aerobic-threshold-run',
+  'light aerobic run': 'aerobic-threshold-run',
+  'activation jog': 'aerobic-threshold-run',
+  // Multi-set aerobic interval variants (isTimedAerobic won't fire for sets > 1)
+  'extensive aerobic intervals': 'aerobic-threshold-run',
+  'threshold intervals': 'aerobic-threshold-run',
+  'reduced threshold intervals': 'aerobic-threshold-run',
+  'aerobic maintenance intervals': 'aerobic-threshold-run',
+  // HIIT interval variants
+  '15/15 hiit — introduction': 'hiit-run',
+  '15/15 hiit — full volume': 'hiit-run',
+  '15/15 hiit — strength phase': 'hiit-run',
+  '15/15 hiit — express': 'hiit-run',
+  'short hiit intervals — foundation': 'hiit-run',
+  'norwegian 4×4 hiit': 'hiit-run',
+  '30/30 protocol — foundation': 'hiit-run',
+  '40/20 hiit protocol': 'hiit-run',
+  '3×4 hiit — reduced volume': 'hiit-run',
+  'match simulation intervals': 'hiit-run',
+  '2×4 hiit — peak taper': 'hiit-run',
+  'short sprint activation': 'repeated-sprint',
 };
 
 /**
@@ -266,7 +296,9 @@ export function sessionToWorkoutExercises(
         used.add(id);
         const isCond = exercise.category === 'Conditioning';
         // Time-based aerobic (measureType: 'time'): show as 1 set × duration-in-seconds timer.
-        const isTimedAerobic = isCond && exercise.measureType === 'time';
+        // Only applies to single-set continuous runs (sets ≤ 1). Multi-set intervals (sets > 1)
+        // go through the normal condWorkSecs path so all intervals show as countdown timers.
+        const isTimedAerobic = isCond && exercise.measureType === 'time' && parseInt(pe.sets, 10) <= 1;
         // For interval conditioning: parse actual work duration from pe.reps.
         // e.g. "30s hard · 30s rest" → 30s work. Distance-based ("8 × 30m") → 0 (no timer).
         const condWorkSecs = isCond && !isTimedAerobic ? parseCondWorkSecs(pe.reps) : 0;
@@ -294,6 +326,8 @@ export function sessionToWorkoutExercises(
           targetWeight: 0,
           restSeconds,
           blockTitle: isFirstInBlock ? block.title : undefined,
+          displayName: pe.name !== exercise.name ? pe.name : undefined,
+          coachingCue: pe.cue || undefined,
         });
         isFirstInBlock = false;
       }

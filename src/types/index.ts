@@ -58,6 +58,8 @@ export interface WorkoutExercise {
   restSeconds: number;
   targetRir?: number;    // 0–4, target Reps in Reserve (0 = max, 4 = very easy)
   blockTitle?: string;   // section heading shown before this exercise in active workout
+  displayName?: string;  // programme-specific exercise name (overrides library name in header)
+  coachingCue?: string;  // programme-specific coaching cue (shown in tutorial panel)
 }
 
 export interface WorkoutTemplate {
@@ -82,6 +84,8 @@ export interface SessionExercise {
   restSeconds: number;
   targetRir?: number;    // carried from WorkoutExercise
   blockTitle?: string;   // carried from WorkoutExercise
+  displayName?: string;  // carried from WorkoutExercise
+  coachingCue?: string;  // carried from WorkoutExercise
   sets: CompletedSet[];
 }
 
