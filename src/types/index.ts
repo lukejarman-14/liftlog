@@ -258,7 +258,11 @@ export interface ProgrammeInputs {
   secondaryPosition?: 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST';
   playStyle: PlayStyle;
   experienceYears: '<1' | '1-3' | '3-5' | '5+';
-  sessionsPerWeek: 2 | 3 | 4;
+  sessionsPerWeek: number;
+  gymSessionsPerWeek?: number;
+  conditioningSessionsPerWeek?: number;  // computed from conditioningTypes.length
+  conditioningTypes?: ('zone2' | 'hiit' | 'rsa')[];
+  matchesPerWeek?: 1 | 2 | 3;
   primaryGoal: PrimaryGoal;
   secondaryGoals: string[];
   matchDay: MatchDayPref;
@@ -267,9 +271,10 @@ export interface ProgrammeInputs {
   injuryHistory: InjuryArea[];
   readiness?: { sleep: number; fatigue: number; soreness: number; stress: number };
   gymAccess: 'full' | 'basic' | 'none';
-  offSeason?: boolean;     // when true: no match-day periodisation, DOMS/fatigue managed only
+  offSeason?: boolean;
   customDurationWeeks?: number; // user-chosen programme length (overrides experience-based default)
   preferBackSquat?: boolean;   // player enjoys/prefers Back Squat — enables selection in eligible phases
+  lifts?: LiftBaseline[];      // collected during wizard for personalised load prescriptions
 }
 
 export interface ProgrammeExercise {
@@ -382,4 +387,12 @@ export interface TestSession {
   grades: Partial<Record<string, 1 | 2 | 3 | 4>>;
   aerobicScore?: number;     // 0–100
   anaerobicScore?: number;   // 0–100
+}
+
+export interface ScheduledWorkout {
+  id: string;
+  templateId: string;
+  date: string;       // YYYY-MM-DD
+  name: string;       // snapshot of template name at time of scheduling
+  createdAt: number;
 }

@@ -106,29 +106,106 @@ function getPhase(week: number, total: number): { phase: string; phaseGoal: stri
   };
 }
 
-// ── Off-season schedule — no MD loading, DOMS/fatigue managed by spacing ──
-// Heavy sessions spaced ≥72h apart. Moderate sessions fill gaps.
-// Pattern: Heavy → Moderate → Heavy (or Heavy → Heavy for 2x/week with 72h gap).
+// ── Off-season schedule — no MD loading, fatigue managed by session spacing ──
+// Methodology: mechanical tension (primary hypertrophy driver) requires 48h minimum
+// between gym sessions. High-CNS conditioning (RSA) needs 48h from heavy gym.
+// Zone 2 is restorative — placed between high-demand sessions with no gap requirements.
+// Hi-Aerobic placed after gym (not before) to avoid interference with force production.
+//
+// 6-session optimal layout (3 gym + 3 conditioning):
+//   Mon: Gym Heavy → Tue: Hi-Aerobic → Wed: Gym Moderate → Thu: Zone 2 → Fri: Gym Heavy → Sat: RSA → Sun: Rest
+//
+// Rationale:
+//   • Gym (Heavy) days: Mon & Fri — 96h apart, max mechanical tension stimulus
+//   • Gym (Moderate): Wed — 48h from each heavy day, manages DOMS
+//   • Hi-Aerobic (Tue): day AFTER Mon gym — aerobic doesn't impair Wed gym recovery
+//   • Zone 2 (Thu): restorative — keeps Fri gym fresh, no fatigue contribution
+//   • RSA (Sat): 24h after Fri gym, full Sunday rest before Monday cycle restarts
 
-type OsSlot = { dayOfWeek: string; load: 'heavy' | 'moderate' };
+type OsSessionType = 'gym' | 'zone2' | 'hiAerobic' | 'rsa';
+type OsSlot = { dayOfWeek: string; load: 'heavy' | 'moderate'; sessionType: OsSessionType };
 
-const OFF_SEASON_SCHEDULES: Record<number, OsSlot[]> = {
+const DAY_ORDER: Record<string, number> = {
+  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
+};
+
+// Gym-only fallback schedules (used when no conditioningTypes supplied)
+const GYM_ONLY_SCHEDULES: Record<number, OsSlot[]> = {
   2: [
-    { dayOfWeek: 'Tuesday',  load: 'heavy' },
-    { dayOfWeek: 'Saturday', load: 'heavy' },  // 96h gap — full recovery, uses weekend
+    { dayOfWeek: 'Tuesday',   load: 'heavy',    sessionType: 'gym' },
+    { dayOfWeek: 'Saturday',  load: 'heavy',    sessionType: 'gym' },
   ],
   3: [
-    { dayOfWeek: 'Monday',   load: 'heavy' },
-    { dayOfWeek: 'Wednesday', load: 'moderate' }, // 48h — moderate to manage DOMS
-    { dayOfWeek: 'Saturday', load: 'heavy' },     // 72h — fully recovered, uses weekend
+    { dayOfWeek: 'Monday',    load: 'heavy',    sessionType: 'gym' },
+    { dayOfWeek: 'Wednesday', load: 'moderate', sessionType: 'gym' },
+    { dayOfWeek: 'Saturday',  load: 'heavy',    sessionType: 'gym' },
   ],
   4: [
-    { dayOfWeek: 'Monday',   load: 'heavy' },
-    { dayOfWeek: 'Wednesday', load: 'moderate' }, // 48h — moderate, no consecutive heavy
-    { dayOfWeek: 'Friday',   load: 'heavy' },     // 48h — recovered from Wed
-    { dayOfWeek: 'Sunday',   load: 'moderate' },  // 48h — moderate, uses weekend, no double day
+    { dayOfWeek: 'Monday',    load: 'heavy',    sessionType: 'gym' },
+    { dayOfWeek: 'Wednesday', load: 'moderate', sessionType: 'gym' },
+    { dayOfWeek: 'Friday',    load: 'heavy',    sessionType: 'gym' },
+    { dayOfWeek: 'Sunday',    load: 'moderate', sessionType: 'gym' },
   ],
 };
+
+// Builds a week schedule integrating gym + conditioning sessions with optimal spacing.
+// Gym sessions placed first on Mon/Wed/Fri (3x) or Tue/Sat (2x) or Mon/Wed/Fri/Sun (4x).
+// Conditioning slots fill remaining days following interference/CNS fatigue rules.
+function buildMixedOffSeasonSchedule(
+  gymCount: number,
+  conditioningTypes: ('zone2' | 'hiit' | 'rsa')[],
+): OsSlot[] {
+  const hasZone2  = conditioningTypes.includes('zone2');
+  const hasHiit   = conditioningTypes.includes('hiit');
+  const hasRsa    = conditioningTypes.includes('rsa');
+
+  let slots: OsSlot[] = [];
+
+  if (gymCount === 3) {
+    // Mon Heavy / Wed Moderate / Fri Heavy — 48h gaps, Heavy-Moderate-Heavy
+    slots = [
+      { dayOfWeek: 'Monday',    load: 'heavy',    sessionType: 'gym' },
+      { dayOfWeek: 'Wednesday', load: 'moderate', sessionType: 'gym' },
+      { dayOfWeek: 'Friday',    load: 'heavy',    sessionType: 'gym' },
+    ];
+    // Tue: Hi-Aerobic — day after Mon gym (aerobic doesn't block Wed recovery)
+    if (hasHiit)  slots.push({ dayOfWeek: 'Tuesday',   load: 'moderate', sessionType: 'hiAerobic' });
+    // Thu: Zone 2 — restorative between Wed gym and Fri gym, keeps Fri fresh
+    if (hasZone2) slots.push({ dayOfWeek: 'Thursday',  load: 'moderate', sessionType: 'zone2' });
+    // Sat: RSA — 24h after Fri gym, full Sunday rest before cycle restarts
+    if (hasRsa)   slots.push({ dayOfWeek: 'Saturday',  load: 'moderate', sessionType: 'rsa' });
+  } else if (gymCount === 2) {
+    // Tue Heavy / Sat Heavy — 96h gap, maximum recovery
+    slots = [
+      { dayOfWeek: 'Tuesday',   load: 'heavy',    sessionType: 'gym' },
+      { dayOfWeek: 'Saturday',  load: 'heavy',    sessionType: 'gym' },
+    ];
+    // Thu: Zone 2 — midpoint between gym days, restorative
+    if (hasZone2) slots.push({ dayOfWeek: 'Thursday',  load: 'moderate', sessionType: 'zone2' });
+    // Wed: RSA — 24h after Tue gym, 72h before Sat gym
+    if (hasRsa)   slots.push({ dayOfWeek: 'Wednesday', load: 'moderate', sessionType: 'rsa' });
+    // Sun: Hi-Aerobic — day after Sat gym, Mon rest before Tue gym
+    if (hasHiit)  slots.push({ dayOfWeek: 'Sunday',    load: 'moderate', sessionType: 'hiAerobic' });
+  } else if (gymCount === 4) {
+    // Mon Heavy / Wed Moderate / Fri Heavy / Sun Moderate
+    slots = [
+      { dayOfWeek: 'Monday',    load: 'heavy',    sessionType: 'gym' },
+      { dayOfWeek: 'Wednesday', load: 'moderate', sessionType: 'gym' },
+      { dayOfWeek: 'Friday',    load: 'heavy',    sessionType: 'gym' },
+      { dayOfWeek: 'Sunday',    load: 'moderate', sessionType: 'gym' },
+    ];
+    // Tue: Zone 2 — restorative after Mon heavy
+    if (hasZone2) slots.push({ dayOfWeek: 'Tuesday',   load: 'moderate', sessionType: 'zone2' });
+    // Thu: Hi-Aerobic — between Wed moderate and Fri heavy
+    if (hasHiit)  slots.push({ dayOfWeek: 'Thursday',  load: 'moderate', sessionType: 'hiAerobic' });
+    // Sat: RSA — after Fri heavy, before Sun moderate (tight but off-season tolerance)
+    if (hasRsa)   slots.push({ dayOfWeek: 'Saturday',  load: 'moderate', sessionType: 'rsa' });
+  } else {
+    return GYM_ONLY_SCHEDULES[gymCount] ?? GYM_ONLY_SCHEDULES[3];
+  }
+
+  return slots.sort((a, b) => (DAY_ORDER[a.dayOfWeek] ?? 0) - (DAY_ORDER[b.dayOfWeek] ?? 0));
+}
 
 // ── MD schedule ────────────────────────────────────────────────────────────
 
@@ -152,10 +229,65 @@ const SCHEDULES: Record<string, Record<number, MdSlot[]>> = {
   },
 };
 
-function getMdSlots(sessionsPerWeek: number, matchDay: string): MdSlot[] {
+const DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+function getMdSlots(
+  sessionsPerWeek: number,
+  matchDay: string,
+  secondMatchDay?: string,
+): MdSlot[] {
   const schedule = SCHEDULES[matchDay] ?? SCHEDULES.saturday;
-  return schedule[sessionsPerWeek] ?? schedule[3];
+  const slots: MdSlot[] = schedule[sessionsPerWeek] ?? schedule[3];
+
+  if (!secondMatchDay) return slots;
+
+  // Normalise to Title Case (inputs may be lowercase e.g. 'tuesday')
+  const secondMatchDayTitle =
+    secondMatchDay.charAt(0).toUpperCase() + secondMatchDay.slice(1);
+
+  const matchDays = new Set([
+    DAY_NAMES.find(d => d.toLowerCase() === matchDay.toLowerCase()) ?? '',
+    secondMatchDayTitle,
+  ]);
+
+  // For any slot that falls on a match day, shift it one day earlier.
+  // If that day is also blocked, shift one more day.
+  // If no valid day can be found in the same week, drop the slot entirely.
+  return slots
+    .map(slot => {
+      if (!matchDays.has(slot.dayOfWeek)) return slot;
+      const baseIdx = DAY_ORDER[slot.dayOfWeek] ?? 0;
+      for (let shift = 1; shift <= 2; shift++) {
+        const candidate = DAY_NAMES[(baseIdx - shift + 7) % 7];
+        if (!matchDays.has(candidate)) {
+          return { ...slot, dayOfWeek: candidate };
+        }
+      }
+      return null; // no safe slot found — drop the session
+    })
+    .filter((s): s is MdSlot => s !== null);
 }
+
+// In-season conditioning slots — placed to protect match-day freshness.
+// Rule: Zone 2 can go anywhere (low fatigue cost, even MD-1 is fine).
+//       Hi-Aerobic and RSA must be MD-3 or earlier — high fatigue risks injury if closer to match.
+const IN_SEASON_COND_SLOTS: Record<string, Record<'zone2' | 'hiAerobic' | 'rsa', MdSlot>> = {
+  saturday: {
+    zone2:     { mdDay: 'zone 2',        dayOfWeek: 'Sunday' },    // MD+1 — active recovery
+    hiAerobic: { mdDay: 'high aerobic',  dayOfWeek: 'Thursday' },  // MD-2
+    rsa:       { mdDay: 'rsa',           dayOfWeek: 'Monday' },    // MD-5
+  },
+  sunday: {
+    zone2:     { mdDay: 'zone 2',        dayOfWeek: 'Monday' },    // MD+1
+    hiAerobic: { mdDay: 'high aerobic',  dayOfWeek: 'Thursday' },  // MD-3
+    rsa:       { mdDay: 'rsa',           dayOfWeek: 'Tuesday' },   // MD-5
+  },
+  midweek: {
+    zone2:     { mdDay: 'zone 2',        dayOfWeek: 'Thursday' },  // MD+1
+    hiAerobic: { mdDay: 'high aerobic',  dayOfWeek: 'Sunday' },    // MD-3
+    rsa:       { mdDay: 'rsa',           dayOfWeek: 'Saturday' },  // MD-4 (MD-5 = Friday previous week — impractical)
+  },
+};
 
 // ── Force-velocity profile per session ────────────────────────────────────
 // Balanced: MD-4 = strength end; MD-3 = speed end; MD-2 = middle of curve
@@ -166,19 +298,19 @@ function getFVProfile(mdDay: string): {
   repRange: 'low' | 'medium' | 'high';
 } {
   if (mdDay === 'MD-4') return {
-    profile: 'Heavy strength day. High load, low reps, explosive intent on every rep.',
+    profile: 'Heavy load · low reps · explosive intent',
     loadScheme: 'heavy', repRange: 'low',
   };
   if (mdDay === 'MD-3') return {
-    profile: 'Structural day. Moderate load, higher reps, eccentric emphasis. DOMS peaks at 48h — will be fully cleared by match day.',
+    profile: 'Moderate load · eccentric tempo · DOMS clears by match day',
     loadScheme: 'moderate', repRange: 'medium',
   };
   if (mdDay === 'MD-2') return {
-    profile: 'Conditioning day. Moderate effort, low-impact cross-training only.',
+    profile: 'Micro-dosed power only · no fatigue carryover',
     loadScheme: 'moderate', repRange: 'medium',
   };
   return {
-    profile: 'Neural priming. Short, sharp, high-quality output. No fatigue accumulation.',
+    profile: 'Neural priming · light load · max velocity · zero fatigue',
     loadScheme: 'light', repRange: 'medium',
   };
 }
@@ -881,10 +1013,37 @@ const DEAD_BUG: ProgrammeExercise = ex(
   { methodType: 'isometric', intensityIntent: 'maximal' },
 );
 
-/** Returns the 3 priority isometrics for any session. Always exactly 3 — no more. */
-function buildIsometricBlock(gymKey: GymKey): ProgrammeExercise[] {
+// Alternate patellar-tendon isometric when Bulgarian Split Squat is already in the session.
+// Avoids back-to-back split squat pattern in the same session.
+const WALL_SIT_ISO: Record<GymKey, ProgrammeExercise> = {
+  full: ex(
+    'Single-Leg Isometric Wall Sit (Heavy)',
+    '3', '10-12s each leg', '90s',
+    'Single-leg wall sit at 90° knee angle. Hold heaviest available DB on thigh. Maximum effort throughout — zero relaxing. Patellar tendon HSR without the split squat pattern (BSS already in session). Tendon stiffness driver.',
+    { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' },
+  ),
+  basic: ex(
+    'Single-Leg Isometric Wall Sit (DB)',
+    '3', '10-12s each leg', '90s',
+    'Single-leg wall sit at 90° knee. Hold heaviest available DB on thigh. Maximum effort. Patellar tendon HSR — substituted for split squat hold since BSS is already in this session.',
+    { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' },
+  ),
+  none: ex(
+    'Single-Leg Isometric Wall Sit (Bodyweight)',
+    '3', '10-12s each leg', '90s',
+    'Single-leg wall sit at 90° knee. Bodyweight. Maximum effort every second. Patellar tendon HSR — substituted for split squat hold since BSS is already in this session.',
+    { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' },
+  ),
+};
+
+/**
+ * Returns the 3 priority isometrics for any session. Always exactly 3 — no more.
+ * When hasBSS=true the session already contains a Bulgarian Split Squat — use wall sit
+ * instead to avoid back-to-back split squat pattern.
+ */
+function buildIsometricBlock(gymKey: GymKey, hasBSS = false): ProgrammeExercise[] {
   return [
-    TENDON_SSC_BLOCK[gymKey][0], // Isometric Split Squat (Heavy) — tendon stiffness
+    hasBSS ? WALL_SIT_ISO[gymKey] : TENDON_SSC_BLOCK[gymKey][0],
     TENDON_SSC_BLOCK[gymKey][1], // Single-Leg Calf Isometric (Heel Raise) — Achilles
     DEAD_BUG,                    // Dead Bug — core/pelvic stability
   ];
@@ -1231,13 +1390,6 @@ const CONDITIONING_HIIT: Record<string, ProgrammeExercise[]> = {
   ],
 };
 
-// Day-of-week seed — ensures consecutive sessions within and across weeks never repeat
-// e.g. Mon (0) and Wed (2) in the same week produce different variants
-const DAY_SEED: Record<string, number> = {
-  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
-  Friday: 4, Saturday: 5, Sunday: 6,
-};
-
 /**
  * Selects the in-session conditioning exercise — guarantees TWO DIFFERENT TYPES each week.
  *
@@ -1253,47 +1405,6 @@ const DAY_SEED: Record<string, number> = {
  * Variant rotation: within each type, variants rotate using Math.floor(weekNum / 2)
  * so each variant gets ~2 weeks before cycling — prevents stagnation without repetition.
  */
-function getConditioningBlock(
-  phase: string,
-  weekNum: number,
-  dayOfWeek: string,
-  forceAerobic = false,
-): { ex: ProgrammeExercise; blockTitle: string; methodFocus: string } {
-  const dayIdx = DAY_SEED[dayOfWeek] ?? 0;
-
-  // Split week into two halves: Mon/Tue/Wed = 0, Thu/Fri/Sat/Sun = 1
-  const halfWeek = dayIdx >= 3 ? 1 : 0;
-
-  // Weeks 0-1: always aerobic. Week 2+: alternate halves; flip each week so
-  // if Mon was aerobic this week, next week Mon is HIIT.
-  const useHiit = !forceAerobic && weekNum >= 2 && ((halfWeek + weekNum) % 2 === 1);
-
-  const aerobicArr = CONDITIONING_AEROBIC[phase] ?? CONDITIONING_AEROBIC.Foundation;
-  const hiitArr    = CONDITIONING_HIIT[phase]    ?? CONDITIONING_HIIT.Foundation;
-
-  // Variant index rotates every 2 weeks to avoid the same exercise repeating week-on-week.
-  // halfWeek offset (0 or 1) ensures the two sessions WITHIN a week always use different variants —
-  // even when both sessions are the same type (e.g. both aerobic in weeks 0–1).
-  const baseVariant = Math.floor(weekNum / 2);
-  const variantIdx = baseVariant + halfWeek; // offset by half so Mon ≠ Thu even within same type
-
-  if (useHiit) {
-    return {
-      ex: hiitArr[variantIdx % hiitArr.length],
-      blockTitle: '⚡ High Intensity Intervals',
-      methodFocus: 'Football-specific HIIT. Maximum aerobic power and repeated sprint ability — the key physical determinants of match performance (Dupont 2004, Helgerud 2007, Buchheit 2013). Complements the aerobic session earlier in the week.',
-    };
-  }
-
-  return {
-    ex: aerobicArr[variantIdx % aerobicArr.length],
-    blockTitle: '🏃 Aerobic Base',
-    methodFocus: weekNum < 2
-      ? 'Weeks 1–2: aerobic base only. Connective tissue and cardiac infrastructure built before high-intensity loading is introduced.'
-      : 'Cardiac output and aerobic infrastructure. Complements the HIIT session later in the week — both types every week for balanced conditioning development.',
-  };
-}
-
 // ── Weakness exercises ─────────────────────────────────────────────────────
 
 const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
@@ -1316,7 +1427,7 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
   endurance: [
     ex('Aerobic Threshold Run', '1', '20 min', '', '70% max HR — truly conversational pace. Aerobic base.',
       { methodType: 'mixed', intensityIntent: 'moderate', isRunning: true }),
-    ex('Cardiac Output Circuit', '3', '5 min', '90s rest', '1 min jog / 1 min bike / 1 min row / 1 min step / 1 min jump rope. HR 130–150.',
+    ex('Cardiac Output Circuit', '3', '5 min', '90s rest', '1 min jog / 1 min bike / 1 min row / 1 min step-ups / 1 min air squat. HR 130–150.',
       { methodType: 'mixed', intensityIntent: 'moderate', isRunning: true }),
   ],
   power: [
@@ -1434,14 +1545,14 @@ function recoverySession(dow: string): ProgrammeSession {
   return {
     mdDay: 'MD+1',
     dayOfWeek: dow,
-    objective: 'MD+1 — Active Recovery. Objective: analgesia (pain reduction) and clearing metabolites. Yielding isometrics and concentric-only cardio only. No eccentric loading — muscle fibres are already dealing with micro-tears from the match.',
-    readinessNote: 'MD+1 is ALWAYS low load regardless of readiness score. The biggest mistake is passive stretching or heavy eccentric lifting today. Muscle fibres are already dealing with micro-tears from the match. Protect them.',
+    objective: 'MD+1 — Active Recovery',
+    readinessNote: 'MD+1 is always low load. No eccentric loading — fibres are recovering from match.',
     durationMin: 30,
-    fvProfile: 'Recovery — yielding isometrics and concentric cardio only. Zero eccentric load.',
+    fvProfile: 'Recovery · isometrics + concentric cardio · zero eccentric load',
     blocks: [
       {
         title: '🚴 Concentric Cardio (15 min)',
-        methodFocus: 'Bike or easy walk — concentric only. Flushes the legs without stretching torn tissue. HR below 120 bpm throughout. This is not a training stimulus.',
+        methodFocus: 'Concentric only · metabolite flush · HR < 120 bpm',
         exercises: [
           ex('Low-Intensity Cycling or Easy Walk', '1', '15 min at RPE 2–3', '', 'HR below 120 bpm. Legs should feel slightly better after this, not worse. Pedal with low resistance — this is a metabolite flush, not a workout.',
             { intensityIntent: 'controlled' }),
@@ -1449,7 +1560,7 @@ function recoverySession(dow: string): ProgrammeSession {
       },
       {
         title: '🧘 Yielding Isometric Holds',
-        methodFocus: 'Isometric holds at RPE 3–4 — should feel like a warm hug for the joints, not a workout. No eccentric loading. 2 sets × 45 seconds.',
+        methodFocus: 'Yielding isometrics · RPE 3–4 · analgesia not training',
         exercises: [
           ex('Single-Leg Glute Bridge Hold', '2', '30s each side', '60s', 'Shoulders on floor, hips extended, squeeze glute. RPE 3–4 — this is analgesia, not strength training. Breathe steadily. The goal is blood flow and pain reduction, not force production.',
             { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
@@ -1461,7 +1572,7 @@ function recoverySession(dow: string): ProgrammeSession {
       },
       {
         title: '🔄 Hip & Ankle Mobility',
-        methodFocus: 'Restore range of motion — gentle, non-fatiguing. Match soreness reduces ROM; restore it slowly.',
+        methodFocus: 'Restore ROM · gentle · non-fatiguing',
         exercises: [
           ex('Hip 90/90 Mobilisation', '1', '60s each side', '', 'Breathe into end range. Never force it. Restore hip ROM lost from match day.',
             { methodType: 'isometric', intensityIntent: 'controlled' }),
@@ -1475,7 +1586,7 @@ function recoverySession(dow: string): ProgrammeSession {
 
 // ── Neural priming session (MD-1) ──────────────────────────────────────────
 
-function primingSession(dow: string, position: string, playStyle: string): ProgrammeSession {
+function primingSession(dow: string, position: string, _playStyle: string): ProgrammeSession {
   // Position-specific priming per HPP philosophy:
   // MD-1 is neurology, not muscle damage. Biomechanical execution matches primary match-day demands.
   // Protocol: 2 sets × 2–3 reps, bodyweight or very light load. Post-Activation Potentiation, zero metabolic cost.
@@ -1512,23 +1623,17 @@ function primingSession(dow: string, position: string, playStyle: string): Progr
     ],
   };
 
-  const styleNote = playStyle === 'counter-attack'
-    ? 'Counter-attack play style: pay particular attention to transition speed cues tomorrow.'
-    : playStyle === 'press-heavy'
-    ? 'Press-heavy style: priming mirrors press triggers — short, sharp, full effort, immediate reset.'
-    : 'Neural priming only. Low volume, maximum quality. Arrive tomorrow sharp, not heavy.';
-
   return {
     mdDay: 'MD-1',
     dayOfWeek: dow,
-    objective: `MD-1 — Priming Session. Objective: wake up the nervous system (Post-Activation Potentiation) with zero metabolic cost. 2 sets × 2–3 reps. Bodyweight or very light load only. ${styleNote}`,
-    readinessNote: 'MD-1 is ALWAYS low load — do NOT add sets or intensity regardless of readiness score. The goal is CNS activation, not fatigue. You should leave this session feeling MORE energetic than when you arrived.',
+    objective: `MD-1 — Neural Priming`,
+    readinessNote: 'MD-1 is always low load — CNS activation only. Leave feeling sharper, not tired.',
     durationMin: 25,
-    fvProfile: 'Speed end of F-V curve — light load, maximal velocity intent, zero accumulated fatigue.',
+    fvProfile: 'Speed end · light load · max velocity · zero fatigue',
     blocks: [
       {
         title: '🔥 Movement Prep (8 min)',
-        methodFocus: 'Mobility and CNS ramp — prepare joints and nervous system. Light and fast.',
+        methodFocus: 'Mobility + CNS ramp · light and fast',
         exercises: [
           ex('Hip 90/90 Mobilisation', '1', '30s each side', '', 'Restore hip ROM. Breathe into end range.',
             { methodType: 'isometric', intensityIntent: 'controlled' }),
@@ -1540,7 +1645,7 @@ function primingSession(dow: string, position: string, playStyle: string): Progr
       },
       {
         title: '⚡ Position-Specific Neural Priming',
-        methodFocus: 'Post-Activation Potentiation — biomechanical execution matches your primary match-day demands. 2 sets only. Full CNS recovery between sets.',
+        methodFocus: 'PAP · match-day biomechanics · 2 sets · full CNS recovery',
         exercises: positionPriming[position] ?? [
           ex('Countermovement Jump', '2', '3 reps', '2:00', 'Max height. Stick landing 1s. Full rest between reps. Neural activation only.',
             { methodType: 'reactive', intensityIntent: 'explosive' }),
@@ -1548,7 +1653,7 @@ function primingSession(dow: string, position: string, playStyle: string): Progr
       },
       {
         title: '🛡️ Pre-Match Prehab',
-        methodFocus: 'Sub-maximal eccentric and isometric — protect soft tissue, not stimulate it.',
+        methodFocus: 'Sub-maximal prehab · protect soft tissue',
         exercises: [
           ex('Nordic Hamstring Curl (Sub-Max)', '1', '2 reps', '', '3s lowering — sub-maximal effort only. Tissue protection before match day, not a strength stimulus.',
             { tempo: '3-0-x-0', methodType: 'eccentric', intensityIntent: 'submaximal' }),
@@ -1563,24 +1668,24 @@ function primingSession(dow: string, position: string, playStyle: string): Progr
 // ── Session objective labels ───────────────────────────────────────────────
 
 const MD4_OBJ: Record<string, string> = {
-  Foundation: 'High Demand Strength Day — CNS is freshest here. Objective: max strength and high-threshold motor unit recruitment. 2 working sets, 3–5 reps, 85%+ 1RM. RIR 1–2: bar moves with intent, not a grind.',
-  Build: 'High Demand Strength Day — further from match means heavier load. Drive strength adaptation today: 2 working sets, 85%+ 1RM, explosive concentric intent. This is where physical gains are made.',
-  'Strength & Power': 'High Demand Strength Day — peak force production. 2 working sets at the heaviest loads of the programme. Every rep is neural — treat it that way.',
-  Peak: 'High Demand Strength Day — express peak strength. Reduced volume, maximum intensity. 2 sets, 2–3 reps, 90%+ 1RM.',
+  Foundation: 'Heavy Strength — Foundation',
+  Build: 'Heavy Strength — Build',
+  'Strength & Power': 'Heavy Strength — Peak Force',
+  Peak: 'Heavy Strength — Peak Express',
 };
 
 const MD3_OBJ: Record<string, string> = {
-  Foundation: 'Structural Day — tissue architecture and fascicle length. 2–3 sets, 5–8 reps, 70–80% 1RM. Eccentric emphasis: DOMS peaks at 48h, so by match day it is completely cleared. Structural resilience is built today.',
-  Build: 'Structural Day — drive hypertrophy and fascicle length adaptation. Moderate load, higher reps, eccentric tempo. DOMS from today\'s eccentric work peaks at 48h — gone by Saturday. This is the science of smart scheduling.',
-  'Strength & Power': 'Structural Day — maintain tissue quality under an accumulating programme. 2–3 sets, 5–8 reps, 70–80% 1RM. Eccentric slider curls and single-leg RDLs are the priority.',
-  Peak: 'Structural Day — minimum effective dose. 2 sets, 6–8 reps. Maintain fascicle length without generating new fatigue.',
+  Foundation: 'Structural — Eccentric Load',
+  Build: 'Structural — Hypertrophy & Fascicles',
+  'Strength & Power': 'Structural — Tissue Quality',
+  Peak: 'Structural — Min Effective Dose',
 };
 
 const MD2_OBJ: Record<string, string> = {
-  Foundation: 'The Forbidden Zone — 2 days from match. Zero heavy lifting. The pitch is the priority today. Micro-dosed power only: 2 sets × 3 reps at 30–40% 1RM, maximal velocity. No fatigue carryover.',
-  Build: 'The Forbidden Zone — 2 days from match. No heavy mechanical load. This is usually the heaviest tactical and sprint day on the pitch. Micro-dosed power only to maintain CNS sharpness without generating fatigue.',
-  'Strength & Power': 'The Forbidden Zone — 2 days from match. Protect the legs entirely. If anything, micro-dosed power: 2 × 3 at 30–40% 1RM at max intent. Walk out of here fresh.',
-  Peak: 'The Forbidden Zone — 2 days from match. Zero gym fatigue. Rest, eat, sleep. Arrive Saturday sharp.',
+  Foundation: 'Micro-Power Only · No Heavy Load',
+  Build: 'Micro-Power Only · No Heavy Load',
+  'Strength & Power': 'Micro-Power Only · Protect Legs',
+  Peak: 'Zero Load · Rest & Arrive Fresh',
 };
 
 // ── Shared helpers ─────────────────────────────────────────────────────────
@@ -1591,19 +1696,6 @@ function hasMuscleInjury(injuryHistory: string[]): boolean {
   return injuryHistory.some(a => (MUSCLE_INJURY_AREAS as readonly string[]).includes(a));
 }
 
-function buildSpeedWorkExercises(
-  playStyle: string,
-  weaknessEx: ProgrammeExercise[],
-  weekNum: number,
-  dayOfWeek: string,
-): ProgrammeExercise[] {
-  const seed = weekNum * 7 + (DAY_SEED[dayOfWeek] ?? 0);
-  const styleRunning = (PLAY_STYLE_RUNNING[playStyle] ?? []).filter(e => e.isRunning);
-  const weakRunning = weaknessEx.filter(e => e.isRunning);
-  const pick = (arr: ProgrammeExercise[]) => arr.length > 0 ? [arr[seed % arr.length]] : [];
-  return [...pick(styleRunning), ...pick(weakRunning)];
-}
-
 function buildInjuryOrderedBlocks(
   muscleInjury: boolean,
   gymKey: GymKey,
@@ -1611,14 +1703,15 @@ function buildInjuryOrderedBlocks(
   eccentricBlock: ProgrammeExercise[],
   isometricMethodFocus: string,
   eccentricMethodFocus: string,
+  hasBSS = false,
 ): SessionBlock[] {
   const isoBlock: SessionBlock = {
     title: '🦴 Isometric Block',
     methodFocus: isometricMethodFocus,
-    exercises: buildIsometricBlock(gymKey),
+    exercises: buildIsometricBlock(gymKey, hasBSS),
   };
   const eccBlock: SessionBlock = {
-    title: muscleInjury ? '🔴 Eccentric Block' : '🔴 Eccentric Block — Always Last',
+    title: '🔴 Eccentric Block',
     methodFocus: eccentricMethodFocus,
     exercises: [...eccentricBlock, ...prehabEccentric],
   };
@@ -1684,8 +1777,9 @@ function buildOffSeasonSession(
   );
 
   const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
-  const speedWorkEx = buildSpeedWorkExercises(inputs.playStyle, weaknessEx, weekNum, slot.dayOfWeek);
   const muscleInjury = hasMuscleInjury(injuryHistory);
+  const osVertical = selectVerticalSquat(inputs, phase, gymKey, loadScheme, strengthEx);
+  const osHasBSS = osVertical.name.toLowerCase().includes('bulgarian split squat');
 
   const loadLabel = slot.load === 'heavy' ? 'Heavy Day' : 'Moderate Day';
   const durationBase = slot.load === 'heavy' ? 70 : 60;
@@ -1693,26 +1787,18 @@ function buildOffSeasonSession(
     : readiness.level === 'elite' ? durationBase + 10
     : durationBase;
 
-  // Moderate days always include conditioning — lighter gym load leaves room for aerobic work.
-  // Heavy days never include conditioning — pure strength/power focus.
-  const includeConditioning = loadScheme === 'moderate';
-  // Moderate days: fixed 30-min aerobic run (aerobic-threshold-run, measureType: 'time' → shows as timer).
-  // Bike option noted in cue for heavy-leg days.
-  const moderateAerobicEx: ProgrammeExercise = ex(
-    'Aerobic Base Run',
-    '1', '30 min', '—',
-    'Easy run at 65–70% max heart rate — conversational pace throughout. This is cardiac output training that builds aerobic base without adding fatigue to the strength work.\n\nLegs still heavy from yesterday? Swap for 30 min easy cycling at the same effort level instead — the impact load is removed but the cardiac training effect is identical.',
-    { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true },
-  );
+  // Gym sessions are pure strength/power — conditioning has its own dedicated sessions.
+  // No aerobic bolt-on: the interference effect suppresses both strength and aerobic adaptation
+  // when combined in the same session. Each quality gets its own day.
 
   const readinessNote =
     readiness.level === 'elite'
-      ? 'Elite readiness ✦ — Add a bonus set. Chase a PB on your primary lift. Conditions are optimal.'
+      ? 'Elite ✦ — Add a bonus set. Chase a PB. Conditions optimal.'
       : readiness.level === 'high'
-      ? 'High readiness ✓ — Execute as written. 2–1 RIR on main sets.'
+      ? 'High ✓ — Execute as written. 2–1 RIR on main sets.'
       : readiness.level === 'moderate'
-      ? 'Moderate readiness — Drop load ~10%. RIR floor 2.'
-      : 'Low readiness — 1 fewer set, −20–25% intensity. Movement quality is today\'s goal.';
+      ? 'Moderate — Drop ~10% load. RIR floor 2.'
+      : 'Low — 1 fewer set, −20–25% load. Movement quality first.';
 
   return {
     mdDay: loadLabel,
@@ -1722,40 +1808,38 @@ function buildOffSeasonSession(
     durationMin,
     fvProfile: inputs.playStyle === 'press-heavy'
       ? slot.load === 'heavy'
-        ? 'High-press heavy day. Trap bar deadlift builds the explosive hip extension behind every press trigger. Lateral bound trains the closing-down approach angle — the most-used athletic quality in a high-press system. Aerobic conditioning on moderate days sustains the 90-minute pressing demand.'
-        : 'High-press moderate day. Aerobic run is non-negotiable — a high-press system places the highest sustained aerobic load in football. Controlled gym load lets you absorb today\'s run at quality intensity.'
+        ? 'Press heavy day · explosive hip ext + lateral closing speed'
+        : 'Press moderate day · aerobic run non-negotiable · controlled gym load'
       : slot.load === 'heavy'
-      ? 'Off-season heavy day. High load, low reps, explosive concentric intent. No match to manage around — push the quality ceiling.'
-      : 'Off-season moderate day. Controlled load, higher reps. Manage DOMS from the previous session — quality over intensity today.',
+      ? 'Off-season heavy · high load · low reps · no match ceiling'
+      : 'Off-season moderate · controlled load · manage DOMS · quality first',
     blocks: [
       {
         title: '🔄 Mobilisation (6 min)',
-        methodFocus: 'Hip, thoracic and glute activation — full joint prep before loading',
+        methodFocus: 'Hip + thoracic + glute activation · full joint prep',
         exercises: [...WARMUP_MOBILITY],
       },
       {
         title: '⚡ Explosive Plyometrics',
         methodFocus: loadScheme === 'heavy'
-          ? 'Low reps (3), full 3 min rest. Maximum neural output. No match to manage — express full power quality.'
-          : 'Moderate day — 1 rep per set, full 3 min rest. Single maximal effort only: quality over volume, protect CNS recovery.',
+          ? 'Max intent · 3 reps · 3 min rest · no match ceiling'
+          : 'Single max rep · 3 min rest · quality over volume',
         exercises: explosivePlyo,
       },
       {
         title: '💪 Maximum Strength',
         methodFocus: loadScheme === 'heavy'
-          ? 'Off-season heavy day: no match ceiling — push load to the limit. 5 exercises max · 3 lower / 2 upper (push + pull) · explosive intent.'
-          : 'Moderate day: 4 exercises max · 3 lower / 1 upper (alternating push or pull). Controlled load, higher reps. Manage DOMS — quality over intensity.',
+          ? '85%+ load · 5 ex max · 3 lower / 2 upper · explosive intent'
+          : 'Controlled load · 4 ex max · 3 lower / 1 upper · quality first',
         exercises: applyReadiness(
           buildMaxStrengthBlock(
-            selectVerticalSquat(inputs, phase, gymKey, loadScheme, strengthEx),
+            osVertical,
             strengthEx[1],
             upperExForSlot,
             loadScheme === 'heavy'
               ? [
                   ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
-                  ...(biggestWeakness !== 'endurance'
-                    ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)
-                    : []),
+                  ...(weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
                 ]
               : [], // moderate days: no fill exercise — 4 slots max keeps total load lower
           ),
@@ -1766,29 +1850,18 @@ function buildOffSeasonSession(
       {
         title: '🦘 Reactive Plyometrics',
         methodFocus: loadScheme === 'heavy'
-          ? 'High reps (20), 90s rest. Stiff ankles. Tendon spring at match-speed loading rate.'
-          : 'Moderate day — 2 sets × 12 reps. Same stiffness stimulus, lower total volume. Ankle spring quality over quantity.',
+          ? 'Stiff ankles · 20 reps · 90s rest · tendon spring'
+          : 'Stiff ankles · 2×12 · tendon spring at lower volume',
         exercises: pogoHops,
       },
       ...buildInjuryOrderedBlocks(
         muscleInjury, gymKey, prehabEccentric, eccentricBlock,
-        'Tendon HSR holds. Patellar + Achilles stiffness adaptation.',
-        muscleInjury
-          ? 'Muscle injury present — eccentric work comes first while fresh.'
-          : loadScheme === 'heavy'
-          ? 'Fascicle length adaptation. DOMS peaks 48h — sessions are spaced to manage this. Non-negotiable every session.'
-          : 'Moderate day — Nordic reduced to 2×2 to keep DOMS manageable with 48h to next session. Copenhagen Plank unchanged.',
+        'Tendon HSR holds · patellar + Achilles stiffness',
+        loadScheme === 'heavy'
+          ? 'Fascicle length · DOMS peaks 48h · sessions spaced to manage'
+          : 'Moderate · Nordic 2×2 · DOMS manageable at 48h spacing',
+        osHasBSS,
       ),
-      ...(includeConditioning ? [{
-        title: '🏃 Aerobic Base',
-        methodFocus: 'Cardiac output training — easy effort, big aerobic return. The gym work is today\'s priority; this tops up the aerobic system without adding fatigue.',
-        exercises: [moderateAerobicEx],
-      }] : []),
-      ...(speedWorkEx.length > 0 && !includeConditioning ? [{
-        title: '🏃 Speed Work — Conditioning',
-        methodFocus: 'Play-style and weakness speed work. Complete on the pitch — separate from the gym session.',
-        exercises: speedWorkEx,
-      }] : []),
     ],
   };
 }
@@ -1808,7 +1881,6 @@ function buildSession(
   const { position, biggestWeakness, injuryHistory, gymAccess } = inputs;
   const fv = getFVProfile(slot.mdDay);
 
-  // Strength library lookup
   const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
   const gymAccessLib = gymLib[gymAccess] ?? gymLib.basic;
   const strengthEx = gymAccessLib[fv.loadScheme === 'heavy' ? 'heavy' : 'moderate'] ?? gymAccessLib.moderate;
@@ -1818,7 +1890,6 @@ function buildSession(
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
   const weaknessEx = WEAKNESS_EX[biggestWeakness]?.slice(0, 2) ?? [];
 
-  // Prehab selection
   const prehabEx: ProgrammeExercise[] = [];
   for (const area of injuryHistory.slice(0, 2)) {
     const p = PREHAB[area];
@@ -1828,118 +1899,81 @@ function buildSession(
 
   const readinessNote =
     readiness.level === 'elite'
-      ? 'Elite readiness ✦ — Add a bonus set. Target 1 RIR on every set. If bar velocity stays fast through all sets, chase a PB. Low-rep high-load: every rep is effective. Conditions are optimal.'
+      ? 'Elite ✦ — Add a bonus set. Chase a PB. Conditions optimal.'
       : readiness.level === 'high'
-      ? 'High readiness ✓ — Execute as written. 2–1 RIR on main sets. Every rep should be hard but technically sound. Autoregulate: stop any set if bar velocity drops >20% vs rep 1. No junk reps.'
+      ? 'High ✓ — Execute as written. 2–1 RIR. Autoregulate by bar velocity.'
       : readiness.level === 'moderate'
-      ? 'Moderate readiness — Drop load ~10%. RIR floor 2. If any rep looks like a grind before prescribed reps are done, rack it. 3 quality reps beat 5 junk reps every time.'
-      : 'Low readiness — 1 fewer set, −20–25% intensity. If bar speed deteriorates significantly (rep looks like a grind), end the set. Movement quality and controlled velocity are today\'s goals.';
+      ? 'Moderate — Drop ~10% load. RIR floor 2. Rack if any rep grinds.'
+      : 'Low — 1 fewer set, −20–25% load. Movement quality is today\'s goal.';
 
   const durationBase = slot.mdDay === 'MD-4' ? 70 : slot.mdDay === 'MD-3' ? 60 : 55;
   const durationMin = readiness.level === 'low' ? durationBase - 15
     : readiness.level === 'elite' ? durationBase + 10
     : durationBase;
 
-  // ── Session block order (non-negotiable) ────────────────────────────────
-  // 1. Reactive Plyometrics  (Pogos — tendon spring, high rep, medium rest)
-  // 2. Explosive Plyometrics (CMJ / Broad Jump — max CNS output, low rep, long rest)
-  // 3. Maximum Strength      (heavy compound, upper body, play style, weakness)
-  // 4. Isometric             (tendon HSR holds, prehab isometrics)
-  // 5. Eccentric             (Nordics, Copenhagen — most structural stress, always last)
-  // 6. Conditioning          (only when included — always after everything else)
-
   if (slot.mdDay === 'MD-4') {
     const gymKey = (gymAccess as GymKey) in EXPLOSIVE_PLYO_POOL ? (gymAccess as GymKey) : 'basic';
-
     const pogoHops = pickReactivePlyo(gymKey, weekNum);
-
-    // Conditioning — only for endurance-focused athletes, placed LAST
-    const includeConditioning = inputs.primaryGoal === 'endurance' || inputs.biggestWeakness === 'endurance';
-    const condBlock = getConditioningBlock(phase, weekNum, slot.dayOfWeek);
-
     const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
-    const speedWorkEx = buildSpeedWorkExercises(inputs.playStyle, weaknessEx, weekNum, slot.dayOfWeek);
     const muscleInjury = hasMuscleInjury(injuryHistory);
+    const md4Vertical = selectVerticalSquat(inputs, phase, gymKey, fv.loadScheme as LoadKey, strengthEx);
+    const md4HasBSS = md4Vertical.name.toLowerCase().includes('bulgarian split squat');
 
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
       objective: `MD-4 — ${MD4_OBJ[phase] ?? MD4_OBJ.Build}`,
       readinessNote, durationMin,
       fvProfile: inputs.playStyle === 'press-heavy'
-        ? 'High-press system: trap bar deadlift and lateral bound train the explosive hip extension and lateral closing speed that define a high-press midfielder. Aerobic conditioning built on moderate days sustains the 90-minute pressing demand.'
+        ? 'Press system · explosive hip ext + lateral speed · aerobic base on moderate days'
         : fv.profile,
       blocks: [
         {
           title: '🔄 Mobilisation (6 min)',
-          methodFocus: 'Hip, thoracic and glute activation — full joint prep before loading',
+          methodFocus: 'Hip + thoracic + glute activation · full joint prep',
           exercises: [...WARMUP_MOBILITY],
         },
-        // ① Explosive Plyometrics — FIRST (fresh CNS required)
         {
           title: '⚡ Explosive Plyometrics',
-          methodFocus: 'Low reps (2–3), full 3 min rest between sets. Every rep is maximal intent. This is NOT conditioning — if you cannot give 100% on the next rep, extend the rest.',
+          methodFocus: 'Max intent · 2–3 reps · 3 min rest · not conditioning',
           exercises: pickExplosivePlyo(gymKey, weekNum),
         },
-        // ② Maximum Strength — strict order: vertical → horizontal → accessory → weakness LAST
-        // NO eccentric exercises in this block — they go to block ④ only.
         {
           title: '💪 Maximum Strength',
           methodFocus: fv.loadScheme === 'heavy'
-            ? 'Maximal force — 85%+ load, low reps, explosive concentric intent. 5 exercises max · 3 lower / 2 upper · all maximum effort. Lower and upper interleaved — bar velocity is your autoregulation signal.'
-            : 'Strength-speed — high load with explosive intent. 5 exercises max · 3 lower / 2 upper · all maximum effort. Lower and upper interleaved.',
+            ? '85%+ load · low reps · 5 ex max · 3 lower / 2 upper · bar velocity autoregulates'
+            : 'High load · explosive intent · 5 ex max · 3 lower / 2 upper',
           exercises: applyReadiness(
             buildMaxStrengthBlock(
-              selectVerticalSquat(inputs, phase, gymKey, fv.loadScheme as LoadKey, strengthEx),
+              md4Vertical,
               strengthEx[1],
               upperEx,
               [
                 ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
-                ...(biggestWeakness !== 'endurance'
-                  ? weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)
-                  : []),
+                ...(weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
               ],
             ),
             readiness.level,
             readiness.intensityNote,
           ),
         },
-        // ③ Reactive Plyometrics — after strength (lower CNS demand, tendon spring work)
         {
           title: '🦘 Reactive Plyometrics',
-          methodFocus: 'High-rep, medium rest (60–90s). Stiff ankles — minimise ground contact time. Trains the tendon spring at match-speed loading rate.',
+          methodFocus: 'Stiff ankles · min ground contact · tendon spring at match speed',
           exercises: pogoHops,
         },
         ...buildInjuryOrderedBlocks(
           muscleInjury, gymKey, prehabEccentric, ECCENTRIC_BLOCK[gymKey],
-          'Heavy isometric holds — tendon stiffness adaptation. Maximum effort throughout each hold.',
-          muscleInjury
-            ? 'Muscle injury present — eccentric work comes first while fresh.'
-            : 'Eccentric work placed LAST — most structural stress. Nordic Curl fascicle-length adaptation is the primary hamstring strain prevention mechanism.',
+          'Heavy isometric holds · tendon stiffness adaptation',
+          'Eccentric last · Nordic fascicle-length = primary hamstring protection',
+          md4HasBSS,
         ),
-        // ⑤ Conditioning — ONLY if included, and always after everything else
-        ...(includeConditioning ? [{
-          title: condBlock.blockTitle,
-          methodFocus: condBlock.methodFocus,
-          exercises: [condBlock.ex],
-        }] : []),
-        // ⑥ Speed / play-style running work — split to separate home-screen card
-        ...(speedWorkEx.length > 0 && !includeConditioning ? [{
-          title: '🏃 Speed Work — Conditioning',
-          methodFocus: 'Play-style and weakness speed work. Complete on the pitch — separate from the gym session.',
-          exercises: speedWorkEx,
-        }] : []),
       ],
     };
   }
 
-  // MD-3: Structural Day — tissue architecture and fascicle length
-  // Science: 2–3 sets, 5–8 reps, 70–80% 1RM, eccentric emphasis.
-  // DOMS peaks at 48h — by match day (Saturday) it will be completely cleared.
-  // This day is structural resilience, NOT speed. Speed day is dead — the pitch handles speed.
   if (slot.mdDay === 'MD-3') {
     const gymKey = (gymAccess as GymKey) in ECCENTRIC_BLOCK ? (gymAccess as GymKey) : 'basic';
 
-    // Structural exercises: eccentric slider curls, single-leg RDLs — the HPP MD-3 staples
     const structuralExercises: Record<GymKey, ProgrammeExercise[]> = {
       full: [
         ex('Eccentric Slider Curl (Nordic Variation)', '3', '6', '2:30', '3–4 second eccentric lowering on the slider. This is a fascicle-length exercise — the slow eccentric under load is what lengthens the sarcomeres. DOMS will peak in 48 hours. By Saturday, it is gone. This is why we do it today.',
@@ -1970,45 +2004,36 @@ function buildSession(
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
       objective: `MD-3 — ${MD3_OBJ[phase] ?? MD3_OBJ.Build}`,
-      readinessNote: readinessNote + ' MD-3 structural work: eccentric DOMS peaks at 48h — by match day it is gone. This timing is deliberate.',
+      readinessNote: readinessNote + ' MD-3: DOMS peaks 48h — cleared by match day.',
       durationMin: 55, fvProfile: fv.profile,
       blocks: [
-        // No speed/plyometrics on MD-3 — structural day only
         {
           title: '🔄 Mobilisation (6 min)',
-          methodFocus: 'Mobility and light activation — prepare joints for loaded eccentric work',
+          methodFocus: 'Mobility + light activation · prep for eccentric load',
           exercises: [...WARMUP_MOBILITY, ...WARMUP_STRENGTH.slice(0, 1)],
         },
-        // ② Maximum Strength — structural loaded work at 70–80% with eccentric tempo
         {
           title: '💪 Maximum Strength — Structural Loading',
-          methodFocus: `Loaded compound work at 70–80% 1RM with eccentric tempo. DOMS peaks at 48h. By ${slot.dayOfWeek === 'Wednesday' ? 'Saturday' : 'match day'} it will be completely gone. This is the science of smart scheduling — structural resilience built at the right time.`,
+          methodFocus: `70–80% 1RM · eccentric tempo · DOMS peaks 48h · gone by match day`,
           exercises: applyReadiness(structuralExercises[gymKey], readiness.level, readiness.intensityNote),
         },
-        // ③ Isometric — tendon maintenance + weakness (isometric component only)
         {
           title: '🦴 Isometric Block',
-          methodFocus: 'Heavy isometric hold — maintain tendon stiffness without adding fatigue. Minimum effective dose on structural day.',
-          exercises: buildIsometricBlock(gymKey),
+          methodFocus: 'Heavy isometric holds · maintain tendon stiffness · min dose',
+          exercises: buildIsometricBlock(gymKey, true), // all MD-3 gym levels include a split squat structural exercise
         },
-        // ④ Eccentric — always last
         {
-          title: '🔴 Eccentric Block — Always Last',
-          methodFocus: 'Nordic Curl and Copenhagen Plank — non-negotiable every session. Fascicle length adaptation is the primary mechanism reducing hamstring and groin strain risk. Placed last as it generates the highest structural stress.',
+          title: '🔴 Eccentric Block',
+          methodFocus: 'Nordic + Copenhagen · fascicle length · highest structural stress · always last',
           exercises: ECCENTRIC_BLOCK[gymKey],
         },
-        // No conditioning on MD-3
       ],
     };
   }
 
-  // MD-2: THE FORBIDDEN ZONE — 2 days from match.
-  // Objective: ZERO gym fatigue. This is the heaviest tactical/sprint day on the pitch.
-  // No heavy lifting. Micro-dosed power only if needed: 2 sets × 3 reps at 30–40% 1RM, max velocity.
   if (slot.mdDay === 'MD-2') {
     const gymKey = (gymAccess as GymKey) in ECCENTRIC_BLOCK ? (gymAccess as GymKey) : 'basic';
 
-    // Micro-dosed power: light load, maximum velocity intent. This is CNS maintenance only.
     const microPowerEx: Record<GymKey, ProgrammeExercise[]> = {
       full: [
         ex('Jump Squat (30–40% 1RM)', '2', '3 reps', '3:00', 'Load bar at 30–40% of your squat 1RM. Drive explosively from the floor. Land softly. Maximum velocity intent on every rep. This is CNS maintenance — 2 sets, 3 reps, then walk away. Do NOT add volume.',
@@ -2033,25 +2058,22 @@ function buildSession(
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
       objective: `MD-2 — ${MD2_OBJ[phase] ?? MD2_OBJ.Build}`,
-      readinessNote: 'MD-2: THE FORBIDDEN ZONE. Do NOT lift heavy regardless of how good you feel. The pitch is the priority today. If anything, micro-dosed power only (2 sets × 3 reps, 30–40% 1RM, max velocity) — then leave. Your job today is to arrive at Saturday fresh.',
+      readinessNote: 'MD-2: No heavy load regardless of readiness. Micro-power only then leave.',
       durationMin: 30, fvProfile: fv.profile,
       blocks: [
         {
           title: '🔄 Mobilisation (6 min)',
-          methodFocus: 'Light activation only — prepare for micro-dosed power work',
+          methodFocus: 'Light activation · prep for micro-dosed power',
           exercises: [...WARMUP_MOBILITY.slice(0, 2), ...WARMUP_NEURAL.slice(0, 1)],
         },
-        // ① Explosive Plyometrics — micro-dosed (MD-2 only)
         {
           title: '⚡ Explosive Plyometrics — Micro-Dosed (2 × 3 only)',
-          methodFocus: 'Maximum velocity intent at 30–40% 1RM. CNS maintenance — NOT a training stimulus. 2 sets, 3 reps, full rest. Then leave. No additional volume under any circumstances.',
+          methodFocus: 'Max velocity · 30–40% 1RM · CNS maintenance · 2×3 then leave',
           exercises: microPowerEx[gymKey],
         },
-        // No max strength on MD-2 (Forbidden Zone)
-        // ③ Isometric only — no eccentric, no conditioning on MD-2
         {
           title: '🦴 Isometric — Pre-Match Tissue Maintenance',
-          methodFocus: 'Sub-maximal isometric only — maintain hip flexor length and adductor integrity ahead of match. Not a training stimulus. Zero eccentric load today.',
+          methodFocus: 'Sub-maximal isometric · maintain hip flexor + adductor · zero eccentric',
           exercises: [
             ex('Isometric Hip Flexor Hold (Kneeling)', '1', '30s each side', '', 'Tall kneeling, posterior pelvic tilt. Sub-maximal hold — maintain hip flexor length ahead of match day.',
               { methodType: 'isometric', intensityIntent: 'controlled' }),
@@ -2059,15 +2081,121 @@ function buildSession(
               { methodType: 'isometric', intensityIntent: 'controlled' }),
           ],
         },
-        // No eccentric on MD-2 — too close to match
-        // No conditioning on MD-2
       ],
     };
   }
 
-  // Fallback
   return primingSession(slot.dayOfWeek, position, inputs.playStyle);
 }
+
+// ── Dedicated conditioning session builder ─────────────────────────────────
+// Each conditioning type is a standalone session — not bolted onto gym days.
+// Separation principle: each physical quality gets its own day so neither
+// strength nor aerobic adaptation is compromised by fatigue from the other.
+
+function buildConditioningSession(
+  type: 'zone2' | 'hiAerobic' | 'rsa',
+  dayOfWeek: string,
+  phase: string,
+  weekNum: number,
+): ProgrammeSession {
+  const phaseAerobic = CONDITIONING_AEROBIC[phase] ?? CONDITIONING_AEROBIC.Build;
+  const phaseHiit    = CONDITIONING_HIIT[phase]    ?? CONDITIONING_HIIT.Build;
+
+  // Zone 2 — low-intensity aerobic, restorative, no fatigue cost
+  if (type === 'zone2') {
+    // Select zone2-appropriate exercise: submaximal aerobic from the phase library
+    const zoneEx = phaseAerobic[weekNum % phaseAerobic.length];
+    return {
+      mdDay: 'Zone 2',
+      dayOfWeek,
+      objective: `Zone 2 — Aerobic Base · ${phase} · Wk ${weekNum}`,
+      readinessNote: 'Zone 2 is restorative — always complete. Reduce duration if needed, never skip.',
+      durationMin: 40,
+      fvProfile: '65–70% HRmax · mitochondrial density · no CNS fatigue',
+      blocks: [
+        {
+          title: '🌿 Zone 2 Aerobic',
+          methodFocus: 'Steady-state cardiac output · conversational pace · 65–70% HRmax',
+          exercises: [zoneEx],
+        },
+      ],
+    };
+  }
+
+  // Hi-Aerobic — high-intensity aerobic intervals (HIIT / Norwegian 4×4 / threshold)
+  if (type === 'hiAerobic') {
+    const hiEx = phaseHiit.filter(e => e.methodType !== 'reactive')[weekNum % Math.max(1, phaseHiit.filter(e => e.methodType !== 'reactive').length)];
+    return {
+      mdDay: 'High Aerobic',
+      dayOfWeek,
+      objective: `High Intensity Aerobic · ${phase} · Wk ${weekNum}`,
+      readinessNote: 'Requires full effort. Low readiness: sub Zone 2 at 70% HR — valid choice.',
+      durationMin: 45,
+      fvProfile: '85–95% HRmax · max VO₂max stimulus · after gym day',
+      blocks: [
+        {
+          title: '🔥 Aerobic Warm-Up',
+          methodFocus: 'Progressive CV activation · 60% → 80% HRmax',
+          exercises: [
+            ex('Progressive Warm-Up Run', '1', '8 min build from 60% → 80% HRmax', '—',
+              'Start at easy conversational pace. Increase effort every 2 minutes. Reach 80% HR by minute 7. Skipping this warm-up increases injury risk and reduces work quality in the intervals.',
+              { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+          ],
+        },
+        {
+          title: '🔥 High Intensity Intervals',
+          methodFocus: 'Full quality every rep · incomplete recovery is the stimulus',
+          exercises: [hiEx],
+        },
+        {
+          title: '🌿 Cool-Down',
+          methodFocus: 'Gradual cool-down · flush metabolites · reduce soreness',
+          exercises: [
+            ex('Cool-Down Jog', '1', '5 min @ 60% HRmax', '—',
+              'Easy jog steadily reducing pace. HR should fall below 120bpm before stopping. Do not skip — this is part of the session.',
+              { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
+          ],
+        },
+      ],
+    };
+  }
+
+  // RSA — repeated sprint ability, anaerobic / neuromuscular
+  const rsaPool = phaseHiit.filter(e => e.methodType === 'reactive');
+  const rsaEx = rsaPool.length > 0
+    ? rsaPool[weekNum % rsaPool.length]
+    : ex('RSA Sprint Sets', '4', '6 × 30m · 25s rest', '2:00 between sets',
+        '4 sets of 6 × 30m flat-out sprints. 25s passive recovery between sprints, 2 min between sets. Rep 6 should feel like rep 3 — if sprint times drop more than 10%, reduce to 3 sets.',
+        { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true });
+
+  return {
+    mdDay: 'RSA',
+    dayOfWeek,
+    objective: `RSA / Anaerobic · ${phase} · Wk ${weekNum}`,
+    readinessNote: 'Highest CNS session. Low readiness: reduce sets, extend recovery to 35s.',
+    durationMin: 45,
+    fvProfile: 'Anaerobic · repeated sprint ability · neuromuscular fatigue resistance',
+    blocks: [
+      {
+        title: '⚡ Sprint Warm-Up',
+        methodFocus: 'Progressive speed build · prime neuromuscular system',
+        exercises: [
+          ex('Progressive Sprint Warm-Up', '1', '3 × 40m — 60%, 75%, 85% effort', '90s between',
+            'Three building runs over 40m. First at 60% max speed, second at 75%, third at 85%. Never sprint flat-out in a warm-up. This activates the fast-twitch motor units that RSA training targets.',
+            { methodType: 'concentric', intensityIntent: 'moderate', isRunning: true }),
+        ],
+      },
+      {
+        title: '⚡ Repeated Sprints',
+        methodFocus: 'Max sprint quality every rep · incomplete recovery is the stimulus',
+        exercises: [rsaEx],
+      },
+    ],
+  };
+}
+
+
 
 // ── Progression note per week ──────────────────────────────────────────────
 
@@ -2082,45 +2210,6 @@ function progressNote(week: number): string {
 // ── Conditioning session splitter ─────────────────────────────────────────
 // Removes ALL conditioning/speed-work blocks from the main session and returns them
 // as a standalone ProgrammeSession with its own neural warm-up on the same day.
-function splitConditioningIfPresent(session: ProgrammeSession): ProgrammeSession[] {
-  const condBlocks = session.blocks.filter(b =>
-    b.title.toLowerCase().includes('conditioning') ||
-    b.exercises.some(e => e.isRunning),
-  );
-  if (condBlocks.length === 0) return [session];
-
-  const mainSession: ProgrammeSession = {
-    ...session,
-    blocks: session.blocks.filter(b => !b.title.toLowerCase().includes('conditioning')),
-  };
-
-  const isSpeedWork = condBlocks.every(b => b.title.toLowerCase().includes('speed work'));
-  const condSession: ProgrammeSession = {
-    mdDay: 'Conditioning',
-    dayOfWeek: session.dayOfWeek,
-    objective: isSpeedWork
-      ? `Speed Session — ${condBlocks[0].exercises[0]?.name ?? 'Speed Work'}`
-      : `Conditioning Session — ${condBlocks[0].exercises[0]?.name ?? 'Energy System Work'}`,
-    readinessNote:
-      'Complete this after your main strength session — minimum 2 hours gap. Or treat it as an evening session. Short, high-quality work.',
-    durationMin: isSpeedWork ? 30 : 25,
-    fvProfile: isSpeedWork
-      ? 'Play-style speed & agility work. Pitch-based — no gym equipment needed.'
-      : 'Aerobic / anaerobic energy system development. No strength load.',
-    blocks: [
-      {
-        title: isSpeedWork ? '🔥 Speed Warm-Up (8 min)' : '🔥 Conditioning Warm-Up (5 min)',
-        methodFocus:
-          'Dynamic neural activation — prepare for high-intensity pitch work. Elevate heart rate progressively.',
-        exercises: WARMUP_NEURAL,
-      },
-      ...condBlocks,
-    ],
-  };
-
-  return [mainSession, condSession];
-}
-
 // ── Coach explanation ──────────────────────────────────────────────────────
 
 function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, readinessLevel: ReadinessLevel): string {
@@ -2131,7 +2220,6 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
     speed: 'speed and acceleration', strength: 'maximal strength', power: 'explosive power',
     endurance: 'endurance capacity', injury_prevention: 'injury prevention',
   };
-  const fvLine = 'the full force-velocity curve — heavy strength days are paired with speed days to develop both qualities without compromising either';
   const pos = posLabels[inputs.position] ?? inputs.position;
   const goal = goalLabels[inputs.primaryGoal] ?? inputs.primaryGoal;
   const weaknessLine = inputs.biggestWeakness === 'injury_prone'
@@ -2150,10 +2238,13 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
     : '';
 
   if (inputs.offSeason) {
-    return `This ${totalWeeks}-week OFF-SEASON programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nOff-season mode: there are no match-day loading constraints. Every session follows the full five-block structure — Reactive Plyometrics → Explosive Plyometrics → Maximum Strength → Isometric → Eccentric. Sessions are spaced to manage DOMS and accumulated fatigue: heavy sessions are separated by at least 72 hours, with moderate sessions filling the gaps where needed.\n\nThis is the window to build physical qualities without compromise. Load can be pushed further than in-season, eccentric volume is higher, and there is no match-day to protect. Use it.\n\n${readinessLine}`;
+    const condNote = inputs.conditioningTypes && inputs.conditioningTypes.length > 0
+      ? ` Includes ${inputs.conditioningTypes.length} dedicated conditioning day${inputs.conditioningTypes.length > 1 ? 's' : ''} (${inputs.conditioningTypes.map(t => t === 'zone2' ? 'Zone 2' : t === 'hiit' ? 'Hi-Aerobic' : 'RSA').join(', ')}) — never combined with gym to avoid the interference effect.`
+      : '';
+    return `${totalWeeks}-week off-season programme for a ${pos} targeting ${goal}. ${weaknessLine}${styleNote}${condNote} Heavy Mon/Fri · Moderate Wed · 48h minimum between sessions. ${readinessLine}`;
   }
 
-  return `This ${totalWeeks}-week programme is designed for a ${pos} with a primary focus on ${goal}. It covers ${fvLine}.\n\n${weaknessLine}${styleNote}\n\nEvery session uses a three-method structure. Concentric work builds force production, eccentric work creates structural resilience and reduces injury risk, and isometric work develops joint stability. All three are trained throughout the programme.\n\nSessions are structured around your match schedule. The heaviest training falls furthest from match day, and load is progressively reduced as the game approaches. This protects performance on the pitch while ensuring consistent physical development across the week.${doubleGameWeekNote}\n\n${readinessLine}`;
+  return `${totalWeeks}-week programme for a ${pos} targeting ${goal}. ${weaknessLine}${styleNote} Sessions are structured around your match schedule — heaviest load furthest from match day, reducing as the game approaches.${doubleGameWeekNote} ${readinessLine}`;
 }
 
 // ── Main export ────────────────────────────────────────────────────────────
@@ -2175,15 +2266,25 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
 
   // ── Off-season path ──────────────────────────────────────────────────────
   if (inputs.offSeason) {
-    const osSlots = OFF_SEASON_SCHEDULES[inputs.sessionsPerWeek] ?? OFF_SEASON_SCHEDULES[3];
+    const gymCount = inputs.gymSessionsPerWeek ?? inputs.sessionsPerWeek ?? 3;
+    const condTypes = inputs.conditioningTypes ?? [];
+    const osSlots = condTypes.length > 0
+      ? buildMixedOffSeasonSchedule(gymCount, condTypes)
+      : (GYM_ONLY_SCHEDULES[gymCount] ?? GYM_ONLY_SCHEDULES[3]);
+
     const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
       const weekNum = i + 1;
       const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
-      const sessions = osSlots.flatMap(slot =>
-        splitConditioningIfPresent(
-          buildOffSeasonSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }),
-        ),
-      );
+      const sessions = osSlots.flatMap(slot => {
+        if (slot.sessionType === 'gym') {
+          const session = buildOffSeasonSession(
+            slot, inputs, phase, weekNum,
+            { level: readinessLevel, volumeMultiplier, intensityNote },
+          );
+          return [session];
+        }
+        return [buildConditioningSession(slot.sessionType, slot.dayOfWeek, phase, weekNum)];
+      });
       return {
         weekNumber: weekNum,
         phase,
@@ -2207,15 +2308,47 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
   }
 
   // ── In-season path ───────────────────────────────────────────────────────
-  const slots = getMdSlots(inputs.sessionsPerWeek, inputs.matchDay);
+  const inSeasonGymCount = inputs.gymSessionsPerWeek ?? Math.min(inputs.sessionsPerWeek ?? 3, 3);
+  const gymSlots = getMdSlots(inSeasonGymCount, inputs.matchDay, inputs.secondMatchDay);
+  const inSeasonCondTypes = inputs.conditioningTypes ?? [];
+  const condSlotsForMatchDay = IN_SEASON_COND_SLOTS[inputs.matchDay] ?? IN_SEASON_COND_SLOTS.saturday;
+
+  // Normalise blocked match days for conditioning collision check
+  const allMatchDays = new Set([
+    (DAY_NAMES.find(d => d.toLowerCase() === inputs.matchDay.toLowerCase()) ?? ''),
+    ...(inputs.secondMatchDay
+      ? [inputs.secondMatchDay.charAt(0).toUpperCase() + inputs.secondMatchDay.slice(1)]
+      : []),
+  ]);
+
+  // Build conditioning session slots for the chosen types — skip any that land on a match day
+  const condSlots: { slot: MdSlot; sessionType: 'zone2' | 'hiAerobic' | 'rsa' }[] = [];
+  if (inSeasonCondTypes.includes('zone2') && !allMatchDays.has(condSlotsForMatchDay.zone2.dayOfWeek))
+    condSlots.push({ slot: condSlotsForMatchDay.zone2, sessionType: 'zone2' });
+  if (inSeasonCondTypes.includes('hiit') && !allMatchDays.has(condSlotsForMatchDay.hiAerobic.dayOfWeek))
+    condSlots.push({ slot: condSlotsForMatchDay.hiAerobic, sessionType: 'hiAerobic' });
+  if (inSeasonCondTypes.includes('rsa') && !allMatchDays.has(condSlotsForMatchDay.rsa.dayOfWeek))
+    condSlots.push({ slot: condSlotsForMatchDay.rsa, sessionType: 'rsa' });
+
   const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNum = i + 1;
     const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
-    const sessions = slots.flatMap(slot =>
-      splitConditioningIfPresent(
-        buildSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }),
-      ),
+
+    const gymSessions = gymSlots.map(slot =>
+      buildSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }),
     );
+
+    // Dedicated conditioning sessions
+    const condSessions = condSlots.map(({ slot, sessionType }) =>
+      buildConditioningSession(sessionType, slot.dayOfWeek, phase, weekNum),
+    );
+
+    const sessions = [...gymSessions, ...condSessions]
+      .sort((a, b) => {
+        const ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+        return (ORDER.indexOf(a.dayOfWeek ?? '') ?? 7) - (ORDER.indexOf(b.dayOfWeek ?? '') ?? 7);
+      });
+
     return {
       weekNumber: weekNum,
       phase,
@@ -2228,12 +2361,15 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
   const secondMatchStr = inputs.secondMatchDay
     ? ` + ${inputs.secondMatchDay.charAt(0).toUpperCase() + inputs.secondMatchDay.slice(1)}`
     : '';
+  const condNote = condSlots.length > 0
+    ? ` + ${condSlots.length} conditioning (${inSeasonCondTypes.join(', ')})`
+    : '';
 
   return {
     id: `prog-${Date.now()}`,
     createdAt: Date.now(),
     title: `${pos} — ${goal}`,
-    summary: `${totalWeeks}-week personalised programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inputs.sessionsPerWeek} sessions/week · Match day: ${matchStr}${secondMatchStr}${inputs.secondMatchDay ? ' (double game weeks accounted for)' : ''}.`,
+    summary: `${totalWeeks}-week personalised programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inSeasonGymCount} gym sessions/week${condNote} · Match day: ${matchStr}${secondMatchStr}${inputs.secondMatchDay ? ' (double game weeks accounted for)' : ''}.`,
     coachExplanation: buildCoachExplanation(inputs, totalWeeks, readinessLevel),
     readinessScore: score,
     readinessLevel,

@@ -66,7 +66,7 @@ export const LIFT_META: Record<LiftKey, LiftMeta> = {
     label: 'Pull-Up / Row',
     askName: 'Pull-Up or Bent-Over Row',
     hint: 'For Weighted Pull-Up enter bodyweight + added weight. For Row enter bar weight.',
-    patterns: ['pull-up', 'chin-up', 'bent-over row', 'barbell row', 'weighted pull'],
+    patterns: ['pull-up', 'chin-up', 'bent-over row', 'barbell row', 'weighted pull', 'dumbbell row', 'db row'],
   },
 };
 

@@ -108,7 +108,7 @@ function ExerciseRow({
   strengthSetup?: StrengthSetup;
 }) {
   const [open, setOpen] = useState(false);
-  const { name, sets, reps, rest, intensity, tempo, methodType, intensityIntent, cue } = exercise;
+  const { name, sets, reps, rest, methodType, intensityIntent, cue, intensity } = exercise;
   const isIsometric = methodType === 'isometric';
 
   // Progressive overload target weight
@@ -130,11 +130,9 @@ function ExerciseRow({
             />
             {isIsometric && <Pill label="⏸ hold" colour="bg-purple-50 text-purple-600" />}
             {rest && <Pill label={`${rest} rest`} colour="bg-gray-100 text-gray-600" />}
-            {intensity && <Pill label={intensity} colour="bg-orange-100 text-orange-600" />}
             {prescription && (
               <Pill label={`🎯 ${prescription.label}`} colour="bg-green-100 text-green-700" />
             )}
-            {tempo && <Pill label={`⏱ ${tempo}`} colour="bg-indigo-50 text-indigo-600" />}
           </div>
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
             <MethodTag type={methodType} />
@@ -150,12 +148,6 @@ function ExerciseRow({
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">Coaching Cue</p>
             <p className="text-sm text-gray-700 leading-relaxed">{cue}</p>
-            {tempo && (
-              <div className="mt-2 pt-2 border-t border-gray-200">
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-0.5">Tempo · {tempo}</p>
-                <p className="text-xs text-gray-600">{tempoExplain(tempo)}</p>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -163,16 +155,6 @@ function ExerciseRow({
   );
 }
 
-function tempoExplain(tempo: string): string {
-  const parts = tempo.split('-');
-  if (parts.length !== 4) return `Tempo notation: ${tempo}`;
-  const [ecc, pause, con, rest] = parts;
-  const eccStr = ecc === 'x' || ecc === '0' ? 'Explosive down' : `${ecc}s lowering (eccentric)`;
-  const pauseStr = pause === '0' ? '' : `, ${pause}s pause at bottom`;
-  const conStr = con === 'x' ? 'Explosive concentric (as fast as possible)' : con === '0' ? '' : `${con}s concentric`;
-  const restStr = rest === '0' ? '' : `, ${rest}s pause at top`;
-  return [eccStr, pauseStr, conStr, restStr].filter(Boolean).join('');
-}
 
 function Pill({ label, colour }: { label: string; colour: string }) {
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colour}`}>{label}</span>;
@@ -272,17 +254,7 @@ export function SessionPreviewModal({
   );
 }
 
-// ── Phase helpers ──────────────────────────────────────────────────────────
 
-function phaseColour(phase: string) {
-  switch (phase) {
-    case 'Foundation': return 'bg-blue-500';
-    case 'Build': return 'bg-purple-500';
-    case 'Strength & Power': return 'bg-orange-500';
-    case 'Peak': return 'bg-red-500';
-    default: return 'bg-gray-500';
-  }
-}
 // ── Week accordion ─────────────────────────────────────────────────────────
 
 function WeekAccordion({
@@ -347,9 +319,6 @@ function WeekAccordion({
         }`}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0 ${phaseColour(week.phase)}`}>
-            {week.phase.split(' ')[0]}
-          </span>
           <span className="text-sm font-bold text-gray-800">Week {week.weekNumber}</span>
           <span className="text-xs text-gray-400 flex-shrink-0">· {sessions.length} sessions</span>
         </div>
@@ -450,7 +419,6 @@ function MethodLegend() {
         <IntentTag intent="controlled" />
         <IntentTag intent="submaximal" />
       </div>
-      <p className="text-xs text-gray-400 mt-2">⏱ Tempo = eccentric-pause-concentric-pause (seconds). "x" = as fast as possible.</p>
     </Card>
   );
 }

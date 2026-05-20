@@ -15,6 +15,7 @@
     "@revenuecat/purchases-capacitor": "^13.1.1",
     "@supabase/supabase-js": "^2.105.3",
     "lucide-react": "^0.344.0",
+    "posthog-js": "^1.374.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^2.10.3"

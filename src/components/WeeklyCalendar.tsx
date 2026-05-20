@@ -54,6 +54,7 @@ function dateToStr(d: Date): string {
 export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession }: WeeklyCalendarProps) {
   const { matchEntries } = useStore();
   const [previewSession, setPreviewSession] = useState<import('../types').ProgrammeSession | null>(null);
+  const [previewWeekNumber, setPreviewWeekNumber] = useState<number>(1);
   // Day picker: when a day with multiple sessions is tapped, show a sheet to pick which to preview
   const [daySheet, setDaySheet] = useState<import('../types').ProgrammeSession[] | null>(null);
   const weekDates = getWeekDates(0);
@@ -116,6 +117,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
 
   const handleDayTap = (daySessions: import('../types').ProgrammeSession[]) => {
     if (daySessions.length === 1) {
+      setPreviewWeekNumber(progWeekIdx >= 0 ? progWeekIdx + 1 : 1);
       setPreviewSession(daySessions[0]);
     } else {
       setDaySheet(daySessions);
@@ -247,7 +249,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
               )}
               {firstSession && (
                 <button
-                  onClick={() => setPreviewSession(firstSession)}
+                  onClick={() => { setPreviewWeekNumber(1); setPreviewSession(firstSession); }}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                 >
                   Preview
@@ -324,7 +326,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                       : null
                     }
                     <button
-                      onClick={() => setPreviewSession(session)}
+                      onClick={() => { setPreviewWeekNumber(progWeekIdx >= 0 ? progWeekIdx + 1 : 1); setPreviewSession(session); }}
                       className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                     >
                       Preview
@@ -416,7 +418,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                 return (
                   <button
                     key={i}
-                    onClick={() => { setDaySheet(null); setPreviewSession(s); }}
+                    onClick={() => { setDaySheet(null); setPreviewWeekNumber(progWeekIdx >= 0 ? progWeekIdx + 1 : 1); setPreviewSession(s); }}
                     className={`w-full text-left rounded-2xl border p-3.5 flex items-center justify-between transition-all active:scale-[0.98] ${
                       isCond ? 'bg-emerald-50 border-emerald-200' : 'bg-brand-50 border-brand-200'
                     }`}
@@ -447,8 +449,9 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
       {previewSession && (
         <SessionPreviewModal
           session={previewSession}
-          weekNumber={1}
-          totalWeeks={1}
+          weekNumber={previewWeekNumber}
+          totalWeeks={generatedProgramme?.durationWeeks ?? 1}
+          strengthSetup={generatedProgramme?.strengthSetup}
           onClose={() => setPreviewSession(null)}
         />
       )}

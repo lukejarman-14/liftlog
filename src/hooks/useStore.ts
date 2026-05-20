@@ -3,7 +3,7 @@ import {
   Exercise, WorkoutTemplate, WorkoutSession, ActivePlan,
   UserProfile, UserSettings, DEFAULT_SETTINGS,
   BaselineTest, BaselineResults,
-  MatchEntry, TestSession, GeneratedProgramme, DailyReadiness,
+  MatchEntry, TestSession, GeneratedProgramme, DailyReadiness, ScheduledWorkout,
 } from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
@@ -28,6 +28,7 @@ export function useStore() {
   const [activeProgrammeId, setActiveProgrammeId] = useLocalStorage<string | null>('vf_active_programme_id', null);
   const [dailyReadinessLog, setDailyReadinessLog] = useLocalStorage<DailyReadiness[]>('vf_daily_readiness', []);
   const [footballIntensityLog, setFootballIntensityLog] = useLocalStorage<Record<string, number>>('vf_football_intensity', {});
+  const [scheduledWorkouts, setScheduledWorkouts] = useLocalStorage<ScheduledWorkout[]>('vf_scheduled_workouts', []);
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));
@@ -82,6 +83,17 @@ export function useStore() {
   // Football session intensity
   const saveFootballIntensity = (date: string, intensity: number) =>
     setFootballIntensityLog(prev => ({ ...prev, [date]: intensity }));
+
+  // Scheduled workouts (template workouts placed on calendar dates)
+  const saveScheduledWorkout = (entry: ScheduledWorkout) =>
+    setScheduledWorkouts(prev => {
+      const idx = prev.findIndex(e => e.id === entry.id);
+      if (idx >= 0) { const next = [...prev]; next[idx] = entry; return next; }
+      return [...prev, entry];
+    });
+
+  const deleteScheduledWorkout = (id: string) =>
+    setScheduledWorkouts(prev => prev.filter(e => e.id !== id));
 
   /** Returns the date of the most recent match/team_training entry (within 3 days)
    *  that has no intensity rating yet, or null if nothing pending. */
@@ -220,6 +232,9 @@ export function useStore() {
     footballIntensityLog,
     saveFootballIntensity,
     getPendingIntensityCheck,
+    scheduledWorkouts,
+    saveScheduledWorkout,
+    deleteScheduledWorkout,
     clearAll: () => {
       // Remove localStorage keys first so useLocalStorage hooks re-init to defaults
       const VF_KEYS = [
@@ -227,7 +242,7 @@ export function useStore() {
         'vf_active_plan', 'vf_profile_picture', 'vf_settings', 'vf_baseline',
         'vf_match_entries', 'vf_test_sessions',
         'vf_generated_programmes', 'vf_active_programme_id', 'vf_daily_readiness',
-        'vf_football_intensity',
+        'vf_football_intensity', 'vf_scheduled_workouts',
       ];
       VF_KEYS.forEach(k => localStorage.removeItem(k));
       // Reset React state
@@ -244,6 +259,7 @@ export function useStore() {
       setActiveProgrammeId(null);
       setDailyReadinessLog([]);
       setFootballIntensityLog({});
+      setScheduledWorkouts([]);
     },
   };
 }

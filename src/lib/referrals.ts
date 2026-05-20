@@ -5,7 +5,7 @@
  * Referred:  gets 21-day trial instead of 14
  */
 
-import { supabase } from './supabase';
+import { supabase, supabasePublic } from './supabase';
 
 const REFERRAL_TRIAL_MS = 21 * 24 * 60 * 60 * 1000;   // 21 days
 const REFERRER_REWARD_MS = 14 * 24 * 60 * 60 * 1000;  // 14 days
@@ -41,8 +41,11 @@ export async function redeemReferralCode(
   if (!code || !supabase) return { success: false, reason: 'error' };
 
   try {
-    // Look up who owns this code
-    const { data: codeRow, error } = await supabase
+    // Look up who owns this code using the anon-role client (no user JWT).
+    // The authenticated client would only return the current user's own row due to RLS,
+    // causing valid codes owned by other users to appear as 'invalid'.
+    const publicClient = supabasePublic ?? supabase;
+    const { data: codeRow, error } = await publicClient
       .from('referral_codes')
       .select('user_id')
       .eq('code', code)

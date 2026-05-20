@@ -51,9 +51,10 @@ export function getProgrammeAnchorMonday(programme: GeneratedProgramme): Date {
   const anchor = programme.programmeStartDate
     ? new Date(programme.programmeStartDate + 'T12:00:00').getTime()
     : programme.createdAt;
-  return programme.programmeStartDate
-    ? getAnchorMonday(anchor)
-    : getCurrentWeekMonday(anchor);
+  // Always roll back to the Monday of the chosen week so sessions within that week
+  // are scheduled correctly. Rolling forward would push mid-week start dates to the
+  // following Monday, delaying Week 1 by up to 6 days.
+  return getCurrentWeekMonday(anchor);
 }
 
 // ── Name → exercise-library ID map (shared between GeneratedProgramme & WeeklyCalendar) ──
@@ -78,12 +79,13 @@ export const NAME_TO_ID: Record<string, string> = {
   'hip thrust': 'hip-thrust', 'glute bridge': 'hip-thrust',
   'calf raise': 'calf-raise', 'plank': 'plank',
   'kettlebell swing': 'kettlebell-swing',
-  'jump squat': 'squat',
+  'jump squat': 'squat-jump',
   'box jump': 'box-jump',
   'broad jump': 'broad-jump',
   'countermovement jump': 'test-cmj', 'cmj': 'test-cmj',
   'pogo hops': 'pogo-jump', 'pogo hop': 'pogo-jump', 'pogo jumps': 'pogo-jump',
   'nordic hamstring curl': 'eccentric-nordic', 'nordic curl': 'nordic-curl', 'leg curl': 'leg-curl',
+  'eccentric slider curl': 'eccentric-slider-curl',
   // Isometric holds — explicit to prevent fuzzy mis-matching to 'lunge' / 'calf-raise' etc.
   'isometric split squat hold': 'iso-lunge-hold',
   'single-leg calf isometric hold': 'calf-raise-hold', 'single-leg calf hold': 'calf-raise-hold',
@@ -164,7 +166,7 @@ export function sessionToWorkoutExercises(
 
       if (!id) {
         for (const [pattern, mappedId] of Object.entries(NAME_TO_ID)) {
-          if (key.includes(pattern) || pattern.includes(key.split(' ')[0])) {
+          if (key.includes(pattern)) {
             id = mappedId;
             break;
           }

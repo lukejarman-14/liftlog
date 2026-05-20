@@ -4,11 +4,11 @@ import type React from 'react';
 function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-import { ChevronLeft, ChevronRight, Trash2, Calendar, Info, ArrowRightLeft, AlertTriangle, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Calendar, Info, ArrowRightLeft, AlertTriangle, X, Dumbbell, Plus, ChevronDown } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { useStore } from '../../hooks/useStore';
-import { MatchEntry, GeneratedProgramme } from '../../types';
+import { MatchEntry, GeneratedProgramme, WorkoutTemplate, ScheduledWorkout } from '../../types';
 import { classifyDay, getLoadProfile, getMonthProfiles } from '../../lib/loadManagement';
 
 // ── Session dot type ───────────────────────────────────────────────────────
@@ -26,14 +26,18 @@ interface SessionDot {
 function classifySessionType(objective: string, mdDay: string): 'gym' | 'conditioning' {
   const obj = objective.toLowerCase();
   const md = mdDay.toLowerCase();
-  // Explicit conditioning mdDay values from the generator
-  if (md === 'md+1' || md === 'conditioning') return 'conditioning';
-  // Objective-based fallbacks (recovery sessions, speed/cardio sessions)
+  // Dedicated conditioning session mdDay values from the generator
+  if (md === 'md+1' || md === 'conditioning' || md === 'zone 2' || md === 'high aerobic' || md === 'rsa') return 'conditioning';
+  // Objective-based fallbacks
   if (
     obj.includes('active recovery') ||
     obj.includes('conditioning session') ||
     obj.includes('speed session') ||
-    obj.includes('cardio')
+    obj.includes('cardio') ||
+    obj.includes('zone 2') ||
+    obj.includes('high intensity aerobic') ||
+    obj.includes('rsa') ||
+    obj.includes('anaerobic')
   ) return 'conditioning';
   return 'gym';
 }
@@ -45,13 +49,12 @@ const DOW_INDEX: Record<string, number> = {
   Friday: 4, Saturday: 5, Sunday: 6,
 };
 
-/** Monday ON OR AFTER ts — snaps forward so sessions always start in the future. */
+/** Monday of the week containing ts — rolls back so mid-week start dates schedule correctly. */
 function getAnchorMonday(ts: number): Date {
   const d = new Date(ts);
   const dow = d.getDay();
   d.setHours(0, 0, 0, 0);
-  if (dow === 1) return d;
-  d.setDate(d.getDate() + (dow === 0 ? 1 : 8 - dow));
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
   return d;
 }
 
@@ -130,6 +133,7 @@ function MonthlyCalendarGrid({
   month,
   matchEntries,
   programmeDates,
+  scheduledWorkouts,
   onSelectDay,
   dragKey,
   dropTarget,
@@ -142,6 +146,7 @@ function MonthlyCalendarGrid({
   month: number;
   matchEntries: MatchEntry[];
   programmeDates: Map<string, SessionDot[]>;
+  scheduledWorkouts: ScheduledWorkout[];
   onSelectDay: (date: string) => void;
   dragKey: string | null;
   dropTarget: string | null;
@@ -171,6 +176,7 @@ function MonthlyCalendarGrid({
           const sessions = programmeDates.get(date) ?? [];
           const gymSessions = sessions.filter(s => s.type === 'gym');
           const condSessions = sessions.filter(s => s.type === 'conditioning');
+          const dayScheduled = scheduledWorkouts.filter(w => w.date === date);
           const isDropTarget = dropTarget === date;
 
           return (
@@ -214,7 +220,7 @@ function MonthlyCalendarGrid({
               </div>
 
               {/* Bottom 60%: coloured session strips */}
-              {sessions.length > 0 && (
+              {(sessions.length > 0 || dayScheduled.length > 0) && (
                 <div className="h-[60%] flex gap-px">
                   {gymSessions.map(s => (
                     <div
@@ -250,6 +256,16 @@ function MonthlyCalendarGrid({
                     >
                       <span className="text-[9px] leading-none">🏃</span>
                       <span className="text-white font-bold leading-none mt-0.5" style={{ fontSize: '7px' }}>COND</span>
+                    </div>
+                  ))}
+                  {dayScheduled.map(w => (
+                    <div
+                      key={w.id}
+                      className="flex-1 bg-violet-500 flex flex-col items-center justify-center select-none"
+                      title={w.name}
+                    >
+                      <span className="text-[9px] leading-none">🏋️</span>
+                      <span className="text-white font-bold leading-none mt-0.5" style={{ fontSize: '7px' }}>WKT</span>
                     </div>
                   ))}
                 </div>
@@ -311,26 +327,37 @@ function DayModal({
   dateStr,
   matchEntries,
   programmeSessions,
+  templates,
+  scheduledWorkouts,
   onSave,
   onDelete,
   onClose,
   onMoveSession,
+  onSaveScheduledWorkout,
+  onDeleteScheduledWorkout,
 }: {
   dateStr: string;
   matchEntries: MatchEntry[];
   programmeSessions: SessionDot[];
+  templates: WorkoutTemplate[];
+  scheduledWorkouts: ScheduledWorkout[];
   onSave: (entry: MatchEntry) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
   onMoveSession: (sessionKey: string, newDate: string) => void;
+  onSaveScheduledWorkout: (w: ScheduledWorkout) => void;
+  onDeleteScheduledWorkout: (id: string) => void;
 }) {
   const existing = matchEntries.find(e => e.date === dateStr);
+  const dayScheduled = scheduledWorkouts.filter(w => w.date === dateStr);
   const [label, setLabel] = useState(existing?.label ?? '');
   const [minutes, setMinutes] = useState<string>(existing?.minutes?.toString() ?? '');
   const [movingSession, setMovingSession] = useState<SessionDot | null>(null);
   const [moveTarget, setMoveTarget] = useState('');
   const [showWarning, setShowWarning] = useState(false);
   const [warningReason, setWarningReason] = useState('');
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
   const d = new Date(dateStr + 'T12:00:00');
   const displayDate = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -359,12 +386,27 @@ function DayModal({
     if (risky) {
       setWarningReason(reason);
       setShowWarning(true);
-      // store pending action
       setMoveTarget(newDate);
     } else {
       onMoveSession(sessionKey, newDate);
       onClose();
     }
+  };
+
+  const handleScheduleTemplate = () => {
+    if (!selectedTemplateId) return;
+    const template = templates.find(t => t.id === selectedTemplateId);
+    if (!template) return;
+    const workout: ScheduledWorkout = {
+      id: `sw-${dateStr}-${selectedTemplateId}-${Date.now()}`,
+      templateId: template.id,
+      date: dateStr,
+      name: template.name,
+      createdAt: Date.now(),
+    };
+    onSaveScheduledWorkout(workout);
+    setShowTemplatePicker(false);
+    setSelectedTemplateId('');
   };
 
   return (
@@ -436,6 +478,72 @@ function DayModal({
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Scheduled template workouts */}
+            {dayScheduled.length > 0 && (
+              <div className="mb-3 flex flex-col gap-2">
+                {dayScheduled.map(w => (
+                  <div key={w.id} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-violet-50 border border-violet-200">
+                    <div className="w-3 h-3 rounded-full bg-violet-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-violet-700">🏋️ Workout</p>
+                      <p className="text-xs text-gray-600 truncate">{w.name}</p>
+                    </div>
+                    <button
+                      onClick={() => onDeleteScheduledWorkout(w.id)}
+                      className="p-1 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Schedule a template workout */}
+            {templates.length > 0 && (
+              <div className="mb-4">
+                <button
+                  onClick={() => setShowTemplatePicker(v => !v)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-violet-300 text-violet-600 hover:bg-violet-50 transition-colors text-sm font-semibold"
+                >
+                  <span className="flex items-center gap-2">
+                    <Plus size={14} />
+                    Schedule a Workout
+                  </span>
+                  <ChevronDown size={14} className={`transition-transform ${showTemplatePicker ? 'rotate-180' : ''}`} />
+                </button>
+                {showTemplatePicker && (
+                  <div className="mt-2 p-3 rounded-xl bg-gray-50 border border-gray-200">
+                    <p className="text-xs font-semibold text-gray-500 mb-2">Choose a template:</p>
+                    <div className="flex flex-col gap-1.5 mb-3 max-h-40 overflow-y-auto">
+                      {templates.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => setSelectedTemplateId(t.id)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left text-xs font-semibold transition-colors border ${
+                            selectedTemplateId === t.id
+                              ? 'bg-violet-500 text-white border-violet-500'
+                              : 'bg-white text-gray-700 border-gray-200 hover:border-violet-300'
+                          }`}
+                        >
+                          <Dumbbell size={11} />
+                          {t.name}
+                          <span className="ml-auto font-normal opacity-70">{t.exercises.length} ex</span>
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={handleScheduleTemplate}
+                      disabled={!selectedTemplateId}
+                      className="w-full py-2 rounded-lg bg-violet-500 text-white text-xs font-bold hover:bg-violet-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Add to Calendar
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -645,7 +753,11 @@ function PeriodisationGuide() {
 // ── Main ───────────────────────────────────────────────────────────────────
 
 export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: LoadCalendarProps) {
-  const { matchEntries, saveMatchEntry, deleteMatchEntry } = useStore();
+  const {
+    matchEntries, saveMatchEntry, deleteMatchEntry,
+    templates,
+    scheduledWorkouts, saveScheduledWorkout, deleteScheduledWorkout,
+  } = useStore();
   const programmeDates = activeProgramme ? getProgrammeDates(activeProgramme) : new Map<string, SessionDot[]>();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -691,13 +803,26 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
     }
   };
 
-  const upcoming = matchEntries
+  const upcomingMatches = matchEntries
     .filter(e => {
-      const d = new Date(e.date + 'T12:00:00');
-      const diff = (d.getTime() - today.getTime()) / 86400000;
+      const diff = (new Date(e.date + 'T12:00:00').getTime() - today.getTime()) / 86400000;
       return diff >= -1 && diff <= 30;
-    })
-    .sort((a, b) => a.date.localeCompare(b.date));
+    });
+
+  const upcomingWorkouts = scheduledWorkouts
+    .filter(w => {
+      const diff = (new Date(w.date + 'T12:00:00').getTime() - today.getTime()) / 86400000;
+      return diff >= -1 && diff <= 30;
+    });
+
+  type UpcomingItem =
+    | { kind: 'match'; entry: MatchEntry }
+    | { kind: 'workout'; entry: ScheduledWorkout };
+
+  const upcoming: UpcomingItem[] = [
+    ...upcomingMatches.map(e => ({ kind: 'match' as const, entry: e })),
+    ...upcomingWorkouts.map(e => ({ kind: 'workout' as const, entry: e })),
+  ].sort((a, b) => a.entry.date.localeCompare(b.entry.date));
 
   return (
     <Layout title="Match Load" onBack={onBack}>
@@ -719,6 +844,7 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
           month={viewMonth}
           matchEntries={matchEntries}
           programmeDates={programmeDates}
+          scheduledWorkouts={scheduledWorkouts}
           onSelectDay={setSelectedDate}
           dragKey={dragKey}
           dropTarget={dropTarget}
@@ -756,36 +882,60 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
             </div>
           </>
         )}
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-semibold bg-violet-50 text-violet-700 border-violet-200">
+          <div className="w-2 h-2 rounded-sm bg-violet-500" />
+          Workout
+        </div>
       </div>
 
       <div className="text-xs text-gray-400 text-center mb-5">
-        Tap any day to mark a match or training · Drag purple/green strips to reschedule
+        Tap any day to mark a match, training, or schedule a workout · Drag strips to reschedule
       </div>
 
       {upcoming.length > 0 && (
         <section className="mb-6">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Upcoming</h3>
           <div className="flex flex-col gap-2">
-            {upcoming.map(entry => {
-              const d = new Date(entry.date + 'T12:00:00');
-              const label = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+            {upcoming.map(item => {
+              const dateLabel = new Date(item.entry.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+              if (item.kind === 'workout') {
+                const w = item.entry as ScheduledWorkout;
+                return (
+                  <Card key={w.id} className="p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">🏋️</span>
+                      <div>
+                        <div className="text-sm font-semibold text-gray-800">{w.name}</div>
+                        <div className="text-xs text-gray-400">{dateLabel}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteScheduledWorkout(w.id)}
+                      className="p-1.5 text-gray-300 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </Card>
+                );
+              }
+              const e = item.entry as MatchEntry;
               return (
-                <Card key={entry.id} className="p-3 flex items-center justify-between">
+                <Card key={e.id} className="p-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-lg">{entry.type === 'match' ? '⚽' : '🏃'}</span>
+                    <span className="text-lg">{e.type === 'match' ? '⚽' : '🏃'}</span>
                     <div>
                       <div className="text-sm font-semibold text-gray-800">
-                        {entry.type === 'match' ? 'Match' : 'Team Training'}
-                        {entry.label && <span className="font-normal text-gray-500"> — {entry.label}</span>}
+                        {e.type === 'match' ? 'Match' : 'Team Training'}
+                        {e.label && <span className="font-normal text-gray-500"> — {e.label}</span>}
                       </div>
                       <div className="text-xs text-gray-400">
-                        {label}
-                        {entry.minutes && <span className="ml-2 text-brand-500">{entry.minutes} min</span>}
+                        {dateLabel}
+                        {e.minutes && <span className="ml-2 text-brand-500">{e.minutes} min</span>}
                       </div>
                     </div>
                   </div>
                   <button
-                    onClick={() => deleteMatchEntry(entry.id)}
+                    onClick={() => deleteMatchEntry(e.id)}
                     className="p-1.5 text-gray-300 hover:text-red-400 transition-colors"
                   >
                     <Trash2 size={14} />
@@ -804,10 +954,14 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
           dateStr={selectedDate}
           matchEntries={matchEntries}
           programmeSessions={programmeDates.get(selectedDate) ?? []}
+          templates={templates}
+          scheduledWorkouts={scheduledWorkouts}
           onSave={saveMatchEntry}
           onDelete={deleteMatchEntry}
           onClose={() => setSelectedDate(null)}
           onMoveSession={handleMoveSession}
+          onSaveScheduledWorkout={saveScheduledWorkout}
+          onDeleteScheduledWorkout={deleteScheduledWorkout}
         />
       )}
 

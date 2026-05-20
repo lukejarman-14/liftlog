@@ -3,6 +3,7 @@ import { Exercise } from '../types';
 export const DEFAULT_EXERCISES: Exercise[] = [
   // Chest
   { id: 'bench-press', suggestedRir: 2, name: 'Bench Press', category: 'Chest', defaultRestSeconds: 180, muscleGroups: ['Pectorals', 'Triceps', 'Front Delts'] },
+  { id: 'db-bench', suggestedRir: 2, name: 'DB Bench Press', category: 'Chest', defaultRestSeconds: 150, muscleGroups: ['Pectorals', 'Triceps', 'Front Delts'] },
   { id: 'incline-bench', suggestedRir: 2, name: 'Incline Bench Press', category: 'Chest', defaultRestSeconds: 180, muscleGroups: ['Upper Pectorals', 'Triceps'] },
   { id: 'decline-bench', suggestedRir: 2, name: 'Decline Bench Press', category: 'Chest', defaultRestSeconds: 180, muscleGroups: ['Lower Pectorals', 'Triceps'] },
   { id: 'db-fly', name: 'Dumbbell Fly', category: 'Chest', defaultRestSeconds: 90, muscleGroups: ['Pectorals'] },
@@ -63,7 +64,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'treadmill', name: 'Treadmill', category: 'Cardio', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'] },
   { id: 'rowing-machine', name: 'Rowing Machine', category: 'Cardio', defaultRestSeconds: 60, muscleGroups: ['Full Body', 'Cardiovascular'] },
   { id: 'bike', name: 'Stationary Bike', category: 'Cardio', defaultRestSeconds: 60, muscleGroups: ['Legs', 'Cardiovascular'] },
-  { id: 'jump-rope', name: 'Jump Rope', category: 'Cardio', defaultRestSeconds: 60, muscleGroups: ['Cardiovascular'] },
+  { id: 'squat-jump', name: 'Squat Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'], measureType: 'reps' },
 
   // Full Body
   { id: 'thruster', name: 'Thruster', category: 'Full Body', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Shoulders'] },
@@ -78,6 +79,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
 
   // Eccentric — injury prevention fundamentals
   { id: 'eccentric-nordic', name: 'Eccentric Nordic Curl', category: 'Eccentric', defaultRestSeconds: 120, muscleGroups: ['Hamstrings'], measureType: 'reps' },
+  { id: 'eccentric-slider-curl', name: 'Eccentric Slider Curl', category: 'Eccentric', defaultRestSeconds: 120, muscleGroups: ['Hamstrings'], measureType: 'reps' },
   { id: 'eccentric-calf-raise', name: 'Eccentric Calf Raise', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Gastrocnemius'], measureType: 'reps' },
   { id: 'eccentric-sl-rdl', name: 'Eccentric Single Leg RDL', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Hamstrings', 'Glutes'], measureType: 'reps' },
   { id: 'copenhagen-adductor', name: 'Copenhagen Adductor', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Adductors', 'Core'] },

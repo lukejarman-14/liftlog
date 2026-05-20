@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudSignOut, cloudResetPassword } from '../../lib/cloudSync';
+import { trackEvent } from '../../lib/analytics';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile, recommendedPlanId: string, userId?: string) => void;
@@ -74,6 +75,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   // If existingUserId is provided, skip landing and go straight to profile setup
   const [step, setStep] = useState(existingUserId ? 1 : 0);
   const [submitting, setSubmitting] = useState(false);
+
+  // Analytics: fire once when the user first lands in the onboarding flow
+  useEffect(() => { trackEvent('onboarding_started'); }, []);
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [step]);
 

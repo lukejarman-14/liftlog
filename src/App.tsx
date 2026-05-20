@@ -27,14 +27,18 @@ import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 import { usePremium } from './hooks/usePremium';
 import { Paywall } from './components/screens/Paywall';
 import { rcConfigure } from './lib/revenueCat';
+import { createStripeCheckout } from './lib/stripeCheckout';
+import { Capacitor } from '@capacitor/core';
 import {
   isSupabaseConfigured,
   cloudSignOut,
   cloudSaveData,
+  cloudLoadData,
   cloudDeleteAccount,
   getExistingSession,
 } from './lib/cloudSync';
 import { supabase } from './lib/supabase';
+import { identifyUser, resetAnalyticsUser } from './lib/analytics';
 
 // Detect recovery token in URL synchronously (before React mounts).
 // Supabase implicit flow appends #access_token=...&type=recovery to the redirectTo URL.
@@ -76,6 +80,16 @@ export default function App() {
         if (userId) {
           cloudUserIdRef.current = userId;
           setIsAuthenticated(true);
+          identifyUser(userId);
+          // Pull latest cloud data on first boot (skip if already reloaded this session)
+          if (!sessionStorage.getItem('vf_boot_synced')) {
+            sessionStorage.setItem('vf_boot_synced', '1');
+            const loaded = await cloudLoadData(userId);
+            if (loaded) {
+              window.location.reload();
+              return;
+            }
+          }
           // Boot RevenueCat and sync entitlement status
           await rcConfigure(userId);
           await premium.syncFromRC();
@@ -83,6 +97,18 @@ export default function App() {
           const code = await premium.getOrCreateReferralCode(userId);
           setMyReferralCode(code);
           await premium.claimReferralRewardsForUser(userId);
+
+          // Handle return from Stripe Checkout
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('stripe_success') === '1') {
+            window.history.replaceState({}, '', window.location.pathname);
+            // Webhook will update Supabase; sync premium from cloud
+            await premium.syncFromRC();
+            premium.refresh();
+            navigate({ screen: 'programme-builder' });
+          } else if (params.get('stripe_cancel') === '1') {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
         }
       })
       .catch(() => { /* session check failed — continue as unauthenticated */ })
@@ -270,8 +296,11 @@ export default function App() {
 
   const handleGenerateProgramme = (inputs: ProgrammeInputs) => {
     const programme = generateProgramme(inputs);
-    store.saveGeneratedProgramme(programme);
-    setCurrentProgramme(programme);
+    const finalProgramme = inputs.lifts?.length
+      ? { ...programme, strengthSetup: { lifts: inputs.lifts, configuredAt: Date.now() } }
+      : programme;
+    store.saveGeneratedProgramme(finalProgramme);
+    setCurrentProgramme(finalProgramme);
     navigate({ screen: 'generated-programme' });
   };
 
@@ -297,6 +326,7 @@ export default function App() {
     } catch {
       // logout proceeds regardless of cloud errors
     } finally {
+      resetAnalyticsUser();
       cloudUserIdRef.current = null;
       setIsAuthenticated(false);
     }
@@ -333,11 +363,12 @@ export default function App() {
         // pass the userId so Onboarding skips auth and goes straight to profile setup.
         existingUserId={isAuthenticated ? (cloudUserIdRef.current ?? undefined) : undefined}
         onComplete={(profile, planId, userId) => {
+          if (userId) identifyUser(userId, { name: profile.firstName, position: profile.position });
           handleOnboardingComplete(profile, planId, userId);
           setIsAuthenticated(true);
         }}
         onLoginSuccess={(userId) => {
-          if (userId) cloudUserIdRef.current = userId;
+          if (userId) { cloudUserIdRef.current = userId; identifyUser(userId); }
           setIsAuthenticated(true);
         }}
       />
@@ -349,7 +380,7 @@ export default function App() {
       <Login
         profile={store.userProfile}
         onLogin={(userId) => {
-          if (userId) cloudUserIdRef.current = userId;
+          if (userId) { cloudUserIdRef.current = userId; identifyUser(userId); }
           setIsAuthenticated(true);
         }}
       />
@@ -531,6 +562,11 @@ export default function App() {
           userProfile={store.userProfile}
           onGenerate={handleGenerateProgramme}
           onBack={() => navigate({ screen: 'plans' })}
+          existingStrengthSetup={
+            store.generatedProgrammes
+              .filter(p => p.strengthSetup)
+              .sort((a, b) => b.createdAt - a.createdAt)[0]?.strengthSetup
+          }
         />
       )}
 
@@ -547,6 +583,16 @@ export default function App() {
             navigate({ screen: 'programme-builder' });
           }}
           onSelectPlan={async (plan) => {
+            if (!Capacitor.isNativePlatform()) {
+              // Web: Stripe Checkout
+              const userId = cloudUserIdRef.current ?? '';
+              const userEmail = (await supabase?.auth.getUser())?.data.user?.email ?? '';
+              const result = await createStripeCheckout(plan, userId, userEmail);
+              if ('url' in result) {
+                window.location.href = result.url;
+              }
+              return;
+            }
             const ok = await premium.purchase(plan);
             if (ok) navigate({ screen: 'programme-builder' });
           }}

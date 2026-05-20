@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Zap, Check, Shield, Lock, RotateCcw, Tag } from 'lucide-react';
 import { RCPlan } from '../../hooks/usePremium';
+import { trackEvent } from '../../lib/analytics';
 
 interface PaywallProps {
   featureLabel?: string;
@@ -64,6 +65,23 @@ export function Paywall({
 
   const selectedPlan = PLANS.find(p => p.id === selected)!;
   const busy = purchasing || restoring;
+
+  // Analytics: fire once when the paywall is rendered
+  useEffect(() => { trackEvent('paywall_viewed', { trigger_source: 'plan_generation_click' }); }, []);
+
+  // Maps RC plan IDs → analytics tier names
+  const toTier = (plan: RCPlan): 'monthly' | 'annual' | 'lifetime' =>
+    plan === 'yearly' ? 'annual' : (plan as 'monthly' | 'lifetime');
+
+  const handleStartTrial = () => {
+    trackEvent('trial_started', { tier: toTier(selected) });
+    onStartTrial();
+  };
+
+  const handleSelectPlan = (plan: RCPlan) => {
+    trackEvent('trial_started', { tier: toTier(plan) });
+    onSelectPlan(plan);
+  };
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-white overflow-y-auto">
@@ -169,7 +187,7 @@ export function Paywall({
           {noTrialYet ? (
             <>
               <button
-                onClick={onStartTrial}
+                onClick={handleStartTrial}
                 disabled={busy}
                 className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50"
               >
@@ -178,11 +196,22 @@ export function Paywall({
               <p className="text-center text-xs text-gray-400">
                 No payment needed now. Subscribe before trial ends to keep access.
               </p>
+              <button
+                onClick={() => handleSelectPlan(selected)}
+                disabled={busy}
+                className="w-full py-3.5 rounded-2xl border-2 border-brand-500 text-brand-600 font-extrabold text-base hover:bg-brand-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {purchasing ? (
+                  <span className="w-5 h-5 border-2 border-brand-400 border-t-brand-600 rounded-full animate-spin" />
+                ) : (
+                  `${selected === 'lifetime' ? 'Buy' : 'Subscribe'} Now — ${selectedPlan.price}`
+                )}
+              </button>
             </>
           ) : (
             <>
               <button
-                onClick={() => onSelectPlan(selected)}
+                onClick={() => handleSelectPlan(selected)}
                 disabled={busy}
                 className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >

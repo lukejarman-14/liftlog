@@ -427,13 +427,14 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
     ],
     tips: ['For HIIT: alternate 20–30 s maximum effort with 40–60 s easy pedalling.'],
   },
-  'jump-rope': {
+  'squat-jump': {
     how: [
-      'Hold handles at hip height. Jump with feet together, clearing the rope with minimal height (2–3 cm).',
-      'Land on the balls of your feet.',
-      'Use wrist rotation to turn the rope, not your arms.',
+      'Stand with feet shoulder-width apart. Drop into a quarter-to-half squat, then explode vertically off both feet.',
+      'Drive your arms upward for momentum. Reach full hip, knee, and ankle extension at takeoff.',
+      'Land softly through the balls of your feet, absorbing through ankles, knees, and hips.',
+      'Reset fully between reps — each jump should be maximum effort.',
     ],
-    tips: ['Start with 30 s on / 30 s rest. Work up to 60 s continuous.'],
+    tips: ['Focus on maximum height, not speed. Full CNS reset between reps produces better power output.'],
   },
 
   // ── Full Body ─────────────────────────────────────────────────────────────

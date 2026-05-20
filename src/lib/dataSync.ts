@@ -20,6 +20,7 @@ export const STORAGE_KEYS = [
   'vf_daily_readiness',
   'vf_football_intensity',
   'vf_premium',
+  'vf_scheduled_workouts',
 ] as const;
 
 export type BackupFile = {
