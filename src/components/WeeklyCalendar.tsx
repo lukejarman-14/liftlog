@@ -113,6 +113,9 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
       }
     });
   }
+  // Sort sessions into Mon→Sun order so cards always appear chronologically
+  progSessionsThisWeek.sort((a, b) => a.effectiveDayIdx - b.effectiveDayIdx);
+
   const progDayIndices = new Set(progSessionsByDay.keys());
 
   const handleDayTap = (daySessions: import('../types').ProgrammeSession[]) => {
