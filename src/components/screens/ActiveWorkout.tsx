@@ -776,10 +776,13 @@ function ExerciseSection({
 
   if (!exercise) return null;
 
-  // Isometric exercises use time input regardless of stored measureType
-  const measureType: MeasureType = exercise.category === 'Isometric'
-    ? 'time'
-    : (exercise.measureType ?? 'strength');
+  // Isometric + timed-conditioning exercises use countdown timer
+  // (conditioning: only when targetReps > 1, i.e. a real work duration was parsed — not a distance sprint)
+  const measureType: MeasureType =
+    exercise.category === 'Isometric' ||
+    (exercise.category === 'Conditioning' && sessionExercise.targetReps > 1)
+      ? 'time'
+      : (exercise.measureType ?? 'strength');
   const unit        = exercise.unit;
 
   const lastSession = getLastSession(sessionExercise.exerciseId, sessionId);
@@ -1151,50 +1154,6 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     }
   }, [session, onUpdateSession, timer]);
 
-  // Mark every set of a conditioning exercise complete in one shot
-  const handleCompleteAllSets = useCallback((exerciseIdx: number) => {
-    const ex = session.exercises[exerciseIdx];
-    if (!ex) return;
-    const now = Date.now();
-    const sets: CompletedSet[] = Array.from({ length: ex.targetSets }, (_, i) => ({
-      weight: 0,
-      reps: ex.targetReps ?? 1,
-      completedAt: now + i,
-    }));
-    const updated: WorkoutSession = {
-      ...session,
-      exercises: session.exercises.map((e, i) => i !== exerciseIdx ? e : { ...e, sets }),
-    };
-    onUpdateSession(updated);
-  }, [session, onUpdateSession]);
-
-  // Auto-complete all exercises then finish (used by conditioning session view)
-  const handleConditioningFinish = useCallback(() => {
-    const now = Date.now();
-    const finalSession: WorkoutSession = {
-      ...session,
-      endTime: now,
-      exercises: session.exercises.map(ex => ({
-        ...ex,
-        sets: ex.sets.length >= ex.targetSets
-          ? ex.sets
-          : Array.from({ length: ex.targetSets }, (_, i) => ({
-              weight: 0,
-              reps: ex.targetReps ?? 1,
-              completedAt: now + i,
-            })),
-      })),
-    };
-    const pbs = computeNewPBs(finalSession);
-    setShowFinish(false);
-    if (pbs.length > 0) {
-      setPendingSession(finalSession);
-      setNewPBs(pbs);
-      setShowPBModal(true);
-    } else {
-      doFinish(finalSession);
-    }
-  }, [session, computeNewPBs, doFinish]);
 
   useEffect(() => {
     if (timer.finished) {
@@ -1230,51 +1189,19 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
       <Layout
         title={session.name}
         onBack={() => setShowFinish(true)}
-        rightAction={<Button size="sm" onClick={isConditioningSession ? handleConditioningFinish : () => setShowFinish(true)}>Finish</Button>}
+        rightAction={<Button size="sm" onClick={() => setShowFinish(true)}>Finish</Button>}
       >
-        {isConditioningSession ? (
-          /* ── Conditioning session view: single elapsed timer ────────────── */
-          <div className="flex flex-col gap-4">
-            {/* Big elapsed timer */}
-            <div className="flex flex-col items-center py-6">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Elapsed</span>
-              <span className="text-5xl font-extrabold text-gray-900 tabular-nums">{fmtElapsed(condElapsedSecs)}</span>
-              <span className="text-xs text-brand-500 font-semibold mt-2 uppercase tracking-wide">Conditioning</span>
-            </div>
-
-            {/* Exercise info cards — read-only, no set logging */}
-            {session.exercises.map((ex) => {
-              const exercise = getExercise(ex.exerciseId);
-              if (!exercise) return null;
-              return (
-                <Card key={ex.exerciseId} className="p-4">
-                  {ex.blockTitle && (
-                    <p className="text-[10px] font-bold text-brand-500 uppercase tracking-widest mb-1">
-                      {ex.blockTitle.replace(/^[^\w\s]*\s*/, '')}
-                    </p>
-                  )}
-                  <p className="font-semibold text-gray-900 text-sm mb-0.5">{exercise.name}</p>
-                  <p className="text-xs text-gray-400 mb-2">
-                    {ex.targetSets > 1 ? `${ex.targetSets} × ` : ''}
-                    {ex.targetReps ? `${ex.targetReps}` : ''}
-                    {ex.restSeconds > 0 ? ` · ${ex.restSeconds}s rest` : ''}
-                  </p>
-                </Card>
-              );
-            })}
-
-            <Button variant="danger" fullWidth onClick={handleConditioningFinish} className="mt-2 mb-4">
-              Finish Workout
-            </Button>
-          </div>
-        ) : (
-          /* ── Normal strength session view ───────────────────────────────── */
-          <>
-            {/* Progress bar + RIR toggle */}
-            <div className="mb-5">
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
-                <span>{completedSets}/{totalSets} sets · {progressPct}%</span>
-                <div className="flex items-center gap-2">
+        {/* Progress bar — for conditioning shows interval count, for strength shows set count */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+            <span>
+              {isConditioningSession
+                ? `${completedSets}/${totalSets} intervals · ${fmtElapsed(condElapsedSecs)}`
+                : `${completedSets}/${totalSets} sets · ${progressPct}%`}
+            </span>
+            <div className="flex items-center gap-2">
+              {!isConditioningSession && (
+                <>
                   <span>{elapsedMins}m elapsed</span>
                   <button
                     onClick={() => updateSettings({ showRir: !showRir })}
@@ -1288,82 +1215,48 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
                     <span className={`w-2 h-2 rounded-full ${showRir ? 'bg-brand-500' : 'bg-gray-300'}`} />
                     RIR
                   </button>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="w-full bg-gray-100 rounded-full h-2">
+            <div
+              className="bg-brand-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {session.exercises.map((ex, exerciseIdx) => (
+            <React.Fragment key={ex.exerciseId}>
+              {ex.blockTitle && (
+                <div className="flex items-center gap-2 mt-2 mb-1">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 whitespace-nowrap">
+                    {ex.blockTitle.replace(/^[^\w\s]*\s*/, '')}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-200" />
                 </div>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-2">
-                <div
-                  className="bg-brand-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-            </div>
+              )}
+              <ExerciseSection
+                sessionExercise={ex}
+                sessionId={session.id}
+                showTutorials={showTutorials}
+                globalShowRir={showRir}
+                restInfo={exerciseIdx === restingExerciseIdx ? restInfo : undefined}
+                onCompleteSet={(setIndex, set) => handleCompleteSet(exerciseIdx, setIndex, set)}
+                onEditSet={(setIndex, set) => handleEditSet(exerciseIdx, setIndex, set)}
+              />
+            </React.Fragment>
+          ))}
+        </div>
 
-            <div className="flex flex-col gap-3">
-              {session.exercises.map((ex, exerciseIdx) => {
-                const exercise = getExercise(ex.exerciseId);
-                const isCondEx = exercise?.category === 'Conditioning';
-                return (
-                  <React.Fragment key={ex.exerciseId}>
-                    {ex.blockTitle && (
-                      <div className="flex items-center gap-2 mt-2 mb-1">
-                        <div className="flex-1 h-px bg-gray-200" />
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 whitespace-nowrap">
-                          {ex.blockTitle.replace(/^[^\w\s]*\s*/, '')}
-                        </span>
-                        <div className="flex-1 h-px bg-gray-200" />
-                      </div>
-                    )}
-                    {isCondEx ? (
-                      /* Conditioning exercise within a mixed session → single Mark Done card */
-                      <Card key={ex.exerciseId} className={`p-4 ${ex.sets.length >= ex.targetSets ? 'opacity-75' : ''}`}>
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                            {ex.sets.length >= ex.targetSets && <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />}
-                            <span className="font-semibold text-gray-900 text-sm">{exercise?.name}</span>
-                          </div>
-                          <span className="text-[10px] font-bold bg-brand-50 text-brand-600 rounded-full px-2 py-0.5 uppercase tracking-wide">Cond</span>
-                        </div>
-                        <p className="text-xs text-gray-400 mb-3">
-                          {ex.targetSets > 1 ? `${ex.targetSets} × ` : ''}
-                          {ex.targetReps ? `${ex.targetReps}` : ''}
-                          {ex.restSeconds > 0 ? ` · ${ex.restSeconds}s rest` : ''}
-                        </p>
-                        {ex.sets.length >= ex.targetSets ? (
-                          <div className="w-full py-2 rounded-xl bg-green-50 text-green-700 text-sm font-semibold text-center">
-                            ✓ Complete
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleCompleteAllSets(exerciseIdx)}
-                            className="w-full py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold active:scale-95 transition-transform"
-                          >
-                            Mark Done
-                          </button>
-                        )}
-                      </Card>
-                    ) : (
-                      <ExerciseSection
-                        sessionExercise={ex}
-                        sessionId={session.id}
-                        showTutorials={showTutorials}
-                        globalShowRir={showRir}
-                        restInfo={exerciseIdx === restingExerciseIdx ? restInfo : undefined}
-                        onCompleteSet={(setIndex, set) => handleCompleteSet(exerciseIdx, setIndex, set)}
-                        onEditSet={(setIndex, set) => handleEditSet(exerciseIdx, setIndex, set)}
-                      />
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-
-            <div className="mt-6">
-              <Button variant="danger" fullWidth onClick={() => setShowFinish(true)} className="mb-4">
-                Finish Workout
-              </Button>
-            </div>
-          </>
-        )}
+        <div className="mt-6">
+          <Button variant="danger" fullWidth onClick={() => setShowFinish(true)} className="mb-4">
+            Finish Workout
+          </Button>
+        </div>
       </Layout>
 
       {showFinish && (

@@ -125,6 +125,53 @@ export const NAME_TO_ID: Record<string, string> = {
   'cardiac output circuit': 'hiit-run',
 };
 
+/** Parse a raw time string like "30s", "4 min", "3:00", "90s" → seconds (0 if unrecognised). */
+function parseTimeSecs(s: string): number {
+  if (!s) return 0;
+  const mm = s.match(/(\d+):(\d+)/);
+  if (mm) return parseInt(mm[1], 10) * 60 + parseInt(mm[2], 10);
+  const sec = s.match(/(\d+)\s*s\b/i);
+  if (sec) return parseInt(sec[1], 10);
+  const min = s.match(/(\d+)\s*min/i);
+  if (min) return parseInt(min[1], 10) * 60;
+  return 0;
+}
+
+/**
+ * For interval conditioning exercises, extract the per-rep work duration in seconds.
+ * e.g. "30s hard · 30s rest" → 30, "4 min @ 90% HRmax · 3 min jog" → 240,
+ *      "15s sprint · 15s jog" → 15, "8 × 30m · 2 min rest" → 0 (distance-based, no timer)
+ */
+function parseCondWorkSecs(repsStr: string): number {
+  if (!repsStr) return 0;
+  // Pattern: starts with a time value: "30s …", "4 min …", "40s @…"
+  const leadSec = repsStr.match(/^(\d+)\s*s\b/i);
+  if (leadSec) return parseInt(leadSec[1], 10);
+  const leadMin = repsStr.match(/^(\d+)\s*min/i);
+  if (leadMin) return parseInt(leadMin[1], 10) * 60;
+  // Pattern: "N × <time>" e.g. "6 × 4 min on · 2 min walk"
+  const afterX = repsStr.match(/×\s*(\d+)\s*min/i);
+  if (afterX) return parseInt(afterX[1], 10) * 60;
+  const afterXs = repsStr.match(/×\s*(\d+)\s*s\b/i);
+  if (afterXs) return parseInt(afterXs[1], 10);
+  return 0; // distance-based (e.g. "8 × 30m") — no work timer
+}
+
+/**
+ * Extract the rest duration from a conditioning reps string.
+ * Looks at the segment after '·'; falls back to restStr (pe.rest).
+ * e.g. "30s hard · 30s rest" → 30, "4 min @ 90% · 3 min jog" → 180
+ */
+function parseCondRestSecs(repsStr: string, restStr: string): number {
+  const parts = repsStr.split('·');
+  if (parts.length > 1) {
+    const s = parseTimeSecs(parts[parts.length - 1].trim());
+    if (s > 0) return s;
+  }
+  // Fall back to pe.rest
+  return parseRest(restStr);
+}
+
 function parseRest(rest: string): number {
   if (!rest) return 90;
   const m = rest.match(/(\d+):(\d+)/);
@@ -190,10 +237,18 @@ export function sessionToWorkoutExercises(
         const targetSets = isTimedAerobic ? 1
           : isCond ? Math.min(Math.max(parseInt(pe.sets, 10) || 1, 1), 25)
           : parseSets(pe.sets);
+        // For interval conditioning: parse actual work duration from pe.reps.
+        // e.g. "30s hard · 30s rest" → 30s work. Distance-based ("8 × 30m") → 1 (tap to complete).
+        const condWorkSecs = isCond && !isTimedAerobic ? parseCondWorkSecs(pe.reps) : 0;
         const targetReps = isTimedAerobic
           ? (() => { const m = pe.reps.match(/(\d+)\s*min/); return m ? parseInt(m[1], 10) * 60 : 1800; })()
-          : isCond ? 1 : parseReps(pe.reps);
-        const restSeconds = isTimedAerobic ? 0 : isCond ? 30 : parseRest(pe.rest);
+          : isCond ? (condWorkSecs > 0 ? condWorkSecs : 1)
+          : parseReps(pe.reps);
+        // For interval conditioning: parse rest from the reps string (e.g. "· 30s rest")
+        // rather than using the hardcoded 30s fallback.
+        const restSeconds = isTimedAerobic ? 0
+          : isCond ? parseCondRestSecs(pe.reps, pe.rest)
+          : parseRest(pe.rest);
         result.push({
           exerciseId: id,
           targetSets,
