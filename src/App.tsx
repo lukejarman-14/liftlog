@@ -41,13 +41,21 @@ import { supabase } from './lib/supabase';
 import { identifyUser, resetAnalyticsUser } from './lib/analytics';
 
 // Detect recovery token in URL synchronously (before React mounts).
-// Supabase implicit flow appends #access_token=...&type=recovery to the redirectTo URL.
-// This lets us bypass the session spinner and auth guards immediately.
+// Covers both Supabase flow styles:
+//   Implicit flow — #access_token=...&type=recovery (older projects)
+//   PKCE flow     — ?code=XXXX                      (default for newer projects)
+// Note: Supabase clears ?code= via replaceState during createClient() init, so
+// by the time React renders this may already be gone. The sessionStorage flag set
+// in index.html is the reliable source for PKCE — we check both here as belt-and-braces.
 function detectRecoveryUrl(): boolean {
   if (typeof window === 'undefined') return false;
   const hash = window.location.hash;
   const search = window.location.search;
-  return hash.includes('type=recovery') || search.includes('type=recovery');
+  return (
+    hash.includes('type=recovery') ||
+    search.includes('type=recovery') ||
+    sessionStorage.getItem('vf_auth_redirect') === '1'
+  );
 }
 
 export default function App() {
@@ -81,8 +89,12 @@ export default function App() {
           cloudUserIdRef.current = userId;
           setIsAuthenticated(true);
           identifyUser(userId);
-          // Pull latest cloud data on first boot (skip if already reloaded this session)
-          if (!sessionStorage.getItem('vf_boot_synced')) {
+          // Pull latest cloud data on first boot (skip if already reloaded this session).
+          // Also skip if we arrived via a Supabase auth redirect (?code= for PKCE reset links)
+          // — reloading would destroy the code before onAuthStateChange fires PASSWORD_RECOVERY.
+          const isAuthRedirect = sessionStorage.getItem('vf_auth_redirect') === '1';
+          sessionStorage.removeItem('vf_auth_redirect'); // always clear so it doesn't persist
+          if (!sessionStorage.getItem('vf_boot_synced') && !isAuthRedirect) {
             sessionStorage.setItem('vf_boot_synced', '1');
             const loaded = await cloudLoadData(userId);
             if (loaded) {

@@ -958,7 +958,7 @@ function ExerciseSection({
                       measureType={measureType}
                       unit={unit}
                       targetRir={showRir ? targetRir : undefined}
-                      isWarmup={!showRir}
+                      isWarmup={exercise.isWarmup ?? false}
                       onComplete={set => onCompleteSet(i, set)}
                       onEdit={set => onEditSet(i, set)}
                     />

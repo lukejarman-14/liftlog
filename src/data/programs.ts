@@ -21,8 +21,11 @@ function ex(
   targetReps: number,
   targetWeight: number,
   restSeconds: number,
+  blockTitle?: string,
 ): WorkoutExercise {
-  return { exerciseId, targetSets, targetReps, targetWeight, restSeconds };
+  return blockTitle
+    ? { exerciseId, targetSets, targetReps, targetWeight, restSeconds, blockTitle }
+    : { exerciseId, targetSets, targetReps, targetWeight, restSeconds };
 }
 
 export const BUILT_IN_PROGRAMS: Program[] = [
@@ -287,7 +290,7 @@ export const BUILT_IN_PROGRAMS: Program[] = [
           ex('bench-press', 3, 8,  55, 150),
           ex('barbell-row', 3, 8,  50, 150),
           ex('ohp',         2, 10, 35, 120),
-          ex('plank',       3, 1,  0,  60),
+          ex('plank',       3, 30, 0,  60),
         ],
       },
       {
@@ -334,24 +337,18 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Broad jumps, squat-based strength, tendon stiffness plyos, hamstring eccentrics, hip isometrics, then repeated sprints.',
         program: 'Footballer Weekly Sessions',
         exercises: [
-          // 1 — Max Velocity
-          ex('broad-jump',           4, 5,  0,   120),
+          ex('broad-jump',           4, 5,  0,   120, '⚡ Max Velocity'),
           ex('box-jump',             3, 5,  0,   120),
-          // 2 — Max Strength
-          ex('squat',                4, 6,  85,  240),
+          ex('squat',                4, 6,  85,  240, '💪 Max Strength'),
           ex('rdl',                  3, 8,  70,  180),
           ex('hip-thrust',           3, 10, 80,  120),
-          // 3 — Tendon Stiffness
-          ex('lateral-bound',        3, 8,  0,   90),
+          ex('lateral-bound',        3, 8,  0,   90,  '🦵 Tendon Stiffness'),
           ex('pogo-jump',            3, 20, 0,   60),
-          // 4 — Eccentric
-          ex('eccentric-nordic',     3, 2,  0,   120),
+          ex('eccentric-nordic',     3, 2,  0,   120, '📉 Eccentric'),
           ex('eccentric-calf-raise', 3, 12, 0,   90),
-          // 5 — Isometric
-          ex('glute-bridge-hold',    3, 1,  0,   60),
-          ex('wall-sit',             2, 1,  0,   60),
-          // 6 — Conditioning
-          ex('repeated-sprint',      6, 1,  0,   30),
+          ex('glute-bridge-hold',    3, 30, 0,   60,  '🧱 Isometric'),
+          ex('wall-sit',             2, 30, 0,   60),
+          ex('repeated-sprint',      6, 1,  0,   30,  '🏃 Conditioning'),
         ],
       },
       {
@@ -360,25 +357,19 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Jumps, upper body strength, reactive tendon stiffness plyos, hamstring/calf eccentrics, core isometrics, then interval conditioning.',
         program: 'Footballer Weekly Sessions',
         exercises: [
-          // 1 — Max Velocity
-          ex('approach-jump',        3, 5,  0,   120),
+          ex('approach-jump',        3, 5,  0,   120, '⚡ Max Velocity'),
           ex('box-jump',             3, 5,  0,   120),
-          // 2 — Max Strength
-          ex('bench-press',          4, 6,  70,  180),
+          ex('bench-press',          4, 6,  70,  180, '💪 Max Strength'),
           ex('barbell-row',          4, 6,  60,  180),
           ex('ohp',                  3, 8,  45,  150),
           ex('pull-up',              3, 8,  0,   120),
-          // 3 — Tendon Stiffness
-          ex('reactive-drop-jump',   3, 5,  0,   150),
+          ex('reactive-drop-jump',   3, 5,  0,   150, '🦵 Tendon Stiffness'),
           ex('pogo-jump',            3, 20, 0,   60),
-          // 4 — Eccentric
-          ex('eccentric-sl-rdl',     3, 8,  0,   90),
+          ex('eccentric-sl-rdl',     3, 8,  0,   90,  '📉 Eccentric'),
           ex('eccentric-calf-raise', 3, 12, 0,   90),
-          // 5 — Isometric
-          ex('dead-hang',            3, 1,  0,   60),
-          ex('side-plank',           2, 1,  0,   60),
-          // 6 — Conditioning
-          ex('hiit-run',             8, 1,  0,   30),
+          ex('dead-hang',            3, 20, 0,   60,  '🧱 Isometric'),
+          ex('side-plank',           2, 20, 0,   60),
+          ex('hiit-run',             8, 1,  0,   30,  '🏃 Conditioning'),
         ],
       },
       {
@@ -387,24 +378,18 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Sprints, drop jumps, full posterior chain, lateral tendon stiffness, eccentric circuit, core isometrics, then match-tempo conditioning.',
         program: 'Footballer Weekly Sessions',
         exercises: [
-          // 1 — Max Velocity
-          ex('sprint',               4, 1,  0,   180),
+          ex('sprint',               4, 1,  0,   180, '⚡ Max Velocity'),
           ex('depth-jump',           4, 5,  0,   150),
           ex('approach-jump',        3, 5,  0,   120),
-          // 2 — Max Strength
-          ex('deadlift',             3, 5,  100, 240),
+          ex('deadlift',             3, 5,  100, 240, '💪 Max Strength'),
           ex('front-squat',          3, 6,  65,  180),
-          // 3 — Tendon Stiffness
-          ex('lateral-bound',        3, 8,  0,   90),
+          ex('lateral-bound',        3, 8,  0,   90,  '🦵 Tendon Stiffness'),
           ex('skater-jump',          3, 10, 0,   90),
-          // 4 — Eccentric
-          ex('eccentric-nordic',     3, 2,  0,   120),
+          ex('eccentric-nordic',     3, 2,  0,   120, '📉 Eccentric'),
           ex('eccentric-calf-raise', 3, 12, 0,   90),
-          // 5 — Isometric
-          ex('copenhagen-plank',     3, 1,  0,   60),
-          ex('glute-bridge-hold',    2, 1,  0,   60),
-          // 6 — Conditioning
-          ex('shuttle-run',          5, 1,  0,   60),
+          ex('copenhagen-plank',     3, 20, 0,   60,  '🧱 Isometric'),
+          ex('glute-bridge-hold',    2, 30, 0,   60),
+          ex('shuttle-run',          5, 1,  0,   60,  '🏃 Conditioning'),
         ],
       },
     ],
@@ -420,11 +405,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Tendon loading, pogo work, reactive ground contact. Start every plyo block here.',
         program: 'Football Plyometrics',
         exercises: [
-          ex('pogo-jump',      4, 20, 0, 60),
+          ex('pogo-jump',      4, 20, 0, 60,  '🦵 Tendon Stiffness'),
           ex('ankle-hop',      4, 20, 0, 60),
-          ex('box-jump',       4, 5,  0, 90),
+          ex('box-jump',       4, 5,  0, 90,  '⚡ Power'),
           ex('broad-jump',     4, 5,  0, 120),
-          ex('calf-raise',     3, 20, 0, 60),
+          ex('calf-raise',     3, 20, 0, 60,  '💪 Calf Strength'),
         ],
       },
       {
@@ -433,11 +418,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Acceleration mechanics, horizontal bounding, sprint starts.',
         program: 'Football Plyometrics',
         exercises: [
-          ex('sprint',         6, 1,  0, 180),
-          ex('broad-jump',     5, 5,  0, 120),
+          ex('sprint',         6, 1,  0, 180, '⚡ Acceleration'),
+          ex('broad-jump',     5, 5,  0, 120, '↔️ Horizontal Power'),
           ex('lateral-bound',  4, 8,  0, 90),
           ex('bounding',       4, 8,  0, 120),
-          ex('hurdle-hop',     3, 8,  0, 90),
+          ex('hurdle-hop',     3, 8,  0, 90,  '🔄 Reactive'),
         ],
       },
       {
@@ -446,10 +431,10 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'CMJ development, depth jumps, approach jumps for aerial duels.',
         program: 'Football Plyometrics',
         exercises: [
-          ex('box-jump',       4, 5,  0, 120),
+          ex('box-jump',       4, 5,  0, 120, '⚡ Vertical Power'),
           ex('depth-jump',     4, 5,  0, 150),
           ex('approach-jump',  4, 5,  0, 120),
-          ex('hurdle-hop',     3, 8,  0, 90),
+          ex('hurdle-hop',     3, 8,  0, 90,  '🔄 Reactive'),
           ex('single-leg-hop', 3, 8,  0, 90),
         ],
       },
@@ -459,11 +444,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Reactive ground contact, lateral stiffness and ankle spring — builds the elastic energy system.',
         program: 'Football Plyometrics',
         exercises: [
-          ex('reactive-drop-jump', 4, 5,  0, 150),
+          ex('reactive-drop-jump', 4, 5,  0, 150, '🦵 Reactive Stiffness'),
           ex('lateral-box-jump',   4, 8,  0, 90),
           ex('skater-jump',        4, 10, 0, 90),
-          ex('lateral-bound',      3, 8,  0, 90),
-          ex('pogo-jump',          3, 20, 0, 60),
+          ex('lateral-bound',      3, 8,  0, 90,  '↔️ Lateral Power'),
+          ex('pogo-jump',          3, 20, 0, 60,  '⚡ Ankle Spring'),
           ex('ankle-hop',          3, 20, 0, 60),
         ],
       },
@@ -480,10 +465,10 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Volume base. 8–12 reps, moderate load. Build muscle and work capacity.',
         program: 'Football Strength',
         exercises: [
-          ex('squat',        4, 10, 70,  150),
+          ex('squat',        4, 10, 70,  150, '🦵 Quad Dominant'),
           ex('rdl',          4, 10, 60,  120),
           ex('leg-press',    3, 12, 100, 90),
-          ex('nordic-curl',  3, 8,  0,   120),
+          ex('nordic-curl',  3, 8,  0,   120, '💪 Posterior Chain'),
           ex('hip-thrust',   4, 12, 70,  90),
           ex('calf-raise',   4, 15, 40,  45),
         ],
@@ -494,9 +479,9 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Heavy loading. 3–6 reps, high intensity. Build maximal force output.',
         program: 'Football Strength',
         exercises: [
-          ex('squat',        5, 5,  90,  240),
+          ex('squat',        5, 5,  90,  240, '🦵 Main Lifts'),
           ex('deadlift',     4, 4,  110, 240),
-          ex('rdl',          3, 6,  80,  180),
+          ex('rdl',          3, 6,  80,  180, '💪 Accessory'),
           ex('nordic-curl',  4, 6,  0,   120),
           ex('hip-thrust',   4, 8,  90,  120),
           ex('calf-raise',   3, 12, 60,  60),
@@ -508,10 +493,10 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Low reps, explosive intent. Convert strength into speed and power on the pitch.',
         program: 'Football Strength',
         exercises: [
-          ex('sprint',       4, 1,  0,   180),
+          ex('sprint',       4, 1,  0,   180, '⚡ Max Velocity'),
           ex('box-jump',     4, 5,  0,   120),
           ex('broad-jump',   3, 5,  0,   120),
-          ex('squat',        4, 3,  95,  240),
+          ex('squat',        4, 3,  95,  240, '💪 Loaded Power'),
           ex('hip-thrust',   4, 5,  100, 120),
         ],
       },
@@ -521,11 +506,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Upper body pressing, pulling and shoulder resilience for football.',
         program: 'Football Strength',
         exercises: [
-          ex('bench-press',    4, 6,  70,  180),
+          ex('bench-press',    4, 6,  70,  180, '💪 Primary Lifts'),
           ex('barbell-row',    4, 6,  60,  180),
           ex('ohp',            3, 8,  45,  150),
           ex('pull-up',        4, 8,  0,   120),
-          ex('face-pull',      3, 15, 20,  60),
+          ex('face-pull',      3, 15, 20,  60,  '🛡️ Shoulder Resilience'),
           ex('barbell-curl',   2, 12, 30,  90),
           ex('tricep-pushdown',2, 12, 25,  60),
         ],
@@ -536,11 +521,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Minimal effective dose — keeps all adaptations with reduced volume. Use during congested fixture periods or alongside heavy pitch load.',
         program: 'Football Strength',
         exercises: [
-          ex('squat',        2, 5,  90,  240),
+          ex('squat',        2, 5,  90,  240, '🦵 Lower'),
           ex('rdl',          2, 5,  80,  180),
-          ex('bench-press',  2, 5,  70,  180),
+          ex('bench-press',  2, 5,  70,  180, '💪 Upper'),
           ex('barbell-row',  2, 5,  60,  180),
-          ex('nordic-curl',  2, 6,  0,   120),
+          ex('nordic-curl',  2, 6,  0,   120, '🛡️ Resilience'),
           ex('hip-thrust',   2, 8,  90,  120),
         ],
       },
@@ -557,11 +542,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Nordic-based eccentric loading. Run 2–3x per week year-round.',
         program: 'Injury Prevention',
         exercises: [
-          ex('eccentric-nordic',   3, 2,  0, 120),
-          ex('eccentric-calf-raise', 3, 12, 0, 90),
-          ex('rdl',                3, 10, 50, 90),
-          ex('hip-thrust',         3, 10, 60, 90),
-          ex('glute-bridge-hold',  3, 1,  0, 60),
+          ex('eccentric-nordic',     3, 2,  0,  120, '📉 Eccentric Loading'),
+          ex('eccentric-calf-raise', 3, 12, 0,  90),
+          ex('rdl',                  3, 10, 50, 90,  '💪 Strength'),
+          ex('hip-thrust',           3, 10, 60, 90),
+          ex('glute-bridge-hold',    3, 30, 0,  60,  '🧱 Isometric'),
         ],
       },
       {
@@ -570,10 +555,10 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Copenhagen progressions and adductor loading. Key for groin injury prevention.',
         program: 'Injury Prevention',
         exercises: [
-          ex('copenhagen-adductor',  4, 8,  0, 90),
-          ex('copenhagen-plank',     3, 1,  0, 60),
-          ex('lateral-band-walk',    3, 20, 0, 60),
-          ex('side-plank',           3, 1,  0, 60),
+          ex('copenhagen-adductor', 4, 8,  0, 90,  '📉 Eccentric Loading'),
+          ex('copenhagen-plank',    3, 20, 0, 60,  '🧱 Isometric'),
+          ex('lateral-band-walk',   3, 20, 0, 60,  '💪 Activation'),
+          ex('side-plank',          3, 20, 0, 60),
         ],
       },
       {
@@ -582,12 +567,12 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Quad dominance and VMO activation. Good for ACL prevention and return to play.',
         program: 'Injury Prevention',
         exercises: [
-          ex('reverse-nordic',      3, 8,  0, 90),
-          ex('eccentric-sl-rdl',    3, 8,  0, 90),
-          ex('leg-extension',       3, 15, 30, 60),
-          ex('single-leg-hop',      3, 8,  0, 90),
-          ex('lunge',               3, 12, 20, 90),
-          ex('wall-sit',            3, 1,  0, 60),
+          ex('reverse-nordic',   3, 8,  0,  90,  '📉 Eccentric Loading'),
+          ex('eccentric-sl-rdl', 3, 8,  0,  90),
+          ex('leg-extension',    3, 15, 30, 60,  '💪 VMO Strength'),
+          ex('single-leg-hop',   3, 8,  0,  90),
+          ex('lunge',            3, 12, 20, 90),
+          ex('wall-sit',         3, 30, 0,  60,  '🧱 Isometric'),
         ],
       },
       {
@@ -596,9 +581,9 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Eccentric calf loading for Achilles tendon health. Critical for high mileage players.',
         program: 'Injury Prevention',
         exercises: [
-          ex('eccentric-calf-raise', 4, 15, 0, 90),
-          ex('calf-raise-hold',      3, 1,  0, 45),
-          ex('pogo-jump',            3, 20, 0, 60),
+          ex('eccentric-calf-raise', 4, 15, 0, 90,  '📉 Eccentric Loading'),
+          ex('calf-raise-hold',      3, 45, 0, 45,  '🧱 Isometric'),
+          ex('pogo-jump',            3, 20, 0, 60,  '🦵 Tendon Stiffness'),
           ex('ankle-hop',            3, 20, 0, 60),
         ],
       },
@@ -608,11 +593,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'Hip flexor and glute eccentric/isometric loading. Reduces strain from repeated kicking.',
         program: 'Injury Prevention',
         exercises: [
-          ex('eccentric-sl-rdl',     4, 8,  0, 90),
-          ex('iso-lunge-hold',       3, 1,  0, 60),
-          ex('hanging-leg-raise',    3, 12, 0, 60),
-          ex('glute-bridge-hold',    3, 1,  0, 60),
-          ex('plank',                3, 1,  0, 60),
+          ex('eccentric-sl-rdl',  4, 8,  0, 90, '📉 Eccentric Loading'),
+          ex('iso-lunge-hold',    3, 30, 0, 60, '🧱 Isometric'),
+          ex('hanging-leg-raise', 3, 12, 0, 60, '💪 Core Strength'),
+          ex('glute-bridge-hold', 3, 30, 0, 60),
+          ex('plank',             3, 30, 0, 60),
         ],
       },
       {
@@ -621,11 +606,11 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: 'All-round daily injury prevention. 20 minutes, 3–5x per week.',
         program: 'Injury Prevention',
         exercises: [
-          ex('eccentric-nordic',     3, 2,  0, 120),
+          ex('eccentric-nordic',     3, 2,  0, 120, '📉 Eccentric Loading'),
           ex('copenhagen-adductor',  2, 8,  0, 90),
           ex('eccentric-calf-raise', 2, 12, 0, 90),
-          ex('copenhagen-plank',     2, 1,  0, 60),
-          ex('side-plank',           2, 1,  0, 60),
+          ex('copenhagen-plank',     2, 20, 0, 60,  '🧱 Isometric'),
+          ex('side-plank',           2, 20, 0, 60),
         ],
       },
     ],

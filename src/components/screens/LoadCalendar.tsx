@@ -10,6 +10,7 @@ import { Card } from '../ui/Card';
 import { useStore } from '../../hooks/useStore';
 import { MatchEntry, GeneratedProgramme, WorkoutTemplate, ScheduledWorkout } from '../../types';
 import { classifyDay, getLoadProfile, getMonthProfiles } from '../../lib/loadManagement';
+import { FOOTBALL_PROGRAMS, BuiltInTemplate } from '../../data/programs';
 
 // ── Session dot type ───────────────────────────────────────────────────────
 
@@ -328,6 +329,7 @@ function DayModal({
   matchEntries,
   programmeSessions,
   templates,
+  builtInTemplates,
   scheduledWorkouts,
   onSave,
   onDelete,
@@ -340,6 +342,7 @@ function DayModal({
   matchEntries: MatchEntry[];
   programmeSessions: SessionDot[];
   templates: WorkoutTemplate[];
+  builtInTemplates: BuiltInTemplate[];
   scheduledWorkouts: ScheduledWorkout[];
   onSave: (entry: MatchEntry) => void;
   onDelete: (id: string) => void;
@@ -395,7 +398,9 @@ function DayModal({
 
   const handleScheduleTemplate = () => {
     if (!selectedTemplateId) return;
-    const template = templates.find(t => t.id === selectedTemplateId);
+    const template =
+      templates.find(t => t.id === selectedTemplateId) ??
+      builtInTemplates.find(t => t.id === selectedTemplateId);
     if (!template) return;
     const workout: ScheduledWorkout = {
       id: `sw-${dateStr}-${selectedTemplateId}-${Date.now()}`,
@@ -502,8 +507,8 @@ function DayModal({
               </div>
             )}
 
-            {/* Schedule a template workout */}
-            {templates.length > 0 && (
+            {/* Schedule a workout — presets or saved templates */}
+            {(builtInTemplates.length > 0 || templates.length > 0) && (
               <div className="mb-4">
                 <button
                   onClick={() => setShowTemplatePicker(v => !v)}
@@ -517,24 +522,53 @@ function DayModal({
                 </button>
                 {showTemplatePicker && (
                   <div className="mt-2 p-3 rounded-xl bg-gray-50 border border-gray-200">
-                    <p className="text-xs font-semibold text-gray-500 mb-2">Choose a template:</p>
-                    <div className="flex flex-col gap-1.5 mb-3 max-h-40 overflow-y-auto">
-                      {templates.map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => setSelectedTemplateId(t.id)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left text-xs font-semibold transition-colors border ${
-                            selectedTemplateId === t.id
-                              ? 'bg-violet-500 text-white border-violet-500'
-                              : 'bg-white text-gray-700 border-gray-200 hover:border-violet-300'
-                          }`}
-                        >
-                          <Dumbbell size={11} />
-                          {t.name}
-                          <span className="ml-auto font-normal opacity-70">{t.exercises.length} ex</span>
-                        </button>
-                      ))}
-                    </div>
+                    {builtInTemplates.length > 0 && (
+                      <>
+                        <p className="text-xs font-semibold text-gray-500 mb-2">⚽ Football Presets</p>
+                        <div className="flex flex-col gap-1.5 mb-3 max-h-48 overflow-y-auto">
+                          {builtInTemplates.map(t => (
+                            <button
+                              key={t.id}
+                              onClick={() => setSelectedTemplateId(t.id)}
+                              className={`flex items-start gap-2 px-3 py-2 rounded-lg text-left text-xs font-semibold transition-colors border ${
+                                selectedTemplateId === t.id
+                                  ? 'bg-violet-500 text-white border-violet-500'
+                                  : 'bg-white text-gray-700 border-gray-200 hover:border-violet-300'
+                              }`}
+                            >
+                              <Dumbbell size={11} className="mt-0.5 flex-shrink-0" />
+                              <span className="flex-1 min-w-0">
+                                <span className="block truncate">{t.name}</span>
+                                <span className={`font-normal text-[10px] ${selectedTemplateId === t.id ? 'text-violet-200' : 'text-gray-400'}`}>{t.program}</span>
+                              </span>
+                              <span className="font-normal opacity-70 whitespace-nowrap ml-1">{t.exercises.length} ex</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {templates.length > 0 && (
+                      <>
+                        <p className="text-xs font-semibold text-gray-500 mb-2">{builtInTemplates.length > 0 ? 'My Workouts' : 'Choose a template:'}</p>
+                        <div className="flex flex-col gap-1.5 mb-3 max-h-40 overflow-y-auto">
+                          {templates.map(t => (
+                            <button
+                              key={t.id}
+                              onClick={() => setSelectedTemplateId(t.id)}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left text-xs font-semibold transition-colors border ${
+                                selectedTemplateId === t.id
+                                  ? 'bg-violet-500 text-white border-violet-500'
+                                  : 'bg-white text-gray-700 border-gray-200 hover:border-violet-300'
+                              }`}
+                            >
+                              <Dumbbell size={11} />
+                              {t.name}
+                              <span className="ml-auto font-normal opacity-70">{t.exercises.length} ex</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                     <button
                       onClick={handleScheduleTemplate}
                       disabled={!selectedTemplateId}
@@ -955,6 +989,7 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
           matchEntries={matchEntries}
           programmeSessions={programmeDates.get(selectedDate) ?? []}
           templates={templates}
+          builtInTemplates={FOOTBALL_PROGRAMS.flatMap(p => p.templates)}
           scheduledWorkouts={scheduledWorkouts}
           onSave={saveMatchEntry}
           onDelete={deleteMatchEntry}

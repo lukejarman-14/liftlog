@@ -83,6 +83,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'eccentric-calf-raise', name: 'Eccentric Calf Raise', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Gastrocnemius'], measureType: 'reps' },
   { id: 'eccentric-sl-rdl', name: 'Eccentric Single Leg RDL', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Hamstrings', 'Glutes'], measureType: 'reps' },
   { id: 'copenhagen-adductor', name: 'Copenhagen Adductor', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Adductors', 'Core'] },
+  { id: 'lateral-band-walk', name: 'Lateral Band Walk', category: 'Eccentric', defaultRestSeconds: 45, muscleGroups: ['Glutes', 'Adductors', 'Abductors'], measureType: 'reps' },
   { id: 'reverse-nordic', name: 'Reverse Nordic Curl', category: 'Eccentric', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Hip Flexors'], measureType: 'reps' },
 
   // Speed
@@ -175,7 +176,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'ankle-circles-calf', name: 'Ankle Circles + Calf Raise', category: 'Legs', defaultRestSeconds: 0, muscleGroups: ['Calves', 'Ankle'], measureType: 'reps', isWarmup: true },
   { id: 'air-squat', name: 'Air Squat', category: 'Legs', defaultRestSeconds: 30, muscleGroups: ['Quads', 'Glutes'], measureType: 'reps', isWarmup: true },
   { id: 'prone-tyi', name: 'Prone T-Y-I', category: 'Shoulders', defaultRestSeconds: 20, muscleGroups: ['Rhomboids', 'Lower Traps', 'Rear Delts'], measureType: 'reps', isWarmup: true },
-  { id: 'lateral-shuffle', name: 'Lateral Shuffle', category: 'Agility', defaultRestSeconds: 30, muscleGroups: ['Adductors', 'Abductors', 'Glutes'], measureType: 'reps', isWarmup: true },
+  { id: 'lateral-shuffle-warmup', name: 'Lateral Shuffle', category: 'Agility', defaultRestSeconds: 30, muscleGroups: ['Adductors', 'Abductors', 'Glutes'], measureType: 'reps', isWarmup: true },
   { id: 'a-skip', name: 'A-Skip', category: 'Speed', defaultRestSeconds: 30, muscleGroups: ['Hip Flexors', 'Calves', 'Coordination'], measureType: 'reps', isWarmup: true },
   { id: 'high-knees', name: 'High Knees', category: 'Speed', defaultRestSeconds: 20, muscleGroups: ['Hip Flexors', 'Quads', 'Cardiovascular'], measureType: 'reps', isWarmup: true },
 ];

@@ -252,6 +252,7 @@ export function useStore() {
       setSessions([]);
       setActivePlan(null);
       setProfilePicture(null);
+      setUserSettings(DEFAULT_SETTINGS);
       setBaselineRaw(null);
       setMatchEntries([]);
       setTestSessions([]);
