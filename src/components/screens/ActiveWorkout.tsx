@@ -1358,12 +1358,14 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
 
     // Account for priming sets stored before working sets in the array.
     // A priming set (index < primingCount) is never the "last" set.
-    // Rest for priming singles is capped at 60 s to keep activation tight.
+    // Singles 1 & 2 rest 15 s (CNS activation, not fatigue), single 3 rests 60 s before working sets.
     const primingSetCount = ex.hasPrimingSingles ? 3 : 0;
     const isPrimingSet    = setIndex < primingSetCount;
     const isLastSet       = !isPrimingSet && setIndex >= primingSetCount + ex.targetSets - 1;
     const isLastExercise  = exerciseIdx === session.exercises.length - 1;
-    const restSecs        = isPrimingSet ? Math.min(60, ex.restSeconds) : ex.restSeconds;
+    const restSecs        = isPrimingSet
+      ? (setIndex === primingSetCount - 1 ? 60 : 15)  // 3rd priming single → 60 s; 1st & 2nd → 15 s
+      : ex.restSeconds;
     if (!(isLastSet && isLastExercise) && restSecs > 0) {
       timer.start(restSecs);
       setRestingExerciseIdx(exerciseIdx);

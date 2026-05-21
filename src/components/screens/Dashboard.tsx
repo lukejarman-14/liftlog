@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap, BedDouble, FlaskConical } from 'lucide-react';
+import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap, BedDouble, FlaskConical, Dumbbell } from 'lucide-react';
 import { Layout } from '../Layout';
 
 import { WeeklyCalendar } from '../WeeklyCalendar';
@@ -20,6 +20,7 @@ interface DashboardProps {
   onStartWorkout: (templateId: string, name: string) => void;
   onStartProgrammeSession: (name: string, items: WorkoutExercise[]) => void;
   onStartTodayProgrammeSession?: (session: import('../../types').ProgrammeSession) => void;
+  onOpenStrengthSetup?: () => void;
 }
 
 // ── Football session intensity prompt ──────────────────────────────────────
@@ -110,7 +111,7 @@ function IntensityPrompt({ date, onSave }: {
   );
 }
 
-export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession }: DashboardProps) {
+export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup }: DashboardProps) {
   const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries, getConsecutiveLowReadinessDays, getDaysSinceLastTest } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
   const [deloadDismissed, setDeloadDismissed] = useState(false);
@@ -191,6 +192,29 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
             </div>
           </button>
         </div>
+      )}
+
+      {/* Strength setup nudge — shown when programme exists but no baseline configured */}
+      {activeProgramme && !activeProgramme.strengthSetup && onOpenStrengthSetup && (
+        <button
+          onClick={onOpenStrengthSetup}
+          className="w-full mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-left hover:bg-amber-100 transition-all active:scale-[0.98]"
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center mt-0.5">
+              <Dumbbell size={18} className="text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-amber-900">Unlock weight targets</span>
+                <ChevronRight size={15} className="text-amber-400 flex-shrink-0" />
+              </div>
+              <p className="text-xs text-amber-700 mt-0.5 leading-snug">
+                Enter your lift baselines to get week-specific loads and priming singles for every session.
+              </p>
+            </div>
+          </div>
+        </button>
       )}
 
       {/* Build a Programme CTA — only shown when no active plan/programme */}

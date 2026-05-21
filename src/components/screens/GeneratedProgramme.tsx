@@ -489,7 +489,7 @@ function MethodLegend() {
 
 // ── Strength Setup Modal ───────────────────────────────────────────────────
 
-function StrengthSetupModal({
+export function StrengthSetupModal({
   programme,
   onSave,
   onClose,
@@ -714,7 +714,7 @@ export function GeneratedProgramme({
           className={`w-full mb-4 rounded-2xl p-4 flex items-center gap-3 text-left transition-all active:scale-[0.98] ${
             programme.strengthSetup
               ? 'bg-green-50 border-2 border-green-200'
-              : 'bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg shadow-green-200'
+              : 'bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg shadow-green-200 ring-4 ring-green-300 ring-offset-1 animate-pulse'
           }`}
         >
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${

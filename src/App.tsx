@@ -18,7 +18,7 @@ import { TestingBattery } from './components/screens/TestingBattery';
 import { sessionToLegacyTest, calcBaselineResults } from './data/testingBattery';
 import { LoadCalendar } from './components/screens/LoadCalendar';
 import { ProgrammeBuilder } from './components/screens/ProgrammeBuilder';
-import { GeneratedProgramme } from './components/screens/GeneratedProgramme';
+import { GeneratedProgramme, StrengthSetupModal } from './components/screens/GeneratedProgramme';
 import { ProgrammeHub } from './components/screens/ProgrammeHub';
 import { ResetPassword } from './components/screens/ResetPassword';
 import { generateProgramme, buildTestEmphasis } from './lib/programmeGenerator';
@@ -71,6 +71,7 @@ export default function App() {
 
   const cloudUserIdRef = useRef<string | null>(null);
   const [showProgrammePrompt, setShowProgrammePrompt] = useState(false);
+  const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
 
@@ -468,6 +469,7 @@ export default function App() {
           onStartWorkout={handleStartTemplate}
           onStartProgrammeSession={handleStartProgrammeSession}
           onStartTodayProgrammeSession={handleStartTodayProgrammeSession}
+          onOpenStrengthSetup={() => setShowGlobalStrengthSetup(true)}
         />
       )}
 
@@ -861,6 +863,24 @@ export default function App() {
               </div>
             </div>
           </div>
+        );
+      })()}
+
+      {/* ── Global strength setup modal (opened from dashboard banner) ── */}
+      {showGlobalStrengthSetup && (() => {
+        const activeProg = getActiveProgramme();
+        if (!activeProg) return null;
+        return (
+          <StrengthSetupModal
+            programme={activeProg}
+            onSave={(setup) => {
+              const updated = { ...activeProg, strengthSetup: setup };
+              store.saveGeneratedProgramme(updated);
+              setCurrentProgramme(updated);
+              setShowGlobalStrengthSetup(false);
+            }}
+            onClose={() => setShowGlobalStrengthSetup(false)}
+          />
         );
       })()}
     </div>

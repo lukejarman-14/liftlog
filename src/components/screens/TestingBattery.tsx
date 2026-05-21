@@ -1178,18 +1178,25 @@ function useYoyoEngine() {
     if (ctx.state === 'running') fire(); else ctx.resume().then(fire).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Speak a level announcement after the beeps finish (~550 ms delay). */
-  const announceLevel = useCallback((levelNumber: number, delayMs = 550) => {
+  /** Speak "X.Y" during recovery — fires ~450ms after end-of-shuttle beeps so
+   *  there is ~9 seconds before the next go beep. Keeping speech well away from
+   *  Web Audio calls prevents iOS/Safari from suspending the AudioContext. */
+  const announceLevel = useCallback((levelNumber: number, shuttleNumber: number, delayMs = 450) => {
     if (!('speechSynthesis' in window)) return;
     setTimeout(() => {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(`Level ${levelNumber}`);
-      utt.rate  = 1.05;
-      utt.pitch = 1.0;
+      if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(`${levelNumber}.${shuttleNumber}`);
+      utt.rate   = 1.1;
+      utt.pitch  = 1.0;
       utt.volume = 1.0;
+      // Resume AudioContext once speech finishes so beeps keep working on iOS
+      utt.onend = () => {
+        const ctx = getAudio();
+        if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+      };
       window.speechSynthesis.speak(utt);
     }, delayMs);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Sequence of tones scheduled back-to-back with precise AudioContext timing. */
   const toneSeq = useCallback((notes: Array<{ freq: number; dur: number; vol?: number }>) => {
@@ -1216,7 +1223,6 @@ function useYoyoEngine() {
     if (phase === 'countdown') {
       toneSeq([{ freq: 880, dur: 0.15 }, { freq: 1100, dur: 0.28, vol: 0.8 }]);
       if ('vibrate' in navigator) navigator.vibrate(150);
-      announceLevel(YOYO_LEVELS[0].level); // "Level 5"
       const legSecs = getYoyoLegSecs(YOYO_LEVELS[0]);
       endAtRef.current = Date.now() + legSecs * 1000;
       setSt({ phase: 'out', levelIdx: 0, shuttle: 1, remaining: Math.ceil(legSecs), phaseSecs: legSecs });
@@ -1245,17 +1251,24 @@ function useYoyoEngine() {
         return;
       }
 
+      // Work out next shuttle so we can announce it during recovery
+      const nextLevelIdx = isLastShuttle ? levelIdx + 1 : levelIdx;
+      const nextShuttle  = isLastShuttle ? 1 : shuttle + 1;
+      const nextLevelDef = YOYO_LEVELS[nextLevelIdx];
+
       if (isLastShuttle) {
-        // Level-up signal: three ascending beeps then spoken level announcement
+        // Level-up signal: three ascending beeps
         toneSeq([{ freq: 660, dur: 0.1 }, { freq: 880, dur: 0.1 }, { freq: 1100, dur: 0.28, vol: 0.8 }]);
         if ('vibrate' in navigator) navigator.vibrate([80, 50, 80, 50, 180]);
-        const nextLevelDef = YOYO_LEVELS[levelIdx + 1];
-        if (nextLevelDef) announceLevel(nextLevelDef.level);
       } else {
         // Normal end-of-shuttle: double same-pitch beep
         toneSeq([{ freq: 660, dur: 0.12 }, { freq: 660, dur: 0.22 }]);
         if ('vibrate' in navigator) navigator.vibrate([80, 60, 120]);
       }
+
+      // Announce next shuttle during recovery — fires ~450ms after beeps,
+      // giving ~9 s gap before the go beep so Web Audio context stays alive.
+      if (nextLevelDef) announceLevel(nextLevelDef.level, nextShuttle);
 
       endAtRef.current = Date.now() + YOYO_RECOVERY_SECS * 1000;
       setSt(prev => ({
@@ -1272,6 +1285,7 @@ function useYoyoEngine() {
       const nextShuttle  = isLastShuttle ? 1 : shuttle + 1;
       const nextLevel    = YOYO_LEVELS[nextLevelIdx];
 
+      // Go beep only — no speech here (keeps Web Audio context alive on iOS)
       toneSeq([{ freq: 880, dur: 0.15 }, { freq: 1100, dur: 0.28, vol: 0.8 }]);
       if ('vibrate' in navigator) navigator.vibrate(150);
       const legSecs = getYoyoLegSecs(nextLevel);
