@@ -2,14 +2,143 @@ import { useRef, useState } from 'react';
 import {
   Camera, Mail, User, Shield, Calendar, Target, Dumbbell,
   LogOut, ChevronRight, Activity, Zap, Lock, Eye, EyeOff, Check,
-  Ruler, Weight, AlertTriangle, Pencil,
+  Ruler, Weight, AlertTriangle, Pencil, Plus, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import { isSupabaseConfigured, cloudUpdatePassword } from '../../lib/cloudSync';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
-import { UserProfile } from '../../types';
+import { UserProfile, WeightEntry } from '../../types';
 import { BaselineData } from '../../hooks/useStore';
 import { GRADE_LABELS, GRADE_COLOURS } from '../../data/testingBattery';
+
+// ── Weight Tracker ─────────────────────────────────────────────────────────
+
+function WeightTracker({
+  log,
+  onSave,
+  onDelete,
+}: {
+  log: WeightEntry[];
+  onSave: (entry: WeightEntry) => void;
+  onDelete: (date: string) => void;
+}) {
+  const today = new Date().toISOString().split('T')[0];
+  const todayEntry = log.find(e => e.date === today);
+  const [inputStr, setInputStr] = useState(todayEntry ? String(todayEntry.weightKg) : '');
+  const [saved, setSaved] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const handleSave = () => {
+    const val = parseFloat(inputStr);
+    if (!val || val < 20 || val > 300) return;
+    onSave({ date: today, weightKg: val, recordedAt: Date.now() });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  // Last 10 entries for sparkline
+  const recent = log.slice(0, 10).reverse();
+  const weights = recent.map(e => e.weightKg);
+  const minW = Math.min(...weights);
+  const maxW = Math.max(...weights);
+  const range = maxW - minW || 1;
+
+  const latest = log[0];
+  const prev   = log[1];
+  const delta  = latest && prev ? latest.weightKg - prev.weightKg : null;
+
+  return (
+    <Card className="p-4 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Weight size={14} className="text-brand-500" />
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Weight Log</h3>
+        </div>
+        {latest && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-gray-800">{latest.weightKg} kg</span>
+            {delta !== null && delta !== 0 && (
+              <span className={`flex items-center gap-0.5 text-xs font-semibold ${delta < 0 ? 'text-green-600' : 'text-amber-500'}`}>
+                {delta < 0 ? <TrendingDown size={11} /> : <TrendingUp size={11} />}
+                {delta > 0 ? '+' : ''}{delta.toFixed(1)}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Sparkline */}
+      {weights.length >= 2 && (
+        <div className="mb-3 h-10 flex items-end gap-0.5">
+          {recent.map((e, i) => {
+            const h = Math.max(4, Math.round(((e.weightKg - minW) / range) * 32) + 4);
+            const isLatest = i === recent.length - 1;
+            return (
+              <div key={e.date} className="flex-1 flex flex-col items-center justify-end gap-0.5">
+                <div
+                  className={`w-full rounded-sm ${isLatest ? 'bg-brand-500' : 'bg-brand-200'}`}
+                  style={{ height: `${h}px` }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Log today's weight */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <input
+            type="number"
+            min="20"
+            max="300"
+            step="0.1"
+            value={inputStr}
+            onChange={e => { setInputStr(e.target.value); setSaved(false); }}
+            placeholder={todayEntry ? String(todayEntry.weightKg) : 'e.g. 75.5'}
+            style={{ fontSize: '16px' }}
+            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 pr-10"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-semibold">kg</span>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saved}
+          className={`px-3 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1 ${
+            saved ? 'bg-green-100 text-green-600' : 'bg-brand-500 text-white hover:bg-brand-600'
+          }`}
+        >
+          {saved ? <><Check size={13} /> Saved</> : <><Plus size={13} /> Log</>}
+        </button>
+      </div>
+
+      {/* History toggle */}
+      {log.length > 0 && (
+        <button
+          onClick={() => setShowHistory(s => !s)}
+          className="mt-2 text-xs text-brand-500 font-semibold underline underline-offset-2"
+        >
+          {showHistory ? 'Hide history' : `Show history (${log.length} entries)`}
+        </button>
+      )}
+      {showHistory && (
+        <div className="mt-2 flex flex-col gap-1 max-h-40 overflow-y-auto">
+          {log.map(e => (
+            <div key={e.date} className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-gray-50">
+              <span className="text-xs text-gray-500">
+                {new Date(e.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-800">{e.weightKg} kg</span>
+                <button onClick={() => onDelete(e.date)} className="text-gray-300 hover:text-red-400 text-xs">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 interface ProfileProps {
   userProfile: UserProfile;
@@ -17,12 +146,15 @@ interface ProfileProps {
   totalSessions: number;
   baseline: BaselineData | null;
   referralCode?: string;
+  weightLog: WeightEntry[];
   onSetProfilePicture: (pic: string | null) => void;
   onStartBattery: () => void;
   onResetProfile: () => void;
   onChangePassword: (newHash: string) => void;
   onUpdateProfile: (updates: Partial<UserProfile>) => void;
   onSaveTrainingProfile: (updates: Partial<UserProfile>) => void;
+  onSaveWeight: (entry: WeightEntry) => void;
+  onDeleteWeight: (date: string) => void;
   onLogout: () => void;
   onBack: () => void;
 }
@@ -607,8 +739,9 @@ function EditTrainingProfileModal({
 
 export function Profile({
   userProfile, profilePicture, totalSessions,
-  baseline, referralCode, onSetProfilePicture,
-  onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onSaveTrainingProfile, onLogout, onBack,
+  baseline, referralCode, weightLog, onSetProfilePicture,
+  onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onSaveTrainingProfile,
+  onSaveWeight, onDeleteWeight, onLogout, onBack,
 }: ProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showChangePw,         setShowChangePw]         = useState(false);
@@ -875,6 +1008,9 @@ export function Profile({
           </div>
         </div>
       </Card>
+
+      {/* ── Weight Log ────────────────────────────────────────────────── */}
+      <WeightTracker log={weightLog} onSave={onSaveWeight} onDelete={onDeleteWeight} />
 
       {/* ── Referral ──────────────────────────────────────────────────── */}
       {referralCode && (

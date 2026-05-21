@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap } from 'lucide-react';
+import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap, BedDouble, FlaskConical } from 'lucide-react';
 import { Layout } from '../Layout';
 
 import { WeeklyCalendar } from '../WeeklyCalendar';
@@ -111,8 +111,15 @@ function IntensityPrompt({ date, onSave }: {
 }
 
 export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession }: DashboardProps) {
-  const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries } = useStore();
+  const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries, getConsecutiveLowReadinessDays, getDaysSinceLastTest } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
+  const [deloadDismissed, setDeloadDismissed] = useState(false);
+  const [retestDismissed, setRetestDismissed] = useState(false);
+
+  const consecutiveLowDays = getConsecutiveLowReadinessDays();
+  const daysSinceTest = getDaysSinceLastTest();
+  const showDeloadBanner = !deloadDismissed && consecutiveLowDays >= 3;
+  const showRetestBanner = !retestDismissed && (daysSinceTest === null || daysSinceTest >= 42);
 
   const initials = userProfile
     ? `${userProfile.firstName.charAt(0)}${userProfile.lastName.charAt(0)}`.toUpperCase()
@@ -225,6 +232,52 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
             if (entry && minutes) saveMatchEntry({ ...entry, minutes, intensity });
           }}
         />
+      )}
+
+      {/* Deload suggestion banner */}
+      {showDeloadBanner && (
+        <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2.5">
+              <BedDouble size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-amber-800">Consider a deload this week</p>
+                <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                  You've logged low readiness for {consecutiveLowDays} days in a row. Reducing volume by 40–50% for a few sessions lets your body absorb the training and come back stronger.
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setDeloadDismissed(true)} className="text-amber-400 hover:text-amber-600 flex-shrink-0 text-lg leading-none">✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* Re-test reminder banner */}
+      {showRetestBanner && (
+        <div className="mb-4 p-4 rounded-2xl bg-blue-50 border border-blue-200">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2.5">
+              <FlaskConical size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-blue-800">
+                  {daysSinceTest === null ? 'Run your fitness baseline' : `Time to re-test — ${daysSinceTest} days since last test`}
+                </p>
+                <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">
+                  {daysSinceTest === null
+                    ? 'Sprint, CMJ and Yo-Yo tests give you a baseline to track real progress over the season.'
+                    : 'Retesting every 6 weeks shows you exactly how much faster, higher, and fitter you\'ve become.'}
+                </p>
+                <button
+                  onClick={() => onNavigate({ screen: 'testing-battery' })}
+                  className="mt-2 text-xs font-semibold text-blue-600 underline underline-offset-2"
+                >
+                  Take test now →
+                </button>
+              </div>
+            </div>
+            <button onClick={() => setRetestDismissed(true)} className="text-blue-400 hover:text-blue-600 flex-shrink-0 text-lg leading-none">✕</button>
+          </div>
+        </div>
       )}
 
       {/* Weekly Calendar */}

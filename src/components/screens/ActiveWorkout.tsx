@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp,
   Trophy, Clock, BookOpen, Lightbulb, MapPin, ChevronRight,
-  TrendingUp, TrendingDown, Pencil, Save,
+  TrendingUp, TrendingDown, Pencil, Save, AlertTriangle, FileText,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -852,16 +852,20 @@ function ExerciseSection({
   showTutorials,
   globalShowRir,
   restInfo,
+  isFlagged,
   onCompleteSet,
   onEditSet,
+  onFlagExercise,
 }: {
   sessionExercise: SessionExercise;
   sessionId: string;
   showTutorials: boolean;
   globalShowRir: boolean;
   restInfo?: RestInfo;
+  isFlagged?: boolean;
   onCompleteSet: (setIndex: number, set: CompletedSet) => void;
   onEditSet: (setIndex: number, set: CompletedSet) => void;
+  onFlagExercise: () => void;
 }) {
   const { getExercise, getLastSession, getPB } = useStore();
   const exercise   = getExercise(sessionExercise.exerciseId);
@@ -955,25 +959,37 @@ function ExerciseSection({
   const lastDisplay = lastBest ? formatSetDisplay({ ...lastBest, completedAt: 0 }, measureType, unit) : null;
 
   return (
-    <Card className={`overflow-hidden ${allDone ? 'opacity-80' : ''}`}>
+    <Card className={`overflow-hidden ${allDone ? 'opacity-80' : ''} ${isFlagged ? 'border-red-200' : ''}`}>
       {/* Header */}
-      <button className="w-full flex items-center justify-between p-4" onClick={() => setCollapsed(c => !c)}>
-        <div className="flex items-center gap-3 min-w-0">
-          {allDone  && <CheckCircle2 size={18} className="text-green-500 flex-shrink-0" />}
-          {isNewPB  && <Trophy size={16} className="text-yellow-500 flex-shrink-0" />}
-          <div className="min-w-0 text-left">
-            <div className="font-semibold text-gray-900 text-sm">{sessionExercise.displayName ?? exercise.name}</div>
-            <div className="text-xs text-gray-400 flex items-center gap-2">
-              <span>{completedCount}/{totalSets} {exercise.category === 'Testing' ? 'trials' : 'sets'}</span>
-              {sessionExercise.restSeconds > 0 && <span>· {sessionExercise.restSeconds}s rest</span>}
-              {targetRir !== undefined && showRir && <span className="text-brand-500 font-medium">· {targetRir} RIR target</span>}
+      <div className="flex items-center">
+        <button className="flex-1 flex items-center justify-between p-4 min-w-0" onClick={() => setCollapsed(c => !c)}>
+          <div className="flex items-center gap-3 min-w-0">
+            {allDone  && <CheckCircle2 size={18} className="text-green-500 flex-shrink-0" />}
+            {isFlagged && <AlertTriangle size={16} className="text-red-400 flex-shrink-0" />}
+            {!isFlagged && isNewPB && <Trophy size={16} className="text-yellow-500 flex-shrink-0" />}
+            <div className="min-w-0 text-left">
+              <div className="font-semibold text-gray-900 text-sm">{sessionExercise.displayName ?? exercise.name}</div>
+              <div className="text-xs text-gray-400 flex items-center gap-2">
+                <span>{completedCount}/{totalSets} {exercise.category === 'Testing' ? 'trials' : 'sets'}</span>
+                {sessionExercise.restSeconds > 0 && <span>· {sessionExercise.restSeconds}s rest</span>}
+                {targetRir !== undefined && showRir && <span className="text-brand-500 font-medium">· {targetRir} RIR target</span>}
+                {isFlagged && <span className="text-red-400 font-medium">· flagged</span>}
+              </div>
             </div>
           </div>
-        </div>
-        {collapsed
-          ? <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
-          : <ChevronUp   size={16} className="text-gray-400 flex-shrink-0" />}
-      </button>
+          {collapsed
+            ? <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
+            : <ChevronUp   size={16} className="text-gray-400 flex-shrink-0" />}
+        </button>
+        {/* Pain/injury flag button */}
+        <button
+          onClick={onFlagExercise}
+          title={isFlagged ? 'Remove flag' : 'Flag as painful / problematic'}
+          className={`p-3 flex-shrink-0 transition-colors ${isFlagged ? 'text-red-400' : 'text-gray-200 hover:text-red-400'}`}
+        >
+          <AlertTriangle size={18} />
+        </button>
+      </div>
 
       {!collapsed && (
         <>
@@ -1109,7 +1125,10 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   const [restingExerciseIdx, setRestingExerciseIdx] = useState<number | null>(null);
   const [showCondModal, setShowCondModal] = useState(false);
   const [pendingFinishSession, setPendingFinishSession] = useState<WorkoutSession | null>(null);
+  const [condFeedbackByType, setCondFeedbackByType] = useState<Record<string, number | null>>({});
   const [condElapsedSecs, setCondElapsedSecs] = useState(0);
+  const [sessionNotes, setSessionNotes] = useState('');
+  const [flaggedExercises, setFlaggedExercises] = useState<string[]>(session.flaggedExercises ?? []);
 
   // Capture pre-session PBs on mount (before any sets are saved)
   const prePBsRef = useRef<Record<string, { weight: number; reps: number } | null>>({});
@@ -1149,18 +1168,28 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     }
   }, [conditioningExercises.length, onConditioningFeedback, onFinish]);
 
-  const handleCondFeedback = useCallback((delta: number) => {
+  /** Classify a conditioning exercise ID into a display type for per-type feedback */
+  const getCondTypeLabel = (exerciseId: string): string => {
+    if (['aerobic-threshold-run', 'tempo-run', 'lactate-threshold-run'].includes(exerciseId)) return 'Zone 2';
+    if (['hiit-run', 'ssg-simulation'].includes(exerciseId)) return 'HIIT';
+    if (['repeated-sprint', 'shuttle-run'].includes(exerciseId)) return 'RSA';
+    return 'Conditioning';
+  };
+
+  const handleCondFeedbackConfirm = useCallback(() => {
     if (!pendingFinishSession || !onConditioningFeedback) return;
     const updates: Record<string, number> = {};
     conditioningExercises.forEach(ex => {
-      // targetSets = number of intervals for conditioning exercises
+      const typeLabel = getCondTypeLabel(ex.exerciseId);
+      const delta = condFeedbackByType[typeLabel] ?? 0;
       updates[ex.exerciseId] = Math.max(4, Math.min(25, ex.targetSets + delta));
     });
     onConditioningFeedback(updates);
     setShowCondModal(false);
+    setCondFeedbackByType({});
     onFinish(pendingFinishSession);
     setPendingFinishSession(null);
-  }, [pendingFinishSession, conditioningExercises, onConditioningFeedback, onFinish]);
+  }, [pendingFinishSession, conditioningExercises, condFeedbackByType, onConditioningFeedback, onFinish]);
 
   const computeNewPBs = useCallback((s: WorkoutSession): NewPBEntry[] => {
     return s.exercises.flatMap(ex => {
@@ -1187,8 +1216,19 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     });
   }, [getExercise]);
 
+  const handleToggleFlag = useCallback((exerciseId: string) => {
+    setFlaggedExercises(prev =>
+      prev.includes(exerciseId) ? prev.filter(id => id !== exerciseId) : [...prev, exerciseId]
+    );
+  }, []);
+
   const handleFinishConfirm = useCallback((s: WorkoutSession) => {
-    const finalSession = { ...s, endTime: Date.now() };
+    const finalSession = {
+      ...s,
+      endTime: Date.now(),
+      notes: sessionNotes.trim() || undefined,
+      flaggedExercises: flaggedExercises.length > 0 ? flaggedExercises : undefined,
+    };
     const pbs = computeNewPBs(finalSession);
     setShowFinish(false);
     if (pbs.length > 0) {
@@ -1352,8 +1392,10 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
                 showTutorials={showTutorials}
                 globalShowRir={showRir}
                 restInfo={exerciseIdx === restingExerciseIdx ? restInfo : undefined}
+                isFlagged={flaggedExercises.includes(ex.exerciseId)}
                 onCompleteSet={(setIndex, set) => handleCompleteSet(exerciseIdx, setIndex, set)}
                 onEditSet={(setIndex, set) => handleEditSet(exerciseIdx, setIndex, set)}
+                onFlagExercise={() => handleToggleFlag(ex.exerciseId)}
               />
             </React.Fragment>
           ))}
@@ -1375,6 +1417,35 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
                 ? `You've completed ${completedSets} of ${totalSets} sets.`
                 : 'Great work — all sets done!'}
             </p>
+
+            {/* Session notes */}
+            <div className="mb-4">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                <FileText size={12} />
+                Session notes (optional)
+              </label>
+              <textarea
+                value={sessionNotes}
+                onChange={e => setSessionNotes(e.target.value)}
+                placeholder="How did it feel? Anything to note for next time…"
+                rows={3}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-brand-400 text-gray-700 placeholder-gray-300"
+              />
+            </div>
+
+            {/* Flagged exercises summary */}
+            {flaggedExercises.length > 0 && (
+              <div className="mb-4 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <AlertTriangle size={12} className="text-red-400" />
+                  <span className="text-xs font-semibold text-red-600">Flagged exercises will be saved</span>
+                </div>
+                <p className="text-xs text-red-500">
+                  {flaggedExercises.length} exercise{flaggedExercises.length > 1 ? 's' : ''} flagged as painful/problematic. Visible in your session history.
+                </p>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <Button variant="secondary" fullWidth onClick={() => setShowFinish(false)}>Continue</Button>
               <Button fullWidth onClick={() => handleFinishConfirm(session)}>Finish</Button>
@@ -1391,57 +1462,77 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
 
       {/* ── Conditioning feedback modal ── */}
       {showCondModal && pendingFinishSession && (() => {
-        const stagnationCount = Math.max(
-          ...conditioningExercises.map(ex => conditioningStagnation?.[ex.exerciseId] ?? 0)
-        );
+        // Group exercises by type label for per-type feedback
+        const typeGroups: Map<string, { exercises: typeof conditioningExercises; stagnation: number }> = new Map();
+        conditioningExercises.forEach(ex => {
+          const typeLabel = getCondTypeLabel(ex.exerciseId);
+          const existing = typeGroups.get(typeLabel);
+          const stag = conditioningStagnation?.[ex.exerciseId] ?? 0;
+          if (existing) {
+            existing.exercises.push(ex);
+            existing.stagnation = Math.max(existing.stagnation, stag);
+          } else {
+            typeGroups.set(typeLabel, { exercises: [ex], stagnation: stag });
+          }
+        });
+        const groups = Array.from(typeGroups.entries());
+        const allSelected = groups.every(([label]) => condFeedbackByType[label] !== undefined && condFeedbackByType[label] !== null);
+
+        const FEEDBACK_OPTIONS = [
+          { delta: -2, emoji: '😓', label: 'Too hard', colour: 'border-red-200 bg-red-50 text-red-700' },
+          { delta: 0,  emoji: '✅', label: 'Just right', colour: 'border-gray-200 bg-gray-50 text-gray-700' },
+          { delta: 1,  emoji: '💪', label: '1–2 more', colour: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+          { delta: 2,  emoji: '🔥', label: '3+ more', colour: 'border-brand-200 bg-brand-50 text-brand-700' },
+        ];
+
         return (
         <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl max-h-[85vh] overflow-y-auto">
             <p className="text-lg font-bold text-gray-900 mb-1">How was the conditioning?</p>
-            <p className="text-sm text-gray-500 mb-1">
-              {conditioningExercises.map(ex => getExercise(ex.exerciseId)?.name ?? '').join(', ')}
-            </p>
-            <p className="text-xs text-gray-400 mb-3">
-              {conditioningExercises[0]?.targetSets ?? '—'} intervals done — your answer adjusts next session.
-            </p>
-            {stagnationCount >= 3 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4">
-                <p className="text-xs font-semibold text-amber-700 mb-0.5">💡 Ready to progress?</p>
-                <p className="text-xs text-amber-600">
-                  You've held the same volume for {stagnationCount} sessions. Adding 1–2 more intervals will keep your fitness improving — select "1–2 more" below if you're ready.
-                </p>
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleCondFeedback(-2)}
-                className="flex flex-col items-center gap-1 p-3 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-medium active:scale-95 transition-transform"
-              >
-                <span className="text-xl">😓</span>
-                Too hard
-              </button>
-              <button
-                onClick={() => handleCondFeedback(0)}
-                className="flex flex-col items-center gap-1 p-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 text-sm font-medium active:scale-95 transition-transform"
-              >
-                <span className="text-xl">✅</span>
-                Just right
-              </button>
-              <button
-                onClick={() => handleCondFeedback(1)}
-                className="flex flex-col items-center gap-1 p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium active:scale-95 transition-transform"
-              >
-                <span className="text-xl">💪</span>
-                1–2 more
-              </button>
-              <button
-                onClick={() => handleCondFeedback(2)}
-                className="flex flex-col items-center gap-1 p-3 rounded-xl border border-brand-200 bg-brand-50 text-brand-700 text-sm font-medium active:scale-95 transition-transform"
-              >
-                <span className="text-xl">🔥</span>
-                3+ more
-              </button>
-            </div>
+            <p className="text-xs text-gray-400 mb-4">Rate each type — your answers adjust next session independently.</p>
+
+            {groups.map(([typeLabel, { exercises: groupExs, stagnation }]) => {
+              const selected = condFeedbackByType[typeLabel];
+              return (
+                <div key={typeLabel} className="mb-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-bold text-gray-800">{typeLabel}</p>
+                    <p className="text-xs text-gray-400">{groupExs[0]?.targetSets ?? '—'} intervals</p>
+                  </div>
+                  {stagnation >= 3 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-2">
+                      <p className="text-xs text-amber-700">
+                        💡 Same volume for {stagnation} sessions — ready to add more?
+                      </p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-4 gap-2">
+                    {FEEDBACK_OPTIONS.map(opt => (
+                      <button
+                        key={opt.delta}
+                        onClick={() => setCondFeedbackByType(prev => ({ ...prev, [typeLabel]: opt.delta }))}
+                        className={`flex flex-col items-center gap-0.5 p-2 rounded-xl border-2 text-xs font-medium transition-all active:scale-95 ${
+                          selected === opt.delta
+                            ? 'border-brand-500 bg-brand-50 text-brand-700 scale-105'
+                            : opt.colour
+                        }`}
+                      >
+                        <span className="text-lg leading-none">{opt.emoji}</span>
+                        <span className="text-[10px] text-center leading-tight">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            <button
+              onClick={handleCondFeedbackConfirm}
+              disabled={!allSelected}
+              className="w-full py-3 rounded-xl bg-brand-500 text-white font-bold text-sm disabled:opacity-40 hover:bg-brand-600 transition-colors mt-2"
+            >
+              Save & Finish
+            </button>
           </div>
         </div>
         );

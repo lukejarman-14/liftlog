@@ -21,7 +21,7 @@ import { ProgrammeBuilder } from './components/screens/ProgrammeBuilder';
 import { GeneratedProgramme } from './components/screens/GeneratedProgramme';
 import { ProgrammeHub } from './components/screens/ProgrammeHub';
 import { ResetPassword } from './components/screens/ResetPassword';
-import { generateProgramme } from './lib/programmeGenerator';
+import { generateProgramme, buildTestEmphasis } from './lib/programmeGenerator';
 import { sessionToWorkoutExercises } from './lib/sessionUtils';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 import { usePremium } from './hooks/usePremium';
@@ -71,6 +71,7 @@ export default function App() {
 
   const cloudUserIdRef = useRef<string | null>(null);
   const [showProgrammePrompt, setShowProgrammePrompt] = useState(false);
+  const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
 
   // ── Freemium ───────────────────────────────────────────────────────────────
@@ -309,7 +310,14 @@ export default function App() {
   };
 
   const handleGenerateProgramme = (inputs: ProgrammeInputs) => {
-    const programme = generateProgramme(inputs);
+    // Inject latest test grades so the programme can adapt to the player's tested fitness profile
+    const latestTest = store.testSessions.length > 0
+      ? store.testSessions.reduce((a, b) => a.completedAt > b.completedAt ? a : b)
+      : null;
+    const inputsWithGrades: ProgrammeInputs = latestTest?.grades
+      ? { ...inputs, testGrades: latestTest.grades }
+      : inputs;
+    const programme = generateProgramme(inputsWithGrades);
     const finalProgramme = inputs.lifts?.length
       ? { ...programme, strengthSetup: { lifts: inputs.lifts, configuredAt: Date.now() } }
       : programme;
@@ -328,6 +336,29 @@ export default function App() {
     const legacyTest = sessionToLegacyTest(session);
     const legacyResults = calcBaselineResults(legacyTest);
     store.saveBaseline(legacyTest, legacyResults);
+    // If there's an active generated programme, offer to apply new grades to it
+    if (currentProgramme && store.activeProgrammeId === currentProgramme.id) {
+      setPendingReTestSession(session);
+    } else {
+      navigate({ screen: 'dashboard' });
+    }
+  };
+
+  const applyRetestToProgramme = (testSession: TestSession) => {
+    if (!currentProgramme) return;
+    const updatedInputs: ProgrammeInputs = { ...currentProgramme.inputs, testGrades: testSession.grades };
+    const rebuilt = generateProgramme(updatedInputs);
+    // Preserve the original ID, start date, and strength setup so existing sessions aren't orphaned
+    const merged: GPType = {
+      ...rebuilt,
+      id: currentProgramme.id,
+      createdAt: currentProgramme.createdAt,
+      programmeStartDate: currentProgramme.programmeStartDate,
+      strengthSetup: currentProgramme.strengthSetup,
+    };
+    store.saveGeneratedProgramme(merged);
+    setCurrentProgramme(merged);
+    setPendingReTestSession(null);
     navigate({ screen: 'dashboard' });
   };
 
@@ -550,6 +581,9 @@ export default function App() {
               store.setActiveProgrammeId(null);
             }
           }}
+          weightLog={store.weightLog}
+          onSaveWeight={store.saveWeightEntry}
+          onDeleteWeight={store.deleteWeightEntry}
           onLogout={handleLogout}
           onBack={() => navigate({ screen: 'dashboard' })}
         />
@@ -675,6 +709,46 @@ export default function App() {
 
       {!fullScreens.includes(screen) && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
+      )}
+
+      {/* ── Re-test → apply to current programme prompt ───────────────── */}
+      {pendingReTestSession && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500 flex items-center justify-center mb-4 mx-auto">
+              <span className="text-2xl">📊</span>
+            </div>
+            <h2 className="text-xl font-extrabold text-gray-900 text-center mb-2">Tests saved!</h2>
+            <p className="text-sm text-gray-600 text-center mb-4 leading-relaxed">
+              You have an active programme. Apply your new test results so the training adjusts to your current fitness profile?
+            </p>
+            {pendingReTestSession.grades && Object.keys(pendingReTestSession.grades).length > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                <p className="text-xs font-semibold text-blue-700 mb-1.5">What will change:</p>
+                {buildTestEmphasis(pendingReTestSession.grades).coachNotes.length > 0
+                  ? buildTestEmphasis(pendingReTestSession.grades).coachNotes.map((note, i) => (
+                      <p key={i} className="text-xs text-blue-600 leading-relaxed mb-1">• {note}</p>
+                    ))
+                  : <p className="text-xs text-blue-500 italic">Your grades are good — no major adjustments needed. Standard plan continues.</p>
+                }
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => applyRetestToProgramme(pendingReTestSession)}
+                className="w-full py-3 bg-brand-500 text-white rounded-2xl font-bold text-sm hover:bg-brand-600 transition-colors"
+              >
+                Apply to current plan
+              </button>
+              <button
+                onClick={() => { setPendingReTestSession(null); navigate({ screen: 'dashboard' }); }}
+                className="w-full py-2.5 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors"
+              >
+                Just save results, don't change my plan
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Post-onboarding: build programme prompt ─────────────────────── */}

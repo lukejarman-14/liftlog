@@ -73,6 +73,80 @@ export function calcReadiness(r: ProgrammeInputs['readiness']): {
   };
 }
 
+// ── Test grade emphasis ────────────────────────────────────────────────────
+// Reads testGrades from ProgrammeInputs and returns modifiers that the session
+// builders apply to set counts, exercise selection and conditioning types.
+
+export interface TestEmphasis {
+  // Extra sets to add to explosive plyometric exercises (CMJ/Depth Jump block)
+  plyoSetBoost: 0 | 1 | 2;
+  // Extra sets to add to acceleration / sprint exercises
+  sprintSetBoost: 0 | 1 | 2;
+  // Extra conditioning types to inject if not already selected
+  extraCondTypes: Array<'zone2' | 'hiit' | 'rsa'>;
+  // Boost RSA interval count (conditioning sessions only)
+  rsaIntervalBoost: 0 | 1 | 2;
+  // Progress targets faster: applies heavier % loading prescription
+  progressFaster: boolean;
+  // Human-readable notes shown in coachExplanation
+  coachNotes: string[];
+}
+
+export function buildTestEmphasis(grades: Partial<Record<string, 1 | 2 | 3 | 4>> | undefined): TestEmphasis {
+  if (!grades || Object.keys(grades).length === 0) {
+    return { plyoSetBoost: 0, sprintSetBoost: 0, extraCondTypes: [], rsaIntervalBoost: 0, progressFaster: false, coachNotes: [] };
+  }
+
+  // Use the worse of 10m / 30m sprint grades
+  const sprintGrade = (grades['10m'] != null && grades['30m'] != null)
+    ? Math.min(grades['10m']!, grades['30m']!) as 1|2|3|4
+    : (grades['10m'] ?? grades['30m'] ?? null);
+
+  const cmjGrade  = grades['cmj']  ?? null;
+  const yoyoGrade = grades['yoyo'] ?? null;
+  const rsaGrade  = grades['rsa_fi'] ?? grades['rsa'] ?? null;
+
+  const plyoSetBoost:   0|1|2 = cmjGrade === 1 ? 2 : cmjGrade === 2 ? 1 : 0;
+  const sprintSetBoost: 0|1|2 = sprintGrade === 1 ? 2 : sprintGrade === 2 ? 1 : 0;
+  const rsaIntervalBoost: 0|1|2 = rsaGrade === 1 ? 2 : rsaGrade === 2 ? 1 : 0;
+
+  const extraCondTypes: Array<'zone2' | 'hiit' | 'rsa'> = [];
+  if (yoyoGrade !== null && yoyoGrade <= 2) extraCondTypes.push('zone2');
+  if (yoyoGrade !== null && yoyoGrade === 1) extraCondTypes.push('hiit');
+  if (rsaGrade  !== null && rsaGrade  <= 2) extraCondTypes.push('rsa');
+
+  // Grade 4 on any quality → progress faster
+  const progressFaster = [sprintGrade, cmjGrade, yoyoGrade, rsaGrade].some(g => g === 4);
+
+  const coachNotes: string[] = [];
+
+  if (sprintGrade !== null) {
+    const label = ['', 'Below average', 'Average', 'Good', 'Excellent'][sprintGrade];
+    if (sprintGrade <= 2) coachNotes.push(`Sprint grade: ${label} — acceleration volume has been increased (${sprintSetBoost} extra set${sprintSetBoost > 1 ? 's' : ''} per sprint block). Focus on first-step quickness and 0–10m mechanics.`);
+    if (sprintGrade === 4) coachNotes.push(`Sprint grade: Excellent — your speed is a strength. Intensity progressions are accelerated to keep the stimulus challenging.`);
+  }
+  if (cmjGrade !== null) {
+    const label = ['', 'Below average', 'Average', 'Good', 'Excellent'][cmjGrade];
+    if (cmjGrade <= 2) coachNotes.push(`CMJ grade: ${label} — explosive power volume has been increased (${plyoSetBoost} extra set${plyoSetBoost > 1 ? 's' : ''} in the plyometric block). Prioritise full hip extension and aggressive arm drive.`);
+    if (cmjGrade === 4) coachNotes.push(`CMJ grade: Excellent — plyometric targets are set at a higher progression rate to match your power output capacity.`);
+  }
+  if (yoyoGrade !== null) {
+    const label = ['', 'Below average', 'Average', 'Good', 'Excellent'][yoyoGrade];
+    if (yoyoGrade <= 2) {
+      const added = extraCondTypes.filter(t => t !== 'rsa').map(t => t === 'zone2' ? 'Zone 2' : 'Hi-Aerobic HIIT').join(' + ');
+      coachNotes.push(`Yo-Yo grade: ${label} — aerobic capacity is a priority. ${added ? `${added} conditioning sessions have been added to your schedule.` : 'Conditioning volume has been boosted.'}`);
+    }
+    if (yoyoGrade === 4) coachNotes.push(`Yo-Yo grade: Excellent — aerobic base is strong. Conditioning sessions target higher-intensity zones to maintain the adaptation.`);
+  }
+  if (rsaGrade !== null) {
+    const label = ['', 'Below average', 'Average', 'Good', 'Excellent'][rsaGrade];
+    if (rsaGrade <= 2) coachNotes.push(`RSA / Fatigue Index grade: ${label} — repeated sprint resilience needs work. RSA conditioning has been added${rsaIntervalBoost > 0 ? ` with ${rsaIntervalBoost} extra interval set${rsaIntervalBoost > 1 ? 's' : ''}` : ''}. Focus on maintaining sprint quality into the 4th and 5th rep.`);
+    if (rsaGrade === 4) coachNotes.push(`RSA grade: Excellent — your repeated sprint ability is elite. Targets are set to extend this quality with higher rep counts and shorter recovery.`);
+  }
+
+  return { plyoSetBoost, sprintSetBoost, extraCondTypes, rsaIntervalBoost, progressFaster, coachNotes };
+}
+
 // ── Duration from experience ───────────────────────────────────────────────
 
 function durationWeeks(exp: string): number {
@@ -1838,6 +1912,7 @@ function buildOffSeasonSession(
   phase: string,
   weekNum: number,
   readiness: { level: ReadinessLevel; volumeMultiplier: number; intensityNote: string },
+  emphasis?: TestEmphasis,
 ): ProgrammeSession {
   const { biggestWeakness, injuryHistory, gymAccess } = inputs;
 
@@ -1870,8 +1945,10 @@ function buildOffSeasonSession(
   );
 
   // Heavy days: 3 sets × 3 reps explosive plyometrics. Moderate: same sets, 1 rep — neural quality without CNS fatigue accumulation.
-  const explosivePlyo = pickExplosivePlyo(gymKey, weekNum).map(e =>
-    loadScheme === 'moderate' ? { ...e, reps: '1' } : e,
+  // CMJ grade emphasis boosts set count if player tests poorly on jump height.
+  const explosivePlyo = boostExerciseSets(
+    pickExplosivePlyo(gymKey, weekNum).map(e => loadScheme === 'moderate' ? { ...e, reps: '1' } : e),
+    emphasis?.plyoSetBoost ?? 0,
   );
 
   // Upper body alternation: heavy days get both push + pull (upperEx[0] + upperEx[1]).
@@ -1932,9 +2009,11 @@ function buildOffSeasonSession(
       },
       {
         title: '⚡ Explosive Plyometrics',
-        methodFocus: loadScheme === 'heavy'
-          ? 'Max intent · 3 reps · 3 min rest · no match ceiling'
-          : 'Single max rep · 3 min rest · quality over volume',
+        methodFocus: (emphasis?.plyoSetBoost ?? 0) > 0
+          ? `Max intent · CMJ grade boosted +${emphasis!.plyoSetBoost} set${emphasis!.plyoSetBoost > 1 ? 's' : ''} · 3 min rest`
+          : loadScheme === 'heavy'
+            ? 'Max intent · 3 reps · 3 min rest · no match ceiling'
+            : 'Single max rep · 3 min rest · quality over volume',
         exercises: explosivePlyo,
       },
       {
@@ -1979,12 +2058,23 @@ function buildOffSeasonSession(
 
 // ── Main session builder ───────────────────────────────────────────────────
 
+/** Increase the `sets` string of every exercise in an array by `boost`. */
+function boostExerciseSets(exercises: ProgrammeExercise[], boost: number): ProgrammeExercise[] {
+  if (boost <= 0) return exercises;
+  return exercises.map(e => {
+    const base = parseInt(e.sets, 10);
+    if (!Number.isFinite(base)) return e;
+    return { ...e, sets: String(base + boost) };
+  });
+}
+
 function buildSession(
   slot: MdSlot,
   inputs: ProgrammeInputs,
   phase: string,
   weekNum: number,
   readiness: { level: ReadinessLevel; volumeMultiplier: number; intensityNote: string },
+  emphasis?: TestEmphasis,
 ): ProgrammeSession {
   if (slot.mdDay === 'MD+1') return recoverySession(slot.dayOfWeek);
   if (slot.mdDay === 'MD-1') return primingSession(slot.dayOfWeek, inputs.position, inputs.playStyle);
@@ -2046,8 +2136,10 @@ function buildSession(
         },
         {
           title: '⚡ Explosive Plyometrics',
-          methodFocus: 'Max intent · 2–3 reps · 3 min rest · not conditioning',
-          exercises: pickExplosivePlyo(gymKey, weekNum),
+          methodFocus: emphasis?.plyoSetBoost
+            ? `Max intent · CMJ grade: boosted +${emphasis.plyoSetBoost} set${emphasis.plyoSetBoost > 1 ? 's' : ''} · 3 min rest`
+            : 'Max intent · 2–3 reps · 3 min rest · not conditioning',
+          exercises: boostExerciseSets(pickExplosivePlyo(gymKey, weekNum), emphasis?.plyoSetBoost ?? 0),
         },
         {
           title: '💪 Maximum Strength',
@@ -2210,6 +2302,7 @@ function buildConditioningSession(
   dayOfWeek: string,
   phase: string,
   weekNum: number,
+  emphasis?: TestEmphasis,
 ): ProgrammeSession {
   const phaseAerobic = CONDITIONING_AEROBIC[phase] ?? CONDITIONING_AEROBIC.Build;
   const phaseHiit    = CONDITIONING_HIIT[phase]    ?? CONDITIONING_HIIT.Build;
@@ -2275,11 +2368,15 @@ function buildConditioningSession(
 
   // RSA — repeated sprint ability, anaerobic / neuromuscular
   const rsaPool = phaseHiit.filter(e => e.methodType === 'reactive');
-  const rsaEx = rsaPool.length > 0
+  const baseRsaEx = rsaPool.length > 0
     ? rsaPool[weekNum % rsaPool.length]
     : ex('RSA Sprint Sets', '4', '6 × 30m · 25s rest', '2:00 between sets',
         '4 sets of 6 × 30m flat-out sprints. 25s passive recovery between sprints, 2 min between sets. Rep 6 should feel like rep 3 — if sprint times drop more than 10%, reduce to 3 sets.',
         { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true });
+  // RSA grade emphasis boosts interval set count
+  const rsaEx = (emphasis?.rsaIntervalBoost ?? 0) > 0
+    ? boostExerciseSets([baseRsaEx], emphasis!.rsaIntervalBoost)[0]
+    : baseRsaEx;
 
   return {
     mdDay: 'RSA',
@@ -2324,7 +2421,7 @@ function progressNote(week: number): string {
 // as a standalone ProgrammeSession with its own neural warm-up on the same day.
 // ── Coach explanation ──────────────────────────────────────────────────────
 
-function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, readinessLevel: ReadinessLevel): string {
+function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, readinessLevel: ReadinessLevel, emphasis?: TestEmphasis): string {
   const posLabels: Record<string, string> = {
     GK: 'goalkeeper', CB: 'centre back', FB: 'full back', CM: 'central midfielder', W: 'winger', ST: 'striker',
   };
@@ -2349,14 +2446,18 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
     ? `\n\nDouble game week — Survival Mode: your schedule includes a second match day (${inputs.secondMatchDay.charAt(0).toUpperCase() + inputs.secondMatchDay.slice(1)}). When two matches fall within 4 days, the HPP rule is simple: you cannot build fitness, you can only mitigate fatigue. MD-4 and MD-3 strength blocks are completely deleted from the algorithm in double-game weeks. MD+1 becomes recovery only (isometrics + bike). MD-1 becomes neural priming only — zero heavy lifting. The pitch is the only priority. Sleep, nutrition and soft-tissue work take precedence over prescribed sets.`
     : '';
 
+  const testGradeSection = emphasis?.coachNotes.length
+    ? `\n\n📊 Fitness Test Adjustments\n${emphasis.coachNotes.map(n => `• ${n}`).join('\n')}`
+    : '';
+
   if (inputs.offSeason) {
     const condNote = inputs.conditioningTypes && inputs.conditioningTypes.length > 0
       ? ` Includes ${inputs.conditioningTypes.length} dedicated conditioning day${inputs.conditioningTypes.length > 1 ? 's' : ''} (${inputs.conditioningTypes.map(t => t === 'zone2' ? 'Zone 2' : t === 'hiit' ? 'Hi-Aerobic' : 'RSA').join(', ')}) — never combined with gym to avoid the interference effect.`
       : '';
-    return `${totalWeeks}-week off-season programme for a ${pos} targeting ${goal}. ${weaknessLine}${styleNote}${condNote} Heavy Mon/Fri · Moderate Wed · 48h minimum between sessions. ${readinessLine}`;
+    return `${totalWeeks}-week off-season programme for a ${pos} targeting ${goal}. ${weaknessLine}${styleNote}${condNote} Heavy Mon/Fri · Moderate Wed · 48h minimum between sessions. ${readinessLine}${testGradeSection}`;
   }
 
-  return `${totalWeeks}-week programme for a ${pos} targeting ${goal}. ${weaknessLine}${styleNote} Sessions are structured around your match schedule — heaviest load furthest from match day, reducing as the game approaches.${doubleGameWeekNote} ${readinessLine}`;
+  return `${totalWeeks}-week programme for a ${pos} targeting ${goal}. ${weaknessLine}${styleNote} Sessions are structured around your match schedule — heaviest load furthest from match day, reducing as the game approaches.${doubleGameWeekNote} ${readinessLine}${testGradeSection}`;
 }
 
 // ── Main export ────────────────────────────────────────────────────────────
@@ -2376,13 +2477,23 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
   const pos = POSITION_LABELS[inputs.position] ?? inputs.position;
   const goal = GOAL_LABELS[inputs.primaryGoal] ?? inputs.primaryGoal;
 
+  // ── Test grade emphasis — computed once, applied throughout ─────────────
+  const emphasis = buildTestEmphasis(inputs.testGrades);
+
   // ── Off-season path ──────────────────────────────────────────────────────
   if (inputs.offSeason) {
     const gymCount = inputs.gymSessionsPerWeek ?? inputs.sessionsPerWeek ?? 3;
-    const condTypes = inputs.conditioningTypes ?? [];
-    const osSlots = condTypes.length > 0
-      ? buildMixedOffSeasonSchedule(gymCount, condTypes)
+    // Merge user-selected conditioning types with any extra types driven by test grades
+    const baseCondTypes = inputs.conditioningTypes ?? [];
+    const condTypeMap: Record<string, 'zone2' | 'hiit' | 'rsa'> = { zone2: 'zone2', hiit: 'hiit', rsa: 'rsa' };
+    const mergedCondTypes = Array.from(new Set([
+      ...baseCondTypes,
+      ...emphasis.extraCondTypes.map(t => t === 'hiit' ? 'hiit' : t),
+    ])) as ('zone2' | 'hiit' | 'rsa')[];
+    const osSlots = mergedCondTypes.length > 0
+      ? buildMixedOffSeasonSchedule(gymCount, mergedCondTypes)
       : (GYM_ONLY_SCHEDULES[gymCount] ?? GYM_ONLY_SCHEDULES[3]);
+    void condTypeMap; // suppress unused warning
 
     const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
       const weekNum = i + 1;
@@ -2392,10 +2503,11 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
           const session = buildOffSeasonSession(
             slot, inputs, phase, weekNum,
             { level: readinessLevel, volumeMultiplier, intensityNote },
+            emphasis,
           );
           return [session];
         }
-        return [buildConditioningSession(slot.sessionType, slot.dayOfWeek, phase, weekNum)];
+        return [buildConditioningSession(slot.sessionType, slot.dayOfWeek, phase, weekNum, emphasis)];
       });
       return {
         weekNumber: weekNum,
@@ -2409,7 +2521,7 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
       createdAt: Date.now(),
       title: `${pos} — ${goal} (Off Season)`,
       summary: `${totalWeeks}-week OFF-SEASON programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inputs.sessionsPerWeek} sessions/week · No match-day loading — DOMS managed by session spacing.`,
-      coachExplanation: buildCoachExplanation(inputs, totalWeeks, readinessLevel),
+      coachExplanation: buildCoachExplanation(inputs, totalWeeks, readinessLevel, emphasis),
       readinessScore: score,
       readinessLevel,
       readinessGuidance,
@@ -2422,7 +2534,12 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
   // ── In-season path ───────────────────────────────────────────────────────
   const inSeasonGymCount = inputs.gymSessionsPerWeek ?? Math.min(inputs.sessionsPerWeek ?? 3, 3);
   const gymSlots = getMdSlots(inSeasonGymCount, inputs.matchDay, inputs.secondMatchDay);
-  const inSeasonCondTypes = inputs.conditioningTypes ?? [];
+  const baseCondTypes = inputs.conditioningTypes ?? [];
+  // Merge test-grade-driven extra conditioning types — map 'hiit' correctly
+  const inSeasonCondTypes = Array.from(new Set([
+    ...baseCondTypes,
+    ...emphasis.extraCondTypes.map(t => (t === 'hiit' ? 'hiit' : t) as 'zone2' | 'hiit' | 'rsa'),
+  ]));
   const condSlotsForMatchDay = IN_SEASON_COND_SLOTS[inputs.matchDay] ?? IN_SEASON_COND_SLOTS.saturday;
 
   // Normalise blocked match days for conditioning collision check
@@ -2447,12 +2564,12 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
 
     const gymSessions = gymSlots.map(slot =>
-      buildSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }),
+      buildSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }, emphasis),
     );
 
     // Dedicated conditioning sessions
     const condSessions = condSlots.map(({ slot, sessionType }) =>
-      buildConditioningSession(sessionType, slot.dayOfWeek, phase, weekNum),
+      buildConditioningSession(sessionType, slot.dayOfWeek, phase, weekNum, emphasis),
     );
 
     const sessions = [...gymSessions, ...condSessions]
@@ -2482,7 +2599,7 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     createdAt: Date.now(),
     title: `${pos} — ${goal}`,
     summary: `${totalWeeks}-week personalised programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inSeasonGymCount} gym sessions/week${condNote} · Match day: ${matchStr}${secondMatchStr}${inputs.secondMatchDay ? ' (double game weeks accounted for)' : ''}.`,
-    coachExplanation: buildCoachExplanation(inputs, totalWeeks, readinessLevel),
+    coachExplanation: buildCoachExplanation(inputs, totalWeeks, readinessLevel, emphasis),
     readinessScore: score,
     readinessLevel,
     readinessGuidance,

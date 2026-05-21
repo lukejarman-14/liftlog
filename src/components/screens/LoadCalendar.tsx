@@ -355,6 +355,8 @@ function DayModal({
   const dayScheduled = scheduledWorkouts.filter(w => w.date === dateStr);
   const [label, setLabel] = useState(existing?.label ?? '');
   const [minutes, setMinutes] = useState<string>(existing?.minutes?.toString() ?? '');
+  const [performanceRating, setPerformanceRating] = useState<number | null>(existing?.performanceRating ?? null);
+  const [physicalIncidents, setPhysicalIncidents] = useState(existing?.physicalIncidents ?? '');
   const [movingSession, setMovingSession] = useState<SessionDot | null>(null);
   const [moveTarget, setMoveTarget] = useState('');
   const [showWarning, setShowWarning] = useState(false);
@@ -374,6 +376,8 @@ function DayModal({
       type,
       label: label.trim() || undefined,
       minutes: minutes ? parseInt(minutes, 10) : undefined,
+      performanceRating: performanceRating ?? undefined,
+      physicalIncidents: physicalIncidents.trim() || undefined,
     };
     onSave(entry);
     onClose();
@@ -582,11 +586,23 @@ function DayModal({
             )}
 
             {existing && (
-              <div className={`text-xs font-semibold px-2 py-1 rounded-full mb-4 w-max ${
-                existing.type === 'match' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-              }`}>
-                {existing.type === 'match' ? '⚽ Match' : '🏃 Team Training'}
-                {existing.label && ` — ${existing.label}`}
+              <div className="mb-4">
+                <div className={`text-xs font-semibold px-2 py-1 rounded-full w-max mb-2 ${
+                  existing.type === 'match' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {existing.type === 'match' ? '⚽ Match' : '🏃 Team Training'}
+                  {existing.label && ` — ${existing.label}`}
+                </div>
+                {existing.performanceRating && (
+                  <p className="text-xs text-gray-500 mb-1">
+                    Performance: {['😞','😐','😊','😄','🔥'][existing.performanceRating - 1]} {['Poor','Below avg','OK','Good','Excellent'][existing.performanceRating - 1]}
+                  </p>
+                )}
+                {existing.physicalIncidents && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-1">
+                    ⚠️ {existing.physicalIncidents}
+                  </p>
+                )}
               </div>
             )}
 
@@ -618,6 +634,50 @@ function DayModal({
                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
               <p className="text-xs text-gray-400 mt-1">Used to auto-adjust recovery session load</p>
+            </div>
+
+            {/* Performance rating — only for match entries */}
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">
+                How did it go? (optional)
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { v: 1, emoji: '😞', label: 'Poor' },
+                  { v: 2, emoji: '😐', label: 'Below avg' },
+                  { v: 3, emoji: '😊', label: 'OK' },
+                  { v: 4, emoji: '😄', label: 'Good' },
+                  { v: 5, emoji: '🔥', label: 'Excellent' },
+                ].map(({ v, emoji, label: lbl }) => (
+                  <button
+                    key={v}
+                    onClick={() => setPerformanceRating(performanceRating === v ? null : v)}
+                    className={`flex-1 flex flex-col items-center py-2 rounded-xl border-2 transition-all text-xs font-semibold ${
+                      performanceRating === v
+                        ? 'border-brand-500 bg-brand-50 text-brand-700'
+                        : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-lg leading-none mb-0.5">{emoji}</span>
+                    <span className="text-[10px]">{lbl}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+                Physical incidents (optional)
+              </label>
+              <textarea
+                value={physicalIncidents}
+                onChange={e => setPhysicalIncidents(e.target.value)}
+                placeholder="e.g. Left hamstring tightness in 2nd half, slight ankle twinge…"
+                rows={2}
+                style={{ fontSize: '16px' }}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
+              />
+              <p className="text-xs text-gray-400 mt-1">Niggles, cramps, discomfort — tracked for load management</p>
             </div>
 
             <div className="flex flex-col gap-2 mb-3">
@@ -953,27 +1013,36 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
                 );
               }
               const e = item.entry as MatchEntry;
+              const PERF_EMOJIS = ['😞','😐','😊','😄','🔥'];
               return (
-                <Card key={e.id} className="p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">{e.type === 'match' ? '⚽' : '🏃'}</span>
-                    <div>
-                      <div className="text-sm font-semibold text-gray-800">
-                        {e.type === 'match' ? 'Match' : 'Team Training'}
-                        {e.label && <span className="font-normal text-gray-500"> — {e.label}</span>}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {dateLabel}
-                        {e.minutes && <span className="ml-2 text-brand-500">{e.minutes} min</span>}
+                <Card key={e.id} className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{e.type === 'match' ? '⚽' : '🏃'}</span>
+                      <div>
+                        <div className="text-sm font-semibold text-gray-800">
+                          {e.type === 'match' ? 'Match' : 'Team Training'}
+                          {e.label && <span className="font-normal text-gray-500"> — {e.label}</span>}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {dateLabel}
+                          {e.minutes && <span className="ml-2 text-brand-500">{e.minutes} min</span>}
+                          {e.performanceRating && <span className="ml-2">{PERF_EMOJIS[e.performanceRating - 1]}</span>}
+                        </div>
                       </div>
                     </div>
+                    <button
+                      onClick={() => deleteMatchEntry(e.id)}
+                      className="p-1.5 text-gray-300 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => deleteMatchEntry(e.id)}
-                    className="p-1.5 text-gray-300 hover:text-red-400 transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {e.physicalIncidents && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mt-2">
+                      ⚠️ {e.physicalIncidents}
+                    </p>
+                  )}
                 </Card>
               );
             })}

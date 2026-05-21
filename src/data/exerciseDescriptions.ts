@@ -1204,4 +1204,126 @@ Total ≈ 28m — mimics a defender tracking a forward.`,
     tips: ['Higher RSI = better reactive strength and Achilles tendon stiffness.', 'Target RSI for elite footballers: >1.0–1.5.'],
     footballContext: 'RSI is one of the best indicators of sprint and agility potential, as it reflects the speed of the stretch-shortening cycle.',
   },
+
+  // ── Newly added ────────────────────────────────────────────────────────────
+
+  'cmj': {
+    how: [
+      'Stand with feet hip-width apart, arms at your sides.',
+      'Quickly dip into a quarter squat, then explode upward as powerfully as possible.',
+      'Drive your arms up as you leave the ground to maximise height.',
+      'Land softly with bent knees to absorb impact.',
+    ],
+    tips: [
+      'The dip and jump should be one continuous movement — no pause at the bottom.',
+      'Think "fast down, fast up" — the quicker the transition, the more elastic energy you use.',
+      'Aim for maximal effort on every rep; sub-maximal CMJs don\'t train power effectively.',
+    ],
+    footballContext: 'CMJ height directly reflects lower-body power. It correlates strongly with sprint acceleration and aerial ability — both critical for winning headers and first-step explosiveness.',
+  },
+
+  'bulgarian-split-squat': {
+    how: [
+      'Stand facing away from a bench, place the top of your rear foot on it.',
+      'Lower your hips straight down until your front thigh is parallel to the floor.',
+      'Your front shin should stay roughly vertical — don\'t let the knee cave inward.',
+      'Drive through your front heel to return to standing.',
+    ],
+    tips: [
+      'Start with bodyweight only until you\'re comfortable with balance.',
+      'Place the front foot far enough forward that your knee doesn\'t travel past your toes under load.',
+      'Keep your torso upright — leaning forward shifts too much load to the lower back.',
+    ],
+    footballContext: 'The Bulgarian split squat builds unilateral leg strength and hip stability. It closely mirrors the single-leg push-off mechanics of sprinting and change-of-direction, making it one of the highest-transfer lower-body exercises for footballers.',
+  },
+
+  'bulgarian-split-squat-db': {
+    how: [
+      'Hold a dumbbell in each hand and stand facing away from a bench.',
+      'Place the top of your rear foot on the bench.',
+      'Lower your hips until your front thigh is parallel to the floor.',
+      'Drive through your front heel to return to standing.',
+    ],
+    tips: [
+      'DB version allows a more natural arm position than a barbell — easier on the shoulders.',
+      'Keep core braced throughout to prevent lateral trunk lean.',
+      'Control the descent over 2–3 seconds to maximise eccentric loading.',
+    ],
+    footballContext: 'Same transfer as the barbell variation with lower spinal load. Ideal for players with upper-body injuries or those building towards the barbell version.',
+  },
+
+  'eccentric-rdl': {
+    how: [
+      'Hold a barbell or DBs in front of your thighs, feet hip-width apart.',
+      'Hinge at the hips, lowering the weight slowly down your legs over 3–5 seconds.',
+      'Keep a slight bend in the knees and a neutral spine throughout the descent.',
+      'Lower until you feel a strong stretch in the hamstrings, then return to standing in 1 second.',
+    ],
+    tips: [
+      'The slow eccentric is the key stimulus — don\'t rush the lowering phase.',
+      'Think "push the hips back" rather than "bend forward" to maintain spinal position.',
+      'Feel for a deep stretch in the mid-hamstring, not a burning in the lower back.',
+    ],
+    footballContext: 'Eccentric RDL is the single most evidence-backed exercise for hamstring injury prevention. The slow lowering phase strengthens the muscle at long lengths — exactly where most football hamstring strains occur (late swing phase of sprinting).',
+  },
+
+  'eccentric-slider-curl': {
+    how: [
+      'Lie on your back with feet on sliders (or socks on a smooth floor).',
+      'Bridge up into a hip thrust position with feet close to your glutes.',
+      'Slowly push both feet away from you, lowering your hips to the floor over 3–4 seconds.',
+      'Pull feet back in using your hamstrings and repeat.',
+    ],
+    tips: [
+      'The push-away (eccentric) phase is the stimulus — pull back quickly is fine.',
+      'Keep hips elevated as long as possible during the push-out.',
+      'If too easy, perform single-leg.',
+    ],
+    footballContext: 'Like Nordic curls, slider eccentric curls stress the hamstring at long muscle lengths, improving resilience to strain injuries. Lower setup requirement than Nordics.',
+  },
+
+  'db-bench': {
+    how: [
+      'Lie on a flat bench holding a dumbbell in each hand at chest level, palms facing forward.',
+      'Press both dumbbells up until your arms are fully extended.',
+      'Lower slowly back to chest height over 2 seconds.',
+      'Keep a slight arch in the lower back and shoulder blades retracted throughout.',
+    ],
+    tips: [
+      'Dumbbells allow a greater range of motion than a barbell — use it.',
+      'At the top, don\'t let the dumbbells crash together — control the squeeze.',
+      'If you need to arch excessively to press the weight, reduce load.',
+    ],
+    footballContext: 'Upper-body pressing strength supports tackle resistance and ball-shielding. DB bench develops independent arm strength and greater range than barbell — important for balanced upper-body development.',
+  },
+
+  'dead-bug': {
+    how: [
+      'Lie on your back with arms pointing straight up, knees bent at 90° (tabletop position).',
+      'Press your lower back firmly into the floor — maintain this contact throughout.',
+      'Slowly lower one arm overhead and the opposite leg toward the floor simultaneously.',
+      'Return to start, then repeat on the other side.',
+    ],
+    tips: [
+      'Your lower back must stay pressed into the floor at all times. If it lifts, reduce range of motion.',
+      'Move slowly and under control — this is anti-extension core training, not a speed exercise.',
+      'Exhale as you extend the arm and leg to help brace the core.',
+    ],
+    footballContext: 'Dead bug builds anti-extension core stability — the ability to resist the lower back arching under load. This is critical for absorbing physical contact, maintaining posture during sprinting, and protecting the lumbar spine.',
+  },
+
+  'iso-row': {
+    how: [
+      'Set a barbell or cable at about hip height and grip it with both hands.',
+      'Pull into a rowing position (elbows bent 90°, shoulder blades retracted) and hold.',
+      'Brace every muscle as hard as possible while holding the isometric contraction.',
+      'Breathe normally throughout the hold.',
+    ],
+    tips: [
+      'Think "try to break the bar apart" — this maximises neural activation.',
+      'Keep the chest up and don\'t let the lower back round.',
+      'Isometric holds develop stiffness and positional strength that translates to contact situations.',
+    ],
+    footballContext: 'Isometric rows build the pulling strength needed to hold off opponents, shield the ball, and resist being turned. The fixed position reinforces the upper-back posture used in physical duels.',
+  },
 };

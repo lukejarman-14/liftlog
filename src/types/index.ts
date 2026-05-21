@@ -97,6 +97,16 @@ export interface WorkoutSession {
   startTime: number;
   endTime?: number;
   date: string;
+  notes?: string;                  // free-text player notes added at finish
+  flaggedExercises?: string[];     // exerciseIds flagged as painful/problematic
+}
+
+// ── Body weight log ───────────────────────────────────────────────────────
+
+export interface WeightEntry {
+  date: string;      // YYYY-MM-DD
+  weightKg: number;
+  recordedAt: number; // timestamp
 }
 
 // ── Training Plans ────────────────────────────────────────────────────────
@@ -213,6 +223,8 @@ export interface MatchEntry {
   label?: string;        // optional e.g. "League vs City"
   minutes?: number;      // minutes played (for load adjustment, 1–90+)
   intensity?: number;    // post-session intensity rating 1–5
+  performanceRating?: number;  // 1–5 self-assessed match/training performance
+  physicalIncidents?: string;  // free-text: niggles, cramps, muscle issues etc.
 }
 
 export type LoadDay = 'MD' | 'MD-1' | 'MD-2' | 'MD-3' | 'MD+1' | 'MD+2' | 'free';
@@ -280,6 +292,7 @@ export interface ProgrammeInputs {
   preferBackSquat?: boolean;   // player enjoys/prefers Back Squat — enables selection in eligible phases
   upperPullChoice?: 'pull-up' | 'row';  // whether the player uses pull-ups or rows for the upper-pull slot
   lifts?: LiftBaseline[];      // collected during wizard for personalised load prescriptions
+  testGrades?: Partial<Record<string, 1 | 2 | 3 | 4>>; // from most recent TestSession.grades — drives programme emphasis adjustments
 }
 
 export interface ProgrammeExercise {

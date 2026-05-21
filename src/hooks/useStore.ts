@@ -4,6 +4,7 @@ import {
   UserProfile, UserSettings, DEFAULT_SETTINGS,
   BaselineTest, BaselineResults,
   MatchEntry, TestSession, GeneratedProgramme, DailyReadiness, ScheduledWorkout,
+  WeightEntry,
 } from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
@@ -29,6 +30,7 @@ export function useStore() {
   const [dailyReadinessLog, setDailyReadinessLog] = useLocalStorage<DailyReadiness[]>('vf_daily_readiness', []);
   const [footballIntensityLog, setFootballIntensityLog] = useLocalStorage<Record<string, number>>('vf_football_intensity', {});
   const [scheduledWorkouts, setScheduledWorkouts] = useLocalStorage<ScheduledWorkout[]>('vf_scheduled_workouts', []);
+  const [weightLog, setWeightLog] = useLocalStorage<WeightEntry[]>('vf_weight_log', []);
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));
@@ -94,6 +96,38 @@ export function useStore() {
 
   const deleteScheduledWorkout = (id: string) =>
     setScheduledWorkouts(prev => prev.filter(e => e.id !== id));
+
+  // Weight log
+  const saveWeightEntry = (entry: WeightEntry) =>
+    setWeightLog(prev => {
+      const filtered = prev.filter(e => e.date !== entry.date);
+      return [entry, ...filtered].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 365);
+    });
+
+  const deleteWeightEntry = (date: string) =>
+    setWeightLog(prev => prev.filter(e => e.date !== date));
+
+  /** Returns consecutive 'low' readiness days ending at (but not including) today */
+  const getConsecutiveLowReadinessDays = (): number => {
+    const today = new Date().toISOString().split('T')[0];
+    let count = 0;
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      if (dateStr === today) continue;
+      const entry = dailyReadinessLog.find(r => r.date === dateStr);
+      if (entry?.level === 'low') { count++; } else { break; }
+    }
+    return count;
+  };
+
+  /** Returns days since the most recent test session, or null if never tested */
+  const getDaysSinceLastTest = (): number | null => {
+    if (!testSessions.length) return null;
+    const latest = testSessions.reduce((a, b) => a.completedAt > b.completedAt ? a : b);
+    return Math.floor((Date.now() - latest.completedAt) / (1000 * 60 * 60 * 24));
+  };
 
   /** Returns the date of the most recent match/team_training entry (within 3 days)
    *  that has no intensity rating yet, or null if nothing pending. */
@@ -235,6 +269,11 @@ export function useStore() {
     scheduledWorkouts,
     saveScheduledWorkout,
     deleteScheduledWorkout,
+    weightLog,
+    saveWeightEntry,
+    deleteWeightEntry,
+    getConsecutiveLowReadinessDays,
+    getDaysSinceLastTest,
     clearAll: () => {
       // Remove localStorage keys first so useLocalStorage hooks re-init to defaults
       const VF_KEYS = [
@@ -242,7 +281,7 @@ export function useStore() {
         'vf_active_plan', 'vf_profile_picture', 'vf_settings', 'vf_baseline',
         'vf_match_entries', 'vf_test_sessions',
         'vf_generated_programmes', 'vf_active_programme_id', 'vf_daily_readiness',
-        'vf_football_intensity', 'vf_scheduled_workouts',
+        'vf_football_intensity', 'vf_scheduled_workouts', 'vf_weight_log',
       ];
       VF_KEYS.forEach(k => localStorage.removeItem(k));
       // Reset React state
@@ -261,6 +300,7 @@ export function useStore() {
       setDailyReadinessLog([]);
       setFootballIntensityLog({});
       setScheduledWorkouts([]);
+      setWeightLog([]);
     },
   };
 }
