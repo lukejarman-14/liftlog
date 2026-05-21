@@ -22,7 +22,7 @@ import { GeneratedProgramme } from './components/screens/GeneratedProgramme';
 import { ProgrammeHub } from './components/screens/ProgrammeHub';
 import { ResetPassword } from './components/screens/ResetPassword';
 import { generateProgramme, buildTestEmphasis } from './lib/programmeGenerator';
-import { sessionToWorkoutExercises } from './lib/sessionUtils';
+import { sessionToWorkoutExercises, getProgrammeWeekIndex } from './lib/sessionUtils';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 import { usePremium } from './hooks/usePremium';
 import { Paywall } from './components/screens/Paywall';
@@ -262,7 +262,11 @@ export default function App() {
       },
     };
     store.saveGeneratedProgramme(updated);
-    const items = sessionToWorkoutExercises(session, store.exercises);
+    const items = sessionToWorkoutExercises(session, store.exercises, {
+      strengthSetup: updated.strengthSetup,
+      weekNumber: getProgrammeWeekIndex(updated) + 1,
+      totalWeeks: updated.durationWeeks,
+    });
     handleStartProgrammeSession(`Week 1 · ${session.dayOfWeek}`, items);
   };
 

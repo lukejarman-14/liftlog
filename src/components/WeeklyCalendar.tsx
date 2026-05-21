@@ -328,7 +328,11 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                             const wk = progWeekIdx >= 0 ? progWeekIdx + 1 : 1;
                             setPreviewWeekNumber(wk);
                             setPreviewOnStart(() => () => {
-                              const items = sessionToWorkoutExercises(session, exercises);
+                              const items = sessionToWorkoutExercises(session, exercises, {
+                                strengthSetup: generatedProgramme?.strengthSetup,
+                                weekNumber: progWeekIdx >= 0 ? progWeekIdx + 1 : 1,
+                                totalWeeks: generatedProgramme?.durationWeeks,
+                              });
                               onStartProgrammeSession(`${mdDisplay} · ${session.dayOfWeek}`, items);
                             });
                             setPreviewSession(session);

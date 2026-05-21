@@ -1,4 +1,5 @@
-import { ProgrammeSession, WorkoutExercise, Exercise, GeneratedProgramme } from '../types';
+import { ProgrammeSession, WorkoutExercise, Exercise, GeneratedProgramme, StrengthSetup } from '../types';
+import { getLiftKey, prescribeWeekLoad } from './progressiveOverload';
 
 // ── Exercise ID resolution ─────────────────────────────────────────────────
 
@@ -395,8 +396,12 @@ function parseSets(sets: string): number {
 export function sessionToWorkoutExercises(
   session: ProgrammeSession,
   exercises: Exercise[],
+  opts?: { strengthSetup?: StrengthSetup; weekNumber?: number; totalWeeks?: number },
 ): WorkoutExercise[] {
   const result: WorkoutExercise[] = [];
+  // Deduplicate by programme exercise name (not library ID) so exercises like
+  // "Single-Leg Pogo Hops" and "Pogo Hops" — which both resolve to the same
+  // library entry — can legitimately appear twice in the same session.
   const used = new Set<string>();
 
   for (const block of session.blocks) {
@@ -446,8 +451,8 @@ export function sessionToWorkoutExercises(
       }
 
       const exercise = id ? exercises.find(e => e.id === id) : undefined;
-      if (id && !used.has(id) && exercise) {
-        used.add(id);
+      if (id && !used.has(fullKey) && exercise) {
+        used.add(fullKey);
         const isCond = exercise.category === 'Conditioning';
         // Time-based aerobic (measureType: 'time'): show as 1 set × duration-in-seconds timer.
         // Only applies to single-set continuous runs (sets ≤ 1). Multi-set intervals (sets > 1)
@@ -473,11 +478,30 @@ export function sessionToWorkoutExercises(
         const restSeconds = isTimedAerobic ? 0
           : isCond ? parseCondRestSecs(pe.reps, pe.rest)
           : parseRest(pe.rest);
+        // Populate targetWeight from strength setup when available.
+        // For strength exercises with a matching lift key, prescribe the
+        // week-specific load (e.g. week 3 of 12 at 82% 1RM + micro-progression).
+        // Falls back to the player's raw working weight if the intensity isn't
+        // a parseable %1RM string (e.g. "3 RIR" or bodyweight exercises).
+        let targetWeight = 0;
+        if (!isCond && opts?.strengthSetup && opts?.weekNumber && opts?.totalWeeks) {
+          const liftKey = getLiftKey(pe.name);
+          if (liftKey) {
+            const baseline = opts.strengthSetup.lifts.find(l => l.key === liftKey);
+            if (baseline) {
+              const prescription = prescribeWeekLoad(
+                baseline.estimated1RM, pe.intensity, opts.weekNumber, opts.totalWeeks,
+              );
+              targetWeight = prescription?.kg ?? baseline.workingWeightKg;
+            }
+          }
+        }
+
         result.push({
           exerciseId: id,
           targetSets,
           targetReps,
-          targetWeight: 0,
+          targetWeight,
           restSeconds,
           blockTitle: isFirstInBlock ? block.title : undefined,
           displayName: pe.name !== exercise.name ? pe.name : undefined,
