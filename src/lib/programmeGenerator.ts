@@ -1049,12 +1049,10 @@ const REACTIVE_PLYO_POOL: Record<GymKey, ProgrammeExercise[][]> = {
   ],
 };
 
-function pickReactivePlyo(gymKey: GymKey, weekNum: number): ProgrammeExercise[] {
-  const pool = REACTIVE_PLYO_POOL[gymKey];
-  // Always include Pogo Hops (pool[0]) for tendon-spring stimulus, plus rotate one other reactive plyo
-  const pogos = pool[0];
-  const altIdx = 1 + (weekNum % (pool.length - 1));
-  return [...pogos, ...pool[altIdx]];
+function pickReactivePlyo(gymKey: GymKey, _weekNum: number): ProgrammeExercise[] {
+  // Single reactive stiffness drill — Pogo Hops only.
+  // Bilateral tendon-spring stimulus is sufficient; no weekly rotation needed.
+  return REACTIVE_PLYO_POOL[gymKey][0];
 }
 
 // ── Tendon & SSC Block — between strength and eccentrics ──────────────────
