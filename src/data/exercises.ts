@@ -66,6 +66,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'rowing-machine', name: 'Rowing Machine', category: 'Cardio', defaultRestSeconds: 60, muscleGroups: ['Full Body', 'Cardiovascular'] },
   { id: 'bike', name: 'Stationary Bike', category: 'Cardio', defaultRestSeconds: 60, muscleGroups: ['Legs', 'Cardiovascular'] },
   { id: 'squat-jump', name: 'Squat Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'], measureType: 'reps' },
+  { id: 'tuck-jump', name: 'Tuck Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Hip Flexors', 'Calves'], measureType: 'reps' },
 
   // Full Body
   { id: 'thruster', name: 'Thruster', category: 'Full Body', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Shoulders'] },
@@ -102,6 +103,8 @@ export const DEFAULT_EXERCISES: Exercise[] = [
 
   // Speed + Agility
   { id: 'lateral-bound', name: 'Lateral Bound', category: 'Speed', secondaryCategory: 'Agility', defaultRestSeconds: 90, muscleGroups: ['Glutes', 'Adductors', 'Calves'], measureType: 'reps' },
+  { id: 'sled-push', name: 'Sled Push', category: 'Speed', primaryCategory: 'power', footballTransfer: 'high', defaultRestSeconds: 180, muscleGroups: ['Glutes', 'Hamstrings', 'Quads', 'Calves'], measureType: 'distance', unit: 'm' },
+  { id: 'inverted-row', name: 'Inverted Row', category: 'Back', defaultRestSeconds: 90, muscleGroups: ['Lats', 'Rhomboids', 'Rear Delts', 'Biceps'], measureType: 'reps' },
 
   // Conditioning
   { id: 'aerobic-threshold-run', name: 'Aerobic Threshold Run', category: 'Conditioning', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'], measureType: 'time', unit: 's' },

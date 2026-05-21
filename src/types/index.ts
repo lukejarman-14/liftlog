@@ -297,6 +297,10 @@ export interface ProgrammeInputs {
 
 export interface ProgrammeExercise {
   name: string;
+  /** Resolved exercise library ID — stamped at generation time so sessionToWorkoutExercises
+   *  can skip the NAME_TO_ID lookup entirely. Absent on programmes generated before this field
+   *  was added; the lookup chain handles those as a backward-compatible fallback. */
+  exerciseId?: string;
   sets: string;
   reps: string;
   rest: string;

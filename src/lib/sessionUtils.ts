@@ -248,6 +248,25 @@ export const NAME_TO_ID: Record<string, string> = {
   'match simulation intervals': 'hiit-run',
   '2×4 hiit — peak taper': 'hiit-run',
   'short sprint activation': 'repeated-sprint',
+  // Sled variants
+  'sled push': 'sled-push',
+  'sled push (heavy)': 'sled-push',
+  'sled push — speed variant': 'sled-push',
+  // Bounding / jumps
+  'standing bounding': 'bounding',
+  'tuck jump': 'tuck-jump',
+  'squat jump': 'squat-jump',
+  'lateral bound': 'lateral-bound',
+  // Bodyweight push-up variants
+  'archer push-up': 'push-up',
+  'explosive push-up': 'push-up',
+  'plyometric push-up': 'push-up',
+  'push-up (max effort)': 'push-up',
+  // Inverted row variants
+  'inverted row (feet elevated)': 'inverted-row',
+  'inverted row (table or low bar)': 'inverted-row',
+  // Isometric hip flexor
+  'isometric hip flexor hold (kneeling)': 'iso-lunge-hold',
 };
 
 /**
@@ -350,27 +369,42 @@ export function sessionToWorkoutExercises(
       const fullKey = pe.name.toLowerCase();
       const key = fullKey.split('(')[0].trim();
 
-      const { id, via, fuzzyMatch } = resolveExerciseId(pe.name, exercises);
+      // Fast path: generator already resolved the ID at generation time.
+      // This is the guaranteed-correct path for all programmes generated after
+      // exerciseId was introduced — no lookup chain, no fuzzy fallback, no drops.
+      let id: string | undefined = pe.exerciseId;
 
-      // Dev-mode warnings — use the same resolution result, no re-computation
-      if (import.meta.env.DEV) {
-        if (via === 'fuzzy' && fuzzyMatch) {
-          console.warn(
-            `[sessionUtils] ⚠️ FUZZY MATCH used for "${pe.name}" → "${fuzzyMatch.id}" ("${fuzzyMatch.name}"). ` +
-            `This is fragile — add an explicit entry to NAME_TO_ID in sessionUtils.ts:\n` +
-            `  '${fullKey}': '${fuzzyMatch.id}',`,
-          );
-        } else if (via === 'none') {
-          console.warn(
-            `[sessionUtils] ❌ EXERCISE DROPPED — no match for "${pe.name}" (key: "${key}"). ` +
-            `Add an explicit entry to NAME_TO_ID in sessionUtils.ts:\n` +
-            `  '${fullKey}': '<exercise-id>',`,
-          );
-        } else if (id && !exercises.find(e => e.id === id)) {
-          console.warn(
-            `[sessionUtils] ❌ EXERCISE DROPPED — NAME_TO_ID maps "${pe.name}" → "${id}" ` +
-            `but no exercise with that ID exists in the library. Check exercises.ts.`,
-          );
+      // Slow path: fall back to runtime resolution for old saved programmes
+      // that pre-date the exerciseId field.
+      let via: ResolutionVia = 'exact';
+      let fuzzyMatch: { id: string; name: string } | undefined;
+      if (!id) {
+        const resolved = resolveExerciseId(pe.name, exercises);
+        id = resolved.id;
+        via = resolved.via;
+        fuzzyMatch = resolved.fuzzyMatch;
+
+        // Dev-mode warnings only fire on the slow path (old programmes).
+        // New programmes with exerciseId set never reach here.
+        if (import.meta.env.DEV) {
+          if (via === 'fuzzy' && fuzzyMatch) {
+            console.warn(
+              `[sessionUtils] ⚠️ FUZZY MATCH used for "${pe.name}" → "${fuzzyMatch.id}" ("${fuzzyMatch.name}"). ` +
+              `This is fragile — add an explicit entry to NAME_TO_ID in sessionUtils.ts:\n` +
+              `  '${fullKey}': '${fuzzyMatch.id}',`,
+            );
+          } else if (via === 'none') {
+            console.warn(
+              `[sessionUtils] ❌ EXERCISE DROPPED — no match for "${pe.name}" (key: "${key}"). ` +
+              `Add an explicit entry to NAME_TO_ID in sessionUtils.ts:\n` +
+              `  '${fullKey}': '<exercise-id>',`,
+            );
+          } else if (id && !exercises.find(e => e.id === id)) {
+            console.warn(
+              `[sessionUtils] ❌ EXERCISE DROPPED — NAME_TO_ID maps "${pe.name}" → "${id}" ` +
+              `but no exercise with that ID exists in the library. Check exercises.ts.`,
+            );
+          }
         }
       }
 

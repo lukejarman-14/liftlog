@@ -8,6 +8,22 @@ import {
   GeneratedProgramme, ProgrammeInputs, ProgrammeWeek, ProgrammeSession,
   ProgrammeExercise, SessionBlock, ReadinessLevel, MethodType, IntensityIntent,
 } from '../types';
+import { NAME_TO_ID } from './sessionUtils';
+
+// ── Exercise ID resolution (generation-time) ───────────────────────────────
+// Resolves a display name → library ID using exact + partial lookup only.
+// No fuzzy fallback — gaps here are caught by the test suite, not papered over.
+
+function resolveId(name: string): string | undefined {
+  const fullKey = name.toLowerCase();
+  const key = fullKey.split('(')[0].trim();
+  const exactId = NAME_TO_ID[fullKey] ?? NAME_TO_ID[key];
+  if (exactId) return exactId;
+  for (const [pattern, mappedId] of Object.entries(NAME_TO_ID)) {
+    if (key.includes(pattern)) return mappedId;
+  }
+  return undefined;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -25,7 +41,7 @@ function ex(
     isRunning?: boolean;
   },
 ): ProgrammeExercise {
-  return { name, sets, reps, rest, cue, ...opts };
+  return { name, exerciseId: resolveId(name), sets, reps, rest, cue, ...opts };
 }
 
 // ── Readiness — 4-band (1–5 scale) ────────────────────────────────────────
