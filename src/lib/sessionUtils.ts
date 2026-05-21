@@ -284,15 +284,42 @@ export function sessionToWorkoutExercises(
         }
       }
 
+      // Fuzzy fallback — first-word match. Very fragile; warn in dev so these get explicit entries.
       if (!id) {
+        const firstWord = key.split(' ')[0];
         const found = exercises.find(e =>
-          e.name.toLowerCase().includes(key.split(' ')[0]) ||
+          e.name.toLowerCase().includes(firstWord) ||
           key.includes(e.name.toLowerCase().split(' ')[0]),
         );
-        id = found?.id;
+        if (found) {
+          if (import.meta.env.DEV) {
+            console.warn(
+              `[sessionUtils] ⚠️ FUZZY MATCH used for "${pe.name}" → "${found.id}" ("${found.name}"). ` +
+              `This is fragile — add an explicit entry to NAME_TO_ID in sessionUtils.ts:\n` +
+              `  '${fullKey}': '${found.id}',`,
+            );
+          }
+          id = found.id;
+        }
+      }
+
+      if (!id) {
+        if (import.meta.env.DEV) {
+          console.warn(
+            `[sessionUtils] ❌ EXERCISE DROPPED — no match for "${pe.name}" (key: "${key}"). ` +
+            `Add an explicit entry to NAME_TO_ID in sessionUtils.ts:\n` +
+            `  '${fullKey}': '<exercise-id>',`,
+          );
+        }
       }
 
       const exercise = id ? exercises.find(e => e.id === id) : undefined;
+      if (id && !exercise && import.meta.env.DEV) {
+        console.warn(
+          `[sessionUtils] ❌ EXERCISE DROPPED — NAME_TO_ID maps "${pe.name}" → "${id}" ` +
+          `but no exercise with that ID exists in the library. Check exercises.ts.`,
+        );
+      }
       if (id && !used.has(id) && exercise) {
         used.add(id);
         const isCond = exercise.category === 'Conditioning';
