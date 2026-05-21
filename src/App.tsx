@@ -195,6 +195,7 @@ export default function App() {
         blockTitle: item.blockTitle,
         displayName: item.displayName,
         coachingCue: item.coachingCue,
+        hasPrimingSingles: item.hasPrimingSingles,
         sets: [],
       })),
       startTime: Date.now(),

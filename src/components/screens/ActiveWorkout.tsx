@@ -13,6 +13,7 @@ import { useStore } from '../../hooks/useStore';
 import { WorkoutSession, SessionExercise, CompletedSet, MeasureType } from '../../types';
 import { EXERCISE_DESCRIPTIONS } from '../../data/exerciseDescriptions';
 import { intraSessionSuggestion, interSessionBaseline, weeklyProgressionSuggestion } from '../../lib/rpeProgression';
+import { calcPrimingWeights } from '../../lib/sessionUtils';
 
 interface ActiveWorkoutProps {
   session: WorkoutSession;
@@ -894,23 +895,48 @@ function ExerciseSection({
   const RIR_CATEGORIES = new Set(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body', 'Eccentric']);
   const showRir = globalShowRir && !exercise.isWarmup && RIR_CATEGORIES.has(exercise.category);
 
-  const completedCount = sessionExercise.sets.length;
-  const totalSets      = sessionExercise.targetSets;
-  const allDone        = completedCount >= totalSets;
+  // ── Neural priming ─────────────────────────────────────────────────────
+  // Priming sets are stored at the start of sessionExercise.sets with isPriming:true.
+  // Working sets follow immediately after. We separate them for all display/logic.
+  const primingCount    = sessionExercise.hasPrimingSingles ? 3 : 0;
+  const workingSets     = sessionExercise.sets.filter(s => !s.isPriming);
+  const primingDone     = sessionExercise.sets.filter(s =>  s.isPriming).length;
 
-  // ── Default weight for each set row ────────────────────────────────────
+  const completedCount  = workingSets.length;
+  const totalSets       = sessionExercise.targetSets;
+  const allDone         = completedCount >= totalSets;
+
+  // Non-priming history used for defaults, PB display, and suggestion baseline
+  const workingLastSets = (lastSession?.sets ?? []).filter(s => !s.isPriming);
+
+  // Working weight for the priming percentages: best weight from last session,
+  // or targetWeight as a fallback. If zero we skip rendering priming rows.
+  const lastWorkingWeight = (() => {
+    if (!sessionExercise.hasPrimingSingles || measureType !== 'strength') return 0;
+    if (workingLastSets.length > 0) {
+      return workingLastSets.reduce((best, s) => Math.max(best, s.weight), 0);
+    }
+    return sessionExercise.targetWeight;
+  })();
+  const primingWeights = (sessionExercise.hasPrimingSingles && lastWorkingWeight > 0)
+    ? calcPrimingWeights(lastWorkingWeight)
+    : null;
+
+  // ── Default weight for each working set row ─────────────────────────────
   const getSetDefaults = (i: number) => {
-    // Intra-session: use previous set's values as base
-    if (i > 0 && sessionExercise.sets[i - 1]) {
-      return { weight: sessionExercise.sets[i - 1].weight, reps: sessionExercise.sets[i - 1].reps };
+    // Intra-session: use the previous *working* set's values as base
+    const prevWorkingIdx = primingCount + i - 1;
+    if (i > 0 && sessionExercise.sets[prevWorkingIdx]) {
+      const prev = sessionExercise.sets[prevWorkingIdx];
+      return { weight: prev.weight, reps: prev.reps };
     }
-    // Inter-session: use RPE-calibrated baseline when available
-    if (lastSession?.sets.length) {
-      const base = interSessionBaseline(lastSession.sets, targetRir ?? 2);
+    // Inter-session: use RPE-calibrated baseline (non-priming sets only)
+    if (workingLastSets.length) {
+      const base = interSessionBaseline(workingLastSets, targetRir ?? 2);
       if (base) return { weight: base.weight, reps: base.reps };
+      if (workingLastSets[i]) return { weight: workingLastSets[i].weight, reps: workingLastSets[i].reps };
+      return { weight: workingLastSets[0].weight, reps: workingLastSets[0].reps };
     }
-    if (lastSession?.sets[i]) return { weight: lastSession.sets[i].weight, reps: lastSession.sets[i].reps };
-    if (lastSession?.sets[0]) return { weight: lastSession.sets[0].weight, reps: lastSession.sets[0].reps };
     return { weight: sessionExercise.targetWeight, reps: sessionExercise.targetReps };
   };
 
@@ -919,18 +945,18 @@ function ExerciseSection({
     !exercise.isWarmup &&
     measureType === 'strength' &&
     completedCount === 0 &&
-    lastSession?.sets.length
+    workingLastSets.length > 0
   )
     ? weeklyProgressionSuggestion(
-        lastSession.sets,
+        workingLastSets,
         sessionExercise.targetSets,
         sessionExercise.targetReps,
         targetRir ?? 2,
       )
     : null;
 
-  // ── Intra-session suggestion (shown after last logged set with RPE) ────
-  const lastCompleted = sessionExercise.sets[sessionExercise.sets.length - 1];
+  // ── Intra-session suggestion (shown after last logged working set with RPE) ──
+  const lastCompleted = workingSets.length > 0 ? workingSets[workingSets.length - 1] : null;
   const suggestion = (
     lastCompleted?.rir !== undefined &&
     measureType === 'strength' &&
@@ -939,8 +965,8 @@ function ExerciseSection({
     ? intraSessionSuggestion(targetRir ?? 2, lastCompleted.rir, lastCompleted.weight)
     : null;
 
-  // ── PB / last session display ──────────────────────────────────────────
-  const currentBest = sessionExercise.sets.reduce<{ weight: number; reps: number } | null>(
+  // ── PB / last session display (exclude priming from both) ────────────────
+  const currentBest = workingSets.reduce<{ weight: number; reps: number } | null>(
     (best, set) => {
       if (!best) return set;
       if (measureType === 'reps') return set.reps > best.reps ? set : best;
@@ -953,8 +979,8 @@ function ExerciseSection({
       : currentBest.weight > pb.weight
   ));
   const pbDisplay = pb ? formatSetDisplay({ ...pb, completedAt: 0 }, measureType, unit) : null;
-  const lastBest  = lastSession?.sets.length
-    ? lastSession.sets.reduce((b, s) => s.weight > b.weight ? s : b)
+  const lastBest  = workingLastSets.length
+    ? workingLastSets.reduce((b, s) => s.weight > b.weight ? s : b)
     : null;
   const lastDisplay = lastBest ? formatSetDisplay({ ...lastBest, completedAt: 0 }, measureType, unit) : null;
 
@@ -1005,10 +1031,10 @@ function ExerciseSection({
                   <Clock size={11} className="text-blue-500" />
                   <span className="text-xs font-semibold text-blue-600">Last Time</span>
                 </div>
-                {lastSession && lastSession.sets.length > 0 ? (
+                {workingLastSets.length > 0 ? (
                   <div className="text-xs text-blue-700 leading-relaxed">
                     {showAllLast
-                      ? lastSession.sets.map((s, i) => (
+                      ? workingLastSets.map((s, i) => (
                           <span key={i} className="mr-2 whitespace-nowrap">
                             {formatSetDisplay(s, measureType, unit)}{s.rir !== undefined ? ` @ ${s.rir} RIR` : ''}
                           </span>
@@ -1055,11 +1081,46 @@ function ExerciseSection({
 
             {/* Set rows */}
             <div className="flex flex-col gap-2">
+              {/* ── Neural priming singles (only for strength exercises with known working weight) ── */}
+              {primingWeights && (
+                <>
+                  <div className="flex items-center gap-2 pt-1 pb-0.5">
+                    <span className="text-xs font-bold text-purple-600 uppercase tracking-wider">⚡ Priming Singles</span>
+                    <div className="flex-1 h-px bg-purple-100" />
+                  </div>
+                  {primingWeights.map((pw, pi) => (
+                    <div key={`p${pi}`}>
+                      <SetRow
+                        setIndex={pi}
+                        completed={sessionExercise.sets[pi] ?? null}
+                        defaultWeight={pw}
+                        defaultReps={1}
+                        measureType="strength"
+                        unit={unit}
+                        isWarmup={true}
+                        onComplete={set => onCompleteSet(pi, { ...set, isPriming: true })}
+                        onEdit={set => onEditSet(pi, { ...set, isPriming: true })}
+                      />
+                      {/* Rest timer after a completed priming set (not after the last priming set) */}
+                      {restInfo && pi === primingDone - 1 && primingDone < 3 && (
+                        <InlineRestTimer restInfo={restInfo} />
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2 pt-1 pb-0.5">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Working Sets</span>
+                    <div className="flex-1 h-px bg-gray-100" />
+                  </div>
+                </>
+              )}
+
+              {/* ── Working sets ── */}
               {Array.from({ length: totalSets }).map((_, i) => {
+                const wsIdx   = primingCount + i;  // absolute index in sessionExercise.sets
                 const defaults = getSetDefaults(i);
                 return (
                   <div key={i}>
-                    {/* Show suggestion banner just before the next uncompleted set */}
+                    {/* Show suggestion banner just before the next uncompleted working set */}
                     {!isCondSprint && suggestion && i === completedCount && (
                       <RpeSuggestionBanner
                         action={suggestion.action}
@@ -1070,25 +1131,25 @@ function ExerciseSection({
                       <CondSprintRow
                         setIndex={i}
                         totalSets={totalSets}
-                        completed={sessionExercise.sets[i] ?? null}
+                        completed={sessionExercise.sets[wsIdx] ?? null}
                         isActive={i === completedCount}
-                        onComplete={set => onCompleteSet(i, set)}
+                        onComplete={set => onCompleteSet(wsIdx, set)}
                       />
                     ) : (
                       <SetRow
                         setIndex={i}
-                        completed={sessionExercise.sets[i] ?? null}
+                        completed={sessionExercise.sets[wsIdx] ?? null}
                         defaultWeight={defaults.weight}
                         defaultReps={defaults.reps}
                         measureType={measureType}
                         unit={unit}
                         targetRir={showRir ? targetRir : undefined}
                         isWarmup={(exercise.isWarmup ?? false) || exercise.category === 'Conditioning'}
-                        onComplete={set => onCompleteSet(i, set)}
-                        onEdit={set => onEditSet(i, set)}
+                        onComplete={set => onCompleteSet(wsIdx, set)}
+                        onEdit={set => onEditSet(wsIdx, set)}
                       />
                     )}
-                    {/* Rest timer appears between last completed set and next pending set */}
+                    {/* Rest timer appears between last completed working set and next pending set */}
                     {restInfo && i === completedCount - 1 && (
                       <InlineRestTimer restInfo={restInfo} />
                     )}
@@ -1139,7 +1200,8 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalSets     = session.exercises.reduce((a, e) => a + e.targetSets, 0);
-  const completedSets = session.exercises.reduce((a, e) => a + e.sets.length, 0);
+  // Priming singles are stored in sets[] but excluded from progress tracking
+  const completedSets = session.exercises.reduce((a, e) => a + e.sets.filter(s => !s.isPriming).length, 0);
   const progressPct   = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
   const elapsedMins   = Math.floor((Date.now() - session.startTime) / 60000);
 
@@ -1196,7 +1258,8 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
       const exercise = getExercise(ex.exerciseId);
       if (!exercise || exercise.isWarmup) return [];
       const pre = prePBsRef.current[ex.exerciseId];
-      const currentBest = ex.sets.reduce<{ weight: number; reps: number } | null>(
+      // Exclude priming singles — they're sub-maximal and should not influence PB tracking
+      const currentBest = ex.sets.filter(s => !s.isPriming).reduce<{ weight: number; reps: number } | null>(
         (best, set) => !best || set.weight > best.weight ? { weight: set.weight, reps: set.reps } : best,
         null,
       );
@@ -1293,10 +1356,16 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     };
     onUpdateSession(updated);
 
-    const isLastSet      = setIndex >= ex.targetSets - 1;
-    const isLastExercise = exerciseIdx === session.exercises.length - 1;
-    if (!(isLastSet && isLastExercise) && ex.restSeconds > 0) {
-      timer.start(ex.restSeconds);
+    // Account for priming sets stored before working sets in the array.
+    // A priming set (index < primingCount) is never the "last" set.
+    // Rest for priming singles is capped at 60 s to keep activation tight.
+    const primingSetCount = ex.hasPrimingSingles ? 3 : 0;
+    const isPrimingSet    = setIndex < primingSetCount;
+    const isLastSet       = !isPrimingSet && setIndex >= primingSetCount + ex.targetSets - 1;
+    const isLastExercise  = exerciseIdx === session.exercises.length - 1;
+    const restSecs        = isPrimingSet ? Math.min(60, ex.restSeconds) : ex.restSeconds;
+    if (!(isLastSet && isLastExercise) && restSecs > 0) {
+      timer.start(restSecs);
       setRestingExerciseIdx(exerciseIdx);
     }
   }, [session, onUpdateSession, timer]);

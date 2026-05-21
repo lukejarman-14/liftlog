@@ -269,6 +269,43 @@ export const NAME_TO_ID: Record<string, string> = {
   'isometric hip flexor hold (kneeling)': 'iso-lunge-hold',
 };
 
+// ── Neural priming utilities ───────────────────────────────────────────────
+
+/** Round a weight to the nearest 2.5 kg step. */
+function roundTo2_5(kg: number): number {
+  return Math.round(kg / 2.5) * 2.5;
+}
+
+/**
+ * Returns the three priming single weights for a given working weight:
+ * [85%, 92%, 100%] each rounded to the nearest 2.5 kg.
+ */
+export function calcPrimingWeights(workingWeightKg: number): [number, number, number] {
+  return [
+    roundTo2_5(workingWeightKg * 0.85),
+    roundTo2_5(workingWeightKg * 0.92),
+    roundTo2_5(workingWeightKg * 1.00),
+  ];
+}
+
+/** Categories where neural priming singles are appropriate (barbell/dumbbell strength work). */
+const PRIMING_ELIGIBLE_CATEGORIES = new Set([
+  'Legs', 'Chest', 'Back', 'Shoulders', 'Arms', 'Full Body',
+]);
+
+/**
+ * Returns true when an exercise should receive 3 ascending priming singles
+ * before its working sets: must be a strength-measure exercise in a
+ * compound-lift category, not a warm-up exercise.
+ */
+export function isPrimingEligible(exercise: Exercise): boolean {
+  return (
+    !exercise.isWarmup &&
+    (exercise.measureType === 'strength' || exercise.measureType === undefined) &&
+    PRIMING_ELIGIBLE_CATEGORIES.has(exercise.category)
+  );
+}
+
 /**
  * For distance-based RSA exercises like "6 × 30m · 25s rest" with pe.sets = "3",
  * the programme means 3 groups × 6 sprints each. Returns the reps-per-set multiplier.
@@ -445,6 +482,7 @@ export function sessionToWorkoutExercises(
           blockTitle: isFirstInBlock ? block.title : undefined,
           displayName: pe.name !== exercise.name ? pe.name : undefined,
           coachingCue: pe.cue || undefined,
+          hasPrimingSingles: !isCond && isPrimingEligible(exercise),
         });
         isFirstInBlock = false;
       }
