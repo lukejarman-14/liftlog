@@ -1,5 +1,84 @@
 import { ProgrammeSession, WorkoutExercise, Exercise, GeneratedProgramme } from '../types';
 
+// ── Exercise ID resolution ─────────────────────────────────────────────────
+
+export type ResolutionVia = 'exact' | 'partial' | 'fuzzy' | 'none';
+
+export interface ResolutionResult {
+  id: string | undefined;
+  via: ResolutionVia;
+  /** Only set when via === 'fuzzy' — the exercise it guessed */
+  fuzzyMatch?: { id: string; name: string };
+}
+
+/**
+ * Resolve a programme exercise name to a library exercise ID.
+ * Returns how it was resolved so callers can distinguish safe (exact/partial)
+ * from fragile (fuzzy) and missing (none) resolutions.
+ * This is the single source of truth — sessionToWorkoutExercises and
+ * validateProgrammeSession both call this so they can never diverge.
+ */
+export function resolveExerciseId(name: string, exercises: Exercise[]): ResolutionResult {
+  const fullKey = name.toLowerCase();
+  const key = fullKey.split('(')[0].trim();
+
+  // Step 1: exact entry in NAME_TO_ID
+  const exactId = NAME_TO_ID[fullKey] ?? NAME_TO_ID[key];
+  if (exactId) return { id: exactId, via: 'exact' };
+
+  // Step 2: partial — key contains a NAME_TO_ID pattern
+  for (const [pattern, mappedId] of Object.entries(NAME_TO_ID)) {
+    if (key.includes(pattern)) return { id: mappedId, via: 'partial' };
+  }
+
+  // Step 3: fuzzy — first-word match against exercise library (fragile)
+  const firstWord = key.split(' ')[0];
+  const found = exercises.find(e =>
+    e.name.toLowerCase().includes(firstWord) ||
+    key.includes(e.name.toLowerCase().split(' ')[0]),
+  );
+  if (found) return { id: found.id, via: 'fuzzy', fuzzyMatch: { id: found.id, name: found.name } };
+
+  return { id: undefined, via: 'none' };
+}
+
+// ── Session validation ─────────────────────────────────────────────────────
+
+export interface SessionValidation {
+  /** Exercises the generator produced that will be silently dropped */
+  dropped: string[];
+  /** Exercises resolved only by the fragile first-word fuzzy fallback */
+  fuzzyMatched: Array<{ programmeName: string; resolvedId: string; resolvedName: string }>;
+}
+
+/**
+ * Validate a ProgrammeSession against the exercise library without side-effects.
+ * Returns which exercises would be dropped or fuzzy-matched if the session were started now.
+ * Useful in dev-mode overlays and pre-flight checks.
+ */
+export function validateProgrammeSession(
+  session: ProgrammeSession,
+  exercises: Exercise[],
+): SessionValidation {
+  const dropped: string[] = [];
+  const fuzzyMatched: SessionValidation['fuzzyMatched'] = [];
+  const seen = new Set<string>();
+
+  for (const block of session.blocks) {
+    for (const pe of block.exercises) {
+      const { id, via, fuzzyMatch } = resolveExerciseId(pe.name, exercises);
+      if (!id || !exercises.find(e => e.id === id)) {
+        dropped.push(pe.name);
+      } else if (via === 'fuzzy' && fuzzyMatch && !seen.has(id)) {
+        fuzzyMatched.push({ programmeName: pe.name, resolvedId: fuzzyMatch.id, resolvedName: fuzzyMatch.name });
+      }
+      if (id) seen.add(id);
+    }
+  }
+
+  return { dropped, fuzzyMatched };
+}
+
 // ── Programme week helpers ─────────────────────────────────────────────────
 
 /** Monday of the week containing ts (rolls back). */
@@ -270,56 +349,32 @@ export function sessionToWorkoutExercises(
     for (const pe of block.exercises) {
       const fullKey = pe.name.toLowerCase();
       const key = fullKey.split('(')[0].trim();
-      let id: string | undefined;
 
-      // Full-name lookup first (catches variants like "Barbell Romanian Deadlift (Eccentric Emphasis)")
-      id = NAME_TO_ID[fullKey] ?? NAME_TO_ID[key];
+      const { id, via, fuzzyMatch } = resolveExerciseId(pe.name, exercises);
 
-      if (!id) {
-        for (const [pattern, mappedId] of Object.entries(NAME_TO_ID)) {
-          if (key.includes(pattern)) {
-            id = mappedId;
-            break;
-          }
-        }
-      }
-
-      // Fuzzy fallback — first-word match. Very fragile; warn in dev so these get explicit entries.
-      if (!id) {
-        const firstWord = key.split(' ')[0];
-        const found = exercises.find(e =>
-          e.name.toLowerCase().includes(firstWord) ||
-          key.includes(e.name.toLowerCase().split(' ')[0]),
-        );
-        if (found) {
-          if (import.meta.env.DEV) {
-            console.warn(
-              `[sessionUtils] ⚠️ FUZZY MATCH used for "${pe.name}" → "${found.id}" ("${found.name}"). ` +
-              `This is fragile — add an explicit entry to NAME_TO_ID in sessionUtils.ts:\n` +
-              `  '${fullKey}': '${found.id}',`,
-            );
-          }
-          id = found.id;
-        }
-      }
-
-      if (!id) {
-        if (import.meta.env.DEV) {
+      // Dev-mode warnings — use the same resolution result, no re-computation
+      if (import.meta.env.DEV) {
+        if (via === 'fuzzy' && fuzzyMatch) {
+          console.warn(
+            `[sessionUtils] ⚠️ FUZZY MATCH used for "${pe.name}" → "${fuzzyMatch.id}" ("${fuzzyMatch.name}"). ` +
+            `This is fragile — add an explicit entry to NAME_TO_ID in sessionUtils.ts:\n` +
+            `  '${fullKey}': '${fuzzyMatch.id}',`,
+          );
+        } else if (via === 'none') {
           console.warn(
             `[sessionUtils] ❌ EXERCISE DROPPED — no match for "${pe.name}" (key: "${key}"). ` +
             `Add an explicit entry to NAME_TO_ID in sessionUtils.ts:\n` +
             `  '${fullKey}': '<exercise-id>',`,
           );
+        } else if (id && !exercises.find(e => e.id === id)) {
+          console.warn(
+            `[sessionUtils] ❌ EXERCISE DROPPED — NAME_TO_ID maps "${pe.name}" → "${id}" ` +
+            `but no exercise with that ID exists in the library. Check exercises.ts.`,
+          );
         }
       }
 
       const exercise = id ? exercises.find(e => e.id === id) : undefined;
-      if (id && !exercise && import.meta.env.DEV) {
-        console.warn(
-          `[sessionUtils] ❌ EXERCISE DROPPED — NAME_TO_ID maps "${pe.name}" → "${id}" ` +
-          `but no exercise with that ID exists in the library. Check exercises.ts.`,
-        );
-      }
       if (id && !used.has(id) && exercise) {
         used.add(id);
         const isCond = exercise.category === 'Conditioning';

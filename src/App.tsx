@@ -678,6 +678,7 @@ export default function App() {
           <GeneratedProgramme
             programme={prog}
             isActive={store.activeProgrammeId === prog.id}
+            exercises={store.exercises}
             onBack={() => navigate({ screen: 'plans' })}
             onRebuild={() => navigate({ screen: 'programme-builder' })}
             onApply={(startDate) => {

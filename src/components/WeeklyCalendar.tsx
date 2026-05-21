@@ -469,6 +469,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
           weekNumber={previewWeekNumber}
           totalWeeks={generatedProgramme?.durationWeeks ?? 1}
           strengthSetup={generatedProgramme?.strengthSetup}
+          exercises={exercises}
           onClose={() => { setPreviewSession(null); setPreviewOnStart(null); }}
           onStart={previewOnStart ?? undefined}
         />

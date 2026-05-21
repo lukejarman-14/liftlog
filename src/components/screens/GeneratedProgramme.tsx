@@ -13,7 +13,7 @@ import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import {
   GeneratedProgramme as GPType, ProgrammeSession, SessionBlock, ProgrammeExercise,
-  StrengthSetup, LiftBaseline,
+  StrengthSetup, LiftBaseline, Exercise,
 } from '../../types';
 import {
   LIFT_META, LiftKey,
@@ -22,7 +22,7 @@ import {
   prescribeWeekLoad,
   epley1RM,
 } from '../../lib/progressiveOverload';
-import { getProgrammeWeekIndex } from '../../lib/sessionUtils';
+import { getProgrammeWeekIndex, validateProgrammeSession } from '../../lib/sessionUtils';
 
 interface Props {
   programme: GPType;
@@ -32,6 +32,7 @@ interface Props {
   onApply: (startDate: string) => void;  // chosen start date (YYYY-MM-DD)
   onDeactivate: () => void;
   onSaveStrengthSetup: (setup: StrengthSetup) => void;
+  exercises?: Exercise[];  // passed through to SessionPreviewModal for dev-mode validation
 }
 
 // ── MD day badge ───────────────────────────────────────────────────────────
@@ -208,15 +209,25 @@ function BlockCard({
 // ── Session preview modal ──────────────────────────────────────────────────
 
 export function SessionPreviewModal({
-  session, weekNumber, totalWeeks, strengthSetup, onClose, onStart,
+  session, weekNumber, totalWeeks, strengthSetup, exercises, onClose, onStart,
 }: {
   session: ProgrammeSession;
   weekNumber: number;
   totalWeeks: number;
   strengthSetup?: StrengthSetup;
+  exercises?: Exercise[];
   onClose: () => void;
   onStart?: () => void;
 }) {
+  const [devPanelOpen, setDevPanelOpen] = useState(false);
+
+  // Dev-mode validation: run the same resolution logic as sessionToWorkoutExercises
+  // so the preview can surface drops/fuzzy-matches before the user taps Start.
+  const devValidation = (import.meta.env.DEV && exercises && exercises.length > 0)
+    ? validateProgrammeSession(session, exercises)
+    : null;
+  const hasDevIssues = devValidation && (devValidation.dropped.length > 0 || devValidation.fuzzyMatched.length > 0);
+
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end pb-20">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
@@ -229,11 +240,51 @@ export function SessionPreviewModal({
             <div className="flex items-center gap-1 text-xs text-gray-400">
               <Clock size={11} /> {session.durationMin} min
             </div>
+            {/* Dev-mode issue badge — invisible in production */}
+            {hasDevIssues && (
+              <button
+                onClick={() => setDevPanelOpen(o => !o)}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold border border-red-300 hover:bg-red-200 transition-colors"
+              >
+                <AlertTriangle size={10} />
+                DEV: {devValidation!.dropped.length > 0 ? `${devValidation!.dropped.length} dropped` : ''}
+                {devValidation!.dropped.length > 0 && devValidation!.fuzzyMatched.length > 0 ? ', ' : ''}
+                {devValidation!.fuzzyMatched.length > 0 ? `${devValidation!.fuzzyMatched.length} fuzzy` : ''}
+              </button>
+            )}
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-100 transition-colors">
             <X size={20} className="text-gray-500" />
           </button>
         </div>
+
+        {/* Dev validation panel */}
+        {hasDevIssues && devPanelOpen && (
+          <div className="bg-gray-950 text-gray-100 px-4 py-3 text-xs font-mono border-b border-gray-800 max-h-52 overflow-y-auto">
+            <p className="text-yellow-400 font-bold mb-2">⚠️ DEV: Session resolution issues (not visible in production)</p>
+            {devValidation!.dropped.map(name => (
+              <div key={name} className="mb-2">
+                <span className="text-red-400">❌ DROPPED: </span>
+                <span className="text-white">"{name}"</span>
+                <div className="text-gray-400 mt-0.5 pl-4">
+                  → Add to NAME_TO_ID: <span className="text-green-400">'{name.toLowerCase()}': '&lt;id&gt;',</span>
+                </div>
+              </div>
+            ))}
+            {devValidation!.fuzzyMatched.map(({ programmeName, resolvedId, resolvedName }) => (
+              <div key={programmeName} className="mb-2">
+                <span className="text-yellow-400">⚠️ FUZZY: </span>
+                <span className="text-white">"{programmeName}"</span>
+                <span className="text-gray-400"> → guessed </span>
+                <span className="text-orange-400">"{resolvedName}" ({resolvedId})</span>
+                <div className="text-gray-400 mt-0.5 pl-4">
+                  → Add to NAME_TO_ID: <span className="text-green-400">'{programmeName.toLowerCase()}': '{resolvedId}',</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* scrollable body */}
         <div className={`overflow-y-auto p-4 ${onStart ? 'pb-24' : 'pb-8'}`}>
           <p className="text-sm font-semibold text-gray-800 mb-2 leading-snug">{session.objective}</p>
@@ -600,7 +651,7 @@ function StrengthSetupModal({
 
 export function GeneratedProgramme({
   programme, isActive, onBack, onRebuild, onApply, onDeactivate,
-  onSaveStrengthSetup, onSaveReorder,
+  onSaveStrengthSetup, onSaveReorder, exercises,
 }: Props & {
   onSaveReorder?: (weekIdx: number, newSessions: ProgrammeSession[]) => void;
 }) {
@@ -929,6 +980,7 @@ export function GeneratedProgramme({
           weekNumber={previewSession.weekNumber}
           totalWeeks={programme.durationWeeks}
           strengthSetup={programme.strengthSetup}
+          exercises={exercises}
           onClose={() => setPreviewSession(null)}
         />
       )}
