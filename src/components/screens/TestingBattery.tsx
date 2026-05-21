@@ -1178,6 +1178,19 @@ function useYoyoEngine() {
     if (ctx.state === 'running') fire(); else ctx.resume().then(fire).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** Speak a level announcement after the beeps finish (~550 ms delay). */
+  const announceLevel = useCallback((levelNumber: number, delayMs = 550) => {
+    if (!('speechSynthesis' in window)) return;
+    setTimeout(() => {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(`Level ${levelNumber}`);
+      utt.rate  = 1.05;
+      utt.pitch = 1.0;
+      utt.volume = 1.0;
+      window.speechSynthesis.speak(utt);
+    }, delayMs);
+  }, []);
+
   /** Sequence of tones scheduled back-to-back with precise AudioContext timing. */
   const toneSeq = useCallback((notes: Array<{ freq: number; dur: number; vol?: number }>) => {
     const ctx = getAudio();
@@ -1203,6 +1216,7 @@ function useYoyoEngine() {
     if (phase === 'countdown') {
       toneSeq([{ freq: 880, dur: 0.15 }, { freq: 1100, dur: 0.28, vol: 0.8 }]);
       if ('vibrate' in navigator) navigator.vibrate(150);
+      announceLevel(YOYO_LEVELS[0].level); // "Level 5"
       const legSecs = getYoyoLegSecs(YOYO_LEVELS[0]);
       endAtRef.current = Date.now() + legSecs * 1000;
       setSt({ phase: 'out', levelIdx: 0, shuttle: 1, remaining: Math.ceil(legSecs), phaseSecs: legSecs });
@@ -1232,9 +1246,11 @@ function useYoyoEngine() {
       }
 
       if (isLastShuttle) {
-        // Level-up signal: three ascending beeps
+        // Level-up signal: three ascending beeps then spoken level announcement
         toneSeq([{ freq: 660, dur: 0.1 }, { freq: 880, dur: 0.1 }, { freq: 1100, dur: 0.28, vol: 0.8 }]);
         if ('vibrate' in navigator) navigator.vibrate([80, 50, 80, 50, 180]);
+        const nextLevelDef = YOYO_LEVELS[levelIdx + 1];
+        if (nextLevelDef) announceLevel(nextLevelDef.level);
       } else {
         // Normal end-of-shuttle: double same-pitch beep
         toneSeq([{ freq: 660, dur: 0.12 }, { freq: 660, dur: 0.22 }]);
@@ -1296,7 +1312,7 @@ function useYoyoEngine() {
     }, 100);
 
     return () => { active = false; clearInterval(id); };
-  }, [st.phase, st.levelIdx, st.shuttle, beep]); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st.phase, st.levelIdx, st.shuttle, beep, announceLevel]); // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // Screen wake lock — keeps display on during the test
   useEffect(() => {
