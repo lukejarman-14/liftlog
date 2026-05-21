@@ -161,8 +161,9 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'calf-raise-hold', name: 'Calf Raise Hold', category: 'Isometric', defaultRestSeconds: 45, muscleGroups: ['Calves'] },
 
   // Plyometrics
+  { id: 'cmj', name: 'Countermovement Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'], measureType: 'reps' },
   { id: 'box-jump', name: 'Box Jump', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes', 'Calves'] },
-  { id: 'depth-jump', name: 'Drop Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'] },
+  { id: 'depth-jump', name: 'Depth Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'], measureType: 'reps' },
   { id: 'broad-jump', name: 'Broad Jump', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes', 'Hamstrings'] },
   { id: 'lateral-box-jump', name: 'Lateral Box Jump', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Glutes', 'Adductors', 'Calves'] },
   { id: 'single-leg-hop', name: 'Single Leg Hop', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes', 'Calves'] },
