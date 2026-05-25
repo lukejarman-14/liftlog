@@ -141,7 +141,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
       mon.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
       return mon.toISOString().split('T')[0];
     };
-    const weeks = new Set(sessions.map(s => toMonday(new Date(s.date))));
+    const weeks = new Set(sessions.filter(s => s.date).map(s => toMonday(new Date(s.date))));
     let n = 0;
     const now = new Date();
     let cur = new Date(now);

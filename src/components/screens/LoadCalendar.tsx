@@ -33,41 +33,49 @@ function getProgrammeDates(programme: GeneratedProgramme): Map<string, SessionDo
   // Use the same anchor as WeeklyCalendar (rolls forward to next Monday when
   // programmeStartDate is set) so session keys ("wi-si") are identical in both
   // components and drag-and-drop overrides take effect on the dashboard.
-  const monday = getProgrammeAnchorMonday(programme);
-  const overrides = programme.sessionOverrides ?? {};
-  const map = new Map<string, SessionDot[]>();
+  try {
+    const monday = getProgrammeAnchorMonday(programme);
+    const overrides = programme.sessionOverrides ?? {};
+    const map = new Map<string, SessionDot[]>();
 
-  programme.weeks.forEach((week, wi) => {
-    week.sessions.forEach((session, si) => {
-      // Use session index (not dayOfWeek) so two sessions on the same day get unique keys
-      const sessionKey = `${wi}-${si}`;
-      const dayIdx = DOW_INDEX[session.dayOfWeek] ?? 0;
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + wi * 7 + dayIdx);
-      const originalDate = localDateStr(d);
-      const effectiveDate = overrides[sessionKey] ?? originalDate;
+    programme.weeks.forEach((week, wi) => {
+      week.sessions.forEach((session, si) => {
+        try {
+          // Use session index (not dayOfWeek) so two sessions on the same day get unique keys
+          const sessionKey = `${wi}-${si}`;
+          const dayIdx = DOW_INDEX[session.dayOfWeek] ?? 0;
+          const d = new Date(monday);
+          d.setDate(monday.getDate() + wi * 7 + dayIdx);
+          const originalDate = localDateStr(d);
+          const effectiveDate = overrides[sessionKey] ?? originalDate;
 
-      // Skip sessions that fall before the plan's start date (anchor rolls to Monday,
-      // so the first few days of that week could predate when the user actually started).
-      if (programme.programmeStartDate) {
-        const startMidnight = new Date(programme.programmeStartDate + 'T00:00:00');
-        const sessionDate = new Date(originalDate + 'T00:00:00');
-        if (sessionDate < startMidnight) return;
-      }
+          // Skip sessions that fall before the plan's start date (anchor rolls to Monday,
+          // so the first few days of that week could predate when the user actually started).
+          if (programme.programmeStartDate) {
+            const startMidnight = new Date(programme.programmeStartDate + 'T00:00:00');
+            const sessionDate = new Date(originalDate + 'T00:00:00');
+            if (sessionDate < startMidnight) return;
+          }
 
-      const dot: SessionDot = {
-        sessionKey,
-        objective: session.objective,
-        originalDate,
-        mdDay: session.mdDay,
-        type: classifySessionType(session.objective, session.mdDay),
-      };
-      const existing = map.get(effectiveDate) ?? [];
-      map.set(effectiveDate, [...existing, dot]);
+          const dot: SessionDot = {
+            sessionKey,
+            objective: session.objective ?? '',
+            originalDate,
+            mdDay: session.mdDay ?? '',
+            type: classifySessionType(session.objective ?? '', session.mdDay ?? ''),
+          };
+          const existing = map.get(effectiveDate) ?? [];
+          map.set(effectiveDate, [...existing, dot]);
+        } catch {
+          // Skip any individual session that fails to parse
+        }
+      });
     });
-  });
 
-  return map;
+    return map;
+  } catch {
+    return new Map<string, SessionDot[]>();
+  }
 }
 
 interface LoadCalendarProps {
