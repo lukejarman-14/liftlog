@@ -70,12 +70,9 @@ export function PlanDetail({ planId, activePlan, onSetActivePlan, onNavigate, on
   const currentWeekIdx = isActive ? getCurrentPlanWeek(activePlan!.startDate) : -1;
 
   const handleStart = () => {
+    // Start from today — no waiting for next Monday, no missed sessions
     const today = new Date();
-    const day = today.getDay();
-    const daysToMonday = day === 1 ? 0 : day === 0 ? 1 : 8 - day;
-    const startDate = new Date(today);
-    if (daysToMonday > 0) startDate.setDate(today.getDate() + daysToMonday);
-    onSetActivePlan({ planId: plan.id, startDate: startDate.toISOString().split('T')[0] });
+    onSetActivePlan({ planId: plan.id, startDate: today.toISOString().split('T')[0] });
     onNavigate({ screen: 'dashboard' });
   };
 
@@ -94,7 +91,9 @@ export function PlanDetail({ planId, activePlan, onSetActivePlan, onNavigate, on
           <span className="text-3xl">{PLAN_EMOJI[plan.shortName] ?? '⚽'}</span>
           <div>
             <div className="font-bold text-gray-900 text-lg">{plan.position}</div>
-            <div className="text-xs text-gray-400">8 weeks · 3 sessions/wk · Mon/Wed/Fri</div>
+            <div className="text-xs text-gray-400">
+              {plan.weeks.length} weeks · {plan.weeks[0]?.sessions.length ?? 3} sessions/wk
+            </div>
           </div>
           {isActive && (
             <span className="ml-auto text-xs bg-brand-500 text-white px-2 py-0.5 rounded-full font-semibold">Active</span>

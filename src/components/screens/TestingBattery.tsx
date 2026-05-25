@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getAudioContext, makeSineBuffer, playAudioBuffer } from '../../lib/audio';
 import {
   ChevronRight, ChevronLeft, Check, Zap, Activity,
   TrendingUp, TrendingDown, Wind, Award, X, AlertTriangle,
-  Play, SkipForward, Square, Info,
+  Play, SkipForward, Square, Info, Pencil,
 } from 'lucide-react';
 import { TestType, SingleTestResult, TestSession } from '../../types';
 import {
@@ -13,7 +14,6 @@ import {
 } from '../../data/testingBattery';
 import { Card } from '../ui/Card';
 
-// ── Props ──────────────────────────────────────────────────────────────────
 
 interface TestingBatteryProps {
   position: string;
@@ -22,7 +22,6 @@ interface TestingBatteryProps {
   onSkip: () => void;
 }
 
-// ── Internal draft type ────────────────────────────────────────────────────
 
 interface TestDraft {
   attempts: number[];        // For sprint/jump/yoyo
@@ -33,7 +32,6 @@ interface TestDraft {
 
 type FlowPhase = 'select' | 'sex' | 'testing' | 'results';
 
-// ── RSA State Machine ──────────────────────────────────────────────────────
 
 type RsaPhase = 'idle' | 'countdown' | 'active' | 'rest' | 'done';
 
@@ -44,47 +42,18 @@ interface RsaState {
 }
 
 function useRsaEngine() {
-  const [rsaState, setRsaState] = useState<RsaState>({ phase: 'idle', rep: 1, remaining: 5 });
+  const [rsaState, setRsaState] = useState<RsaState>({ phase: 'idle', rep: 1, remaining: RSA_COUNTDOWN_SECS });
   const [sprintTimes, setSprintTimes] = useState<number[]>([]);
   const [stopwatchMs, setStopwatchMs] = useState(0);
   const endAtRef = useRef(0);
   const sprintStartRef = useRef(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  function getAudio(): AudioContext | null {
-    try {
-      const Ctx = window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
-      return audioCtxRef.current;
-    } catch { return null; }
-  }
-
-  function makeSineBuf(ctx: AudioContext, freq: number, dur: number, vol: number): AudioBuffer {
-    const sr = ctx.sampleRate;
-    const len = Math.max(2, Math.ceil(dur * sr));
-    const buf = ctx.createBuffer(1, len, sr);
-    const d = buf.getChannelData(0);
-    const fade = Math.min(Math.floor(sr * 0.008), Math.floor(len * 0.15));
-    for (let i = 0; i < len; i++) {
-      const env = i < fade ? i / fade : i > len - fade ? (len - i) / fade : 1;
-      d[i] = Math.sin(2 * Math.PI * freq * (i / sr)) * vol * env;
-    }
-    return buf;
-  }
-
-  function playBuf(ctx: AudioContext, buf: AudioBuffer, when?: number) {
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ctx.destination);
-    src.start(when ?? ctx.currentTime + 0.02);
-  }
-
   const beep = useCallback((freq: number, duration: number, vol = 0.6) => {
-    const ctx = getAudio();
+    const ctx = getAudioContext(audioCtxRef);
     if (!ctx) return;
     const fire = () => {
-      try { playBuf(ctx, makeSineBuf(ctx, freq, duration, vol)); } catch {}
+      try { playAudioBuffer(ctx, makeSineBuffer(ctx, freq, duration, vol)); } catch {}
     };
     if (ctx.state === 'running') fire(); else ctx.resume().then(fire).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -115,9 +84,9 @@ function useRsaEngine() {
           setRsaState({ phase: 'active', rep, remaining: 0 });
         } else {
           const nextRep = rep + 1;
-          endAtRef.current = Date.now() + 5000;
+          endAtRef.current = Date.now() + RSA_COUNTDOWN_SECS * 1000;
           beep(440, 0.12);
-          setRsaState({ phase: 'countdown', rep: nextRep, remaining: 5 });
+          setRsaState({ phase: 'countdown', rep: nextRep, remaining: RSA_COUNTDOWN_SECS });
         }
       }
     }, 100);
@@ -135,14 +104,14 @@ function useRsaEngine() {
   }, [rsaState.phase, rsaState.rep]);
 
   const startRsa = useCallback(() => {
-    const ctx = getAudio();
+    const ctx = getAudioContext(audioCtxRef);
     if (ctx) {
       // iOS unlock: play inaudible buffer + resume synchronously in this gesture
-      try { playBuf(ctx, makeSineBuf(ctx, 440, 0.001, 0.001), 0); } catch {}
+      try { playAudioBuffer(ctx, makeSineBuffer(ctx, 440, 0.001, 0.001), 0); } catch {}
       ctx.resume().catch(() => {});
     }
-    endAtRef.current = Date.now() + 5000;
-    setRsaState({ phase: 'countdown', rep: 1, remaining: 5 });
+    endAtRef.current = Date.now() + RSA_COUNTDOWN_SECS * 1000;
+    setRsaState({ phase: 'countdown', rep: 1, remaining: RSA_COUNTDOWN_SECS });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sprintDone = useCallback((rep: number, manualTime?: number) => {
@@ -156,8 +125,8 @@ function useRsaEngine() {
       beep(880, 0.5, 0.8); // final beep
       setRsaState({ phase: 'done', rep, remaining: 0 });
     } else {
-      endAtRef.current = Date.now() + 5000;
-      setRsaState({ phase: 'rest', rep, remaining: 5 });
+      endAtRef.current = Date.now() + RSA_REST_SECS * 1000;
+      setRsaState({ phase: 'rest', rep, remaining: RSA_REST_SECS });
     }
   }, [beep]);
 
@@ -170,13 +139,13 @@ function useRsaEngine() {
   }, []);
 
   const skipRest = useCallback((rep: number) => {
-    endAtRef.current = Date.now() + 5000;
+    endAtRef.current = Date.now() + RSA_COUNTDOWN_SECS * 1000;
     beep(440, 0.12);
-    setRsaState({ phase: 'countdown', rep: rep + 1, remaining: 5 });
+    setRsaState({ phase: 'countdown', rep: rep + 1, remaining: RSA_COUNTDOWN_SECS });
   }, [beep]);
 
   const resetRsa = useCallback(() => {
-    setRsaState({ phase: 'idle', rep: 1, remaining: 5 });
+    setRsaState({ phase: 'idle', rep: 1, remaining: RSA_COUNTDOWN_SECS });
     setSprintTimes([]);
     setStopwatchMs(0);
   }, []);
@@ -184,9 +153,8 @@ function useRsaEngine() {
   return { rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa, updateSprintTime };
 }
 
-// ── Small UI helpers ───────────────────────────────────────────────────────
 
-function GradeBadge({ grade }: { grade?: 1 | 2 | 3 | 4 }) {
+function GradeBadge({ grade }: { grade?: 1 | 2 | 3 | 4 | 5 }) {
   if (!grade) return <span className="text-xs text-gray-400">Not tested</span>;
   const c = GRADE_COLOURS[grade];
   return (
@@ -215,7 +183,6 @@ function ProtocolBox({ items }: { items: string[] }) {
   );
 }
 
-// ── Auto-decimal time input (digit-register style) ────────────────────────
 // Typing "171" auto-formats to "1.71" — last 2 digits are always centiseconds.
 // Used for all inputs with unit === 's'.
 
@@ -282,7 +249,6 @@ function NormTable({ rows }: { rows: { label: string; m: string; f: string; col:
   );
 }
 
-// ── Multi-attempt input ────────────────────────────────────────────────────
 
 function AttemptInputs({
   attempts, onChange, unit, placeholder, maxAttempts = 3, lowerIsBetter,
@@ -352,7 +318,6 @@ function AttemptInputs({
   );
 }
 
-// ── Exit Modal ─────────────────────────────────────────────────────────────
 
 function ExitModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
@@ -386,7 +351,6 @@ function ExitModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: (
   );
 }
 
-// ── SCREEN: Selection ──────────────────────────────────────────────────────
 
 const ALL_TESTS: TestType[] = ['10m', '30m', 'cmj', 'broad_jump', 'rsa', 'yoyo'];
 
@@ -399,7 +363,7 @@ const TEST_DESC: Record<TestType, string> = {
   '30m': 'Max velocity + glycolytic power',
   cmj: 'Explosive vertical power',
   broad_jump: 'Horizontal explosive power',
-  rsa: '6 × 20m with 5s rest — fatigue index',
+  rsa: '6 × 30m with 20s rest — fatigue index',
   yoyo: 'Aerobic capacity (IR1)',
 };
 
@@ -494,7 +458,6 @@ function SelectionScreen({
   );
 }
 
-// ── SCREEN: Sex ────────────────────────────────────────────────────────────
 
 function SexScreen({ sex, onChange }: { sex: 'male' | 'female'; onChange: (s: 'male' | 'female') => void }) {
   return (
@@ -533,7 +496,6 @@ function SexScreen({ sex, onChange }: { sex: 'male' | 'female'; onChange: (s: 'm
   );
 }
 
-// ── SCREEN: Sprint (10m / 30m) ─────────────────────────────────────────────
 
 function SprintScreen({
   type, draft, onChangeDraft, onSkip,
@@ -606,7 +568,6 @@ function SprintScreen({
   );
 }
 
-// ── SCREEN: Jump (CMJ / Broad Jump) ───────────────────────────────────────
 
 function JumpScreen({
   type, draft, onChangeDraft, onSkip,
@@ -677,9 +638,10 @@ function JumpScreen({
   );
 }
 
-// ── SCREEN: RSA ────────────────────────────────────────────────────────────
 
 const RSA_REPS = 6;
+const RSA_REST_SECS = 20;
+const RSA_COUNTDOWN_SECS = 5;
 
 function RsaScreen({
   rsaState, sprintTimes, stopwatchMs, startRsa, sprintDone, skipRest, resetRsa, updateSprintTime, draft, onChangeDraft, onSkip,
@@ -705,18 +667,22 @@ function RsaScreen({
   useEffect(() => { if (phase === 'active') { setGateTime(0); setFinalGateEntry(false); } }, [phase]);
 
   // Auto-sync sprint times → draft when all done
+  // Using a ref for draft so the effect always reads the latest value without
+  // re-running on every draft change (which would cause infinite loops)
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   useEffect(() => {
     if (phase !== 'done') return;
     const valid = sprintTimes.filter(t => t > 0);
     if (valid.length === 0) return;
     const mean = valid.reduce((a, b) => a + b, 0) / valid.length;
     onChangeDraft({
-      ...draft,
+      ...draftRef.current,
       rsaAllSprints: sprintTimes,
       rsaCompleted: true,
       attempts: [mean],
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   if (draft.skipped) {
@@ -772,13 +738,13 @@ function RsaScreen({
         <Wind size={18} className="text-brand-500" />
         <h2 className="text-2xl font-bold text-gray-900">Repeated Sprint Ability</h2>
       </div>
-      <p className="text-xs text-gray-500 mb-3">6 × 20m · 5s passive rest · Fatigue Index</p>
+      <p className="text-xs text-gray-500 mb-3">6 × 30m · 20s passive rest · Fatigue Index</p>
 
       {/* Partner disclaimer */}
       <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mb-4">
         <AlertTriangle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
         <p className="text-xs font-semibold text-red-700 leading-relaxed">
-          Partner required — your partner holds the phone and taps "Sprint Done" the instant you cross the 20m line for accurate timing.
+          Partner required — your partner holds the phone and taps "Sprint Done" the instant you cross the 30m line for accurate timing.
         </p>
       </div>
 
@@ -844,7 +810,7 @@ function RsaScreen({
                 cx="50" cy="50" r="42" fill="none" stroke="#f97316" strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 42}`}
-                strokeDashoffset={`${2 * Math.PI * 42 * (1 - remaining / 5)}`}
+                strokeDashoffset={`${2 * Math.PI * 42 * (1 - remaining / RSA_COUNTDOWN_SECS)}`}
                 className="transition-all duration-900"
               />
             </svg>
@@ -880,7 +846,7 @@ function RsaScreen({
                       <TimeDigitInput
                         value={gateTime}
                         onChange={setGateTime}
-                        placeholder="3.20"
+                        placeholder="4.20"
                         autoFocus
                       />
                       <span className="text-sm font-semibold text-gray-500 w-4">s</span>
@@ -937,7 +903,7 @@ function RsaScreen({
                 <span className="text-xs text-brand-100 mt-1 font-semibold tracking-wider">seconds</span>
               </div>
               <p className="text-sm text-gray-500 mb-6 text-center font-medium">
-                Partner: tap the moment they cross 20m
+                Partner: tap the moment they cross 30m
               </p>
               <button
                 onClick={() => sprintDone(rep)}
@@ -987,7 +953,7 @@ function RsaScreen({
                 cx="50" cy="50" r="42" fill="none" stroke="#22c55e" strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 42}`}
-                strokeDashoffset={`${2 * Math.PI * 42 * (1 - remaining / 5)}`}
+                strokeDashoffset={`${2 * Math.PI * 42 * (1 - remaining / RSA_REST_SECS)}`}
                 className="transition-all duration-900"
               />
             </svg>
@@ -1077,7 +1043,6 @@ function RsaScreen({
   );
 }
 
-// ── Yo-Yo IR1 level data ───────────────────────────────────────────────────
 
 interface YoyoLevelDef {
   level: number;    // official level number (5–23)
@@ -1125,7 +1090,6 @@ interface YoyoEngineState {
   phaseSecs: number; // total phase duration (for progress bar)
 }
 
-// ── Yo-Yo IR1 engine ───────────────────────────────────────────────────────
 
 function useYoyoEngine() {
   const [st, setSt] = useState<YoyoEngineState>({
@@ -1135,45 +1099,11 @@ function useYoyoEngine() {
   const endAtRef = useRef<number>(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  function getAudio(): AudioContext | null {
-    try {
-      const Ctx = window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
-      return audioCtxRef.current;
-    } catch { return null; }
-  }
-
-  /**
-   * Generate a sine-wave PCM buffer — more reliable than OscillatorNode on iOS Safari.
-   * Applies a short fade-in/out envelope to prevent clicks.
-   */
-  function makeSineBuf(ctx: AudioContext, freq: number, dur: number, vol: number): AudioBuffer {
-    const sr = ctx.sampleRate;
-    const len = Math.max(2, Math.ceil(dur * sr));
-    const buf = ctx.createBuffer(1, len, sr);
-    const d = buf.getChannelData(0);
-    const fade = Math.min(Math.floor(sr * 0.008), Math.floor(len * 0.15)); // 8ms fade
-    for (let i = 0; i < len; i++) {
-      const env = i < fade ? i / fade : i > len - fade ? (len - i) / fade : 1;
-      d[i] = Math.sin(2 * Math.PI * freq * (i / sr)) * vol * env;
-    }
-    return buf;
-  }
-
-  /** Play a single tone at `when` (AudioContext time). Defaults to now+20ms. */
-  function playBuf(ctx: AudioContext, buf: AudioBuffer, when?: number) {
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ctx.destination);
-    src.start(when ?? ctx.currentTime + 0.02);
-  }
-
   const beep = useCallback((freq: number, dur: number, vol = 0.7) => {
-    const ctx = getAudio();
+    const ctx = getAudioContext(audioCtxRef);
     if (!ctx) return;
     const fire = () => {
-      try { playBuf(ctx, makeSineBuf(ctx, freq, dur, vol)); } catch {}
+      try { playAudioBuffer(ctx, makeSineBuffer(ctx, freq, dur, vol)); } catch {}
     };
     if (ctx.state === 'running') fire(); else ctx.resume().then(fire).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1191,7 +1121,7 @@ function useYoyoEngine() {
       utt.volume = 1.0;
       // Resume AudioContext once speech finishes so beeps keep working on iOS
       utt.onend = () => {
-        const ctx = getAudio();
+        const ctx = getAudioContext(audioCtxRef);
         if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
       };
       window.speechSynthesis.speak(utt);
@@ -1200,13 +1130,13 @@ function useYoyoEngine() {
 
   /** Sequence of tones scheduled back-to-back with precise AudioContext timing. */
   const toneSeq = useCallback((notes: Array<{ freq: number; dur: number; vol?: number }>) => {
-    const ctx = getAudio();
+    const ctx = getAudioContext(audioCtxRef);
     if (!ctx) return;
     const fire = () => {
       let t = ctx.currentTime + 0.02;
       for (const note of notes) {
         try {
-          playBuf(ctx, makeSineBuf(ctx, note.freq, note.dur, note.vol ?? 0.75), t);
+          playAudioBuffer(ctx, makeSineBuffer(ctx, note.freq, note.dur, note.vol ?? 0.75), t);
           t += note.dur + 0.06; // 60ms gap between tones
         } catch {}
       }
@@ -1219,7 +1149,6 @@ function useYoyoEngine() {
   advanceRef.current = (phase: YoyoPhase, levelIdx: number, shuttle: number) => {
     const level = YOYO_LEVELS[levelIdx];
 
-    // ── countdown → start running ──────────────────────────────────────────
     if (phase === 'countdown') {
       toneSeq([{ freq: 880, dur: 0.15 }, { freq: 1100, dur: 0.28, vol: 0.8 }]);
       if ('vibrate' in navigator) navigator.vibrate(150);
@@ -1229,7 +1158,6 @@ function useYoyoEngine() {
       return;
     }
 
-    // ── out → turn beep → run back ─────────────────────────────────────────
     if (phase === 'out') {
       beep(1320, 0.18, 0.75);
       if ('vibrate' in navigator) navigator.vibrate(80);
@@ -1239,7 +1167,6 @@ function useYoyoEngine() {
       return;
     }
 
-    // ── back → shuttle complete → recovery ────────────────────────────────
     if (phase === 'back') {
       completedScoreRef.current = level.level + shuttle / 10;
       const isLastShuttle = shuttle >= level.shuttles;
@@ -1278,7 +1205,6 @@ function useYoyoEngine() {
       return;
     }
 
-    // ── recovery → go beep → next shuttle ────────────────────────────────
     if (phase === 'recovery') {
       const isLastShuttle = shuttle >= level.shuttles;
       const nextLevelIdx = isLastShuttle ? levelIdx + 1 : levelIdx;
@@ -1326,7 +1252,7 @@ function useYoyoEngine() {
     }, 100);
 
     return () => { active = false; clearInterval(id); };
-  }, [st.phase, st.levelIdx, st.shuttle, beep, announceLevel]); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st.phase, st.levelIdx, st.shuttle, beep, announceLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Screen wake lock — keeps display on during the test
   useEffect(() => {
@@ -1339,17 +1265,15 @@ function useYoyoEngine() {
   }, [st.phase]);
 
   const start = useCallback(() => {
-    const ctx = getAudio();
+    const ctx = getAudioContext(audioCtxRef);
     if (!ctx) return;
 
-    // ── iOS Safari audio unlock ──────────────────────────────────────────────
     // Must happen synchronously inside the user-gesture call stack:
     //   1. Play a real (non-silent) buffer — iOS only grants unlock for real audio
     //   2. Call ctx.resume() synchronously (don't await — just kick the unlock)
     // After this, the context is unlocked for the session regardless of state.
     try {
-      const unlockBuf = makeSineBuf(ctx, 880, 0.001, 0.001); // inaudible tone
-      playBuf(ctx, unlockBuf, 0);
+      playAudioBuffer(ctx, makeSineBuffer(ctx, 880, 0.001, 0.001), 0); // inaudible unlock tone
     } catch {}
     ctx.resume().catch(() => {});
 
@@ -1358,7 +1282,7 @@ function useYoyoEngine() {
 
     // Schedule the start beep — fires immediately once context is running
     const fireStart = () => {
-      try { playBuf(ctx, makeSineBuf(ctx, 880, 0.25, 0.9)); } catch {}
+      try { playAudioBuffer(ctx, makeSineBuffer(ctx, 880, 0.25, 0.9)); } catch {}
     };
     if (ctx.state === 'running') fireStart(); else ctx.resume().then(fireStart).catch(() => {});
 
@@ -1374,15 +1298,20 @@ function useYoyoEngine() {
     setSt({ phase: 'idle', levelIdx: 0, shuttle: 1, remaining: 0, phaseSecs: 1 });
   }, []);
 
+  /** Accept a manually entered score — sets completedScoreRef and jumps to done state. */
+  const setManualScore = useCallback((score: number) => {
+    completedScoreRef.current = score;
+    setSt(prev => ({ ...prev, phase: 'done' }));
+  }, []);
+
   return {
     st,
     completedScoreRef,
     currentLevel: YOYO_LEVELS[st.levelIdx],
-    start, fail, reset,
+    start, fail, reset, setManualScore,
   };
 }
 
-// ── SCREEN: Yo-Yo ──────────────────────────────────────────────────────────
 
 function YoyoScreen({
   draft, onChangeDraft, onSkip,
@@ -1391,13 +1320,22 @@ function YoyoScreen({
   onChangeDraft: (d: TestDraft) => void;
   onSkip: () => void;
 }) {
-  const { st, completedScoreRef, currentLevel, start, fail, reset } = useYoyoEngine();
+  const { st, completedScoreRef, currentLevel, start, fail, reset, setManualScore } = useYoyoEngine();
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualLevel, setManualLevel] = useState<number>(14);
+  const [manualShuttle, setManualShuttle] = useState<number>(1);
 
-  // Auto-save score when test finishes
+  // Max shuttles for the selected manual level
+  const manualLevelDef = YOYO_LEVELS.find(l => l.level === manualLevel) ?? YOYO_LEVELS[9];
+  const maxShuttles = manualLevelDef.shuttles;
+
+  // Auto-save score when test finishes — use ref for draft to avoid stale closure
+  const yoyoDraftRef = useRef(draft);
+  yoyoDraftRef.current = draft;
   useEffect(() => {
     if (st.phase !== 'done') return;
     const score = completedScoreRef.current;
-    if (score > 0) onChangeDraft({ ...draft, attempts: [score], skipped: false });
+    if (score > 0) onChangeDraft({ ...yoyoDraftRef.current, attempts: [score], skipped: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [st.phase]);
 
@@ -1422,7 +1360,6 @@ function YoyoScreen({
     </div>
   );
 
-  // ── Skipped state ──────────────────────────────────────────────────────────
   if (draft.skipped) {
     return (
       <div className="flex-1 flex flex-col py-8 pt-14">
@@ -1444,7 +1381,6 @@ function YoyoScreen({
     );
   }
 
-  // ── Pre-test / idle ────────────────────────────────────────────────────────
   if (st.phase === 'idle') {
     return (
       <div className="flex-1 flex flex-col py-8 pt-14">
@@ -1468,6 +1404,7 @@ function YoyoScreen({
           <p className="text-xs text-amber-700">Keep your screen on during the test — the app plays all beeps for you.</p>
         </div>
 
+
         <button
           onClick={start}
           className="w-full py-4 bg-brand-500 text-white font-bold text-lg rounded-2xl flex items-center justify-center gap-2 shadow-md active:scale-95 transition-transform mb-3"
@@ -1475,6 +1412,70 @@ function YoyoScreen({
           <Play size={20} fill="white" />
           Start Test
         </button>
+
+        {/* Manual entry toggle */}
+        {!showManualEntry ? (
+          <button
+            onClick={() => setShowManualEntry(true)}
+            className="w-full py-2.5 text-sm text-brand-500 font-semibold hover:text-brand-600 flex items-center justify-center gap-1.5 mb-1"
+          >
+            <Pencil size={13} />
+            Enter previous score
+          </button>
+        ) : (
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-1">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Enter Previous Score</p>
+            <div className="flex gap-3 mb-4">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">Level</label>
+                <select
+                  value={manualLevel}
+                  onChange={e => {
+                    const lvl = Number(e.target.value);
+                    setManualLevel(lvl);
+                    const def = YOYO_LEVELS.find(l => l.level === lvl);
+                    if (def && manualShuttle > def.shuttles) setManualShuttle(def.shuttles);
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-800 bg-white"
+                >
+                  {YOYO_LEVELS.map(l => (
+                    <option key={l.level} value={l.level}>Level {l.level}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">Shuttle</label>
+                <select
+                  value={manualShuttle}
+                  onChange={e => setManualShuttle(Number(e.target.value))}
+                  className="w-full py-2.5 px-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-800 bg-white"
+                >
+                  {Array.from({ length: maxShuttles }, (_, i) => i + 1).map(s => (
+                    <option key={s} value={s}>Shuttle {s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowManualEntry(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-500 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const score = manualLevel + manualShuttle / 10;
+                  setManualScore(score); // transitions engine to done state; auto-save effect fires
+                  setShowManualEntry(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600"
+              >
+                Save Score
+              </button>
+            </div>
+          </div>
+        )}
 
         <button
           onClick={onSkip}
@@ -1487,7 +1488,6 @@ function YoyoScreen({
     );
   }
 
-  // ── Test complete ──────────────────────────────────────────────────────────
   if (st.phase === 'done') {
     const score = completedScoreRef.current;
     const lvlNum = Math.floor(score);
@@ -1502,9 +1502,9 @@ function YoyoScreen({
         {score > 0 ? (
           <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-5 mb-4 text-center">
             <div className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-1">Result</div>
-            <div className="text-4xl font-extrabold text-green-700 mb-1">{score.toFixed(1)}</div>
+            <div className="text-4xl font-extrabold text-green-700 mb-0.5">Level {lvlNum}</div>
             <div className="text-sm text-green-600">
-              Level {lvlNum} · Shuttle {shuttle}
+              {shuttle > 0 ? `Shuttle ${shuttle}` : 'Completed all shuttles'}
             </div>
           </div>
         ) : (
@@ -1530,7 +1530,6 @@ function YoyoScreen({
     );
   }
 
-  // ── Active test (countdown / out / back / recovery) ───────────────────────
   const isCountdown = st.phase === 'countdown';
   const isRecovery  = st.phase === 'recovery';
   const isRunning   = st.phase === 'out' || st.phase === 'back';
@@ -1628,7 +1627,6 @@ function YoyoScreen({
   );
 }
 
-// ── SCREEN: Results ────────────────────────────────────────────────────────
 
 function ResultsScreen({
   session, previousSession, position, sex, onSave,
@@ -1715,15 +1713,19 @@ function ResultsScreen({
               }
 
               const prev = getPrev(r.type);
-              const grade = session.grades[r.type] as 1|2|3|4|undefined;
-              const fiGrade = r.type === 'rsa' ? session.grades['rsa_fi'] as 1|2|3|4|undefined : undefined;
+              const grade = session.grades[r.type] as 1|2|3|4|5|undefined;
+              const fiGrade = r.type === 'rsa' ? session.grades['rsa_fi'] as 1|2|3|4|5|undefined : undefined;
               const lowerBetter = TEST_LOWER_IS_BETTER[r.type];
               const unit = TEST_UNIT[r.type];
 
               const displayVal = r.type === 'rsa' && r.rsaMeanTime
                 ? `${r.rsaMeanTime.toFixed(2)}s avg`
                 : r.type === 'yoyo'
-                ? `Level ${r.best}`
+                ? (() => {
+                    const lvl = Math.floor(r.best);
+                    const sht = Math.round((r.best - lvl) * 10);
+                    return sht > 0 ? `Level ${lvl} · Shuttle ${sht}` : `Level ${lvl}`;
+                  })()
                 : `${r.best}${unit}`;
 
               const progValue = r.type === 'rsa' ? r.rsaMeanTime : r.best;
@@ -1757,10 +1759,9 @@ function ResultsScreen({
                       prog.improved ? 'text-green-600' : 'text-red-500'
                     }`}>
                       {prog.improved ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                      {prog.improved ? '+' : ''}
                       {lowerBetter
                         ? `${prog.delta.toFixed(2)}s`
-                        : `+${Math.abs(prog.delta).toFixed(1)}${unit}`}
+                        : `${prog.improved ? '+' : '−'}${Math.abs(prog.delta).toFixed(1)}${unit}`}
                       {' '}({prog.pct.toFixed(1)}%{prog.improved ? ' improvement' : ' decline'})
                     </div>
                   )}
@@ -1814,7 +1815,6 @@ function ResultsScreen({
   );
 }
 
-// ── Main orchestrator ──────────────────────────────────────────────────────
 
 const EMPTY_DRAFT: TestDraft = { attempts: [], skipped: false };
 
@@ -1831,7 +1831,6 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
 
   const currentTest = selectedTests[currentTestIdx] as TestType | undefined;
 
-  // ── Draft helpers ──────────────────────────────────────────────────
 
   const getDraft = (type: TestType): TestDraft => testData[type] ?? EMPTY_DRAFT;
 
@@ -1844,7 +1843,6 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
     setDraft(currentTest, { attempts: [], skipped: true });
   }, [currentTest, setDraft]);
 
-  // ── Validation ─────────────────────────────────────────────────────
 
   const canContinue = (): boolean => {
     if (flowPhase === 'sex') return true; // sex always has a value
@@ -1857,7 +1855,6 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
     return draft.attempts.filter(a => a > 0).length > 0;
   };
 
-  // ── Build final TestSession ────────────────────────────────────────
 
   const buildSession = (): TestSession => {
     const results: SingleTestResult[] = selectedTests.map(type => {
@@ -1908,7 +1905,6 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
     };
   };
 
-  // ── Navigation ─────────────────────────────────────────────────────
 
   const handleContinue = () => {
     if (flowPhase === 'select') {
@@ -1985,7 +1981,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
 
       {/* Top bar — close button */}
       {flowPhase !== 'results' && (
-        <div className="fixed top-2 right-4 z-40">
+        <div className="fixed right-4 z-40 safe-area-top">
           <button
             onClick={() => {
               if (flowPhase === 'select') { onSkip(); return; }

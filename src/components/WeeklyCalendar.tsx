@@ -51,7 +51,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
   const [previewSession, setPreviewSession] = useState<import('../types').ProgrammeSession | null>(null);
   const [previewWeekNumber, setPreviewWeekNumber] = useState<number>(1);
   const [previewOnStart, setPreviewOnStart] = useState<(() => void) | null>(null);
-  const [daySheet, setDaySheet] = useState<import('../types').ProgrammeSession[] | null>(null);
+  const [daySheet, setDaySheet] = useState<{ sessions: import('../types').ProgrammeSession[]; date: Date } | null>(null);
   // Skip / reschedule sheet
   const [skipSheet, setSkipSheet] = useState<{
     weekIdx: number;
@@ -70,7 +70,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
     const sun = weekDates[6];
     const sameYear = mon.getFullYear() === sun.getFullYear();
     const fmtMon = mon.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
-    const fmtSun = sun.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const fmtSun = sun.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
     return `${fmtMon} – ${fmtSun}`;
   })();
 
@@ -91,9 +91,12 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
   // Week index in the generated programme (offset-adjusted)
   const baseProgWeekIdx = generatedProgramme ? getProgrammeWeekIndex(generatedProgramme) : -1;
   const progWeekIdx = baseProgWeekIdx >= 0
-    ? Math.max(0, Math.min(baseProgWeekIdx + weekOffset, (generatedProgramme?.weeks.length ?? 1) - 1))
+    ? baseProgWeekIdx + weekOffset
     : -1;
-  const progWeek = generatedProgramme && progWeekIdx >= 0 && baseProgWeekIdx >= 0
+  // Only show programme sessions for weeks that actually exist — never clamp to final week
+  // (clamping would show final-week sessions on future empty weeks and corrupt skip keys)
+  const progWeekInBounds = progWeekIdx >= 0 && progWeekIdx < (generatedProgramme?.weeks.length ?? 0);
+  const progWeek = generatedProgramme && progWeekInBounds
     ? generatedProgramme.weeks[progWeekIdx] ?? null
     : null;
 
@@ -145,12 +148,12 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
 
   const progDayIndices = new Set(progSessionsByDay.keys());
 
-  const handleDayTap = (daySessions: import('../types').ProgrammeSession[]) => {
+  const handleDayTap = (daySessions: import('../types').ProgrammeSession[], tapDate: Date) => {
     if (daySessions.length === 1) {
       setPreviewWeekNumber(progWeekIdx >= 0 ? progWeekIdx + 1 : 1);
       setPreviewSession(daySessions[0]);
     } else {
-      setDaySheet(daySessions);
+      setDaySheet({ sessions: daySessions, date: tapDate });
     }
   };
 
@@ -165,7 +168,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
   // Completed session dates (as YYYY-MM-DD strings) for this week
   const completedDates = new Set(
     sessions
-      .filter(s => s.endTime != null && weekDates.some(d => isSameDay(new Date(s.date), d)))
+      .filter(s => s.endTime != null && weekDates.some(d => isSameDay(new Date(s.date + 'T12:00:00'), d)))
       .map(s => s.date)
   );
 
@@ -231,7 +234,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
           return (
             <El
               key={i}
-              {...(daySessions ? { onClick: () => handleDayTap(daySessions) } : {})}
+              {...(daySessions ? { onClick: () => handleDayTap(daySessions, date) } : {})}
               className="flex flex-col items-center gap-1"
             >
               <span className={`text-xs font-medium ${isToday ? 'text-brand-500' : 'text-gray-400'}`}>
@@ -501,13 +504,17 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
           <div className="absolute inset-0 bg-black/50" />
           <div className="relative bg-white rounded-t-3xl p-5 pb-10 z-10" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900 text-base">Sessions today</h3>
+              <h3 className="font-bold text-gray-900 text-base">
+                {isSameDay(daySheet.date, today)
+                  ? 'Sessions today'
+                  : `Sessions — ${daySheet.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`}
+              </h3>
               <button onClick={() => setDaySheet(null)} className="p-1.5 rounded-full hover:bg-gray-100">
                 <X size={18} className="text-gray-500" />
               </button>
             </div>
             <div className="flex flex-col gap-2">
-              {daySheet.map((s, i) => {
+              {daySheet.sessions.map((s, i) => {
                 const isCond = isConditioningSession(s);
                 return (
                   <button

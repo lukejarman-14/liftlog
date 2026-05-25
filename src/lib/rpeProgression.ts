@@ -133,7 +133,6 @@ const RPE_LABELS: Record<number, string> = {
 
 export const RIR_LABELS = RPE_LABELS;
 
-// ── Weekly progression ────────────────────────────────────────────────────────
 
 export interface WeeklySuggestion {
   suggestedWeight: number;

@@ -11,13 +11,11 @@ function ex(
   return { exerciseId, targetSets, targetReps, targetWeight, restSeconds };
 }
 
-// ── Position session templates ────────────────────────────────────────────
 // Each position has 3 session archetypes (A/B/C) used across the 8-week plan.
 // HPP hierarchy: Max Velocity → Max Strength → Tendon Stiffness → Eccentric → Isometric → Conditioning
 
 export const POSITION_TEMPLATES: BuiltInTemplate[] = [
 
-  // ── GOALKEEPER ──────────────────────────────────────────────────────────
   {
     id: 'gk-session-a', name: 'GK — Reactive Power', description: 'Vertical jumps, upper body strength, reactive plyos, calf eccentrics, shoulder isometrics, shuttle conditioning.',
     program: 'Goalkeeper', exercises: [
@@ -70,7 +68,6 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
     ],
   },
 
-  // ── CENTRE BACK ─────────────────────────────────────────────────────────
   {
     id: 'cb-session-a', name: 'CB — Aerial Power', description: 'Vertical and broad jumps, heavy compound strength, tendon stiffness plyos, hamstring eccentrics, hip isometrics, sprint conditioning.',
     program: 'Centre Back', exercises: [
@@ -123,7 +120,6 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
     ],
   },
 
-  // ── FULL BACK ────────────────────────────────────────────────────────────
   {
     id: 'fb-pos-session-a', name: 'FB — Lateral Speed', description: 'Sprints, broad jumps and bounding, balanced lower strength, lateral tendon stiffness, calf eccentrics, hip isometrics, shuttle conditioning.',
     program: 'Full Back', exercises: [
@@ -176,7 +172,6 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
     ],
   },
 
-  // ── CENTRAL MIDFIELDER ───────────────────────────────────────────────────
   {
     id: 'cm-session-a', name: 'CM — Lower Endurance Power', description: 'Broad jumps and hurdle hops, balanced lower strength, tendon stiffness plyos, hamstring eccentrics, core isometrics, HIIT conditioning.',
     program: 'Central Midfielder', exercises: [
@@ -229,7 +224,6 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
     ],
   },
 
-  // ── WINGER ───────────────────────────────────────────────────────────────
   {
     id: 'w-session-a', name: 'Winger — Acceleration Power', description: 'Sprints, broad jumps and bounding, explosive lower strength, ankle tendon stiffness, calf eccentrics, ankle isometrics, sprint conditioning.',
     program: 'Winger', exercises: [
@@ -282,7 +276,6 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
     ],
   },
 
-  // ── STRIKER ──────────────────────────────────────────────────────────────
   {
     id: 'st-session-a', name: 'Striker — Explosive Lower', description: 'Approach jumps, drop jumps and broad jumps, power-focused lower strength, reactive plyos, hamstring eccentrics, power isometrics, sprint conditioning.',
     program: 'Striker', exercises: [
@@ -336,7 +329,6 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
   },
 ];
 
-// ── 8-week plan builder ───────────────────────────────────────────────────
 
 function week(
   weekNumber: number,
@@ -359,7 +351,6 @@ function week(
   };
 }
 
-// ── Position Plans ────────────────────────────────────────────────────────
 
 export const POSITION_PLANS: PositionPlan[] = [
   {
@@ -460,7 +451,6 @@ export const POSITION_PLANS: PositionPlan[] = [
   },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────
 
 export function getCurrentPlanWeek(startDate: string): number {
   const start = new Date(startDate);

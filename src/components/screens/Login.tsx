@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Dumbbell, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignIn, cloudLoadData, cloudResetPassword } from '../../lib/cloudSync';
+import { hashPassword } from '../../lib/authUtils';
 
 interface LoginProps {
   profile: UserProfile;
@@ -9,14 +10,7 @@ interface LoginProps {
   onStartOver: () => void;
 }
 
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
+
 
 export function Login({ profile, onLogin, onStartOver }: LoginProps) {
   const [password,     setPassword]     = useState('');
@@ -34,7 +28,7 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
   // Start over confirmation
   const [confirmStartOver, setConfirmStartOver] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password || loading) return;
     setLoading(true);
@@ -82,7 +76,6 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
     setForgotLoading(false);
   };
 
-  // ── Forgot password view ───────────────────────────────────────────────────
   if (showForgot) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-5">
@@ -147,7 +140,6 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
     );
   }
 
-  // ── Normal login view ──────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-5">
       <div className="w-full max-w-sm">
@@ -163,7 +155,7 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSignIn} className="flex flex-col gap-4">
           <div>
             <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5 block">
               Password

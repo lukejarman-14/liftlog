@@ -8,16 +8,20 @@
     box-sizing: border-box;
   }
 
-  html, body {
-    overscroll-behavior: none;         /* prevent rubber-band scroll revealing white background on iOS */
-    -webkit-overflow-scrolling: touch;
+  html {
+    overscroll-behavior: none;
     height: 100%;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    min-height: 100%;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased dark:bg-black dark:text-white;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    /* Prevent text size adjustment on orientation change */
     -webkit-text-size-adjust: 100%;
   }
 
@@ -29,7 +33,124 @@
   input[type='number'] {
     -moz-appearance: textfield;
   }
+
+  /* Dark mode: ensure all raw <input> elements have visible text */
+  .dark input {
+    color: #fff;
+    background-color: #18181b; /* zinc-900 */
+    border-color: #3f3f46;     /* zinc-700 */
+  }
+
+  .dark input::placeholder {
+    color: #71717a; /* zinc-500 */
+  }
+
+  .dark input:disabled {
+    background-color: #09090b; /* zinc-950 */
+    color: #52525b;            /* zinc-600 */
+  }
+
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   DARK MODE OVERRIDES
+   Outside @layer so these beat @layer utilities in the cascade.
+   Theme: black base, zinc-900 surfaces, orange accent.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Backgrounds: neutrals ── */
+.dark .bg-white    { background-color: #111111 !important; }
+.dark .bg-gray-50  { background-color: #0a0a0a !important; }
+.dark .bg-gray-100 { background-color: #1a1a1a !important; }
+.dark .bg-gray-200 { background-color: #222222 !important; }
+
+/* ── Backgrounds: brand (orange) tints ── */
+.dark .bg-brand-50  { background-color: #1e1005 !important; }
+.dark .bg-brand-100 { background-color: #2a1508 !important; }
+
+/* ── Backgrounds: red / missed ── */
+.dark .bg-red-50   { background-color: #1c0909 !important; }
+.dark .bg-red-100  { background-color: #260d0d !important; }
+
+/* ── Backgrounds: amber / warning ── */
+.dark .bg-amber-50  { background-color: #1a1305 !important; }
+.dark .bg-amber-100 { background-color: #221908 !important; }
+
+/* ── Backgrounds: orange tints ── */
+.dark .bg-orange-50  { background-color: #1e1005 !important; }
+.dark .bg-orange-100 { background-color: #2a1508 !important; }
+
+/* ── Backgrounds: green / success ── */
+.dark .bg-green-50  { background-color: #0a1a0a !important; }
+.dark .bg-green-100 { background-color: #0f220f !important; }
+.dark .bg-emerald-50  { background-color: #091a11 !important; }
+.dark .bg-emerald-100 { background-color: #0d2218 !important; }
+
+/* ── Backgrounds: blue / info ── */
+.dark .bg-blue-50  { background-color: #090f1a !important; }
+.dark .bg-blue-100 { background-color: #0d1526 !important; }
+
+/* ── Backgrounds: teal / teal phases ── */
+.dark .bg-teal-50  { background-color: #061516 !important; }
+.dark .bg-teal-100 { background-color: #091e1f !important; }
+
+/* ── Backgrounds: violet / purple ── */
+.dark .bg-violet-50  { background-color: #110b1a !important; }
+.dark .bg-violet-100 { background-color: #160f22 !important; }
+.dark .bg-purple-100 { background-color: #130d1e !important; }
+
+/* ── Borders: neutrals ── */
+.dark .border-gray-100 { border-color: #262626 !important; }
+.dark .border-gray-200 { border-color: #333333 !important; }
+
+/* ── Borders: brand ── */
+.dark .border-brand-200 { border-color: #7c3510 !important; }
+
+/* ── Borders: red ── */
+.dark .border-red-200 { border-color: #5c1e1e !important; }
+
+/* ── Borders: amber ── */
+.dark .border-amber-200 { border-color: #5c4510 !important; }
+
+/* ── Borders: orange ── */
+.dark .border-orange-200 { border-color: #7c3510 !important; }
+
+/* ── Text: grays — lifted so they read on dark surfaces ── */
+.dark .text-gray-900 { color: #f2f2f2 !important; }
+.dark .text-gray-800 { color: #e0e0e0 !important; }
+.dark .text-gray-700 { color: #c8c8c8 !important; }
+.dark .text-gray-600 { color: #b0b0b0 !important; }
+.dark .text-gray-500 { color: #909090 !important; }
+.dark .text-gray-400 { color: #666666 !important; }
+.dark .text-gray-300 { color: #555555 !important; }
+
+/* ── Text: red ── */
+.dark .text-red-600 { color: #f87171 !important; }
+.dark .text-red-700 { color: #ef4444 !important; }
+
+/* ── Text: brand/orange ── */
+.dark .text-brand-600 { color: #fb923c !important; }
+.dark .text-brand-700 { color: #f97316 !important; }
+
+/* ── Text: amber ── */
+.dark .text-amber-800 { color: #fbbf24 !important; }
+.dark .text-amber-900 { color: #f59e0b !important; }
+
+/* ── Text: teal ── */
+.dark .text-teal-700 { color: #2dd4bf !important; }
+
+/* ── Text: violet/purple ── */
+.dark .text-violet-700 { color: #a78bfa !important; }
+.dark .text-purple-700 { color: #c084fc !important; }
+
+/* ── Text: blue ── */
+.dark .text-blue-700  { color: #60a5fa !important; }
+.dark .text-blue-800  { color: #93c5fd !important; }
+.dark .text-blue-600  { color: #3b82f6 !important; }
+
+/* ── Text: green/emerald ── */
+.dark .text-emerald-600 { color: #34d399 !important; }
+.dark .text-green-600   { color: #4ade80 !important; }
 
 @layer utilities {
   .scrollbar-none::-webkit-scrollbar {
@@ -50,5 +171,10 @@
 
   .safe-area-pt {
     padding-top: env(safe-area-inset-top);
+  }
+
+  /* For fixed-position elements that need to sit below the status bar */
+  .safe-area-top {
+    top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
   }
 }

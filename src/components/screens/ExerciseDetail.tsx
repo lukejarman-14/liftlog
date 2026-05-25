@@ -42,7 +42,7 @@ export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: Exerc
     const ex = session.exercises.find(e => e.exerciseId === exercise.id)!;
     const maxWeight = Math.max(...ex.sets.map(s => s.weight), 0);
     const totalVolume = ex.sets.reduce((acc, s) => acc + s.reps * s.weight, 0);
-    const date = new Date(session.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const date = new Date(session.date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
     return { date, maxWeight, totalVolume, sets: ex.sets.length };
   });
 
@@ -196,7 +196,7 @@ export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: Exerc
               return (
                 <Card key={session.id} className="p-3">
                   <div className="text-xs text-gray-400 mb-1.5">
-                    {new Date(session.date).toLocaleDateString('en-US', {
+                    {new Date(session.date).toLocaleDateString('en-GB', {
                       weekday: 'short', month: 'short', day: 'numeric',
                     })}
                   </div>

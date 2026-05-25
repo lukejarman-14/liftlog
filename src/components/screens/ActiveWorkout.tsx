@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getAudioContext } from '../../lib/audio';
 import {
   CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp,
   Trophy, Clock, BookOpen, Lightbulb, MapPin, ChevronRight,
-  TrendingUp, TrendingDown, Pencil, Save, AlertTriangle, FileText,
+  TrendingUp, TrendingDown, Pencil, Save, AlertTriangle, FileText, Dumbbell,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -10,10 +11,11 @@ import { Button } from '../ui/Button';
 import { RpeSelector } from '../ui/RpeSelector';
 import { useTimer } from '../../hooks/useTimer';
 import { useStore } from '../../hooks/useStore';
-import { WorkoutSession, SessionExercise, CompletedSet, MeasureType } from '../../types';
+import { WorkoutSession, SessionExercise, CompletedSet, MeasureType, StrengthSetup, LiftBaseline } from '../../types';
 import { EXERCISE_DESCRIPTIONS } from '../../data/exerciseDescriptions';
 import { intraSessionSuggestion, interSessionBaseline, weeklyProgressionSuggestion } from '../../lib/rpeProgression';
 import { calcPrimingWeights } from '../../lib/sessionUtils';
+import { getLiftKey, LIFT_META, epley1RM } from '../../lib/progressiveOverload';
 
 interface ActiveWorkoutProps {
   session: WorkoutSession;
@@ -23,15 +25,18 @@ interface ActiveWorkoutProps {
   onConditioningFeedback?: (updates: Record<string, number>) => void;
   conditioningStagnation?: Record<string, number>;
   onDiscard: () => void;
+  strengthSetup?: StrengthSetup | null;
+  onUpdateStrengthSetup?: (setup: StrengthSetup) => void;
 }
 
-// ── Sound ──────────────────────────────────────────────────────────────────
+
+// Persistent AudioContext ref — reused across all sound calls to avoid iOS 6-context limit.
+const _audioCtxRef = { current: null as AudioContext | null };
 
 function playRestEndSound() {
   try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    const ctx = getAudioContext(_audioCtxRef);
+    if (!ctx) return;
     ([[880, 0], [1100, 0.18], [1320, 0.36]] as [number, number][]).forEach(([freq, offset]) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -49,9 +54,8 @@ function playRestEndSound() {
 
 function playTimerDoneSound() {
   try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    const ctx = getAudioContext(_audioCtxRef);
+    if (!ctx) return;
     const bufLen = Math.floor(ctx.sampleRate * 0.35);
     const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
     const data = buf.getChannelData(0);
@@ -70,7 +74,6 @@ function playTimerDoneSound() {
   } catch { /* audio not available */ }
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 function getMeasureLabel(type: MeasureType, unit?: string): string {
   if (unit) return unit;
@@ -102,7 +105,6 @@ function formatRestTime(secs: number): string {
   return `${secs}s`;
 }
 
-// ── Inline rest timer ──────────────────────────────────────────────────────
 
 interface RestInfo {
   remaining: number;
@@ -139,7 +141,6 @@ function InlineRestTimer({ restInfo }: { restInfo: RestInfo }) {
   );
 }
 
-// ── RPE suggestion banner ──────────────────────────────────────────────────
 
 function RpeSuggestionBanner({
   action, message,
@@ -161,7 +162,6 @@ function RpeSuggestionBanner({
   );
 }
 
-// ── Weekly goal card ───────────────────────────────────────────────────────
 
 function WeeklyGoalCard({
   suggestedWeight,
@@ -214,7 +214,6 @@ function WeeklyGoalCard({
   );
 }
 
-// ── Tutorial panel ─────────────────────────────────────────────────────────
 
 function TutorialPanel({ exerciseId, coachingCue }: { exerciseId: string; coachingCue?: string }) {
   const [open, setOpen] = useState(false);
@@ -295,7 +294,6 @@ function TutorialPanel({ exerciseId, coachingCue }: { exerciseId: string; coachi
   );
 }
 
-// ── Set row ────────────────────────────────────────────────────────────────
 // Two-phase commit: user logs set data → confirms with RPE → set saved.
 // If measureType isn't 'strength', RPE is still captured but no weight
 // adjustment is suggested (performance outputs need different logic).
@@ -332,6 +330,9 @@ function SetRow({
   const timerEndRef = useRef<number | null>(null);
   const timerSecsRef = useRef(timerSecs);
   timerSecsRef.current = timerSecs;
+  // Keep a ref to onComplete so the interval closure always calls the latest version
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; });
 
   useEffect(() => {
     if (!timerRunning) return;
@@ -347,7 +348,7 @@ function SetRow({
         setTimerRunning(false);
         playTimerDoneSound();
         if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
-        onComplete({ reps: 1, weight: defaultReps, completedAt: Date.now() });
+        onCompleteRef.current({ reps: 1, weight: defaultReps, completedAt: Date.now() });
       }
     };
 
@@ -428,7 +429,6 @@ function SetRow({
   const isAwaitingRpe = pendingSet !== null && !completed;
   const isInteractive = !completed && !isAwaitingRpe;
 
-  // ── Edit mode UI (replaces normal row when editing a completed set) ──────
   if (isEditing && completed) {
     const editStep = measureType === 'strength' ? 2.5 : measureType === 'distance' ? 0.1 : 1;
     return (
@@ -536,7 +536,6 @@ function SetRow({
 
   return (
     <div>
-      {/* ── Timer UI for time-based exercises ── */}
       {measureType === 'time' && !completed && (
         <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors bg-gray-50`}>
           <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
@@ -588,7 +587,6 @@ function SetRow({
         </div>
       )}
 
-      {/* ── Main set row (non-time types) ── */}
       {measureType !== 'time' && (<div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
         completed       ? 'bg-green-50 border border-green-100' :
         isAwaitingRpe   ? 'bg-brand-50 border border-brand-200' :
@@ -735,7 +733,6 @@ function SetRow({
         </button>
       </div>)}
 
-      {/* ── Phase 2: RIR selector ── */}
       {isAwaitingRpe && (
         <RpeSelector
           value={null}
@@ -745,7 +742,6 @@ function SetRow({
         />
       )}
 
-      {/* ── RIR re-edit for already-completed sets ── */}
       {isEditingRir && completed && onEdit && (
         <RpeSelector
           value={completed.rir ?? null}
@@ -761,7 +757,6 @@ function SetRow({
   );
 }
 
-// ── Conditioning sprint row ────────────────────────────────────────────────
 // Used for distance-based conditioning exercises (e.g. "Repeated Sprint 30m").
 // Shows: idle → Start Sprint → elapsed timer running → Done → (parent handles rest)
 
@@ -845,7 +840,6 @@ function CondSprintRow({
   );
 }
 
-// ── Exercise section ───────────────────────────────────────────────────────
 
 function ExerciseSection({
   sessionExercise,
@@ -895,7 +889,6 @@ function ExerciseSection({
   const RIR_CATEGORIES = new Set(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body', 'Eccentric']);
   const showRir = globalShowRir && !exercise.isWarmup && RIR_CATEGORIES.has(exercise.category);
 
-  // ── Neural priming ─────────────────────────────────────────────────────
   // Priming sets are stored at the start of sessionExercise.sets with isPriming:true.
   // Working sets follow immediately after. We separate them for all display/logic.
   const primingCount    = sessionExercise.hasPrimingSingles ? 3 : 0;
@@ -922,25 +915,32 @@ function ExerciseSection({
     ? calcPrimingWeights(lastWorkingWeight)
     : null;
 
-  // ── Default weight for each working set row ─────────────────────────────
   const getSetDefaults = (i: number) => {
-    // Intra-session: use the previous *working* set's values as base
+    // Intra-session: use the previous *working* set's values as base.
+    // For time-based sets, completed.reps is always 1 (a flag, not duration),
+    // so always use targetReps as the reps default to keep the timer initialised correctly.
     const prevWorkingIdx = primingCount + i - 1;
-    if (i > 0 && sessionExercise.sets[prevWorkingIdx]) {
+    if (i > 0 && sessionExercise.sets[prevWorkingIdx] && measureType !== 'time') {
       const prev = sessionExercise.sets[prevWorkingIdx];
       return { weight: prev.weight, reps: prev.reps };
     }
-    // Inter-session: use RPE-calibrated baseline (non-priming sets only)
-    if (workingLastSets.length) {
+    // Inter-session: use RPE-calibrated baseline (strength sets only — time sets store
+    // reps=1 as a flag, so inter-session reps would always be 1 and break the timer).
+    if (workingLastSets.length && measureType !== 'time') {
       const base = interSessionBaseline(workingLastSets, targetRir ?? 2);
       if (base) return { weight: base.weight, reps: base.reps };
       if (workingLastSets[i]) return { weight: workingLastSets[i].weight, reps: workingLastSets[i].reps };
       return { weight: workingLastSets[0].weight, reps: workingLastSets[0].reps };
     }
+    // For time-based exercises with previous session data, restore the last-used duration
+    // (stored in the weight field) but use targetReps (1) as the reps flag.
+    if (workingLastSets.length && measureType === 'time') {
+      const lastSet = workingLastSets[i] ?? workingLastSets[0];
+      return { weight: lastSet.weight, reps: sessionExercise.targetReps };
+    }
     return { weight: sessionExercise.targetWeight, reps: sessionExercise.targetReps };
   };
 
-  // ── Weekly progression goal (shown before exercise starts) ───────────────
   const weeklyGoal = (
     !exercise.isWarmup &&
     measureType === 'strength' &&
@@ -955,7 +955,6 @@ function ExerciseSection({
       )
     : null;
 
-  // ── Intra-session suggestion (shown after last logged working set with RPE) ──
   const lastCompleted = workingSets.length > 0 ? workingSets[workingSets.length - 1] : null;
   const suggestion = (
     lastCompleted?.rir !== undefined &&
@@ -965,7 +964,6 @@ function ExerciseSection({
     ? intraSessionSuggestion(targetRir ?? 2, lastCompleted.rir, lastCompleted.weight)
     : null;
 
-  // ── PB / last session display (exclude priming from both) ────────────────
   const currentBest = workingSets.reduce<{ weight: number; reps: number } | null>(
     (best, set) => {
       if (!best) return set;
@@ -1081,7 +1079,6 @@ function ExerciseSection({
 
             {/* Set rows */}
             <div className="flex flex-col gap-2">
-              {/* ── Neural priming singles (only for strength exercises with known working weight) ── */}
               {primingWeights && (
                 <>
                   <div className="flex items-center gap-2 pt-1 pb-0.5">
@@ -1114,7 +1111,6 @@ function ExerciseSection({
                 </>
               )}
 
-              {/* ── Working sets ── */}
               {Array.from({ length: totalSets }).map((_, i) => {
                 const wsIdx   = primingCount + i;  // absolute index in sessionExercise.sets
                 const defaults = getSetDefaults(i);
@@ -1164,7 +1160,6 @@ function ExerciseSection({
   );
 }
 
-// ── Main ───────────────────────────────────────────────────────────────────
 
 interface NewPBEntry {
   exerciseId: string;
@@ -1175,7 +1170,7 @@ interface NewPBEntry {
   prevReps: number | null;
 }
 
-export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onConditioningFeedback, conditioningStagnation, onDiscard }: ActiveWorkoutProps) {
+export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onConditioningFeedback, conditioningStagnation, onDiscard, strengthSetup, onUpdateStrengthSetup }: ActiveWorkoutProps) {
   const timer = useTimer();
   const { getPB, getExercise, userSettings, updateSettings } = useStore();
   const showRir = userSettings.showRir ?? true;
@@ -1190,6 +1185,12 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   const [condElapsedSecs, setCondElapsedSecs] = useState(0);
   const [sessionNotes, setSessionNotes] = useState('');
   const [flaggedExercises, setFlaggedExercises] = useState<string[]>(session.flaggedExercises ?? []);
+
+  // Lift recalibration state — shown after session completes when tracked lifts are detected
+  interface RecalLift { key: string; label: string; bestWeight: number; bestReps: number; current?: LiftBaseline; editWeight: string; editReps: string; }
+  const [showRecalModal, setShowRecalModal] = useState(false);
+  const [recalLifts, setRecalLifts] = useState<RecalLift[]>([]);
+  const [pendingRecalSession, setPendingRecalSession] = useState<WorkoutSession | null>(null);
 
   // Capture pre-session PBs on mount (before any sets are saved)
   const prePBsRef = useRef<Record<string, { weight: number; reps: number } | null>>({});
@@ -1221,14 +1222,58 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     return !exercise || exercise.isWarmup || exercise.category === 'Conditioning';
   });
 
+  /** Detect tracked lifts in completed session, build recal list. */
+  const buildRecalLifts = useCallback((s: WorkoutSession) => {
+    const seen = new Set<string>();
+    const lifts: { key: string; label: string; bestWeight: number; bestReps: number; current?: LiftBaseline; editWeight: string; editReps: string }[] = [];
+    for (const ex of s.exercises) {
+      const exercise = getExercise(ex.exerciseId);
+      if (!exercise) continue;
+      const key = getLiftKey(exercise.name);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const workingSets = ex.sets.filter(ws => !ws.isPriming && ws.weight > 0 && ws.reps > 0);
+      if (workingSets.length === 0) continue;
+      // Best set by estimated 1RM
+      const best = workingSets.reduce((a, b) =>
+        epley1RM(b.weight, b.reps) > epley1RM(a.weight, a.reps) ? b : a,
+      );
+      const current = strengthSetup?.lifts.find(l => l.key === key);
+      lifts.push({
+        key,
+        label: LIFT_META[key]?.label ?? key,
+        bestWeight: best.weight,
+        bestReps: best.reps,
+        current,
+        editWeight: String(best.weight),
+        editReps: String(best.reps),
+      });
+    }
+    return lifts;
+  }, [getExercise, strengthSetup]);
+
+  /** Last step — offer recalibration if tracked lifts were done, then truly finish. */
+  const finalFinish = useCallback((s: WorkoutSession) => {
+    if (strengthSetup && onUpdateStrengthSetup) {
+      const lifts = buildRecalLifts(s);
+      if (lifts.length > 0) {
+        setPendingRecalSession(s);
+        setRecalLifts(lifts);
+        setShowRecalModal(true);
+        return;
+      }
+    }
+    onFinish(s);
+  }, [strengthSetup, onUpdateStrengthSetup, buildRecalLifts, onFinish]);
+
   const doFinish = useCallback((s: WorkoutSession) => {
     if (conditioningExercises.length > 0 && onConditioningFeedback) {
       setPendingFinishSession(s);
       setShowCondModal(true);
     } else {
-      onFinish(s);
+      finalFinish(s);
     }
-  }, [conditioningExercises.length, onConditioningFeedback, onFinish]);
+  }, [conditioningExercises.length, onConditioningFeedback, finalFinish]);
 
   /** Classify a conditioning exercise ID into a display type for per-type feedback */
   const getCondTypeLabel = (exerciseId: string): string => {
@@ -1249,9 +1294,9 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     onConditioningFeedback(updates);
     setShowCondModal(false);
     setCondFeedbackByType({});
-    onFinish(pendingFinishSession);
+    finalFinish(pendingFinishSession);
     setPendingFinishSession(null);
-  }, [pendingFinishSession, conditioningExercises, condFeedbackByType, onConditioningFeedback, onFinish]);
+  }, [pendingFinishSession, conditioningExercises, condFeedbackByType, onConditioningFeedback, finalFinish]);
 
   const computeNewPBs = useCallback((s: WorkoutSession): NewPBEntry[] => {
     return s.exercises.flatMap(ex => {
@@ -1395,7 +1440,6 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     ? { remaining: timer.remaining, progress: timer.progress, onSkip: handleSkipRest }
     : undefined;
 
-  // ── Format MM:SS for conditioning elapsed timer ───────────────────────────
   const fmtElapsed = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
@@ -1531,7 +1575,6 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
         </div>
       )}
 
-      {/* ── Conditioning feedback modal ── */}
       {showCondModal && pendingFinishSession && (() => {
         // Group exercises by type label for per-type feedback
         const typeGroups: Map<string, { exercises: typeof conditioningExercises; stagnation: number }> = new Map();
@@ -1609,7 +1652,119 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
         );
       })()}
 
-      {/* ── PB review modal ── */}
+      {showRecalModal && pendingRecalSession && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50">
+          <div className="bg-white rounded-t-3xl w-full max-w-lg p-6 shadow-xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center gap-2 mb-1">
+              <Dumbbell size={20} className="text-brand-500" />
+              <h2 className="font-bold text-gray-900 text-lg">Update lift baselines?</h2>
+            </div>
+            <p className="text-sm text-gray-500 mb-5 leading-snug">
+              Your next session weights will be calculated from these numbers. Edit if needed, then save.
+            </p>
+
+            <div className="flex flex-col gap-4 mb-6">
+              {recalLifts.map((lift, idx) => {
+                const newE1RM = epley1RM(Number(lift.editWeight) || lift.bestWeight, Number(lift.editReps) || lift.bestReps);
+                const oldE1RM = lift.current?.estimated1RM;
+                const delta = oldE1RM ? newE1RM - oldE1RM : null;
+                return (
+                  <div key={lift.key} className="rounded-2xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-bold text-gray-900">{lift.label}</p>
+                      {delta !== null && (
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          delta > 0 ? 'bg-green-100 text-green-700' : delta < 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {delta > 0 ? '+' : ''}{delta.toFixed(1)} kg e1RM
+                        </span>
+                      )}
+                    </div>
+
+                    {lift.current && (
+                      <p className="text-xs text-gray-400 mb-2">
+                        Previous baseline: {lift.current.workingWeightKg} kg × {lift.current.workingReps} reps
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Weight (kg)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="2.5"
+                          value={lift.editWeight}
+                          onChange={e => setRecalLifts(prev => prev.map((l, i) => i === idx ? { ...l, editWeight: e.target.value } : l))}
+                          style={{ fontSize: 16 }}
+                          className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-400"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Reps</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={lift.editReps}
+                          onChange={e => setRecalLifts(prev => prev.map((l, i) => i === idx ? { ...l, editReps: e.target.value } : l))}
+                          style={{ fontSize: 16 }}
+                          className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-400"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-gray-400 mt-2">
+                      Estimated 1RM: <span className="font-bold text-brand-600">{newE1RM.toFixed(1)} kg</span>
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowRecalModal(false);
+                  onFinish(pendingRecalSession);
+                  setPendingRecalSession(null);
+                }}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50"
+              >
+                Skip for now
+              </button>
+              <button
+                onClick={() => {
+                  if (!onUpdateStrengthSetup || !strengthSetup) return;
+                  const updatedLifts: LiftBaseline[] = strengthSetup.lifts.map(existing => {
+                    const edit = recalLifts.find(r => r.key === existing.key);
+                    if (!edit) return existing;
+                    const w = Number(edit.editWeight) || existing.workingWeightKg;
+                    const r = Number(edit.editReps) || existing.workingReps;
+                    return { ...existing, workingWeightKg: w, workingReps: r, estimated1RM: epley1RM(w, r) };
+                  });
+                  // Add any new keys not yet in setup
+                  recalLifts.forEach(edit => {
+                    if (!updatedLifts.find(l => l.key === edit.key)) {
+                      const w = Number(edit.editWeight) || edit.bestWeight;
+                      const r = Number(edit.editReps) || edit.bestReps;
+                      updatedLifts.push({ key: edit.key, exerciseName: edit.label, workingWeightKg: w, workingReps: r, estimated1RM: epley1RM(w, r) });
+                    }
+                  });
+                  onUpdateStrengthSetup({ lifts: updatedLifts, configuredAt: Date.now() });
+                  setShowRecalModal(false);
+                  onFinish(pendingRecalSession);
+                  setPendingRecalSession(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600 transition-colors"
+              >
+                Update baselines
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPBModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">

@@ -25,7 +25,6 @@ interface WorkoutBuilderProps {
   onDeleteTemplate: (id: string) => void;
 }
 
-// ── Exercise picker sheet ──────────────────────────────────────────────────
 
 function ExercisePicker({
   exercises,
@@ -113,7 +112,6 @@ function ExercisePicker({
   );
 }
 
-// ── Rest picker (scroll-wheel drum) ───────────────────────────────────────
 
 const MIN_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const SEC_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
@@ -231,7 +229,6 @@ function RestPicker({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
-// ── Single exercise row in the builder ────────────────────────────────────
 
 function ExerciseRow({
   item,
@@ -345,7 +342,6 @@ function ExerciseRow({
   );
 }
 
-// ── Programs browser ───────────────────────────────────────────────────────
 
 function ProgramGroup({
   programs,
@@ -454,7 +450,6 @@ function ProgramsBrowser({ onLoad }: { onLoad: (t: BuiltInTemplate) => void }) {
   );
 }
 
-// ── My Templates browser ───────────────────────────────────────────────────
 
 function MyTemplates({
   templates,
@@ -497,7 +492,6 @@ function MyTemplates({
   );
 }
 
-// ── Main WorkoutBuilder ────────────────────────────────────────────────────
 
 type Tab = 'programs' | 'mine' | 'build';
 
@@ -530,7 +524,6 @@ export function WorkoutBuilder({
 
   const selectedIds = items.map(i => i.exerciseId);
 
-  // ── Drag-to-reorder state ─────────────────────────────────────────────────
   const dragIndexRef  = useRef<number | null>(null);
   const overIndexRef  = useRef<number | null>(null);
   const [dragIndex,   setDragIndex]  = useState<number | null>(null);
@@ -648,7 +641,7 @@ export function WorkoutBuilder({
   };
 
   const tabs: { id: Tab; label: string; icon: typeof BookMarked }[] = [
-    { id: 'programs', label: 'Programs', icon: BookMarked },
+    { id: 'programs', label: 'Programmes', icon: BookMarked },
     { id: 'mine', label: 'My Templates', icon: User },
   ];
 
@@ -734,7 +727,7 @@ export function WorkoutBuilder({
             onClick={() => handleTabChange('programs')}
             className="text-sm text-brand-500 font-medium mb-4 flex items-center gap-1"
           >
-            ← Back to programs
+            ← Back to programmes
           </button>
 
           {/* Workout name */}

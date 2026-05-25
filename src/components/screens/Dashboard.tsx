@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap, BedDouble, FlaskConical, Dumbbell } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap, FlaskConical, Dumbbell, Share2 } from 'lucide-react';
 import { Layout } from '../Layout';
-
+import { trackEvent } from '../../lib/analytics';
+import { ShareStatsCard } from '../ShareStatsCard';
 import { WeeklyCalendar } from '../WeeklyCalendar';
 import { DailyReadinessWidget } from '../DailyReadinessWidget';
 import { WorkoutSession, NavState, ActivePlan, DailyReadiness, GeneratedProgramme, Exercise, WorkoutExercise } from '../../types';
@@ -21,9 +22,11 @@ interface DashboardProps {
   onStartProgrammeSession: (name: string, items: WorkoutExercise[]) => void;
   onStartTodayProgrammeSession?: (session: import('../../types').ProgrammeSession) => void;
   onOpenStrengthSetup?: () => void;
+  onSkipSession?: (weekIdx: number, sessionIdx: number, reason: string) => void;
+  onRescheduleSession?: (weekIdx: number, sessionIdx: number, newDate: string) => void;
+  referralCode?: string;
 }
 
-// ── Football session intensity prompt ──────────────────────────────────────
 
 function IntensityPrompt({ date, onSave }: {
   date: string;
@@ -111,29 +114,57 @@ function IntensityPrompt({ date, onSave }: {
   );
 }
 
-export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup }: DashboardProps) {
-  const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries, getConsecutiveLowReadinessDays, getDaysSinceLastTest } = useStore();
+export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup, onSkipSession, onRescheduleSession, referralCode }: DashboardProps) {
+  const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries, getDaysSinceLastTest } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
-  const [deloadDismissed, setDeloadDismissed] = useState(false);
-  const [retestDismissed, setRetestDismissed] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
 
-  const consecutiveLowDays = getConsecutiveLowReadinessDays();
+  // Retest banner: dismissed for 10 days via localStorage timestamp
+  const retestDismissedUntil = Number(localStorage.getItem('vf_retest_dismissed_until') ?? 0);
+  const retestDismissed = Date.now() < retestDismissedUntil;
+  const dismissRetest = useCallback(() => {
+    localStorage.setItem('vf_retest_dismissed_until', String(Date.now() + 10 * 24 * 60 * 60 * 1000));
+  }, []);
+
   const daysSinceTest = getDaysSinceLastTest();
-  const showDeloadBanner = !deloadDismissed && consecutiveLowDays >= 3;
   const showRetestBanner = !retestDismissed && (daysSinceTest === null || daysSinceTest >= 42);
 
   const initials = userProfile
     ? `${userProfile.firstName.charAt(0)}${userProfile.lastName.charAt(0)}`.toUpperCase()
     : '?';
 
-  // Progression bar: derive current week / total weeks
+  const sessionStreak = (() => {
+    if (!sessions.length) return 0;
+    const toMonday = (d: Date) => {
+      const day = d.getDay();
+      const mon = new Date(d);
+      mon.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+      return mon.toISOString().split('T')[0];
+    };
+    const weeks = new Set(sessions.map(s => toMonday(new Date(s.date))));
+    let n = 0;
+    const now = new Date();
+    let cur = new Date(now);
+    if (!weeks.has(toMonday(now))) cur.setDate(cur.getDate() - 7);
+    while (n < 52) {
+      if (!weeks.has(toMonday(cur))) break;
+      n++;
+      cur.setDate(cur.getDate() - 7);
+    }
+    return n;
+  })();
   let progWeek: number | null = null;
   let progTotal: number | null = null;
   let progLabel = '';
   if (activeProgramme) {
     progTotal = activeProgramme.durationWeeks;
-    const weeksSinceCreated = Math.floor((Date.now() - activeProgramme.createdAt) / (7 * 24 * 60 * 60 * 1000));
-    progWeek = Math.min(weeksSinceCreated + 1, progTotal);
+    // Use programmeStartDate when set (user chose their start date) — fall back to createdAt
+    // for programmes generated before this field existed.
+    const startMs = activeProgramme.programmeStartDate
+      ? new Date(activeProgramme.programmeStartDate + 'T12:00:00').getTime()
+      : activeProgramme.createdAt;
+    const weeksSinceStart = Math.floor((Date.now() - startMs) / (7 * 24 * 60 * 60 * 1000));
+    progWeek = Math.min(weeksSinceStart + 1, progTotal);
     progLabel = activeProgramme.summary.split('·')[0].trim();
   } else if (activePlan) {
     const plan = POSITION_PLANS.find(p => p.id === activePlan.planId);
@@ -145,6 +176,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
   }
 
   return (
+    <>
     <Layout
       title="Vector Football"
       leftAction={
@@ -169,33 +201,127 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         </button>
       }
     >
+      {sessionStreak > 0 && (() => {
+        const tier = sessionStreak >= 12 ? 'red' : sessionStreak >= 8 ? 'orange' : sessionStreak >= 4 ? 'amber' : 'green';
+
+        const palette: Record<string, { bg: string; border: string; iconBg: string; textHead: string; textSub: string; numCol: string; emoji: string }> = {
+          green:  { bg: 'bg-emerald-50', border: 'border-emerald-200', iconBg: 'bg-emerald-100', textHead: 'text-emerald-900', textSub: 'text-emerald-600', numCol: 'text-emerald-400', emoji: '🌱' },
+          amber:  { bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-100', textHead: 'text-amber-900', textSub: 'text-amber-600', numCol: 'text-amber-400', emoji: '🔥' },
+          orange: { bg: 'bg-orange-50', border: 'border-orange-200', iconBg: 'bg-orange-100', textHead: 'text-orange-900', textSub: 'text-orange-600', numCol: 'text-orange-400', emoji: '🔥' },
+          red:    { bg: 'bg-red-50', border: 'border-red-200', iconBg: 'bg-red-100', textHead: 'text-red-900', textSub: 'text-red-600', numCol: 'text-red-400', emoji: '💥' },
+        };
+        const s = palette[tier];
+
+        const sub = sessionStreak >= 12 ? "Elite consistency. You're in the 1%."
+          : sessionStreak >= 8 ? "Serious momentum — you're making real gains."
+          : sessionStreak >= 4 ? "Building momentum — don't break the chain!"
+          : sessionStreak === 1 ? 'You trained this week — keep it going!'
+          : 'Good start — consistency is everything.';
+
+        const milestoneLabel = sessionStreak >= 12 ? '🏅 12-week milestone'
+          : sessionStreak >= 8 ? '🥈 8-week milestone'
+          : sessionStreak >= 4 ? '🥉 4-week milestone'
+          : null;
+
+        const handleShare = () => {
+          trackEvent('streak_shared', { streak: sessionStreak, tier });
+          setShowShareCard(true);
+        };
+
+        return (
+          <div className={`mb-4 flex items-center gap-3 p-3.5 rounded-2xl border ${s.bg} ${s.border}`}>
+            <div className={`flex-shrink-0 w-10 h-10 rounded-xl ${s.iconBg} flex items-center justify-center`}>
+              <span className="text-xl leading-none">{s.emoji}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className={`text-sm font-bold ${s.textHead}`}>{sessionStreak}-week streak</p>
+                {milestoneLabel && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${s.iconBg} ${s.textSub}`}>
+                    {milestoneLabel}
+                  </span>
+                )}
+              </div>
+              <p className={`text-xs ${s.textSub} leading-snug mt-0.5`}>{sub}</p>
+            </div>
+            <div className="flex-shrink-0 flex items-center gap-2">
+              <div className="text-right">
+                <span className={`text-2xl font-black ${s.numCol}`}>{sessionStreak}</span>
+                <p className={`text-[10px] ${s.numCol} leading-tight`}>weeks</p>
+              </div>
+              <button
+                onClick={handleShare}
+                className={`w-8 h-8 rounded-xl ${s.iconBg} flex items-center justify-center hover:opacity-80 transition-opacity`}
+              >
+                <Share2 size={14} className={s.textSub} />
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Current Plan */}
       {progWeek !== null && progTotal !== null && (
         <div className="mb-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Current Plan</p>
-          <button
-            onClick={() => onNavigate({ screen: activeProgramme ? 'generated-programme' : 'plans' })}
-            className="w-full flex items-center justify-between p-3 rounded-2xl border border-brand-200 bg-white hover:bg-brand-50 transition-colors"
-          >
-            <div className="text-left min-w-0">
-              <div className="text-sm font-semibold text-gray-900 truncate">{progLabel}</div>
-              <div className="text-xs text-gray-400 mt-0.5">Week {progWeek} of {progTotal}</div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-              <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-brand-500 rounded-full"
-                  style={{ width: `${(progWeek / progTotal) * 100}%` }}
-                />
+
+          {progWeek >= progTotal ? (
+            <div className="w-full rounded-2xl border-2 border-brand-200 bg-gradient-to-br from-brand-50 to-white overflow-hidden">
+              <div className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xl">🏆</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-extrabold text-brand-700 truncate">Programme Complete!</p>
+                    <p className="text-xs text-brand-500 mt-0.5 truncate">{progLabel} · {progTotal} weeks done</p>
+                  </div>
+                </div>
+                <div className="w-full h-1.5 bg-brand-100 rounded-full overflow-hidden mb-3">
+                  <div className="h-full w-full bg-brand-500 rounded-full" />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onNavigate({ screen: 'programme-builder' })}
+                    className="flex-1 py-2.5 bg-brand-500 text-white font-bold rounded-xl text-xs hover:bg-brand-600 transition-colors"
+                  >
+                    ⚡ Build Next Programme
+                  </button>
+                  <button
+                    onClick={() => onNavigate({ screen: 'generated-programme' })}
+                    className="px-3 py-2.5 border border-brand-200 text-brand-600 font-semibold rounded-xl text-xs hover:bg-brand-50 transition-colors"
+                  >
+                    View
+                  </button>
+                </div>
               </div>
-              <ChevronRight size={14} className="text-gray-400" />
             </div>
-          </button>
+          ) : (
+            /* ── In-progress state ── */
+            <button
+              onClick={() => onNavigate({ screen: activeProgramme ? 'generated-programme' : 'plans' })}
+              className="w-full flex items-center justify-between p-3 rounded-2xl border border-brand-200 bg-white hover:bg-brand-50 transition-colors"
+            >
+              <div className="text-left min-w-0">
+                <div className="text-sm font-semibold text-gray-900 truncate">{progLabel}</div>
+                <div className="text-xs text-gray-400 mt-0.5">Week {progWeek} of {progTotal}</div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-brand-500 rounded-full"
+                    style={{ width: `${(progWeek / progTotal) * 100}%` }}
+                  />
+                </div>
+                <ChevronRight size={14} className="text-gray-400" />
+              </div>
+            </button>
+          )}
         </div>
       )}
 
-      {/* Strength setup nudge — shown when programme exists but no baseline configured */}
-      {activeProgramme && !activeProgramme.strengthSetup && onOpenStrengthSetup && (
+      {/* Strength setup nudge — shown when programme exists, not yet complete, and no baseline configured */}
+      {activeProgramme && !activeProgramme.strengthSetup && onOpenStrengthSetup && progWeek !== null && progTotal !== null && progWeek < progTotal && (
         <button
           onClick={onOpenStrengthSetup}
           className="w-full mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-left hover:bg-amber-100 transition-all active:scale-[0.98]"
@@ -251,29 +377,11 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
           date={pendingIntensityDate}
           onSave={(intensity, minutes) => {
             saveFootballIntensity(pendingIntensityDate, intensity);
-            // update the match entry with minutes if provided
             const entry = matchEntries.find(e => e.date === pendingIntensityDate);
-            if (entry && minutes) saveMatchEntry({ ...entry, minutes, intensity });
+            if (entry) saveMatchEntry({ ...entry, intensity, ...(minutes ? { minutes } : {}) });
+            trackEvent('football_intensity_logged', { intensity, minutes: minutes ?? null });
           }}
         />
-      )}
-
-      {/* Deload suggestion banner */}
-      {showDeloadBanner && (
-        <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-start gap-2.5">
-              <BedDouble size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-bold text-amber-800">Consider a deload this week</p>
-                <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
-                  You've logged low readiness for {consecutiveLowDays} days in a row. Reducing volume by 40–50% for a few sessions lets your body absorb the training and come back stronger.
-                </p>
-              </div>
-            </div>
-            <button onClick={() => setDeloadDismissed(true)} className="text-amber-400 hover:text-amber-600 flex-shrink-0 text-lg leading-none">✕</button>
-          </div>
-        </div>
       )}
 
       {/* Re-test reminder banner */}
@@ -299,7 +407,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
                 </button>
               </div>
             </div>
-            <button onClick={() => setRetestDismissed(true)} className="text-blue-400 hover:text-blue-600 flex-shrink-0 text-lg leading-none">✕</button>
+            <button onClick={dismissRetest} className="text-blue-400 hover:text-blue-600 flex-shrink-0 text-lg leading-none">✕</button>
           </div>
         </div>
       )}
@@ -314,11 +422,53 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         onStartWorkout={onStartWorkout}
         onStartProgrammeSession={onStartProgrammeSession}
         onStartTodayProgrammeSession={onStartTodayProgrammeSession}
+        onSkipSession={onSkipSession}
+        onRescheduleSession={onRescheduleSession}
       />
+
+      {/* Referral card — shown to all users with a code */}
+      {referralCode && (
+        <div className="mb-4 rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 p-4 shadow-md">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-white font-extrabold text-sm">🤝 Refer a Friend</p>
+              <p className="text-white/70 text-xs mt-0.5">They get 21 days free · You get +14 days</p>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-white/20">
+              <span className="text-white font-black tracking-widest text-sm">{referralCode}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              if (navigator.share) {
+                navigator.share({
+                  title: 'Join Vector Football',
+                  text: `Use my code ${referralCode} on Vector Football and get 21 days free! vectorfootball.co.uk`,
+                });
+              } else {
+                navigator.clipboard?.writeText(referralCode);
+              }
+            }}
+            className="w-full py-2 rounded-xl bg-white/20 text-white text-xs font-bold hover:bg-white/30 transition-colors"
+          >
+            Share Code
+          </button>
+        </div>
+      )}
 
       {/* Daily readiness check-in */}
       <DailyReadinessWidget existing={todayReadiness} onSave={onSaveReadiness} />
 
     </Layout>
+
+    {showShareCard && (
+      <ShareStatsCard
+        sessions={sessions}
+        streak={sessionStreak}
+        playerName={userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'Footballer'}
+        onClose={() => setShowShareCard(false)}
+      />
+    )}
+    </>
   );
 }

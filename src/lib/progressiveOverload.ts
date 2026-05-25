@@ -13,7 +13,6 @@
 
 import { GeneratedProgramme } from '../types';
 
-// ── Lift catalogue ────────────────────────────────────────────────────────
 
 export const LIFT_KEYS = ['squat', 'trapBar', 'hipThrust', 'hinge', 'bss', 'upperPush', 'upperPull'] as const;
 export type LiftKey = typeof LIFT_KEYS[number];
@@ -70,7 +69,6 @@ export const LIFT_META: Record<LiftKey, LiftMeta> = {
   },
 };
 
-// ── Epley 1RM estimation ──────────────────────────────────────────────────
 
 /** Epley formula. Returns estimated 1RM in kg. */
 export function epley1RM(weightKg: number, reps: number): number {
@@ -79,7 +77,6 @@ export function epley1RM(weightKg: number, reps: number): number {
   return weightKg * (1 + reps / 30);
 }
 
-// ── Exercise → lift key mapping ───────────────────────────────────────────
 
 /** Returns the LiftKey if the exercise name matches a tracked pattern, else null. */
 export function getLiftKey(exerciseName: string): LiftKey | null {
@@ -90,7 +87,6 @@ export function getLiftKey(exerciseName: string): LiftKey | null {
   return null;
 }
 
-// ── Intensity % parser ────────────────────────────────────────────────────
 
 /**
  * Parses "82% 1RM", "82% 1RM equiv.", etc. → 0.82
@@ -103,7 +99,6 @@ export function parseBasePct(intensity?: string): number | null {
   return parseFloat(m[1]) / 100;
 }
 
-// ── Phase helpers ─────────────────────────────────────────────────────────
 
 function getPhaseForWeek(weekNumber: number, totalWeeks: number): string {
   const p = weekNumber / totalWeeks;
@@ -129,7 +124,6 @@ export function weekInPhase(weekNumber: number, totalWeeks: number): number {
   return weekNumber - firstWeek + 1;
 }
 
-// ── Core prescription ─────────────────────────────────────────────────────
 
 /** Round kg to nearest 2.5 kg (standard barbell plate increment). */
 function roundPlate(kg: number): number {
@@ -164,7 +158,6 @@ export function prescribeWeekLoad(
   };
 }
 
-// ── Programme scanning ────────────────────────────────────────────────────
 
 /**
  * Returns the set of LiftKeys that actually appear in the programme.

@@ -1,7 +1,7 @@
 /**
  * ProgrammeHub — the Plans tab.
- * Primary entry: Build My Program (AI generator).
- * Secondary: history of generated programs.
+ * Primary entry: Build My Programme (programme generator).
+ * Secondary: history of generated programmes.
  */
 
 import { useState } from 'react';
@@ -58,7 +58,7 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, activeProgramme
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">{prog.summary.split('.')[0]}.</p>
+            <p className="text-xs text-gray-500 mt-0.5">{prog.summary.split(/\.\s/)[0].replace(/\.$/, '')}.</p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${levelStyle.bg} ${levelStyle.text}`}>
                 {prog.readinessLevel.charAt(0).toUpperCase() + prog.readinessLevel.slice(1)} readiness
@@ -110,7 +110,6 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, activeProgramme
 
   return (
     <Layout title="My Programme">
-      {/* ── Primary CTA ── */}
       <button
         onClick={() => onNavigate({ screen: 'programme-builder' })}
         className="w-full mb-6 p-5 rounded-2xl bg-gradient-to-r from-brand-600 to-brand-500 text-white text-left shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
@@ -118,7 +117,7 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, activeProgramme
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Zap size={20} className="text-yellow-300" />
-            <span className="font-bold text-lg">Build My Program</span>
+            <span className="font-bold text-lg">Build My Programme</span>
           </div>
           <ChevronRight size={20} className="text-white/70" />
         </div>
@@ -132,7 +131,6 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, activeProgramme
         </div>
       </button>
 
-      {/* ── Current Plan ── */}
       {activeProg && (
         <div className="mb-5">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Current Plan</p>
@@ -140,10 +138,9 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, activeProgramme
         </div>
       )}
 
-      {/* ── Previous Programs ── */}
       {previousProgs.length > 0 ? (
         <div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Previous Programs</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Previous Programmes</p>
           <div className="flex flex-col gap-3">
             {previousProgs.map(prog => renderCard(prog, false))}
           </div>
@@ -151,8 +148,8 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, activeProgramme
       ) : !activeProg ? (
         <Card className="p-5 text-center">
           <RefreshCw size={28} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-sm font-semibold text-gray-600">No programs yet</p>
-          <p className="text-xs text-gray-400 mt-1">Build your first program above — it takes about 60 seconds.</p>
+          <p className="text-sm font-semibold text-gray-600">No programmes yet</p>
+          <p className="text-xs text-gray-400 mt-1">Build your first programme above — it takes about 60 seconds.</p>
         </Card>
       ) : null}
 

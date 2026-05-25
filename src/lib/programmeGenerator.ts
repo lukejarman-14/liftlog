@@ -851,14 +851,13 @@ const TRAP_BAR_PLAY_STYLES = new Set(['box-to-box', 'press-heavy', 'counter-atta
  *   - Off-season Foundation phase (General Strength) AND no injury overrides, OR
  *   - Player prefers Back Squat (plateau on single-leg / psychology) AND off-season AND no injury overrides
  */
-function useBackSquat(inputs: ProgrammeInputs, phase: string): boolean {
+function useBackSquat(inputs: ProgrammeInputs, _phase: string): boolean {
   if (inputs.gymAccess === 'none') return false; // no barbell = no back squat
   // BSS hard overrides:
   if (inputs.primaryGoal === 'speed') return false;
   if (!inputs.offSeason) return false; // in-season → always BSS
   if (inputs.injuryHistory.some(a => a === 'back' || a === 'hamstring')) return false;
   // Back Squat eligible:
-  if (phase === 'Foundation') return true; // General Strength phase
   if (inputs.preferBackSquat) return true; // player preference / plateau signal
   return false;
 }
@@ -2172,25 +2171,24 @@ function buildSession(
             : 'Max intent · 2–3 reps · 3 min rest · not conditioning',
           exercises: boostExerciseSets(pickExplosivePlyo(gymKey, weekNum), emphasis?.plyoSetBoost ?? 0),
         },
-        {
-          title: '💪 Maximum Strength',
-          methodFocus: fv.loadScheme === 'heavy'
-            ? '85%+ load · low reps · 5 ex max · 3 lower / 2 upper · bar velocity autoregulates'
-            : 'High load · explosive intent · 5 ex max · 3 lower / 2 upper',
-          exercises: applyReadiness(
-            buildMaxStrengthBlock(
-              md4Vertical,
-              strengthEx[1],
-              upperEx,
-              [
-                ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
-                ...(weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
-              ],
-            ),
-            readiness.level,
-            readiness.intensityNote,
-          ),
-        },
+        (() => {
+          const md4Fill = [
+            ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
+            ...(weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
+          ];
+          const md4Exs = applyReadiness(
+            buildMaxStrengthBlock(md4Vertical, strengthEx[1], upperEx, md4Fill),
+            readiness.level, readiness.intensityNote,
+          );
+          const lowerCount = [0, 2, 4].filter(i => md4Exs[i] !== undefined).length;
+          const upperCount = [1, 3].filter(i => md4Exs[i] !== undefined).length;
+          const loadDesc = fv.loadScheme === 'heavy' ? '85%+ load · bar velocity autoregulates' : 'High load · explosive intent';
+          return {
+            title: '💪 Maximum Strength',
+            methodFocus: `${loadDesc} · ${md4Exs.length} exercises · ${lowerCount} lower / ${upperCount} upper`,
+            exercises: md4Exs,
+          };
+        })(),
         // Position-specific block on the heavy day (MD-4)
         ...(POSITION_BLOCK[position] ? [{
           title: POSITION_BLOCK[position].title,

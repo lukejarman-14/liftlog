@@ -9,7 +9,6 @@ export interface ExerciseDescription {
 
 export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
 
-  // ── Chest ─────────────────────────────────────────────────────────────────
   'bench-press': {
     how: [
       'Lie flat on the bench, feet planted on the floor.',
@@ -73,7 +72,6 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
     tips: ['Wider bars = more chest activation. Narrow bars = more tricep.'],
   },
 
-  // ── Back ──────────────────────────────────────────────────────────────────
   'deadlift': {
     how: [
       'Bar over mid-foot. Stand hip-width apart.',
@@ -144,7 +142,6 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
     tips: ['Think about driving your elbow back, not lifting the dumbbell up.'],
   },
 
-  // ── Shoulders ─────────────────────────────────────────────────────────────
   'ohp': {
     how: [
       'Stand with the bar at collarbone height, hands just outside shoulder-width.',
@@ -196,7 +193,6 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
     tips: ['Do not roll your shoulders — just straight up and down.'],
   },
 
-  // ── Arms ──────────────────────────────────────────────────────────────────
   'barbell-curl': {
     how: [
       'Stand with the barbell in an underhand grip, hands shoulder-width.',
@@ -264,7 +260,6 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
     tips: ['Do not go too narrow — shoulder-width is narrow enough. Wrists can strain with a very close grip.'],
   },
 
-  // ── Legs ──────────────────────────────────────────────────────────────────
   'squat': {
     how: [
       'Bar rests on upper traps. Stand hip-to-shoulder width, toes slightly out.',
@@ -351,7 +346,6 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
     tips: ['The lowering (eccentric) phase is the key — make it as slow as possible.', 'Start with 3–5 reps and build up — this is very demanding.'],
   },
 
-  // ── Core ──────────────────────────────────────────────────────────────────
   'plank': {
     how: [
       'Forearms on the floor, elbows under shoulders. Feet together.',
@@ -401,7 +395,6 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
     tips: ['Move from the abs — do not pull with your arms or hip-flex the weight down.'],
   },
 
-  // ── Cardio ────────────────────────────────────────────────────────────────
   'treadmill': {
     how: [
       'Set your desired speed and incline.',
@@ -437,7 +430,6 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
     tips: ['Focus on maximum height, not speed. Full CNS reset between reps produces better power output.'],
   },
 
-  // ── Full Body ─────────────────────────────────────────────────────────────
   'thruster': {
     how: [
       'Hold a barbell or dumbbells in a front rack position at shoulder height.',
@@ -467,7 +459,6 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
   },
 
 
-  // ── Eccentric ─────────────────────────────────────────────────────────────
   'eccentric-nordic': {
     how: [
       'Kneel on a mat with ankles secured by a partner or under a bar.',
@@ -575,7 +566,6 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
     footballContext: 'Targets the quads eccentrically — critical for landing safely from jumps and decelerating at top speed.',
   },
 
-  // ── Speed & Agility ───────────────────────────────────────────────────────
   'pogo-jump': {
     how: [
       'Stand tall. Jump continuously using only your ankles and calves — knees should barely bend.',
@@ -657,7 +647,6 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
     footballContext: 'The 5-10-5 drill maps perfectly to the short, sharp directional changes made in and around the penalty area.',
   },
 
-  // ── Conditioning ─────────────────────────────────────────────────────────
   'aerobic-threshold-run': {
     how: [
       'Run at a pace where you can hold a full conversation — roughly 60–70% of your max heart rate.',
@@ -743,7 +732,6 @@ This shuttle directly trains the short-burst changes of direction used in defend
 Total ≈ 28m — mimics a defender tracking a forward.`,
   },
 
-  // ── Isometric ─────────────────────────────────────────────────────────────
   'wall-sit': {
     how: [
       'Stand with your back flat against a wall.',
@@ -856,7 +844,6 @@ Total ≈ 28m — mimics a defender tracking a forward.`,
     tips: ['Isometric calf loading is used in Achilles tendon pain management.'],
   },
 
-  // ── Plyometrics ───────────────────────────────────────────────────────────
   'box-jump': {
     how: [
       'Stand in front of a box (start 40–60 cm). Feet shoulder-width.',
@@ -991,7 +978,6 @@ Total ≈ 28m — mimics a defender tracking a forward.`,
 • 40m = from the goal line to the far edge of the centre circle area.`,
   },
 
-  // ── Testing ───────────────────────────────────────────────────────────────
   'test-5m-sprint': {
     how: [
       'Start from a standing, two-point start (one foot slightly in front).',
@@ -1205,7 +1191,6 @@ Total ≈ 28m — mimics a defender tracking a forward.`,
     footballContext: 'RSI is one of the best indicators of sprint and agility potential, as it reflects the speed of the stretch-shortening cycle.',
   },
 
-  // ── Newly added ────────────────────────────────────────────────────────────
 
   'cmj': {
     how: [

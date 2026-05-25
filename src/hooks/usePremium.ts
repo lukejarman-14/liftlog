@@ -120,11 +120,12 @@ export function usePremium() {
       // Check RC first
       const active = await rcRestore();
       if (active) {
-        // Determine plan from RC entitlement check (best effort — default yearly for restore)
+        // Preserve existing plan if known; fall back to yearly (most common subscription)
         const current = load();
         const updated: PremiumStatus = {
           ...current,
           isPremium: true,
+          plan: current.plan ?? 'yearly',
           purchasedAt: current.purchasedAt ?? Date.now(),
         };
         save(updated);
@@ -164,16 +165,15 @@ export function usePremium() {
         already_used: 'You have already used a referral code.',
         error: 'Could not verify the code. Check your connection and try again.',
       };
-      return msgs[result.reason] ?? 'Something went wrong.';
+      return msgs[result.reason] ?? 'Unable to process your request. Please try again.';
     }
     // Grant 21-day trial
+    // Store an explicit expiry so hasAccess uses it rather than the 14-day default window
+    const trialExpiry = Date.now() + result.trialMs;
     const updated: PremiumStatus = {
       ...load(),
       trialStartedAt: Date.now(),
-      // Extend trial end by using a longer duration — store expiresAt for trial
     };
-    // Store extended trial expiry in expiresAt so hasAccess uses it
-    const trialExpiry = Date.now() + result.trialMs;
     const withExpiry: PremiumStatus = { ...updated, expiresAt: trialExpiry };
     save(withExpiry);
     setStatusRaw(withExpiry);
@@ -214,7 +214,7 @@ export function usePremium() {
         inactive: 'That code is no longer active.',
         error: 'Could not verify the code. Check your connection and try again.',
       };
-      return msgs[result.reason] ?? 'Something went wrong.';
+      return msgs[result.reason] ?? 'Unable to process your request. Please try again.';
     }
     const updated: PremiumStatus = {
       ...load(),
@@ -233,6 +233,16 @@ export function usePremium() {
     const updated: PremiumStatus = { ...load(), isPremium: false, plan: undefined, expiresAt: undefined };
     save(updated);
     setStatusRaw(updated);
+  }, []);
+
+  /**
+   * Fully reset premium state for a fresh account / new onboarding.
+   * Clears trial clock and all purchase data so the paywall shows correctly.
+   * On native iOS, RevenueCat will restore any real purchase via syncFromRC().
+   */
+  const resetForNewUser = useCallback(() => {
+    localStorage.removeItem(KEY);
+    setStatusRaw({ isPremium: false });
   }, []);
 
   return {
@@ -254,6 +264,7 @@ export function usePremium() {
     getOrCreateReferralCode,
     syncFromRC,
     revokePremium,
+    resetForNewUser,
     refresh,
   };
 }

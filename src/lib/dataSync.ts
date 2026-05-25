@@ -21,6 +21,7 @@ export const STORAGE_KEYS = [
   'vf_football_intensity',
   'vf_premium',
   'vf_scheduled_workouts',
+  'vf_weight_log',
 ] as const;
 
 export type BackupFile = {
@@ -57,7 +58,7 @@ export function exportData(): void {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
 /** Read a backup file and restore all data to localStorage. Resolves with the restored profile email. */

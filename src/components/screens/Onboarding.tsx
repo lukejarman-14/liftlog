@@ -3,6 +3,7 @@ import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlu
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudSignOut, cloudResetPassword } from '../../lib/cloudSync';
 import { trackEvent } from '../../lib/analytics';
+import { hashPassword } from '../../lib/authUtils';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile, recommendedPlanId: string, userId?: string) => void;
@@ -27,15 +28,6 @@ function Label({ children }: { children: React.ReactNode }) {
       {children}
     </label>
   );
-}
-
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
 }
 
 // Total wizard steps (excluding welcome): steps 1, 2, 3
@@ -71,7 +63,7 @@ const GYM_ACCESS_OPTIONS = [
 ] as const;
 
 export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: OnboardingProps) {
-  // step: 0 = landing, -1 = login mode, 1 = create account, 2 = body metrics
+  // step: 0 = landing, -1 = login mode, 1 = create account, 2 = body metrics, 3 = training profile
   // If existingUserId is provided, skip landing and go straight to profile setup
   const [step, setStep] = useState(existingUserId ? 1 : 0);
   const [submitting, setSubmitting] = useState(false);
@@ -104,7 +96,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [confirmPassword, setConfirmPassword]  = useState('');
   const [showPassword,    setShowPassword]     = useState(false);
   const [showConfirm,     setShowConfirm]      = useState(false);
-  const [step1Error,      setStep1Error]       = useState('');
 
   // Step 2 — Body metrics (optional)
   const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
@@ -144,14 +135,12 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     return total > 0 ? Math.round(total * 0.453592 * 10) / 10 : undefined;
   })();
 
-  // ── Validation ─────────────────────────────────────────────────────────────
   const passwordStrong = password.length >= 8;
   const passwordsMatch = password === confirmPassword && confirmPassword !== '';
   const canCreateAccount = existingUserId
     ? firstName.trim() !== '' && lastName.trim() !== '' && email.includes('@')
     : firstName.trim() !== '' && lastName.trim() !== '' && email.includes('@') && passwordStrong && passwordsMatch;
 
-  // ── Login attempt ──────────────────────────────────────────────────────────
   const handleLogin = async () => {
     if (!loginEmail.trim() || !loginPassword) {
       setLoginError('Please enter your email and password.');
@@ -161,7 +150,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     setLoginError('');
 
     try {
-      // ── Cloud login (Supabase configured) ───────────────────────────────
       if (isSupabaseConfigured) {
         let userId: string;
         try {
@@ -183,7 +171,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         if (loaded) {
           // Cloud data found — reload so all useLocalStorage hooks re-read fresh data
           setRestoreSuccess('Signed in! Loading your data…');
-          setTimeout(() => window.location.reload(), 800);
+          window.location.reload();
         } else {
           // No cloud data for this account. Check for valid local profile.
           let localProfile: { email?: string } | null = null;
@@ -206,7 +194,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         return;
       }
 
-      // ── Local fallback (no Supabase) ─────────────────────────────────────
       const raw = localStorage.getItem('vf_user_profile');
       const profile: UserProfile | null = raw ? JSON.parse(raw) : null;
 
@@ -233,16 +220,14 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
       onLoginSuccess?.();
     } catch {
-      setLoginError('Something went wrong. Please try again.');
+      setLoginError('Unable to sign in. Check your connection and try again.');
     }
     setLoginLoading(false);
   };
 
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
   const handleCreateAccount = async () => {
     if (!canCreateAccount) return;
-    setStep1Error('');
     setStep(2);
   };
 
@@ -289,6 +274,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
       }
     }
 
+    // No plan pre-selected during onboarding — paywall shown immediately after
     onComplete(profile, '', userId);
 
     // Push data to cloud immediately (profile is already in localStorage above)
@@ -297,7 +283,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     }
   };
 
-  // ── Progress bar ───────────────────────────────────────────────────────────
   const progressPct = step <= 0 ? 0 : (step / TOTAL_STEPS) * 100;
 
   return (
@@ -314,7 +299,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
       <div className="flex-1 flex flex-col max-w-lg mx-auto w-full px-5">
 
-        {/* ── STEP 0: Landing ─────────────────────────────────────────────── */}
         {step === 0 && (
           <div className="flex-1 flex flex-col justify-center items-center text-center py-16">
             <div className="w-20 h-20 rounded-3xl bg-brand-500 flex items-center justify-center mb-6 shadow-lg">
@@ -344,7 +328,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           </div>
         )}
 
-        {/* ── STEP -1: Login mode ─────────────────────────────────────────── */}
         {step === -1 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
             <h2 className="text-2xl font-bold text-gray-900 mb-1">Welcome back</h2>
@@ -488,10 +471,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           </div>
         )}
 
-        {/* ── STEP 1: Create account ──────────────────────────────────────── */}
         {step === 1 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
-            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 1 of 2</p>
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 1 of 3</p>
             {existingUserId ? (
               <>
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">Set up your profile</h2>
@@ -550,7 +532,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                     <div className="relative">
                       <input
                         value={password}
-                        onChange={e => { setPassword(e.target.value); setStep1Error(''); }}
+                        onChange={e => { setPassword(e.target.value); }}
                         type={showPassword ? 'text' : 'password'}
                         placeholder="Min. 8 characters"
                         style={{ fontSize: '16px' }}
@@ -580,7 +562,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                     <div className="relative">
                       <input
                         value={confirmPassword}
-                        onChange={e => { setConfirmPassword(e.target.value); setStep1Error(''); }}
+                        onChange={e => { setConfirmPassword(e.target.value); }}
                         type={showConfirm ? 'text' : 'password'}
                         style={{ fontSize: '16px' }}
                         placeholder="Re-enter password"
@@ -607,9 +589,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                 </>
               )}
 
-              {step1Error && (
-                <p className="text-sm text-red-500 text-center">{step1Error}</p>
-              )}
             </div>
 
             {!existingUserId && (
@@ -623,15 +602,13 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           </div>
         )}
 
-        {/* ── STEP 2: Body metrics (final) ────────────────────────────────── */}
         {step === 2 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
-            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 2 of 2</p>
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 2 of 3</p>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">About you</h2>
             <p className="text-gray-500 text-sm mb-7">Used to personalise your programme. All optional — you can add these later in Settings.</p>
 
             <div className="flex flex-col gap-4">
-              {/* ── Height ── */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <Label>Height <span className="text-gray-400 normal-case font-normal">optional</span></Label>
@@ -688,7 +665,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                 )}
               </div>
 
-              {/* ── Weight ── */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <Label>Weight <span className="text-gray-400 normal-case font-normal">optional</span></Label>
@@ -772,7 +748,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           </div>
         )}
 
-        {/* ── STEP 3: Training profile ────────────────────────────────────── */}
         {step === 3 && (() => {
           const btnBase = 'py-2.5 rounded-xl text-sm font-semibold border transition-all text-center';
           const btnActive = 'bg-brand-500 text-white border-brand-500';
@@ -891,7 +866,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           );
         })()}
 
-        {/* ── Nav buttons ─────────────────────────────────────────────────── */}
         {step === 1 && (
           <div className="flex gap-3 py-6">
             {!existingUserId && (
@@ -955,7 +929,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                   : 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
               }`}
             >
-              {submitting ? 'Creating…' : 'Enter App'}
+              {submitting ? 'Creating…' : 'Start Training'}
               {!submitting && <ChevronRight size={16} />}
             </button>
           </div>

@@ -28,7 +28,7 @@ function AddExerciseModal({ onAdd, onClose }: {
   const [category, setCategory] = useState<ExerciseCategory>('Chest');
   const [rest, setRest] = useState('90');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleAddExercise = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     onAdd({
@@ -46,7 +46,7 @@ function AddExerciseModal({ onAdd, onClose }: {
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40 p-4 pb-20">
       <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Add Custom Exercise</h2>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleAddExercise} className="flex flex-col gap-4">
           <Input
             label="Exercise Name"
             placeholder="e.g. Cable Lateral Raise"
@@ -178,6 +178,7 @@ export function ExerciseLibrary({ exercises, onAddCustom, onDeleteCustom, onNavi
               {ex.isCustom && !defaultIds.has(ex.id) && (
                 <button
                   onClick={e => { e.stopPropagation(); onDeleteCustom(ex.id); }}
+                  aria-label="Delete exercise"
                   className="p-1 text-gray-300 hover:text-red-500 transition-colors"
                 >
                   <Trash2 size={14} />

@@ -36,7 +36,17 @@ export function useStore() {
     setUserSettings(prev => ({ ...prev, ...partial }));
 
   const saveBaseline = (test: BaselineTest, results: BaselineResults) =>
-    setBaselineRaw({ test, results, savedAt: Date.now() });
+    setBaselineRaw(prev => ({
+      test: {
+        ...prev?.test,
+        ...Object.fromEntries(Object.entries(test).filter(([, v]) => v !== undefined && v !== null)),
+      } as BaselineTest,
+      results: {
+        ...prev?.results,
+        ...Object.fromEntries(Object.entries(results).filter(([, v]) => v !== undefined && v !== null)),
+      } as BaselineResults,
+      savedAt: Date.now(),
+    }));
 
   // Match entries
   const saveMatchEntry = (entry: MatchEntry) =>
@@ -78,7 +88,9 @@ export function useStore() {
     });
 
   const getTodayReadiness = (): DailyReadiness | null => {
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date (not UTC) so 11pm on the 24th files under the 24th, not the 25th
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     return dailyReadinessLog.find(r => r.date === today) ?? null;
   };
 
@@ -109,13 +121,11 @@ export function useStore() {
 
   /** Returns consecutive 'low' readiness days ending at (but not including) today */
   const getConsecutiveLowReadinessDays = (): number => {
-    const today = new Date().toISOString().split('T')[0];
     let count = 0;
     for (let i = 1; i <= 14; i++) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      if (dateStr === today) continue;
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const entry = dailyReadinessLog.find(r => r.date === dateStr);
       if (entry?.level === 'low') { count++; } else { break; }
     }
@@ -282,8 +292,15 @@ export function useStore() {
         'vf_match_entries', 'vf_test_sessions',
         'vf_generated_programmes', 'vf_active_programme_id', 'vf_daily_readiness',
         'vf_football_intensity', 'vf_scheduled_workouts', 'vf_weight_log',
+        'vf_premium',
       ];
       VF_KEYS.forEach(k => localStorage.removeItem(k));
+      // Clear ephemeral prompt-suppression keys so a reset account sees them fresh
+      ['vf_trial_prompt_shown', 'vf_notif_prompted', 'vf_review_prompted', 'vf_boot_synced'].forEach(k => localStorage.removeItem(k));
+      // Clear per-programme completion dismissals
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('vf_prog_complete_'))
+        .forEach(k => localStorage.removeItem(k));
       // Reset React state
       setUserProfile(null);
       setCustomExercises([]);

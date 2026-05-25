@@ -10,16 +10,14 @@ export default defineConfig({
   },
   build: {
     // Raise warning threshold — 500 KB is too low for a full SPA
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
         manualChunks: {
-          // React core
           'vendor-react': ['react', 'react-dom'],
-          // Charting library — largest single dependency
           'vendor-charts': ['recharts'],
-          // Supabase client
           'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-capacitor': ['@capacitor/core', '@capacitor/local-notifications', '@revenuecat/purchases-capacitor'],
         },
       },
     },

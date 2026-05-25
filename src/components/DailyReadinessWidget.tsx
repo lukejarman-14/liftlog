@@ -61,15 +61,19 @@ function QuickSlider({
 
 export function DailyReadinessWidget({ existing, onSave }: Props) {
   const [open, setOpen] = useState(false);
-  const [sleep, setSleep]     = useState(4);
-  const [fatigue, setFatigue] = useState(2);
-  const [soreness, setSoreness] = useState(2);
-  const [stress, setStress]   = useState(2);
+  // Pre-fill sliders with today's logged values when editing; default to neutral midpoint (3)
+  // so a user who taps Save without moving any slider doesn't silently log "High Readiness"
+  const [sleep, setSleep]       = useState(() => existing?.sleep    ?? 3);
+  const [fatigue, setFatigue]   = useState(() => existing?.fatigue  ?? 3);
+  const [soreness, setSoreness] = useState(() => existing?.soreness ?? 3);
+  const [stress, setStress]     = useState(() => existing?.stress   ?? 3);
 
   const handleSave = () => {
     const raw = calcReadiness({ sleep, fatigue, soreness, stress });
+    const now = new Date();
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const entry: DailyReadiness = {
-      date: new Date().toISOString().split('T')[0],
+      date: localDate,
       sleep, fatigue, soreness, stress,
       score: raw.score,
       level: raw.level,

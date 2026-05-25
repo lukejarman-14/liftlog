@@ -1,16 +1,22 @@
 /**
  * RevenueCat integration for Vector Football Premium.
- *
- * iOS API key:  test_ktVUtaxmNiAZqaswMCgsOsigyOq  (replace with live key before App Store submission)
  * Entitlement:  vectorfootball.co.uk Pro
- * Products:     monthly | yearly | lifetime
+ * Packages:     $rc_monthly | $rc_annual | $rc_lifetime
  */
 
 import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
 
-const IOS_API_KEY = 'test_ktVUtaxmNiAZqaswMCgsOsigyOq';
+const IOS_API_KEY =
+  (import.meta.env.VITE_REVENUECAT_IOS_KEY as string | undefined) ??
+  'appl_cnqQEiStJZdfkFfmRmfGVGwWOhi';
 const ENTITLEMENT_ID = 'vectorfootball.co.uk Pro';
+
+const PLAN_TO_PACKAGE: Record<string, string> = {
+  monthly:  '$rc_monthly',
+  yearly:   '$rc_annual',
+  lifetime: '$rc_lifetime',
+};
 
 export type RCPlan = 'monthly' | 'yearly' | 'lifetime';
 
@@ -56,8 +62,9 @@ export async function rcPurchase(plan: RCPlan): Promise<{ success: boolean; canc
     const offering = await rcGetOfferings();
     if (!offering) return { success: false, cancelled: false };
 
-    const pkg = offering.availablePackages.find((p: { product: { identifier: string } }) =>
-      p.product.identifier === plan
+    const packageId = PLAN_TO_PACKAGE[plan] ?? plan;
+    const pkg = offering.availablePackages.find((p: { identifier: string }) =>
+      p.identifier === packageId
     );
     if (!pkg) return { success: false, cancelled: false };
 

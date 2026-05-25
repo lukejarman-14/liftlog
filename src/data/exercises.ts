@@ -77,7 +77,6 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   // Legs — Nordic Curl
   { id: 'nordic-curl', suggestedRir: 2, name: 'Nordic Curl', category: 'Legs', defaultRestSeconds: 120, muscleGroups: ['Hamstrings', 'Glutes'] },
 
-  // ── FOOTBALL SPECIFIC ────────────────────────────────────────────────────
 
   // Eccentric — injury prevention fundamentals
   { id: 'eccentric-nordic', name: 'Eccentric Nordic Curl', category: 'Eccentric', defaultRestSeconds: 120, muscleGroups: ['Hamstrings'], measureType: 'reps' },
@@ -175,7 +174,6 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'bounding', name: 'Bounding', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Hamstrings', 'Glutes', 'Calves'] },
   { id: 'sprint', name: 'Sprint', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Hamstrings', 'Calves'] },
 
-  // ── Warm-Up / Mobility (programme warm-up blocks) ─────────────────────────
   { id: 'hip-90-90', name: 'Hip 90/90 Mobilisation', category: 'Full Body', defaultRestSeconds: 0, muscleGroups: ['Hip Flexors', 'Glutes', 'Hip Rotators'], measureType: 'time', unit: 's', isWarmup: true },
   { id: 'worlds-greatest-stretch', name: "World's Greatest Stretch", category: 'Full Body', defaultRestSeconds: 0, muscleGroups: ['Hip Flexors', 'Thoracic Spine', 'Hamstrings'], measureType: 'reps', isWarmup: true },
   { id: 'glute-bridge-march', name: 'Glute Bridge March', category: 'Core', defaultRestSeconds: 30, muscleGroups: ['Glutes', 'Core', 'Hamstrings'], measureType: 'reps', isWarmup: true },

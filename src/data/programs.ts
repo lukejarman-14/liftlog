@@ -323,7 +323,6 @@ export const BUILT_IN_PROGRAMS: Program[] = [
   },
 ];
 
-// ── Football-specific programs ────────────────────────────────────────────
 
 export const FOOTBALL_PROGRAMS: Program[] = [
   {

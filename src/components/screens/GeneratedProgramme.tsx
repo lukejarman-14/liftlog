@@ -3,7 +3,7 @@
  * Shows force-velocity profile, method tags, tempo, intensity intent, and coach explanation.
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   ChevronLeft, ChevronDown, ChevronUp, ChevronRight,
   Clock, TrendingUp, BookOpen, Play, Home, X, GripVertical, AlertTriangle,
@@ -32,10 +32,10 @@ interface Props {
   onApply: (startDate: string) => void;  // chosen start date (YYYY-MM-DD)
   onDeactivate: () => void;
   onSaveStrengthSetup: (setup: StrengthSetup) => void;
+  onSaveReorder?: (weekIdx: number, newSessions: ProgrammeSession[]) => void;
   exercises?: Exercise[];  // passed through to SessionPreviewModal for dev-mode validation
 }
 
-// ── MD day badge ───────────────────────────────────────────────────────────
 
 function MdBadge({ mdDay }: { mdDay: string }) {
   const colours: Record<string, string> = {
@@ -54,7 +54,6 @@ function MdBadge({ mdDay }: { mdDay: string }) {
   );
 }
 
-// ── Method type badge ──────────────────────────────────────────────────────
 
 const METHOD_COLOURS: Record<string, string> = {
   concentric: 'bg-blue-50 text-blue-600',
@@ -95,7 +94,6 @@ function IntentTag({ intent }: { intent?: string }) {
   );
 }
 
-// ── Exercise row ───────────────────────────────────────────────────────────
 
 function ExerciseRow({
   exercise,
@@ -161,7 +159,6 @@ function Pill({ label, colour }: { label: string; colour: string }) {
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colour}`}>{label}</span>;
 }
 
-// ── Block card ─────────────────────────────────────────────────────────────
 
 function BlockCard({
   block, weekNumber, totalWeeks, strengthSetup,
@@ -206,7 +203,6 @@ function BlockCard({
   );
 }
 
-// ── Session preview modal ──────────────────────────────────────────────────
 
 export function SessionPreviewModal({
   session, weekNumber, totalWeeks, strengthSetup, exercises, onClose, onStart,
@@ -319,7 +315,6 @@ export function SessionPreviewModal({
 }
 
 
-// ── Week accordion ─────────────────────────────────────────────────────────
 
 function WeekAccordion({
   week,
@@ -334,6 +329,8 @@ function WeekAccordion({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [sessions, setSessions] = useState<ProgrammeSession[]>(week.sessions);
+  // Sync sessions when parent re-renders with new data (e.g. after a reorder save)
+  useEffect(() => { setSessions(week.sessions); }, [week.sessions]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const [pendingOrder, setPendingOrder] = useState<ProgrammeSession[] | null>(null);
@@ -465,7 +462,6 @@ function WeekAccordion({
   );
 }
 
-// ── Method legend ──────────────────────────────────────────────────────────
 
 function MethodLegend() {
   return (
@@ -487,7 +483,6 @@ function MethodLegend() {
   );
 }
 
-// ── Strength Setup Modal ───────────────────────────────────────────────────
 
 export function StrengthSetupModal({
   programme,
@@ -647,14 +642,11 @@ export function StrengthSetupModal({
   );
 }
 
-// ── Main component ─────────────────────────────────────────────────────────
 
 export function GeneratedProgramme({
   programme, isActive, onBack, onRebuild, onApply, onDeactivate,
   onSaveStrengthSetup, onSaveReorder, exercises,
-}: Props & {
-  onSaveReorder?: (weekIdx: number, newSessions: ProgrammeSession[]) => void;
-}) {
+}: Props) {
   const [showExplanation, setShowExplanation] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showStrengthSetup, setShowStrengthSetup] = useState(false);
@@ -701,13 +693,11 @@ export function GeneratedProgramme({
         </button>
       }
     >
-      {/* ── Programme header ── */}
       <Card className="p-5 mb-4">
         <h1 className="text-lg font-bold text-gray-900 leading-tight mb-2">{programme.title}</h1>
         <p className="text-sm text-gray-600 mt-2 leading-relaxed">{programme.summary}</p>
       </Card>
 
-      {/* ── Progressive Overload Banner ── */}
       {hasTrackedLifts && (
         <button
           onClick={() => setShowStrengthSetup(true)}
@@ -746,7 +736,6 @@ export function GeneratedProgramme({
         </button>
       )}
 
-      {/* ── Plan action buttons ── */}
       {isActive ? (
         <div className="flex gap-3 mb-5">
           <button
@@ -782,7 +771,6 @@ export function GeneratedProgramme({
         </div>
       )}
 
-      {/* ── Start date picker modal ── */}
       {showStartModal && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center p-4 pb-10">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
@@ -826,7 +814,6 @@ export function GeneratedProgramme({
         </div>
       )}
 
-      {/* ── Custom date calendar popup ── */}
       {showCustomPicker && (
         <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl">
@@ -900,7 +887,6 @@ export function GeneratedProgramme({
         </div>
       )}
 
-      {/* ── End Plan modal ── */}
       {showEndModal && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center p-4 pb-20">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm mb-2">
@@ -930,7 +916,6 @@ export function GeneratedProgramme({
         </div>
       )}
 
-      {/* ── Coach explanation (collapsible) ── */}
       <Card className="mb-5 overflow-hidden">
         <button
           className="w-full text-left p-4 flex items-center justify-between"
@@ -951,7 +936,6 @@ export function GeneratedProgramme({
         )}
       </Card>
 
-      {/* ── All weeks accordion ── */}
       <div className="flex items-center gap-2 mb-3">
         <TrendingUp size={14} className="text-gray-500" />
         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -973,7 +957,6 @@ export function GeneratedProgramme({
 
       <div className="h-6" />
 
-      {/* ── Session preview modal ── */}
       {previewSession && (
         <SessionPreviewModal
           session={previewSession.session}
@@ -985,7 +968,6 @@ export function GeneratedProgramme({
         />
       )}
 
-      {/* ── Strength setup modal ── */}
       {showStrengthSetup && (
         <StrengthSetupModal
           programme={programme}

@@ -713,7 +713,11 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
     const totalSessions = isOff
       ? gymSessionsPerWeek + condCount
       : clampGymCount(inSeasonGymCount, matchesPerWeek) + inSeasonCondCount + matchesPerWeek;
-    const computedLifts: LiftBaseline[] = LIFT_KEYS.flatMap(key => {
+    // Only include lifts visible in the wizard — exclude squat when BSS is primary
+    const visibleLiftKeys = (gymAccess !== 'none' && !preferBackSquat)
+      ? LIFT_KEYS.filter(k => k !== 'squat')
+      : LIFT_KEYS;
+    const computedLifts: LiftBaseline[] = visibleLiftKeys.flatMap(key => {
       const inp = liftInputs[key];
       if (!inp) return [];
       const w = parseFloat(inp.weightKg);

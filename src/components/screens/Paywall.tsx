@@ -19,18 +19,18 @@ interface PaywallProps {
 }
 
 const FEATURES = [
-  'AI programme builder — position-specific, match-day periodised',
-  'Progressive overload — auto weight targets every session',
+  'Smart programme builder — position-specific, match-day periodised',
+  'Progressive overload — exact weight targets every session',
   'Play-style differentiation — sessions built for how you play',
-  'Full programme view — all weeks, all sessions',
+  'Full programme view — all weeks, all sessions at a glance',
   'Conditioning auto-progression — intervals increase as you improve',
-  'Strength setup — 1RM-based weekly load prescriptions',
+  'Training load chart — weekly volume & ACWR injury risk monitoring',
 ];
 
-const PLANS: { id: RCPlan; label: string; price: string; sub: string; badge?: string }[] = [
-  { id: 'lifetime', label: 'Lifetime', price: '£150.00', sub: 'One-time payment — forever', badge: 'BEST VALUE' },
-  { id: 'yearly',   label: 'Annual',   price: '£89.99', sub: 'Billed once per year · ≈ £7.50/mo' },
-  { id: 'monthly',  label: 'Monthly',  price: '£7.99',  sub: 'Cancel anytime' },
+const PLANS: { id: RCPlan; label: string; price: string; sub: string; badge?: string; saving?: string }[] = [
+  { id: 'yearly',   label: 'Annual',   price: '£79.99', sub: 'Just £6.67/mo · billed once a year', badge: 'BEST VALUE', saving: 'Save £1.32/mo vs monthly' },
+  { id: 'monthly',  label: 'Monthly',  price: '£7.99',  sub: 'Billed monthly · cancel anytime' },
+  { id: 'lifetime', label: 'Lifetime', price: '£150.00', sub: 'One-time payment — yours forever' },
 ];
 
 export function Paywall({
@@ -47,7 +47,7 @@ export function Paywall({
   onRedeemReferral,
   onDismiss,
 }: PaywallProps) {
-  const [selected, setSelected] = useState<RCPlan>('lifetime');
+  const [selected, setSelected] = useState<RCPlan>('yearly');
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [promoError, setPromoError] = useState<string | null>(null);
@@ -66,8 +66,14 @@ export function Paywall({
   const selectedPlan = PLANS.find(p => p.id === selected)!;
   const busy = purchasing || restoring;
 
-  // Analytics: fire once when the paywall is rendered
-  useEffect(() => { trackEvent('paywall_viewed', { trigger_source: 'plan_generation_click' }); }, []);
+  // Analytics: fire once when the paywall is rendered; derive source from featureLabel
+  useEffect(() => {
+    const source = featureLabel
+      ? featureLabel.toLowerCase().replace(/\s+/g, '_')
+      : 'direct';
+    trackEvent('paywall_viewed', { trigger_source: source });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Maps RC plan IDs → analytics tier names
   const toTier = (plan: RCPlan): 'monthly' | 'annual' | 'lifetime' =>
@@ -79,18 +85,23 @@ export function Paywall({
   };
 
   const handleSelectPlan = (plan: RCPlan) => {
-    trackEvent('trial_started', { tier: toTier(plan) });
+    trackEvent('purchase_initiated', { tier: toTier(plan) });
     onSelectPlan(plan);
   };
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-white overflow-y-auto">
       {/* Header */}
-      <div className="relative flex items-center justify-center pt-14 pb-6 px-6 bg-gradient-to-b from-brand-600 to-brand-500 text-white">
+      <div
+        className="relative flex items-center justify-center pb-6 px-6 bg-gradient-to-b from-brand-600 to-brand-500 text-white"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}
+      >
         <button
           onClick={onDismiss}
           disabled={busy}
-          className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-40"
+          aria-label="Dismiss"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)' }}
+          className="absolute right-5 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-40"
         >
           <X size={16} />
         </button>
@@ -138,40 +149,47 @@ export function Paywall({
         <div className="mb-5">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Choose a plan</p>
           <div className="flex flex-col gap-3">
-            {PLANS.map(plan => (
-              <button
-                key={plan.id}
-                onClick={() => setSelected(plan.id)}
-                disabled={busy}
-                className={`w-full text-left p-4 rounded-2xl border-2 transition-all relative disabled:opacity-50 ${
-                  selected === plan.id
-                    ? 'border-brand-500 bg-brand-50'
-                    : 'border-gray-200 bg-white'
-                }`}
-              >
-                {plan.badge && (
-                  <div className="absolute -top-2.5 right-4 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {plan.badge}
+            {PLANS.map(plan => {
+              const isSelected = selected === plan.id;
+              const isAnnual = plan.id === 'yearly';
+              return (
+                <button
+                  key={plan.id}
+                  onClick={() => setSelected(plan.id)}
+                  disabled={busy}
+                  className={`w-full text-left rounded-2xl border-2 transition-all relative disabled:opacity-50 ${
+                    isSelected
+                      ? isAnnual ? 'border-brand-500 bg-brand-50' : 'border-brand-500 bg-brand-50'
+                      : 'border-gray-200 bg-white'
+                  } ${isAnnual ? 'p-4' : 'p-3.5'}`}
+                >
+                  {plan.badge && (
+                    <div className="absolute -top-2.5 right-4 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {plan.badge}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className={`rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                      isAnnual ? 'w-5 h-5' : 'w-4 h-4'
+                    } ${isSelected ? 'border-brand-500 bg-brand-500' : 'border-gray-300 bg-white'}`}>
+                      {isSelected && <Check size={isAnnual ? 10 : 8} className="text-white" strokeWidth={3} />}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-bold text-gray-900 ${isAnnual ? 'text-sm' : 'text-xs'}`}>{plan.label}</p>
+                      <p className={`text-gray-400 mt-0.5 ${isAnnual ? 'text-xs' : 'text-[11px]'}`}>{plan.sub}</p>
+                      {plan.saving && isSelected && (
+                        <p className="text-[11px] font-bold text-brand-600 mt-0.5">{plan.saving}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-extrabold ${isAnnual ? 'text-xl' : 'text-base'} ${isSelected ? 'text-brand-600' : 'text-gray-700'}`}>
+                        {plan.price}
+                      </p>
+                    </div>
                   </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    selected === plan.id ? 'border-brand-500 bg-brand-500' : 'border-gray-300 bg-white'
-                  }`}>
-                    {selected === plan.id && <Check size={10} className="text-white" strokeWidth={3} />}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-gray-900 text-sm">{plan.label}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{plan.sub}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-extrabold text-lg ${selected === plan.id ? 'text-brand-600' : 'text-gray-700'}`}>
-                      {plan.price}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -356,7 +374,7 @@ export function Paywall({
         {/* Trust signals */}
         <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">
           <Shield size={12} />
-          <span>Secure payment · Cancel anytime · Apple-verified</span>
+          <span>Secure payment · Cancel anytime · Restore purchases</span>
         </div>
       </div>
     </div>

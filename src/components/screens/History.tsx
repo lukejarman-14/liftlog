@@ -1,13 +1,15 @@
 import { useState } from 'react';
+
+/** How long (ms) a touch-triggered chart tooltip stays visible before auto-hiding. */
+const TOOLTIP_HIDE_DELAY_MS = 1_500;
 import { Trash2, Clock, TrendingUp, ChevronDown, ChevronUp, Activity, Zap, BarChart2, FlaskConical, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { WorkoutSession, NavState, MeasureType, CompletedSet, TestType } from '../../types';
 import { useStore } from '../../hooks/useStore';
 import { sessionAvgRpe, RIR_LABELS } from '../../lib/rpeProgression';
-import { GRADE_LABELS, GRADE_COLOURS } from '../../data/testingBattery';
+import { GRADE_LABELS, GRADE_COLOURS, calcVo2Max, calcYoyoDistance } from '../../data/testingBattery';
 
-// ── Formatting helpers ─────────────────────────────────────────────────────
 
 function formatSetChip(set: CompletedSet, measureType: MeasureType, unit?: string): string {
   const lbl = unit ?? (measureType === 'time' ? 's' : measureType === 'distance' ? 'm' : measureType === 'height' ? 'cm' : measureType === 'score' ? '' : 'kg');
@@ -43,7 +45,6 @@ function getRirColour(rir: number): string {
   return 'text-green-600 bg-green-50';
 }
 
-// ── Session card ───────────────────────────────────────────────────────────
 
 function SessionCard({ session, onDelete, onNavigate }: {
   session: WorkoutSession;
@@ -137,21 +138,165 @@ function SessionCard({ session, onDelete, onNavigate }: {
   );
 }
 
-// ── Performance overview card ──────────────────────────────────────────────
+
+// ─── Norm benchmark tables shown when a test row is tapped ───────────────────
+
+interface NormRow { grade: 1|2|3|4|5; male: string; female: string }
+
+const NORM_ROWS: Record<string, NormRow[]> = {
+  '10m': [
+    { grade: 5, male: '< 1.60 s',      female: '< 1.70 s'      },
+    { grade: 4, male: '1.60 – 1.70 s', female: '1.70 – 1.80 s' },
+    { grade: 3, male: '1.71 – 1.80 s', female: '1.81 – 1.90 s' },
+    { grade: 2, male: '1.81 – 1.95 s', female: '1.91 – 2.05 s' },
+    { grade: 1, male: '> 1.95 s',      female: '> 2.05 s'      },
+  ],
+  '30m': [
+    { grade: 5, male: '< 3.90 s',      female: '< 4.30 s'      },
+    { grade: 4, male: '3.90 – 4.10 s', female: '4.30 – 4.50 s' },
+    { grade: 3, male: '4.11 – 4.30 s', female: '4.51 – 4.70 s' },
+    { grade: 2, male: '4.31 – 4.50 s', female: '4.71 – 4.90 s' },
+    { grade: 1, male: '> 4.50 s',      female: '> 4.90 s'      },
+  ],
+  cmj: [
+    { grade: 5, male: '≥ 60 cm',     female: '≥ 48 cm'     },
+    { grade: 4, male: '50 – 59 cm',  female: '38 – 47 cm'  },
+    { grade: 3, male: '40 – 49 cm',  female: '28 – 37 cm'  },
+    { grade: 2, male: '30 – 39 cm',  female: '20 – 27 cm'  },
+    { grade: 1, male: '< 30 cm',     female: '< 20 cm'     },
+  ],
+  broad_jump: [
+    { grade: 5, male: '≥ 280 cm',     female: '≥ 240 cm'     },
+    { grade: 4, male: '250 – 279 cm', female: '210 – 239 cm' },
+    { grade: 3, male: '230 – 249 cm', female: '195 – 209 cm' },
+    { grade: 2, male: '200 – 229 cm', female: '165 – 194 cm' },
+    { grade: 1, male: '< 200 cm',     female: '< 165 cm'     },
+  ],
+  fi: [
+    { grade: 5, male: '< 3.0 %',      female: '< 3.5 %'      },
+    { grade: 4, male: '3.0 – 5.0 %',  female: '3.5 – 5.5 %'  },
+    { grade: 3, male: '5.1 – 7.0 %',  female: '5.6 – 7.5 %'  },
+    { grade: 2, male: '7.1 – 9.0 %',  female: '7.6 – 9.5 %'  },
+    { grade: 1, male: '> 9.0 %',      female: '> 9.5 %'      },
+  ],
+  yoyo: [
+    { grade: 5, male: '> Level 20.2', female: '> Level 17.0' },
+    { grade: 4, male: '19.1 – 20.2',  female: '15.5 – 17.0'  },
+    { grade: 3, male: '18.1 – 19.0',  female: '13.0 – 15.4'  },
+    { grade: 2, male: '16.7 – 18.0',  female: '10.5 – 12.9'  },
+    { grade: 1, male: '< Level 16.6', female: '< Level 10.4' },
+  ],
+};
+
+// ─── Expandable norm detail panel ────────────────────────────────────────────
+
+function NormDetail({
+  testKey, athleteGrade, sex, yoyoLevel, weightKg,
+}: {
+  testKey: string;
+  athleteGrade?: 1|2|3|4|5;
+  sex: 'male' | 'female';
+  yoyoLevel?: number;
+  weightKg?: number;
+}) {
+  const rows = NORM_ROWS[testKey];
+  if (!rows) return null;
+
+  // VO₂max block for Yo-Yo
+  const vo2 = testKey === 'yoyo' && yoyoLevel ? calcVo2Max(yoyoLevel) : null;
+  const distM = testKey === 'yoyo' && yoyoLevel ? calcYoyoDistance(yoyoLevel) : null;
+  const vo2Abs = vo2 && weightKg ? Math.round(vo2 * weightKg / 1000 * 10) / 10 : null;
+
+  return (
+    <div className="mt-2 mb-1 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+      {/* VO₂max card — Yo-Yo only */}
+      {vo2 !== null && (
+        <div className="px-3 pt-3 pb-2 border-b border-gray-100">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+            VO₂max Estimate
+          </p>
+          <div className="flex items-end gap-4">
+            <div>
+              <p className="text-2xl font-extrabold text-brand-600 leading-none">{vo2}</p>
+              <p className="text-xs text-gray-400 mt-0.5">ml · kg⁻¹ · min⁻¹</p>
+            </div>
+            {vo2Abs !== null && (
+              <div>
+                <p className="text-lg font-bold text-gray-700 leading-none">{vo2Abs} L/min</p>
+                <p className="text-xs text-gray-400 mt-0.5">absolute ({weightKg} kg)</p>
+              </div>
+            )}
+            {distM !== null && (
+              <div className="ml-auto text-right">
+                <p className="text-sm font-bold text-gray-600 leading-none">{distM} m</p>
+                <p className="text-xs text-gray-400 mt-0.5">distance covered</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Norm table */}
+      <div className="px-3 py-2">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+          Benchmarks · Adult field-sport athletes
+        </p>
+        <div className="flex flex-col gap-1">
+          {rows.map(row => {
+            const isAthlete = row.grade === athleteGrade;
+            const c = GRADE_COLOURS[row.grade];
+            return (
+              <div
+                key={row.grade}
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all ${
+                  isAthlete
+                    ? `${c.bg} border ${c.border} ring-1 ring-offset-0 ring-current`
+                    : 'bg-white border border-transparent'
+                }`}
+              >
+                <span className={`text-xs font-bold w-20 shrink-0 ${isAthlete ? c.text : 'text-gray-500'}`}>
+                  {GRADE_LABELS[row.grade]}{isAthlete ? ' ← you' : ''}
+                </span>
+                <span className={`text-xs flex-1 ${isAthlete ? 'text-gray-800 font-semibold' : 'text-gray-500'} ${sex === 'male' && isAthlete ? 'underline decoration-dotted' : ''}`}>
+                  ♂ {row.male}
+                </span>
+                <span className={`text-xs flex-1 ${isAthlete ? 'text-gray-800 font-semibold' : 'text-gray-500'} ${sex === 'female' && isAthlete ? 'underline decoration-dotted' : ''}`}>
+                  ♀ {row.female}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main fitness profile card ────────────────────────────────────────────────
 
 function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => void }) {
-  const { baseline } = useStore();
+  const { baseline, userProfile } = useStore();
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const results = baseline?.results;
-  const test = baseline?.test;
+  const test    = baseline?.test;
+  const sex: 'male' | 'female' = test?.sex ?? (userProfile?.gender === 'female' ? 'female' : 'male');
+  const weightKg = userProfile?.weightKg;
+
+  const formatYoyo = (lvl: number) => {
+    const l = Math.floor(lvl);
+    const s = Math.round((lvl - l) * 10);
+    return s > 0 ? `Level ${l} · Sh ${s}` : `Level ${l}`;
+  };
 
   const chips = [
-    { label: '10m Sprint',    value: test?.sprint10m          ? `${test.sprint10m}s`                   : null, grade: results?.sprint10mGrade },
-    { label: '30m Sprint',    value: test?.sprint30m          ? `${test.sprint30m}s`                   : null, grade: results?.sprint30mGrade },
-    { label: 'CMJ (best)',    value: test?.cmjBest            ? `${test.cmjBest}cm`                    : null, grade: results?.cmjGrade },
-    { label: 'Fatigue Index', value: results?.fatigueIndex    ? `${results.fatigueIndex.toFixed(1)}%`  : null, grade: results?.fiGrade },
-    { label: 'Yo-Yo IR1',    value: test?.yoyoLevel          ? `Level ${test.yoyoLevel}`              : null, grade: results?.yoyoGrade },
-  ] as { label: string; value: string | null; grade?: 1|2|3|4 }[];
+    { label: '10m Sprint',    testKey: '10m',        value: test?.sprint10m        ? `${test.sprint10m}s`                   : null, grade: results?.sprint10mGrade  },
+    { label: '30m Sprint',    testKey: '30m',        value: test?.sprint30m        ? `${test.sprint30m}s`                   : null, grade: results?.sprint30mGrade  },
+    { label: 'CMJ (best)',    testKey: 'cmj',        value: test?.cmjBest          ? `${test.cmjBest}cm`                    : null, grade: results?.cmjGrade        },
+    { label: 'Broad Jump',   testKey: 'broad_jump', value: test?.broadJumpBest    ? `${test.broadJumpBest}cm`              : null, grade: results?.broadJumpGrade  },
+    { label: 'Fatigue Index', testKey: 'fi',         value: results?.fatigueIndex  ? `${results.fatigueIndex.toFixed(1)}%`  : null, grade: results?.fiGrade         },
+    { label: 'Yo-Yo IR1',    testKey: 'yoyo',       value: test?.yoyoLevel        ? formatYoyo(test.yoyoLevel)             : null, grade: results?.yoyoGrade       },
+  ] as { label: string; testKey: string; value: string | null; grade?: 1|2|3|4|5 }[];
 
   return (
     <Card className="p-4 mb-5">
@@ -176,7 +321,7 @@ function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => vo
         <p className="text-xs text-gray-400 mb-3">No tests completed yet — tap Take Test to begin.</p>
       )}
 
-      {/* Energy bars — only when scores exist */}
+      {/* Energy system bars */}
       {(results?.aerobicScore !== undefined || results?.anaerobicScore !== undefined) && (
         <div className="mb-3">
           {results?.aerobicScore !== undefined && (
@@ -204,31 +349,55 @@ function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => vo
         </div>
       )}
 
-      {/* Metric rows — always shown, Waiting when not yet tested */}
-      <div className="flex flex-col gap-2">
-        {chips.map(row => (
-          <div key={row.label} className="flex items-center justify-between gap-2">
-            <span className="text-xs text-gray-600 flex-1">{row.label}</span>
-            {row.value ? (
-              <>
-                <span className="text-xs font-bold text-gray-800">{row.value}</span>
-                {row.grade && (
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${GRADE_COLOURS[row.grade].bg} ${GRADE_COLOURS[row.grade].text} ${GRADE_COLOURS[row.grade].border}`}>
-                    {GRADE_LABELS[row.grade]}
-                  </span>
+      {/* Metric rows — tap any row to see norm benchmarks */}
+      <div className="flex flex-col gap-1">
+        {chips.map(row => {
+          const isOpen = expanded === row.testKey;
+          const canExpand = !!row.value;
+          return (
+            <div key={row.testKey}>
+              <button
+                onClick={() => canExpand && setExpanded(isOpen ? null : row.testKey)}
+                disabled={!canExpand}
+                className={`w-full flex items-center justify-between gap-2 py-1.5 rounded-lg px-1 transition-colors ${
+                  canExpand ? 'hover:bg-gray-50 active:bg-gray-100 cursor-pointer' : 'cursor-default'
+                }`}
+              >
+                <span className="text-xs text-gray-600 flex-1 text-left">{row.label}</span>
+                {row.value ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-800">{row.value}</span>
+                    {row.grade && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${GRADE_COLOURS[row.grade].bg} ${GRADE_COLOURS[row.grade].text} ${GRADE_COLOURS[row.grade].border}`}>
+                        {GRADE_LABELS[row.grade]}
+                      </span>
+                    )}
+                    {isOpen
+                      ? <ChevronUp size={12} className="text-gray-400 shrink-0" />
+                      : <ChevronDown size={12} className="text-gray-400 shrink-0" />}
+                  </div>
+                ) : (
+                  <span className="text-xs font-medium text-gray-400 italic">Waiting</span>
                 )}
-              </>
-            ) : (
-              <span className="text-xs font-medium text-gray-400 italic">Waiting</span>
-            )}
-          </div>
-        ))}
+              </button>
+
+              {isOpen && (
+                <NormDetail
+                  testKey={row.testKey}
+                  athleteGrade={row.grade}
+                  sex={sex}
+                  yoyoLevel={row.testKey === 'yoyo' ? test?.yoyoLevel : undefined}
+                  weightKg={weightKg}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     </Card>
   );
 }
 
-// ── Week summary ───────────────────────────────────────────────────────────
 
 function WeekSummary({ sessions }: { sessions: WorkoutSession[] }) {
   const now  = new Date();
@@ -317,7 +486,189 @@ function WeekSummary({ sessions }: { sessions: WorkoutSession[] }) {
   );
 }
 
-// ── Test Progression Charts ────────────────────────────────────────────────
+
+function LoadTab({ sessions }: { sessions: WorkoutSession[] }) {
+  // Build 12 weekly buckets ending with the current week
+  const getMonday = (d: Date): Date => {
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const mon = new Date(d);
+    mon.setDate(d.getDate() + diff);
+    mon.setHours(0, 0, 0, 0);
+    return mon;
+  };
+
+  const thisMonday = getMonday(new Date());
+  const weeks: { label: string; volume: number; sessions: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const mon = new Date(thisMonday);
+    mon.setDate(thisMonday.getDate() - i * 7);
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 7);
+    const ws = sessions.filter(s => {
+      const d = new Date(s.date + 'T12:00:00');
+      return d >= mon && d < sun;
+    });
+    const vol = ws.reduce((a, s) => a + totalVolume(s), 0);
+    weeks.push({
+      label: mon.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+      volume: vol,
+      sessions: ws.length,
+    });
+  }
+
+  const hasData = weeks.some(w => w.volume > 0);
+
+  // ACWR calculation — both acute and chronic use the same Monday-anchored calendar weeks
+  // so the windows are aligned and the ratio is meaningful mid-week
+  const acuteWeek = weeks[weeks.length - 1]?.volume ?? 0;
+  const chronic28Weeks = weeks.slice(-4);
+  const chronicAvg = chronic28Weeks.reduce((a, w) => a + w.volume, 0) / 4;
+  const acute7 = acuteWeek; // rename alias so display labels stay the same
+  const acwr = chronicAvg > 0 ? acute7 / chronicAvg : null;
+  const acwrZone =
+    acwr === null ? null :
+    acwr < 0.8  ? { label: 'Undertraining', color: 'text-blue-600',  bg: 'bg-blue-50',  border: 'border-blue-200' } :
+    acwr <= 1.3 ? { label: 'Optimal ✅',    color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' } :
+    acwr <= 1.5 ? { label: 'Caution ⚠️',   color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' } :
+                  { label: 'High Risk 🔴',  color: 'text-red-600',   bg: 'bg-red-50',   border: 'border-red-200'   };
+
+  if (!hasData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+        <BarChart2 size={36} className="text-gray-300 mb-3" />
+        <p className="text-sm font-semibold text-gray-500 mb-1">No load data yet</p>
+        <p className="text-xs text-gray-400 leading-relaxed">
+          Complete workouts to start tracking your weekly training volume. The chart will show your load trend over the past 12 weeks.
+        </p>
+      </div>
+    );
+  }
+
+  // SVG bar chart
+  const maxVol = Math.max(...weeks.map(w => w.volume), 1);
+  const chartH = 120;
+  const barW = 18;
+  const gap = 6;
+  const totalW = weeks.length * (barW + gap) - gap;
+  const padT = 10, padB = 28;
+  const plotH = chartH - padT - padB;
+
+  return (
+    <div className="flex flex-col gap-4 pb-6">
+      {/* ACWR summary card */}
+      {acwrZone && (
+        <Card className={`p-4 border ${acwrZone.border} ${acwrZone.bg}`}>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Acute:Chronic Workload Ratio</p>
+          <div className="flex items-end gap-3">
+            <div>
+              <span className={`text-3xl font-black ${acwrZone.color}`}>{acwr!.toFixed(2)}</span>
+              <span className={`ml-2 text-sm font-bold ${acwrZone.color}`}>{acwrZone.label}</span>
+            </div>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500">
+            <div>
+              <span className="font-semibold text-gray-700">7-day load: </span>
+              {acute7 >= 1000 ? `${(acute7 / 1000).toFixed(1)}k` : acute7} kg
+            </div>
+            <div>
+              <span className="font-semibold text-gray-700">28-day avg: </span>
+              {chronicAvg >= 1000 ? `${(chronicAvg / 1000).toFixed(1)}k` : Math.round(chronicAvg)} kg/wk
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-2 leading-snug">
+            0.8–1.3 = optimal training zone. Above 1.5 = elevated injury risk. Below 0.8 = undertrained.
+          </p>
+        </Card>
+      )}
+
+      {/* Bar chart */}
+      <Card className="p-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Weekly Volume — 12 weeks</p>
+        <svg
+          viewBox={`0 0 ${totalW + 4} ${chartH}`}
+          className="w-full overflow-visible"
+          style={{ height: chartH }}
+        >
+          {/* Grid lines */}
+          {[0, 0.5, 1].map(t => {
+            const y = padT + plotH * (1 - t);
+            return (
+              <g key={t}>
+                <line x1={0} x2={totalW + 4} y1={y} y2={y} stroke="#f0f0f0" strokeWidth="1" />
+                {t > 0 && (
+                  <text x={totalW + 6} y={y + 3} fontSize="7" fill="#d1d5db" textAnchor="start">
+                    {t === 1
+                      ? (maxVol >= 1000 ? `${(maxVol / 1000).toFixed(0)}k` : maxVol)
+                      : (maxVol >= 1000 ? `${((maxVol * 0.5) / 1000).toFixed(0)}k` : Math.round(maxVol * 0.5))}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+
+          {/* Bars */}
+          {weeks.map((w, i) => {
+            const x = i * (barW + gap);
+            const barH = w.volume > 0 ? Math.max(4, (w.volume / maxVol) * plotH) : 0;
+            const y = padT + plotH - barH;
+            const isLast = i === weeks.length - 1;
+            return (
+              <g key={i}>
+                <rect
+                  x={x} y={y}
+                  width={barW} height={barH}
+                  rx={3}
+                  fill={isLast ? '#6366f1' : '#c7d2fe'}
+                />
+                {/* X label — first, middle, last */}
+                {(i === 0 || i === 5 || i === 11) && (
+                  <text
+                    x={x + barW / 2}
+                    y={chartH - 4}
+                    fontSize="7"
+                    fill="#9ca3af"
+                    textAnchor={i === 0 ? 'start' : i === 11 ? 'end' : 'middle'}
+                  >
+                    {w.label}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+        <p className="text-[10px] text-gray-400 mt-1">Purple = this week. Volume = total kg lifted (weight × reps).</p>
+      </Card>
+
+      {/* Weekly breakdown table */}
+      <Card className="p-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Week by Week</p>
+        <div className="flex flex-col gap-1.5">
+          {[...weeks].reverse().map((w, i) => (
+            w.volume > 0 && (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-16 flex-shrink-0">{w.label}</span>
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-brand-400 rounded-full"
+                    style={{ width: `${(w.volume / maxVol) * 100}%` }}
+                  />
+                </div>
+                <span className="text-xs font-semibold text-gray-700 w-14 text-right flex-shrink-0">
+                  {w.volume >= 1000 ? `${(w.volume / 1000).toFixed(1)}k` : w.volume}kg
+                </span>
+                <span className="text-[10px] text-gray-400 w-12 flex-shrink-0">
+                  {w.sessions} sess
+                </span>
+              </div>
+            )
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 
 interface TestMeta {
   label: string;
@@ -332,7 +683,7 @@ const TEST_META: Record<TestType, TestMeta> = {
   '10m':        { label: '10m Sprint',   emoji: '⚡', unit: 's',  lowerIsBetter: true,  color: '#f97316', decimals: 2 },
   '30m':        { label: '30m Sprint',   emoji: '💨', unit: 's',  lowerIsBetter: true,  color: '#ef4444', decimals: 2 },
   'cmj':        { label: 'CMJ',          emoji: '↑',  unit: 'cm', lowerIsBetter: false, color: '#3b82f6', decimals: 1 },
-  'broad_jump': { label: 'Broad Jump',   emoji: '→',  unit: 'm',  lowerIsBetter: false, color: '#8b5cf6', decimals: 2 },
+  'broad_jump': { label: 'Broad Jump',   emoji: '→',  unit: 'cm', lowerIsBetter: false, color: '#8b5cf6', decimals: 1 },
   'rsa':        { label: 'RSA Best',     emoji: '🔄', unit: 's',  lowerIsBetter: true,  color: '#f59e0b', decimals: 2 },
   'yoyo':       { label: 'Yo-Yo IR1',   emoji: '🫀', unit: '',   lowerIsBetter: false, color: '#10b981', decimals: 1 },
 };
@@ -344,10 +695,11 @@ function shortDate(dateStr: string): string {
 interface DataPoint {
   date: string;
   value: number;
-  grade?: 1|2|3|4;
+  grade?: 1|2|3|4|5;
 }
 
-const GRADE_DOT: Record<1|2|3|4, string> = {
+const GRADE_DOT: Record<1|2|3|4|5, string> = {
+  5: '#7c3aed',
   4: '#16a34a',
   3: '#2563eb',
   2: '#ca8a04',
@@ -392,9 +744,9 @@ function TestChart({ meta, points }: { meta: TestMeta; points: DataPoint[]; type
   const neutral  = delta === 0;
   const absDelta = Math.abs(delta).toFixed(meta.decimals);
 
-  // y-axis labels: just min and max values
-  const yLabelTop = yMax.toFixed(meta.decimals);
-  const yLabelBot = yMin.toFixed(meta.decimals);
+  // y-axis labels: show actual data min/max, not the padded domain boundaries
+  const yLabelTop = rawMax.toFixed(meta.decimals);
+  const yLabelBot = rawMin.toFixed(meta.decimals);
 
   // x-axis labels: first, middle (if ≥3), last
   const xLabels: { i: number; label: string }[] = [];
@@ -501,7 +853,7 @@ function TestChart({ meta, points }: { meta: TestMeta; points: DataPoint[]; type
                 onMouseEnter={() => setHoveredIdx(i)}
                 onMouseLeave={() => setHoveredIdx(null)}
                 onTouchStart={() => setHoveredIdx(i)}
-                onTouchEnd={() => setTimeout(() => setHoveredIdx(null), 1500)}
+                onTouchEnd={() => setTimeout(() => setHoveredIdx(null), TOOLTIP_HIDE_DELAY_MS)}
                 style={{ cursor: 'pointer' }}
               />
               {/* Outer ring on hover */}
@@ -545,10 +897,150 @@ function TestChart({ meta, points }: { meta: TestMeta; points: DataPoint[]; type
   );
 }
 
+// ─── VO₂max card ─────────────────────────────────────────────────────────────
+
+/** Classify a relative VO₂max (ml·kg⁻¹·min⁻¹) for field-sport athletes. */
+function gradeVo2(vo2: number, sex: 'male' | 'female'): { grade: 1|2|3|4|5; label: string } {
+  const thresholds = sex === 'female'
+    ? [54, 48, 42, 36] // Elite / Excellent / Good / Fair
+    : [63, 57, 50, 43];
+  if (vo2 >= thresholds[0]) return { grade: 5, label: 'Elite'      };
+  if (vo2 >= thresholds[1]) return { grade: 4, label: 'Excellent'  };
+  if (vo2 >= thresholds[2]) return { grade: 3, label: 'Good'       };
+  if (vo2 >= thresholds[3]) return { grade: 2, label: 'Fair'       };
+  return                           { grade: 1, label: 'Needs Work' };
+}
+
+const VO2_NORMS = {
+  male:   [{ grade:5, label:'Elite',      range:'≥ 63' }, { grade:4, label:'Excellent', range:'57 – 62' }, { grade:3, label:'Good',      range:'50 – 56' }, { grade:2, label:'Fair',      range:'43 – 49' }, { grade:1, label:'Needs Work', range:'< 43'   }],
+  female: [{ grade:5, label:'Elite',      range:'≥ 54' }, { grade:4, label:'Excellent', range:'48 – 53' }, { grade:3, label:'Good',      range:'42 – 47' }, { grade:2, label:'Fair',      range:'36 – 41' }, { grade:1, label:'Needs Work', range:'< 36'   }],
+} as const;
+
+interface Vo2Point { date: string; vo2: number; distM: number; yoyoLevel: number }
+
+function Vo2MaxCard({ points, weightKg, sex }: {
+  points: Vo2Point[];
+  weightKg?: number;
+  sex: 'male' | 'female';
+}) {
+  if (points.length === 0) return null;
+
+  const latest   = points[points.length - 1];
+  const previous = points.length > 1 ? points[points.length - 2] : null;
+  const { grade } = gradeVo2(latest.vo2, sex);
+  const c        = GRADE_COLOURS[grade];
+  const delta    = previous ? +(latest.vo2 - previous.vo2).toFixed(1) : null;
+  const vo2Abs   = weightKg ? Math.round(latest.vo2 * weightKg / 1000 * 10) / 10 : null;
+
+  const fmtYoyo  = (lvl: number) => { const l = Math.floor(lvl); const s = Math.round((lvl - l) * 10); return s > 0 ? `Lvl ${l}.${s}` : `Lvl ${l}`; };
+
+  // Sparkline (only when ≥ 2 sessions)
+  const SparkLine = () => {
+    if (points.length < 2) return null;
+    const W = 260, H = 48, padX = 6, padY = 6;
+    const vals  = points.map(p => p.vo2);
+    const lo    = Math.min(...vals) - 1;
+    const hi    = Math.max(...vals) + 1;
+    const toX   = (i: number) => padX + (i / (points.length - 1)) * (W - padX * 2);
+    const toY   = (v: number) => padY + (1 - (v - lo) / (hi - lo)) * (H - padY * 2);
+    const line  = points.map((p, i) => `${toX(i).toFixed(1)},${toY(p.vo2).toFixed(1)}`).join(' ');
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 48 }}>
+        <polyline points={line} fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {points.map((p, i) => (
+          <circle key={i} cx={toX(i)} cy={toY(p.vo2)} r="3" fill="#8b5cf6" />
+        ))}
+      </svg>
+    );
+  };
+
+  return (
+    <Card className="p-4 mb-1">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-base">🫀</span>
+        <h3 className="text-sm font-bold text-gray-800">VO₂max Estimate</h3>
+        <span className="ml-auto text-xs text-gray-400">{points.length} test{points.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {/* Main number */}
+      <div className="flex items-end gap-3 mb-3">
+        <div>
+          <p className="text-4xl font-extrabold text-brand-600 leading-none tabular-nums">{latest.vo2}</p>
+          <p className="text-xs text-gray-400 mt-1">ml · kg⁻¹ · min⁻¹</p>
+        </div>
+        <div className="mb-1 flex flex-col gap-1.5">
+          <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${c.bg} ${c.text} ${c.border}`}>
+            {GRADE_LABELS[grade]}
+          </span>
+          {delta !== null && (
+            <span className={`text-xs font-semibold flex items-center gap-0.5 ${delta >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+              {delta >= 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+              {delta >= 0 ? '+' : ''}{delta} vs last
+            </span>
+          )}
+        </div>
+        {(vo2Abs !== null || latest.distM > 0) && (
+          <div className="ml-auto text-right mb-1">
+            {vo2Abs !== null && (
+              <>
+                <p className="text-base font-bold text-gray-700 leading-none">{vo2Abs} L/min</p>
+                <p className="text-xs text-gray-400">absolute</p>
+              </>
+            )}
+            <p className="text-xs text-gray-500 mt-1">{latest.distM} m covered</p>
+            <p className="text-xs text-gray-400">{fmtYoyo(latest.yoyoLevel)}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Sparkline */}
+      {points.length >= 2 && (
+        <div className="mb-3 -mx-1">
+          <SparkLine />
+          <div className="flex justify-between text-xs text-gray-400 px-1 mt-0.5">
+            <span>{new Date(points[0].date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+            <span>{new Date(points[points.length - 1].date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Norm table */}
+      <div className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2.5 pb-1.5">
+          Benchmarks · {sex === 'male' ? 'Male' : 'Female'} field-sport athletes
+        </p>
+        <div className="flex flex-col gap-0.5 px-2 pb-2">
+          {VO2_NORMS[sex].map(row => {
+            const isAthlete = row.grade === grade;
+            const rc = GRADE_COLOURS[row.grade];
+            return (
+              <div key={row.grade} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${isAthlete ? `${rc.bg} border ${rc.border}` : ''}`}>
+                <span className={`text-xs font-bold w-20 shrink-0 ${isAthlete ? rc.text : 'text-gray-500'}`}>
+                  {row.label}{isAthlete ? ' ← you' : ''}
+                </span>
+                <span className={`text-xs ${isAthlete ? 'text-gray-800 font-semibold' : 'text-gray-400'}`}>
+                  {row.range} ml·kg⁻¹·min⁻¹
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ─── Tests progression tab ────────────────────────────────────────────────────
+
 function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => void }) {
-  const { testSessions } = useStore();
+  const { testSessions, userProfile, baseline } = useStore();
 
   const sorted = [...testSessions].sort((a, b) => a.completedAt - b.completedAt);
+
+  const sex: 'male' | 'female' =
+    baseline?.test.sex ?? (userProfile?.gender === 'female' ? 'female' : 'male');
+  const weightKg = userProfile?.weightKg;
 
   // Build data points per test type
   const pointsByType: Partial<Record<TestType, DataPoint[]>> = {};
@@ -560,19 +1052,41 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
       pts.push({
         date:  session.date,
         value: res.best,
-        grade: session.grades[type] as 1|2|3|4 | undefined,
+        grade: session.grades[type] as 1|2|3|4|5 | undefined,
       });
     }
     if (pts.length > 0) pointsByType[type] = pts;
   }
 
+  // VO₂max points — derived from every session that has a Yo-Yo result
+  const vo2Points: Vo2Point[] = sorted
+    .map(s => {
+      const res = s.results.find(r => r.type === 'yoyo' && !r.skipped && r.best > 0);
+      if (!res) return null;
+      return {
+        date:       s.date,
+        yoyoLevel:  res.best,
+        vo2:        calcVo2Max(res.best),
+        distM:      calcYoyoDistance(res.best),
+      };
+    })
+    .filter((p): p is Vo2Point => p !== null);
+
   const typesWithData = (Object.keys(TEST_META) as TestType[]).filter(t => pointsByType[t]);
+
+  // RSA Fatigue Index — separate from TestType system (fatigueIndex is on the result, not a standalone test type)
+  const rsaFiMeta: TestMeta = { label: 'RSA Fatigue Index', emoji: '🔄', unit: '%', lowerIsBetter: true, color: '#f59e0b', decimals: 1 };
+  const rsaFiPoints: DataPoint[] = sorted.flatMap(session => {
+    const res = session.results.find(r => r.type === 'rsa' && !r.skipped && r.fatigueIndex != null && r.fatigueIndex > 0);
+    if (!res) return [];
+    return [{ date: session.date, value: res.fatigueIndex! }];
+  });
 
   if (typesWithData.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
         <FlaskConical size={36} className="text-gray-300 mb-3" />
-        <p className="text-sm font-semibold text-gray-500 mb-1">No test data yet</p>
+        <p className="text-sm font-semibold text-gray-500 mb-1">No fitness tests recorded</p>
         <p className="text-xs text-gray-400 mb-5 leading-relaxed">
           Complete a fitness test to start tracking your progression over time.
           Sprint times, jump height, and Yo-Yo level will all appear here.
@@ -593,6 +1107,9 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
         Every test you complete adds a data point. Tap any dot to see the exact result. Colour = grade.
       </p>
 
+      {/* VO₂max card — shown whenever Yo-Yo data exists */}
+      <Vo2MaxCard points={vo2Points} weightKg={weightKg} sex={sex} />
+
       {typesWithData.map(type => {
         const meta   = TEST_META[type];
         const points = pointsByType[type]!;
@@ -608,6 +1125,19 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
         );
       })}
 
+      {/* RSA Fatigue Index — separate card, lower FI % = better sprint recovery */}
+      {rsaFiPoints.length > 0 && (
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">{rsaFiMeta.emoji}</span>
+            <h3 className="text-sm font-bold text-gray-800">{rsaFiMeta.label}</h3>
+            <span className="ml-1 text-xs text-gray-400">(lower = better recovery)</span>
+            <span className="ml-auto text-xs text-gray-400">{rsaFiPoints.length} test{rsaFiPoints.length !== 1 ? 's' : ''}</span>
+          </div>
+          <TestChart meta={rsaFiMeta} points={rsaFiPoints} type="rsa" />
+        </Card>
+      )}
+
       <button
         onClick={() => onNavigate({ screen: 'testing-battery' })}
         className="w-full py-3 border-2 border-brand-200 bg-brand-50 text-brand-700 text-sm font-semibold rounded-2xl hover:bg-brand-100 transition-colors"
@@ -618,23 +1148,24 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
   );
 }
 
-// ── Main ───────────────────────────────────────────────────────────────────
 
 interface HistoryProps {
   sessions: WorkoutSession[];
   onNavigate: (nav: NavState) => void;
   onDeleteSession: (id: string) => void;
+  isPremium: boolean;
+  onUpgrade: (featureLabel: string) => void;
 }
 
-export function History({ sessions, onNavigate, onDeleteSession }: HistoryProps) {
-  const [activeTab, setActiveTab] = useState<'sessions' | 'tests'>('sessions');
+export function History({ sessions, onNavigate, onDeleteSession, isPremium, onUpgrade }: HistoryProps) {
+  const [activeTab, setActiveTab] = useState<'sessions' | 'load' | 'tests'>('sessions');
 
   const sorted = [...sessions].sort((a, b) => b.startTime - a.startTime);
 
   // Group by month
   const grouped: Record<string, WorkoutSession[]> = {};
   sorted.forEach(s => {
-    const key = new Date(s.date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const key = new Date(s.date + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(s);
   });
@@ -644,30 +1175,43 @@ export function History({ sessions, onNavigate, onDeleteSession }: HistoryProps)
 
       {/* Tab switcher */}
       <div className="flex gap-1 p-1 bg-gray-100 rounded-2xl mb-5">
-        <button
-          onClick={() => setActiveTab('sessions')}
-          className={`flex-1 py-2 text-sm font-semibold rounded-xl transition-all ${
-            activeTab === 'sessions'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Sessions
-        </button>
-        <button
-          onClick={() => setActiveTab('tests')}
-          className={`flex-1 py-2 text-sm font-semibold rounded-xl transition-all ${
-            activeTab === 'tests'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Test Progress
-        </button>
+        {(['sessions', 'load', 'tests'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all ${
+              activeTab === tab
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab === 'sessions' ? 'Sessions' : tab === 'load' ? 'Load' : 'Tests'}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'tests' ? (
         <TestProgressionTab onNavigate={onNavigate} />
+      ) : activeTab === 'load' ? (
+        isPremium ? (
+          <LoadTab sessions={sessions} />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center mb-4">
+              <BarChart2 size={28} className="text-brand-500" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Training Load Analytics</h3>
+            <p className="text-sm text-gray-500 mb-6 max-w-xs">
+              See your weekly training load, ACWR score, and injury risk zone. Train smart, not just hard.
+            </p>
+            <button
+              onClick={() => onUpgrade('Training Load Analytics')}
+              className="px-6 py-3 rounded-2xl bg-brand-500 text-white font-bold text-sm shadow-md hover:bg-brand-600 transition-colors"
+            >
+              Unlock with Pro
+            </button>
+          </div>
+        )
       ) : (
         <>
           {/* Performance fitness overview */}
@@ -684,8 +1228,11 @@ export function History({ sessions, onNavigate, onDeleteSession }: HistoryProps)
 
           {sorted.length === 0 ? (
             <Card className="p-8 text-center">
-              <Activity size={28} className="mx-auto text-gray-300 mb-2" />
-              <p className="text-sm text-gray-500">No workouts logged yet.</p>
+              <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                <Activity size={28} className="text-gray-300" />
+              </div>
+              <h3 className="text-base font-bold text-gray-700 mb-1">No sessions yet</h3>
+              <p className="text-sm text-gray-400 leading-snug">Complete your first workout and it'll appear here. Start from the Dashboard or build a programme.</p>
             </Card>
           ) : (
             <div className="flex flex-col gap-6">

@@ -11,9 +11,10 @@ export function Input({ label, error, className = '', style, ...props }: InputPr
       {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
       <input
         className={`
-          w-full px-3 py-2 rounded-xl border border-gray-200 bg-white
+          w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900
+          dark:bg-zinc-900 dark:border-zinc-700 dark:text-white dark:placeholder:text-zinc-500
           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
-          placeholder:text-gray-400 disabled:bg-gray-50 disabled:cursor-not-allowed
+          placeholder:text-gray-400 disabled:bg-gray-50 dark:disabled:bg-zinc-950 disabled:cursor-not-allowed
           ${error ? 'border-red-400' : ''} ${className}
         `}
         style={{ fontSize: '16px', ...style }}
