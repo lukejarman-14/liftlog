@@ -1,31 +1,15 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { Battery, Zap, X } from 'lucide-react';
 import { useStore } from './hooks/useStore';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/screens/Dashboard';
-import { ExerciseLibrary } from './components/screens/ExerciseLibrary';
-import { ExerciseDetail } from './components/screens/ExerciseDetail';
-import { WorkoutBuilder } from './components/screens/WorkoutBuilder';
-import { ActiveWorkout } from './components/screens/ActiveWorkout';
-import { History } from './components/screens/History';
-import { PlanDetail } from './components/screens/PlanDetail';
-import { Onboarding } from './components/screens/Onboarding';
-import { Login } from './components/screens/Login';
-import { Profile } from './components/screens/Profile';
 import { NavState, WorkoutExercise, WorkoutSession, UserProfile, TestSession, ProgrammeSession } from './types';
 import { POSITION_TEMPLATES } from './data/positionPlans';
-import { TestingBattery } from './components/screens/TestingBattery';
 import { sessionToLegacyTest, calcBaselineResults } from './data/testingBattery';
-import { LoadCalendar } from './components/screens/LoadCalendar';
-import { ProgrammeBuilder } from './components/screens/ProgrammeBuilder';
-import { GeneratedProgramme, StrengthSetupModal } from './components/screens/GeneratedProgramme';
-import { ProgrammeHub } from './components/screens/ProgrammeHub';
-import { ResetPassword } from './components/screens/ResetPassword';
 import { generateProgramme, buildTestEmphasis } from './lib/programmeGenerator';
 import { sessionToWorkoutExercises, getProgrammeWeekIndex } from './lib/sessionUtils';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 import { usePremium } from './hooks/usePremium';
-import { Paywall } from './components/screens/Paywall';
 import { rcConfigure } from './lib/revenueCat';
 import { createStripeCheckout } from './lib/stripeCheckout';
 import { Capacitor } from '@capacitor/core';
@@ -38,15 +22,38 @@ import {
   getExistingSession,
 } from './lib/cloudSync';
 import { supabase } from './lib/supabase';
-import { identifyUser, resetAnalyticsUser } from './lib/analytics';
+import { identifyUser, resetAnalyticsUser, trackEvent } from './lib/analytics';
+import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificationPermission, scheduleDailyReminder } from './lib/notifications';
 
-// Detect recovery token in URL synchronously (before React mounts).
-// Covers both Supabase flow styles:
-//   Implicit flow — #access_token=...&type=recovery (older projects)
-//   PKCE flow     — ?code=XXXX                      (default for newer projects)
-// Note: Supabase clears ?code= via replaceState during createClient() init, so
-// by the time React renders this may already be gone. The sessionStorage flag set
-// in index.html is the reliable source for PKCE — we check both here as belt-and-braces.
+// ─── App constants ──────────────────────────────────────────────────────────
+const APP_STORE_URL = 'https://apps.apple.com/gb/app/vector-football/id6772522502?action=write-review';
+const MS_PER_DAY = 86_400_000;
+/** Delay before showing the trial prompt — gives the UI time to settle after login. */
+const TRIAL_PROMPT_DELAY_MS = 2_000;
+/** Delay before showing the notifications prompt — lets the user see their new programme first. */
+const NOTIF_PROMPT_DELAY_MS = 1_200;
+/** Delay before navigating away after a successful referral code redemption. */
+const REFERRAL_REDIRECT_DELAY_MS = 1_500;
+// ────────────────────────────────────────────────────────────────────────────
+
+const ExerciseLibrary    = lazy(() => import('./components/screens/ExerciseLibrary').then(m => ({ default: m.ExerciseLibrary })));
+const ExerciseDetail     = lazy(() => import('./components/screens/ExerciseDetail').then(m => ({ default: m.ExerciseDetail })));
+const WorkoutBuilder     = lazy(() => import('./components/screens/WorkoutBuilder').then(m => ({ default: m.WorkoutBuilder })));
+const ActiveWorkout      = lazy(() => import('./components/screens/ActiveWorkout').then(m => ({ default: m.ActiveWorkout })));
+const History            = lazy(() => import('./components/screens/History').then(m => ({ default: m.History })));
+const PlanDetail         = lazy(() => import('./components/screens/PlanDetail').then(m => ({ default: m.PlanDetail })));
+const Onboarding         = lazy(() => import('./components/screens/Onboarding').then(m => ({ default: m.Onboarding })));
+const Login              = lazy(() => import('./components/screens/Login').then(m => ({ default: m.Login })));
+const Profile            = lazy(() => import('./components/screens/Profile').then(m => ({ default: m.Profile })));
+const TestingBattery     = lazy(() => import('./components/screens/TestingBattery').then(m => ({ default: m.TestingBattery })));
+const LoadCalendar       = lazy(() => import('./components/screens/LoadCalendar').then(m => ({ default: m.LoadCalendar })));
+const ProgrammeBuilder   = lazy(() => import('./components/screens/ProgrammeBuilder').then(m => ({ default: m.ProgrammeBuilder })));
+import { GeneratedProgramme, StrengthSetupModal } from './components/screens/GeneratedProgramme';
+const ProgrammeHub       = lazy(() => import('./components/screens/ProgrammeHub').then(m => ({ default: m.ProgrammeHub })));
+const ResetPassword      = lazy(() => import('./components/screens/ResetPassword').then(m => ({ default: m.ResetPassword })));
+const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
+
+// check for password reset link on both implicit (#type=recovery) and PKCE (?code=) flows
 function detectRecoveryUrl(): boolean {
   if (typeof window === 'undefined') return false;
   const hash = window.location.hash;
@@ -54,7 +61,8 @@ function detectRecoveryUrl(): boolean {
   return (
     hash.includes('type=recovery') ||
     search.includes('type=recovery') ||
-    sessionStorage.getItem('vf_auth_redirect') === '1'
+    sessionStorage.getItem('vf_auth_redirect') === '1' ||
+    sessionStorage.getItem('vf_recovery_mode') === '1'
   );
 }
 
@@ -74,15 +82,21 @@ export default function App() {
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
+  const [showReviewPrompt, setShowReviewPrompt] = useState(false);
+  const [showProgrammeComplete, setShowProgrammeComplete] = useState(false);
 
-  // ── Freemium ───────────────────────────────────────────────────────────────
   const premium = usePremium();
   const [paywallFeatureLabel, setPaywallFeatureLabel] = useState<string | undefined>();
+  const [showTrialPrompt, setShowTrialPrompt] = useState(false);
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+  const [notifPendingProgramme, setNotifPendingProgramme] = useState<GPType | null>(null);
 
-  // ── Low-readiness volume prompt ────────────────────────────────────────────
+  // Test-grades confirmation popup — shown when user generates a programme and test results exist
+  const [testGradesInputs, setTestGradesInputs] = useState<ProgrammeInputs | null>(null);
+  const [pendingTestGrades, setPendingTestGrades] = useState<Record<string, 1|2|3|4|5> | null>(null);
+
   const [pendingWorkout, setPendingWorkout] = useState<{ name: string; items: WorkoutExercise[] } | null>(null);
 
-  // ── On mount: restore existing Supabase session + configure RevenueCat ───────
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     getExistingSession()
@@ -91,34 +105,43 @@ export default function App() {
           cloudUserIdRef.current = userId;
           setIsAuthenticated(true);
           identifyUser(userId);
-          // Pull latest cloud data on first boot (skip if already reloaded this session).
-          // Also skip if we arrived via a Supabase auth redirect (?code= for PKCE reset links)
-          // — reloading would destroy the code before onAuthStateChange fires PASSWORD_RECOVERY.
           const isAuthRedirect = sessionStorage.getItem('vf_auth_redirect') === '1';
-          sessionStorage.removeItem('vf_auth_redirect'); // always clear so it doesn't persist
+          sessionStorage.removeItem('vf_auth_redirect');
           if (!sessionStorage.getItem('vf_boot_synced') && !isAuthRedirect) {
             sessionStorage.setItem('vf_boot_synced', '1');
             const loaded = await cloudLoadData(userId);
-            if (loaded) {
+            if (loaded && sessionStorage.getItem('vf_recovery_mode') !== '1') {
               window.location.reload();
               return;
             }
           }
-          // Boot RevenueCat and sync entitlement status
           await rcConfigure(userId);
           await premium.syncFromRC();
-          // Register referral code + claim any pending referral rewards
+
+          // Show trial prompt once per day for free users
+          const today = new Date().toISOString().split('T')[0];
+          const lastShown = localStorage.getItem('vf_trial_prompt_shown');
+          if (lastShown !== today) {
+            setTimeout(() => {
+              // Re-check premium status at fire time — RC sync may have updated it
+              const fresh = premium.refresh();
+              if (!fresh.isPremium) setShowTrialPrompt(true);
+            }, TRIAL_PROMPT_DELAY_MS);
+          }
           const code = await premium.getOrCreateReferralCode(userId);
           setMyReferralCode(code);
           await premium.claimReferralRewardsForUser(userId);
 
-          // Handle return from Stripe Checkout
           const params = new URLSearchParams(window.location.search);
           if (params.get('stripe_success') === '1') {
             window.history.replaceState({}, '', window.location.pathname);
-            // Webhook will update Supabase; sync premium from cloud
-            await premium.syncFromRC();
-            premium.refresh();
+            // Grant premium immediately from the plan stored before Stripe redirect,
+            // so the user doesn't have to wait for the webhook to fire.
+            const stripePlan = (sessionStorage.getItem('vf_stripe_plan') ?? 'monthly') as 'monthly' | 'yearly' | 'lifetime';
+            sessionStorage.removeItem('vf_stripe_plan');
+            premium.setPremium(stripePlan);
+            // Also reload from cloud in the background to pick up webhook data
+            cloudLoadData(userId).then(() => premium.refresh());
             navigate({ screen: 'programme-builder' });
           } else if (params.get('stripe_cancel') === '1') {
             window.history.replaceState({}, '', window.location.pathname);
@@ -130,24 +153,22 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Listen for password recovery event (from reset email link) ────────────
-  // Supabase replays the initial auth event to new listeners, so even if the token
-  // was processed before this effect runs, we still receive PASSWORD_RECOVERY here.
   useEffect(() => {
     if (!supabase) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
+        // Set flag immediately so the boot useEffect skips its page reload
+        sessionStorage.setItem('vf_recovery_mode', '1');
         if (session?.user?.id) cloudUserIdRef.current = session.user.id;
         setIsAuthenticated(true);
         setIsRecoveryMode(true);
-        setSessionChecking(false);   // clear spinner if still showing
+        setSessionChecking(false);
         setNav({ screen: 'reset-password' });
       }
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── Periodic background sync (every 2 min while authenticated) ────────────
   useEffect(() => {
     if (!isAuthenticated || !isSupabaseConfigured) return;
     const id = setInterval(() => {
@@ -156,7 +177,40 @@ export default function App() {
     return () => clearInterval(id);
   }, [isAuthenticated]);
 
-  // ── Save to cloud before page unload ──────────────────────────────────────
+  useEffect(() => {
+    if (nav.screen !== 'dashboard') return;
+    const prog = getActiveProgramme();
+    if (!prog) return;
+    const startMs = prog.programmeStartDate
+      ? new Date(prog.programmeStartDate + 'T12:00:00').getTime()
+      : prog.createdAt;
+    const weeksSince = Math.floor((Date.now() - startMs) / (7 * MS_PER_DAY));
+    if (weeksSince >= prog.durationWeeks && !showProgrammeComplete) {
+      const key = `vf_prog_complete_${prog.id}`;
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, '1');
+        setShowProgrammeComplete(true);
+      }
+    }
+  }, [nav.screen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const { reminderEnabled, reminderHour, reminderMinute } = store.userSettings;
+    const activeProg = store.activeProgrammeId
+      ? store.generatedProgrammes.find(p => p.id === store.activeProgrammeId) ?? null
+      : null;
+    if (reminderEnabled && activeProg) {
+      scheduleTrainingReminders(activeProg, reminderHour, reminderMinute);
+    } else if (!reminderEnabled) {
+      cancelAllTrainingReminders();
+    }
+  }, [
+    store.userSettings.reminderEnabled,
+    store.userSettings.reminderHour,
+    store.userSettings.reminderMinute,
+    store.activeProgrammeId,
+  ]);
+
   useEffect(() => {
     if (!isAuthenticated || !isSupabaseConfigured) return;
     const handler = () => {
@@ -221,6 +275,23 @@ export default function App() {
     store.saveSession(session);
     setActiveSession(null);
     setNav({ screen: 'dashboard' });
+    // Analytics
+    const durationMins = session.endTime ? Math.round((session.endTime - session.startTime) / 60000) : 0;
+    const totalSets = session.exercises.reduce((a, e) => a + e.sets.filter(s => !s.isPriming).length, 0);
+    trackEvent('workout_completed', {
+      session_name: session.name,
+      exercise_count: session.exercises.length,
+      set_count: totalSets,
+      duration_mins: durationMins,
+      total_sessions: store.sessions.length + 1,
+    });
+    // Show review prompt at 5th, 15th, 30th session — max once per 30 days
+    const count = store.sessions.length + 1;
+    if ([5, 15, 30].includes(count)) {
+      const lastReview = localStorage.getItem('vf_review_prompted');
+      const daysSince = lastReview ? (Date.now() - Number(lastReview)) / MS_PER_DAY : Infinity;
+      if (daysSince > 30) setShowReviewPrompt(true);
+    }
   };
 
   const getActiveProgramme = () =>
@@ -295,12 +366,9 @@ export default function App() {
 
   const activatePlan = (planId: string) => {
     if (!planId) return;
+    // Start from today — no waiting for next Monday, no missed sessions
     const today = new Date();
-    const day = today.getDay();
-    const daysToMonday = day === 1 ? 0 : day === 0 ? 1 : 8 - day;
-    const startDate = new Date(today);
-    if (daysToMonday > 0) startDate.setDate(today.getDate() + daysToMonday);
-    store.setActivePlan({ planId, startDate: startDate.toISOString().split('T')[0] });
+    store.setActivePlan({ planId, startDate: today.toISOString().split('T')[0] });
   };
 
   const handleOnboardingComplete = (
@@ -311,25 +379,50 @@ export default function App() {
     store.setUserProfile(profile);
     activatePlan(recommendedPlanId);
     if (userId) cloudUserIdRef.current = userId;
-    navigate({ screen: 'dashboard' });
-    setShowProgrammePrompt(true);
+    // Reset any stale premium/trial state from a previous session so the paywall
+    // always shows correctly for a new account. On native iOS, syncFromRC() will
+    // restore any real purchase at next boot.
+    premium.resetForNewUser();
+    // Show paywall immediately for new users — if they dismiss it, drop to dashboard with welcome prompt
+    setPaywallFeatureLabel(undefined);
+    navigate({ screen: 'paywall' });
+  };
+
+  const doGenerateProgramme = (resolvedInputs: ProgrammeInputs) => {
+    const programme = generateProgramme(resolvedInputs);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const finalProgramme = {
+      ...programme,
+      programmeStartDate: todayStr,
+      ...(resolvedInputs.lifts?.length ? { strengthSetup: { lifts: resolvedInputs.lifts, configuredAt: Date.now() } } : {}),
+    };
+    store.saveGeneratedProgramme(finalProgramme);
+    setCurrentProgramme(finalProgramme);
+    trackEvent('programme_generated', {
+      position: resolvedInputs.position,
+      duration_weeks: finalProgramme.durationWeeks,
+      gym_access: resolvedInputs.gymAccess,
+      off_season: resolvedInputs.offSeason,
+      has_strength_setup: !!resolvedInputs.lifts?.length,
+      used_test_grades: !!resolvedInputs.testGrades,
+    });
+    navigate({ screen: 'generated-programme' });
+    if (!store.userSettings.reminderEnabled && !localStorage.getItem('vf_notif_prompted')) {
+      setTimeout(() => { setNotifPendingProgramme(finalProgramme); setShowNotifPrompt(true); }, NOTIF_PROMPT_DELAY_MS);
+    }
   };
 
   const handleGenerateProgramme = (inputs: ProgrammeInputs) => {
-    // Inject latest test grades so the programme can adapt to the player's tested fitness profile
+    // Check for latest test grades — show a popup to let user apply or dismiss them
     const latestTest = store.testSessions.length > 0
       ? store.testSessions.reduce((a, b) => a.completedAt > b.completedAt ? a : b)
       : null;
-    const inputsWithGrades: ProgrammeInputs = latestTest?.grades
-      ? { ...inputs, testGrades: latestTest.grades }
-      : inputs;
-    const programme = generateProgramme(inputsWithGrades);
-    const finalProgramme = inputs.lifts?.length
-      ? { ...programme, strengthSetup: { lifts: inputs.lifts, configuredAt: Date.now() } }
-      : programme;
-    store.saveGeneratedProgramme(finalProgramme);
-    setCurrentProgramme(finalProgramme);
-    navigate({ screen: 'generated-programme' });
+    if (latestTest?.grades && Object.keys(latestTest.grades).length > 0) {
+      setTestGradesInputs(inputs);
+      setPendingTestGrades(latestTest.grades as Record<string, 1|2|3|4|5>);
+      return; // wait for user confirmation
+    }
+    doGenerateProgramme(inputs);
   };
 
   const handleViewProgramme = (programme: GPType) => {
@@ -342,6 +435,14 @@ export default function App() {
     const legacyTest = sessionToLegacyTest(session);
     const legacyResults = calcBaselineResults(legacyTest);
     store.saveBaseline(legacyTest, legacyResults);
+    trackEvent('test_completed', {
+      tests: session.selectedTests,
+      aerobic_score: session.aerobicScore,
+      anaerobic_score: session.anaerobicScore,
+      test_count: store.testSessions.length + 1,
+    });
+    // Prompt review after first test
+    if (store.testSessions.length === 0) setShowReviewPrompt(true);
     // If there's an active generated programme, offer to apply new grades to it
     if (currentProgramme && store.activeProgrammeId === currentProgramme.id) {
       setPendingReTestSession(session);
@@ -383,7 +484,6 @@ export default function App() {
     }
   };
 
-  // ── Auth guards ────────────────────────────────────────────────────────────
 
   // Password-reset flow: bypass all auth/profile guards so the reset form is
   // always reachable regardless of local profile state or auth status.
@@ -391,6 +491,7 @@ export default function App() {
     return (
       <ResetPassword
         onDone={() => {
+          sessionStorage.removeItem('vf_recovery_mode');
           setIsRecoveryMode(false);
           navigate({ screen: 'dashboard' });
         }}
@@ -428,26 +529,30 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <Login
-        profile={store.userProfile}
-        onLogin={(userId) => {
-          if (userId) { cloudUserIdRef.current = userId; identifyUser(userId); }
-          setIsAuthenticated(true);
-        }}
-        onStartOver={() => {
-          store.clearAll();
-          resetAnalyticsUser();
-          cloudUserIdRef.current = null;
-        }}
-      />
+      <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>}>
+        <Login
+          profile={store.userProfile}
+          onLogin={(userId) => {
+            if (userId) { cloudUserIdRef.current = userId; identifyUser(userId); }
+            setIsAuthenticated(true);
+          }}
+          onStartOver={() => {
+            store.clearAll();
+            resetAnalyticsUser();
+            cloudUserIdRef.current = null;
+          }}
+        />
+      </Suspense>
     );
   }
 
   const { screen } = nav;
   const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme', 'paywall'];
+  const screenFallback = <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-black">
+      <Suspense fallback={screenFallback}>
       {screen === 'dashboard' && (
         <Dashboard
           sessions={store.sessions}
@@ -458,7 +563,10 @@ export default function App() {
           profilePicture={store.profilePicture}
           todayReadiness={store.getTodayReadiness()}
           exercises={store.exercises}
-          onSaveReadiness={store.saveDailyReadiness}
+          onSaveReadiness={(r) => {
+            store.saveDailyReadiness(r);
+            trackEvent('readiness_logged', { level: r.level, score: r.score });
+          }}
           onNavigate={(nav) => {
             if (nav.screen === 'programme-builder') {
               navigateGated(nav, 'Programme Builder');
@@ -469,7 +577,32 @@ export default function App() {
           onStartWorkout={handleStartTemplate}
           onStartProgrammeSession={handleStartProgrammeSession}
           onStartTodayProgrammeSession={handleStartTodayProgrammeSession}
-          onOpenStrengthSetup={() => setShowGlobalStrengthSetup(true)}
+          onOpenStrengthSetup={() => { setShowGlobalStrengthSetup(true); trackEvent('strength_setup_opened'); }}
+          onSkipSession={(weekIdx, sessionIdx, reason) => {
+            const prog = getActiveProgramme();
+            if (!prog) return;
+            const key = `${weekIdx}-${sessionIdx}`;
+            store.saveGeneratedProgramme({
+              ...prog,
+              skippedSessions: { ...(prog.skippedSessions ?? {}), [key]: { reason, skippedAt: Date.now() } },
+            });
+            trackEvent('session_skipped', { reason, week: weekIdx + 1 });
+          }}
+          onRescheduleSession={(weekIdx, sessionIdx, newDate) => {
+            const prog = getActiveProgramme();
+            if (!prog) return;
+            const key = `${weekIdx}-${sessionIdx}`;
+            // Remove from skipped if it was there, add override date
+            const skipped = { ...(prog.skippedSessions ?? {}) };
+            delete skipped[key];
+            store.saveGeneratedProgramme({
+              ...prog,
+              skippedSessions: skipped,
+              sessionOverrides: { ...(prog.sessionOverrides ?? {}), [key]: newDate },
+            });
+            trackEvent('session_rescheduled', { week: weekIdx + 1, new_date: newDate });
+          }}
+          referralCode={myReferralCode}
         />
       )}
 
@@ -514,6 +647,14 @@ export default function App() {
           onFinish={handleFinishWorkout}
           onConditioningFeedback={handleConditioningFeedback}
           conditioningStagnation={getActiveProgramme()?.conditioningStagnation}
+          strengthSetup={getActiveProgramme()?.strengthSetup ?? null}
+          onUpdateStrengthSetup={(setup) => {
+            const prog = getActiveProgramme();
+            if (!prog) return;
+            const updated = { ...prog, strengthSetup: setup };
+            store.saveGeneratedProgramme(updated);
+            setCurrentProgramme(updated);
+          }}
           onDiscard={() => { setActiveSession(null); navigate({ screen: 'dashboard' }); }}
         />
       )}
@@ -523,6 +664,8 @@ export default function App() {
           sessions={store.sessions}
           onNavigate={navigate}
           onDeleteSession={store.deleteSession}
+          isPremium={premium.hasAccess}
+          onUpgrade={(label) => navigateGated({ screen: 'paywall' }, label)}
         />
       )}
 
@@ -559,6 +702,24 @@ export default function App() {
           userProfile={store.userProfile}
           profilePicture={store.profilePicture}
           totalSessions={store.sessions.length}
+          sessions={store.sessions}
+          testSessionCount={store.testSessions.length}
+          hasImprovedTest={(() => {
+            const tests = [...store.testSessions].sort((a, b) => a.completedAt - b.completedAt);
+            if (tests.length < 2) return false;
+            const first = tests[0]; const last = tests[tests.length - 1];
+            // Check if any test type improved from first to last session
+            return last.results.some(r => {
+              const f = first.results.find(x => x.type === r.type && !x.skipped);
+              if (!f || r.skipped) return false;
+              const lowerIsBetter = r.type === '10m' || r.type === '30m' || r.type === 'rsa';
+              return lowerIsBetter ? r.best < f.best : r.best > f.best;
+            });
+          })()}
+          programmesBuilt={store.generatedProgrammes.length}
+          programmesCompleted={store.generatedProgrammes.filter(p =>
+            !!localStorage.getItem(`vf_prog_complete_${p.id}`)
+          ).length}
           baseline={store.baseline}
           referralCode={myReferralCode}
           onSetProfilePicture={store.setProfilePicture}
@@ -591,6 +752,8 @@ export default function App() {
           weightLog={store.weightLog}
           onSaveWeight={store.saveWeightEntry}
           onDeleteWeight={store.deleteWeightEntry}
+          settings={store.userSettings}
+          onUpdateSettings={store.updateSettings}
           onLogout={handleLogout}
           onBack={() => navigate({ screen: 'dashboard' })}
         />
@@ -600,7 +763,7 @@ export default function App() {
         <TestingBattery
           position={store.userProfile.position}
           previousSession={store.testSessions.length > 0
-            ? store.testSessions[store.testSessions.length - 1]
+            ? store.testSessions.reduce((a, b) => a.completedAt > b.completedAt ? a : b)
             : null}
           onComplete={handleBatteryComplete}
           onSkip={() => navigate({ screen: 'dashboard' })}
@@ -644,9 +807,14 @@ export default function App() {
           }}
           onSelectPlan={async (plan) => {
             if (!Capacitor.isNativePlatform()) {
-              // Web: Stripe Checkout
-              const userId = cloudUserIdRef.current ?? '';
+              // Web: Stripe Checkout — store plan so we can grant it on return
+              const userId = cloudUserIdRef.current;
+              if (!userId) {
+                if (import.meta.env.DEV) console.warn('[Stripe] Cannot start checkout — no authenticated user ID.');
+                return;
+              }
               const userEmail = (await supabase?.auth.getUser())?.data.user?.email ?? '';
+              sessionStorage.setItem('vf_stripe_plan', plan);
               const result = await createStripeCheckout(plan, userId, userEmail);
               if ('url' in result) {
                 window.location.href = result.url;
@@ -662,16 +830,24 @@ export default function App() {
           }}
           onRedeemCode={async (code) => {
             const err = await premium.redeemPromo(code);
-            if (!err) setTimeout(() => navigate({ screen: 'programme-builder' }), 1500);
+            if (!err) setTimeout(() => navigate({ screen: 'programme-builder' }), REFERRAL_REDIRECT_DELAY_MS);
             return err;
           }}
           onRedeemReferral={async (code) => {
             const userId = cloudUserIdRef.current ?? '';
             const err = await premium.redeemReferral(code, userId);
-            if (!err) setTimeout(() => navigate({ screen: 'programme-builder' }), 1500);
+            if (!err) setTimeout(() => navigate({ screen: 'programme-builder' }), REFERRAL_REDIRECT_DELAY_MS);
             return err;
           }}
-          onDismiss={() => navigate({ screen: 'plans' })}
+          onDismiss={() => {
+            // If new user (no sessions yet) coming from onboarding, go to dashboard + show welcome
+            if (!store.sessions.length && !store.generatedProgrammes.length) {
+              navigate({ screen: 'dashboard' });
+              setShowProgrammePrompt(true);
+            } else {
+              navigate({ screen: 'plans' });
+            }
+          }}
         />
       )}
 
@@ -719,10 +895,9 @@ export default function App() {
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
       )}
 
-      {/* ── Re-test → apply to current programme prompt ───────────────── */}
       {pendingReTestSession && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-sm p-6 shadow-2xl">
             <div className="w-12 h-12 rounded-2xl bg-blue-500 flex items-center justify-center mb-4 mx-auto">
               <span className="text-2xl">📊</span>
             </div>
@@ -759,19 +934,67 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Post-onboarding: build programme prompt ─────────────────────── */}
+      {/* Test grades confirmation popup — shown before programme generation when grades exist */}
+      {testGradesInputs && pendingTestGrades && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 pb-8">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="w-12 h-12 rounded-2xl bg-brand-500 flex items-center justify-center mb-4 mx-auto">
+              <span className="text-2xl">🧪</span>
+            </div>
+            <h2 className="text-xl font-extrabold text-gray-900 text-center mb-2">Test Results Available</h2>
+            <p className="text-sm text-gray-600 text-center mb-4 leading-relaxed">
+              Your recent testing data can personalise this programme — extra focus where your grades show room to improve.
+            </p>
+            <div className="mb-4 p-3 bg-brand-50 rounded-xl border border-brand-200">
+              <p className="text-xs font-semibold text-brand-700 mb-1.5">What will be adjusted:</p>
+              {buildTestEmphasis(pendingTestGrades).coachNotes.length > 0
+                ? buildTestEmphasis(pendingTestGrades).coachNotes.map((note, i) => (
+                    <p key={i} className="text-xs text-brand-600 leading-relaxed mb-1">• {note}</p>
+                  ))
+                : <p className="text-xs text-brand-500 italic">Your grades are strong — no major adjustments needed.</p>
+              }
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  const inp = { ...testGradesInputs, testGrades: pendingTestGrades };
+                  setTestGradesInputs(null); setPendingTestGrades(null);
+                  doGenerateProgramme(inp);
+                }}
+                className="w-full py-3 bg-brand-500 text-white rounded-2xl font-bold text-sm hover:bg-brand-600 transition-colors"
+              >
+                Apply test results
+              </button>
+              <button
+                onClick={() => {
+                  const inp = { ...testGradesInputs };
+                  setTestGradesInputs(null); setPendingTestGrades(null);
+                  doGenerateProgramme(inp);
+                }}
+                className="w-full py-2.5 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors"
+              >
+                Skip — use standard programme
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showProgrammePrompt && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 pb-8">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-sm p-6 shadow-2xl">
             <div className="w-14 h-14 rounded-2xl bg-brand-500 flex items-center justify-center mb-4 mx-auto shadow-lg">
               <Zap size={28} className="text-white" />
             </div>
             <h2 className="text-xl font-extrabold text-gray-900 text-center mb-2">
               Welcome to Vector Football!
             </h2>
-            <p className="text-sm text-gray-500 text-center leading-relaxed mb-6">
+            <p className="text-sm text-gray-500 text-center leading-relaxed mb-4">
               Ready to build your personalised training programme? It only takes a minute and uses everything you just told us.
             </p>
+            <div className="flex items-center justify-center gap-1.5 mb-5">
+              <span className="text-xs font-bold text-brand-600 bg-brand-50 px-3 py-1 rounded-full">14-day free trial · no card needed</span>
+            </div>
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => {
@@ -786,19 +1009,18 @@ export default function App() {
                 onClick={() => setShowProgrammePrompt(false)}
                 className="w-full py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors"
               >
-                Continue to App
+                Explore First
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Low-readiness volume prompt ─────────────────────────────────── */}
       {pendingWorkout && (() => {
         const r = store.getTodayReadiness();
         return (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-5">
-            <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+            <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-sm p-6 shadow-xl">
               {/* Close button */}
               <div className="flex justify-end mb-1 -mt-1 -mr-1">
                 <button
@@ -866,7 +1088,6 @@ export default function App() {
         );
       })()}
 
-      {/* ── Global strength setup modal (opened from dashboard banner) ── */}
       {showGlobalStrengthSetup && (() => {
         const activeProg = getActiveProgramme();
         if (!activeProg) return null;
@@ -883,6 +1104,227 @@ export default function App() {
           />
         );
       })()}
+
+      {showReviewPrompt && (
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/40 p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="text-center mb-4">
+              <div className="text-4xl mb-2">⭐</div>
+              <h2 className="font-extrabold text-gray-900 text-lg mb-1">Enjoying Vector Football?</h2>
+              <p className="text-sm text-gray-500 leading-snug">
+                A quick rating helps other footballers find the app and takes 10 seconds.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={async () => {
+                  setShowReviewPrompt(false);
+                  localStorage.setItem('vf_review_prompted', String(Date.now()));
+                  trackEvent('review_prompt_yes');
+                  if (Capacitor.isNativePlatform()) {
+                    const { InAppReview } = await import('@capacitor-community/in-app-review');
+                    await InAppReview.requestReview();
+                  } else {
+                    window.open(APP_STORE_URL, '_blank');
+                  }
+                }}
+                className="w-full py-3 bg-brand-500 text-white font-bold rounded-2xl text-sm hover:bg-brand-600 transition-colors"
+              >
+                Rate Vector Football ⭐
+              </button>
+              <button
+                onClick={() => {
+                  setShowReviewPrompt(false);
+                  localStorage.setItem('vf_review_prompted', String(Date.now()));
+                  trackEvent('review_prompt_dismissed');
+                }}
+                className="w-full py-2.5 text-gray-400 text-sm hover:text-gray-600"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showProgrammeComplete && (() => {
+        const prog = getActiveProgramme();
+        const progSessions = store.sessions.filter(s => {
+          if (!prog) return false;
+          const anchorDate = prog.programmeStartDate ?? new Date(prog.createdAt).toISOString().split('T')[0];
+          return s.date >= anchorDate;
+        });
+        const totalVol = progSessions.reduce((a, s) =>
+          a + s.exercises.reduce((b, e) =>
+            b + e.sets.filter(set => !set.isPriming && set.weight > 0).reduce((c, set) => c + set.weight * set.reps, 0), 0), 0);
+        const tests = [...store.testSessions].sort((a, b) => a.completedAt - b.completedAt);
+        const firstTest = tests[0];
+        const lastTest = tests.length > 1 ? tests[tests.length - 1] : null;
+        return (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+              <div className="bg-gradient-to-br from-brand-600 to-brand-400 px-6 pt-8 pb-6 text-white text-center">
+                <div className="text-5xl mb-2">🏆</div>
+                <h2 className="font-extrabold text-2xl mb-1">Programme Complete!</h2>
+                <p className="text-white/80 text-sm">
+                  {prog ? `${prog.durationWeeks}-week programme finished` : 'Great work'}
+                </p>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  <div className="bg-gray-50 rounded-2xl p-3 text-center">
+                    <div className="text-2xl font-extrabold text-brand-500">{progSessions.length}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">sessions done</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-2xl p-3 text-center">
+                    <div className="text-2xl font-extrabold text-brand-500">
+                      {totalVol >= 1000 ? `${(totalVol / 1000).toFixed(0)}k` : totalVol}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">kg volume lifted</div>
+                  </div>
+                  {firstTest && lastTest && (() => {
+                    const firstYoyo = firstTest.results.find(r => r.type === 'yoyo' && !r.skipped);
+                    const lastYoyo  = lastTest.results.find(r => r.type === 'yoyo' && !r.skipped);
+                    if (!firstYoyo || !lastYoyo) return null;
+                    const deltaNum = lastYoyo.best - firstYoyo.best;
+                    const delta = deltaNum.toFixed(1);
+                    return (
+                      <div className={`col-span-2 rounded-2xl p-3 text-center border ${deltaNum >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                        <div className={`text-lg font-extrabold ${deltaNum >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          Yo-Yo {deltaNum >= 0 ? '+' : ''}{delta} levels
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">aerobic improvement</div>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      setShowProgrammeComplete(false);
+                      store.setActiveProgrammeId(null);
+                      navigate({ screen: 'programme-builder' });
+                      trackEvent('programme_completed', { sessions: progSessions.length });
+                    }}
+                    className="w-full py-3 bg-brand-500 text-white font-bold rounded-2xl text-sm hover:bg-brand-600"
+                  >
+                    Build Next Programme
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowProgrammeComplete(false);
+                      navigate({ screen: 'generated-programme' });
+                    }}
+                    className="w-full py-2.5 text-gray-400 text-sm hover:text-gray-600 transition-colors"
+                  >
+                    View programme summary
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Notification permission prompt — shown once after first programme */}
+      {showNotifPrompt && (
+        <div className="fixed inset-0 z-[300] flex items-end justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden">
+            <div className="px-6 pt-7 pb-2 text-center">
+              <div className="text-4xl mb-3">🔔</div>
+              <h2 className="text-xl font-extrabold text-gray-900 mb-1">Never miss a session</h2>
+              <p className="text-sm text-gray-500 mb-6">Get a reminder before each training session on your programme so you always stay on track.</p>
+              <button
+                onClick={async () => {
+                  localStorage.setItem('vf_notif_prompted', '1');
+                  setShowNotifPrompt(false);
+                  const granted = await requestNotificationPermission();
+                  if (granted) {
+                    const { reminderHour, reminderMinute } = store.userSettings;
+                    store.updateSettings({ reminderEnabled: true });
+                    if (notifPendingProgramme) {
+                      scheduleTrainingReminders(notifPendingProgramme, reminderHour, reminderMinute);
+                    } else {
+                      scheduleDailyReminder(reminderHour, reminderMinute);
+                    }
+                    trackEvent('reminder_enabled', { source: 'post_programme_prompt', hour: reminderHour, minute: reminderMinute });
+                  }
+                  setNotifPendingProgramme(null);
+                }}
+                className="w-full py-3.5 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors mb-3"
+              >
+                Enable Reminders
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.setItem('vf_notif_prompted', '1');
+                  setShowNotifPrompt(false);
+                  setNotifPendingProgramme(null);
+                }}
+                className="w-full py-3 text-sm text-gray-400 hover:text-gray-600 transition-colors mb-2"
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Daily trial prompt — shown once per day to free users with no active trial */}
+      {showTrialPrompt && !premium.hasAccess && !premium.isTrialActive && (
+        <div className="fixed inset-0 z-[300] flex items-end justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-br from-brand-600 to-brand-500 px-6 pt-6 pb-8 text-white text-center relative">
+              <button
+                onClick={() => {
+                  localStorage.setItem('vf_trial_prompt_shown', new Date().toISOString().split('T')[0]);
+                  setShowTrialPrompt(false);
+                }}
+                className="absolute top-4 right-4 w-7 h-7 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+              >
+                <span className="text-white text-sm font-bold">✕</span>
+              </button>
+              <div className="text-4xl mb-2">⚡</div>
+              <h2 className="text-xl font-extrabold mb-1">Try Pro Free for 14 Days</h2>
+              <p className="text-sm text-white/80">No card needed. Cancel anytime.</p>
+            </div>
+            <div className="px-6 py-5">
+              <div className="flex flex-col gap-2.5 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-base">📋</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Smart Programme Builder</p>
+                    <p className="text-xs text-gray-500">Position-specific, periodised to your fixtures</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-base">📊</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Training Load Analytics</p>
+                    <p className="text-xs text-gray-500">Weekly load chart & injury risk monitoring</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.setItem('vf_trial_prompt_shown', new Date().toISOString().split('T')[0]);
+                  setShowTrialPrompt(false);
+                  navigate({ screen: 'paywall' });
+                }}
+                className="w-full py-3.5 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors"
+              >
+                Start Free Trial
+              </button>
+              <p className="text-center text-xs text-gray-400 mt-2">No payment required · £7.99/mo after trial</p>
+            </div>
+          </div>
+        </div>
+      )}
+      </Suspense>
     </div>
   );
 }

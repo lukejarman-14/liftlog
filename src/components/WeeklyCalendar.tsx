@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Play, Clock, X, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Play, Clock, X, ChevronRight, ChevronLeft } from 'lucide-react';
 import { WorkoutSession, ActivePlan, NavState, GeneratedProgramme, Exercise, WorkoutExercise, MatchEntry, ProgrammeSession } from '../types';
 import {
   POSITION_PLANS,
@@ -11,6 +11,7 @@ import {
 import { sessionToWorkoutExercises, getProgrammeWeekIndex, getProgrammeAnchorMonday } from '../lib/sessionUtils';
 import { SessionPreviewModal } from './screens/GeneratedProgramme';
 import { useStore } from '../hooks/useStore';
+import { isConditioningSession } from '../utils/sessionClassify';
 
 const DAY_NAME_TO_INDEX: Record<string, number> = {
   Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
@@ -25,26 +26,12 @@ interface WeeklyCalendarProps {
   onStartWorkout: (templateId: string, name: string) => void;
   onStartProgrammeSession?: (name: string, items: WorkoutExercise[]) => void;
   onStartTodayProgrammeSession?: (session: ProgrammeSession) => void;
+  onSkipSession?: (weekIdx: number, sessionIdx: number, reason: string) => void;
+  onRescheduleSession?: (weekIdx: number, sessionIdx: number, newDate: string) => void;
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-function isConditioningSession(session: { mdDay: string; objective: string }): boolean {
-  const md = (session.mdDay ?? '').toLowerCase();
-  const obj = (session.objective ?? '').toLowerCase();
-  return md === 'conditioning' || md === 'md+1' ||
-    // Off-season / in-season conditioning mdDay values from the programme generator
-    md === 'zone 2' || md === 'high aerobic' || md === 'hi aerobic' || md === 'rsa' ||
-    md.includes('aerobic') || md.includes('zone') ||
-    obj.includes('active recovery') ||
-    obj.includes('conditioning session') ||
-    obj.includes('speed session') ||
-    obj.includes('cardio') ||
-    obj.includes('aerobic base') ||
-    obj.includes('zone 2') ||
-    obj.includes('anaerobic') ||
-    obj.includes('high intensity aerobic');
-}
 
 const PHASE_COLOURS: Record<string, string> = {
   Foundation: 'bg-blue-100 text-blue-700',
@@ -58,21 +45,39 @@ function dateToStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onSkipSession, onRescheduleSession }: WeeklyCalendarProps) {
   const { matchEntries } = useStore();
+  const [weekOffset, setWeekOffset] = useState(0);
   const [previewSession, setPreviewSession] = useState<import('../types').ProgrammeSession | null>(null);
   const [previewWeekNumber, setPreviewWeekNumber] = useState<number>(1);
-  // Callback to fire when user taps "Start Workout" inside the preview modal (set when opened from a Start button)
   const [previewOnStart, setPreviewOnStart] = useState<(() => void) | null>(null);
-  // Day picker: when a day with multiple sessions is tapped, show a sheet to pick which to preview
   const [daySheet, setDaySheet] = useState<import('../types').ProgrammeSession[] | null>(null);
-  const weekDates = getWeekDates(0);
+  // Skip / reschedule sheet
+  const [skipSheet, setSkipSheet] = useState<{
+    weekIdx: number;
+    sessionIdx: number;
+    session: import('../types').ProgrammeSession;
+    availableDates: { label: string; date: string }[];
+  } | null>(null);
+  const [skipView, setSkipView] = useState<'pick' | 'skip-reason' | 'reschedule'>('pick');
+  const weekDates = getWeekDates(weekOffset);
   const today = new Date();
+
+  // Header label: "This Week" on current week, date range otherwise
+  const weekLabel = (() => {
+    if (weekOffset === 0) return 'This Week';
+    const mon = weekDates[0];
+    const sun = weekDates[6];
+    const sameYear = mon.getFullYear() === sun.getFullYear();
+    const fmtMon = mon.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
+    const fmtSun = sun.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    return `${fmtMon} – ${fmtSun}`;
+  })();
 
   // Find the plan and current week if a plan is active
   const plan = activePlan ? POSITION_PLANS.find(p => p.id === activePlan.planId) : null;
   const hasPlan = !!plan;
-  const weekIdx = activePlan ? getCurrentPlanWeek(activePlan.startDate) : -1;
+  const weekIdx = activePlan ? getCurrentPlanWeek(activePlan.startDate) + weekOffset : -1;
   const planWeek = plan && weekIdx >= 0 && weekIdx < plan.weeks.length ? plan.weeks[weekIdx] : null;
 
   // Build a map: dayOfWeek (0-6) → session template info (position plan)
@@ -83,9 +88,12 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
     }
   }
 
-  // Current week of the generated programme
-  const progWeekIdx = generatedProgramme ? getProgrammeWeekIndex(generatedProgramme) : -1;
-  const progWeek = generatedProgramme && progWeekIdx >= 0
+  // Week index in the generated programme (offset-adjusted)
+  const baseProgWeekIdx = generatedProgramme ? getProgrammeWeekIndex(generatedProgramme) : -1;
+  const progWeekIdx = baseProgWeekIdx >= 0
+    ? Math.max(0, Math.min(baseProgWeekIdx + weekOffset, (generatedProgramme?.weeks.length ?? 1) - 1))
+    : -1;
+  const progWeek = generatedProgramme && progWeekIdx >= 0 && baseProgWeekIdx >= 0
     ? generatedProgramme.weeks[progWeekIdx] ?? null
     : null;
 
@@ -116,7 +124,17 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
       }
 
       if (effectiveDayIdx >= 0) {
-        progSessionsThisWeek.push({ session: s, effectiveDayIdx, effectiveDate: weekDates[effectiveDayIdx] });
+        const effectiveDate = weekDates[effectiveDayIdx];
+        // Skip sessions that fall before the programme start date — they never existed for this user
+        const startDateStr = generatedProgramme.programmeStartDate;
+        if (startDateStr) {
+          const startMidnight = new Date(startDateStr + 'T00:00:00');
+          const sessionMidnight = new Date(
+            effectiveDate.getFullYear(), effectiveDate.getMonth(), effectiveDate.getDate()
+          );
+          if (sessionMidnight < startMidnight) return;
+        }
+        progSessionsThisWeek.push({ session: s, effectiveDayIdx, effectiveDate });
         const existing = progSessionsByDay.get(effectiveDayIdx) ?? [];
         progSessionsByDay.set(effectiveDayIdx, [...existing, s]);
       }
@@ -154,9 +172,31 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
   return (
     <section className="mb-6">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-          {progWeek && progSessionsThisWeek.length === 0 ? 'Upcoming' : 'This Week'}
-        </h2>
+        {/* Prev / label / next */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setWeekOffset(o => o - 1)}
+            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Previous week"
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <button
+            onClick={() => setWeekOffset(0)}
+            className="text-sm font-semibold text-gray-500 uppercase tracking-wide hover:text-brand-500 transition-colors"
+            title={weekOffset !== 0 ? 'Back to current week' : undefined}
+          >
+            {weekLabel}
+          </button>
+          <button
+            onClick={() => setWeekOffset(o => o + 1)}
+            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Next week"
+          >
+            <ChevronRight size={15} />
+          </button>
+        </div>
+
         {hasPlan && planWeek && (
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PHASE_COLOURS[planWeek.phase] ?? 'bg-gray-100 text-gray-600'}`}>
             {plan!.shortName} · Wk {planWeek.weekNumber} · {planWeek.phase}
@@ -231,7 +271,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
       </div>
 
       {/* Banner when programme hasn't started yet this week — offer to start today */}
-      {!hasPlan && generatedProgramme && progWeek && progSessionsThisWeek.length === 0 && (() => {
+      {weekOffset === 0 && !hasPlan && generatedProgramme && progWeek && progSessionsThisWeek.length === 0 && (() => {
         const anchorMonday = getProgrammeAnchorMonday(generatedProgramme);
         const firstSession = generatedProgramme.weeks[0]?.sessions[0];
         const firstDayOffset = firstSession ? (DAY_NAME_TO_INDEX[firstSession.dayOfWeek] ?? 0) : 0;
@@ -275,6 +315,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
       {/* Session cards for planned days */}
       {/* Generated programme sessions (shown when no activePlan) */}
       {!hasPlan && generatedProgramme && progWeek && (() => {
+        const skipped = generatedProgramme.skippedSessions ?? {};
         return (
           <div className="flex flex-col gap-2 mb-2">
             {progSessionsThisWeek.map(({ session, effectiveDayIdx, effectiveDate }, i) => {
@@ -282,25 +323,43 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
               const dateStr = dateToStr(date);
               const done = completedDates.has(dateStr);
               const isToday = isSameDay(date, today);
-              const dowIndex = effectiveDayIdx;
+              const isPast = date < today && !isToday;
+              const isMissed = isPast && !done;
+              const sessionKey = `${progWeekIdx}-${i}`;
+              const isSkipped = !!skipped[sessionKey];
               const isCond = isConditioningSession(session);
               const mdDisplay = isCond ? 'Conditioning' : session.mdDay.replace('MD-', 'MD');
-              // Match entry on the same day (to show opponent)
-              const matchOnDay = dowIndex != null ? matchByDay.get(dowIndex) : undefined;
+              const matchOnDay = matchByDay.get(effectiveDayIdx);
+
+              // Available future dates this week for rescheduling
+              const availableDates = weekDates
+                .map((d, di) => ({ d, di }))
+                .filter(({ d }) => d > today || isSameDay(d, today))
+                .filter(({ di }) => di !== effectiveDayIdx)
+                .map(({ d }) => ({
+                  label: d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
+                  date: dateToStr(d),
+                }));
+
               return (
                 <div key={i} className={`rounded-2xl border p-3.5 flex items-center justify-between transition-all ${
-                  done ? 'bg-green-50 border-green-200' :
+                  done       ? 'bg-green-50 border-green-200' :
+                  isSkipped  ? 'bg-gray-50 border-gray-200 opacity-70' :
+                  isMissed   ? 'bg-red-50 border-red-200' :
                   isCond && isToday ? 'bg-emerald-50 border-emerald-300 shadow-sm' :
-                  isCond ? 'bg-white border-emerald-200' :
-                  isToday ? 'bg-brand-50 border-brand-300 shadow-sm' :
-                  'bg-white border-gray-100'
+                  isCond     ? 'bg-white border-emerald-200' :
+                  isToday    ? 'bg-brand-50 border-brand-300 shadow-sm' :
+                               'bg-white border-gray-100'
                 }`}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                        isCond ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-100 text-brand-700'
-                      }`}>{mdDisplay}</span>
+                        isSkipped  ? 'bg-gray-200 text-gray-500' :
+                        isMissed   ? 'bg-red-100 text-red-600' :
+                        isCond     ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-100 text-brand-700'
+                      }`}>{isSkipped ? 'Skipped' : isMissed ? 'Missed' : mdDisplay}</span>
                       <span className={`text-xs font-semibold ${
+                        isSkipped || isMissed ? 'text-gray-400' :
                         isCond && isToday ? 'text-emerald-600' : isToday ? 'text-brand-500' : 'text-gray-400'
                       }`}>{DAY_LABELS[effectiveDayIdx]}</span>
                       <span className="text-xs text-gray-300 flex items-center gap-0.5">
@@ -312,46 +371,60 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                         </span>
                       )}
                     </div>
-                    <div className="text-sm font-semibold text-gray-900 leading-snug">{session.objective}</div>
-                    {session.fvProfile && (
+                    <div className={`text-sm font-semibold leading-snug ${isSkipped || isMissed ? 'text-gray-400' : 'text-gray-900'}`}>
+                      {session.objective}
+                    </div>
+                    {isSkipped && (
+                      <p className="text-xs text-gray-400 mt-0.5">{skipped[sessionKey].reason}</p>
+                    )}
+                    {session.fvProfile && !isSkipped && (
                       <div className={`text-xs font-medium mt-0.5 truncate ${isCond ? 'text-emerald-600' : 'text-indigo-500'}`}>
                         {isCond ? '🏃' : '⚡'} {session.fvProfile}
                       </div>
                     )}
                   </div>
                   <div className="ml-3 flex-shrink-0 flex flex-col gap-1.5 items-end">
-                    {done
-                      ? <CheckCircle2 size={22} className="text-green-500" />
-                      : isToday && onStartProgrammeSession
-                      ? <button
-                          onClick={() => {
-                            const wk = progWeekIdx >= 0 ? progWeekIdx + 1 : 1;
-                            setPreviewWeekNumber(wk);
-                            setPreviewOnStart(() => () => {
-                              const items = sessionToWorkoutExercises(session, exercises, {
-                                strengthSetup: generatedProgramme?.strengthSetup,
-                                weekNumber: progWeekIdx >= 0 ? progWeekIdx + 1 : 1,
-                                totalWeeks: generatedProgramme?.durationWeeks,
-                              });
-                              onStartProgrammeSession(`${mdDisplay} · ${session.dayOfWeek}`, items);
+                    {done ? (
+                      <CheckCircle2 size={22} className="text-green-500" />
+                    ) : isSkipped ? (
+                      <span className="text-lg">✕</span>
+                    ) : isMissed ? (
+                      <button
+                        onClick={() => { setSkipView('pick'); setSkipSheet({ weekIdx: progWeekIdx, sessionIdx: i, session, availableDates }); }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                      >
+                        <X size={11} /> Missed
+                      </button>
+                    ) : isToday && onStartProgrammeSession ? (
+                      <button
+                        onClick={() => {
+                          const wk = progWeekIdx >= 0 ? progWeekIdx + 1 : 1;
+                          setPreviewWeekNumber(wk);
+                          setPreviewOnStart(() => () => {
+                            const items = sessionToWorkoutExercises(session, exercises, {
+                              strengthSetup: generatedProgramme?.strengthSetup,
+                              weekNumber: progWeekIdx >= 0 ? progWeekIdx + 1 : 1,
+                              totalWeeks: generatedProgramme?.durationWeeks,
                             });
-                            setPreviewSession(session);
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-colors ${
-                            isCond ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-brand-500 hover:bg-brand-600'
-                          }`}
-                        >
-                          <Play size={12} />
-                          Start
-                        </button>
-                      : null
-                    }
-                    <button
-                      onClick={() => { setPreviewWeekNumber(progWeekIdx >= 0 ? progWeekIdx + 1 : 1); setPreviewSession(session); }}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                    >
-                      Preview
-                    </button>
+                            onStartProgrammeSession(`${mdDisplay} · ${session.dayOfWeek}`, items);
+                          });
+                          setPreviewSession(session);
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-colors ${
+                          isCond ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-brand-500 hover:bg-brand-600'
+                        }`}
+                      >
+                        <Play size={12} /> Start
+                      </button>
+                    ) : null}
+                    {!done && !isSkipped && (
+                      <button
+                        onClick={() => { setPreviewWeekNumber(progWeekIdx >= 0 ? progWeekIdx + 1 : 1); setPreviewSession(session); }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                      >
+                        Preview
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -462,6 +535,84 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Skip / Reschedule bottom sheet */}
+      {skipSheet && (
+        <div className="fixed inset-0 z-[70] flex flex-col justify-end" onClick={() => setSkipSheet(null)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative bg-white rounded-t-3xl p-5 pb-10 z-10 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900 text-base">
+                {skipView === 'pick' ? 'Missed session' : skipView === 'skip-reason' ? 'Mark as skipped' : 'Reschedule to…'}
+              </h3>
+              <button onClick={() => setSkipSheet(null)} className="p-1.5 rounded-full hover:bg-gray-100">
+                <X size={18} className="text-gray-500" />
+              </button>
+            </div>
+
+            {/* Session summary */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+              <p className="text-xs text-gray-400 mb-0.5">{skipSheet.session.dayOfWeek} · {skipSheet.session.durationMin}min</p>
+              <p className="text-sm font-semibold text-gray-800">{skipSheet.session.objective}</p>
+            </div>
+
+            {skipView === 'pick' && (
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => setSkipView('skip-reason')}
+                  className="w-full py-3.5 rounded-2xl bg-gray-100 text-gray-700 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+                >
+                  <X size={15} /> Mark as skipped
+                </button>
+                {skipSheet.availableDates.length > 0 && (
+                  <button
+                    onClick={() => setSkipView('reschedule')}
+                    className="w-full py-3.5 rounded-2xl bg-brand-50 border border-brand-200 text-brand-700 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-brand-100 transition-colors"
+                  >
+                    📅 Move to another day
+                  </button>
+                )}
+              </div>
+            )}
+
+            {skipView === 'skip-reason' && (
+              <div className="flex flex-col gap-2">
+                {['Needed rest', 'Illness / injury', 'Scheduling conflict', 'Other'].map(reason => (
+                  <button
+                    key={reason}
+                    onClick={() => {
+                      onSkipSession?.(skipSheet.weekIdx, skipSheet.sessionIdx, reason);
+                      setSkipSheet(null);
+                    }}
+                    className="w-full py-3 px-4 rounded-2xl border border-gray-200 text-sm font-medium text-gray-700 text-left hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  >
+                    {reason}
+                  </button>
+                ))}
+                <button onClick={() => setSkipView('pick')} className="text-xs text-gray-400 mt-1 hover:text-gray-600">← Back</button>
+              </div>
+            )}
+
+            {skipView === 'reschedule' && (
+              <div className="flex flex-col gap-2">
+                {skipSheet.availableDates.map(({ label, date }) => (
+                  <button
+                    key={date}
+                    onClick={() => {
+                      onRescheduleSession?.(skipSheet.weekIdx, skipSheet.sessionIdx, date);
+                      setSkipSheet(null);
+                    }}
+                    className="w-full py-3 px-4 rounded-2xl border border-brand-200 bg-brand-50 text-sm font-semibold text-brand-700 text-left hover:bg-brand-100 transition-colors"
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button onClick={() => setSkipView('pick')} className="text-xs text-gray-400 mt-1 hover:text-gray-600">← Back</button>
+              </div>
+            )}
           </div>
         </div>
       )}

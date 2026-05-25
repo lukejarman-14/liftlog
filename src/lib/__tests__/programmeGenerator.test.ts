@@ -16,7 +16,6 @@ import { validateProgrammeSession } from '../sessionUtils';
 import { DEFAULT_EXERCISES as EXERCISES } from '../../data/exercises';
 import type { ProgrammeInputs } from '../../types';
 
-// ── Config matrix ──────────────────────────────────────────────────────────
 
 const POSITIONS: ProgrammeInputs['position'][] = ['GK', 'CB', 'FB', 'CM', 'W', 'ST'];
 const GYM_ACCESS: ProgrammeInputs['gymAccess'][] = ['full', 'basic', 'none'];
@@ -37,7 +36,6 @@ function makeInputs(
     conditioningTypes: ['zone2'],
     matchesPerWeek: 1,
     primaryGoal: 'speed',
-    secondaryGoals: [],
     matchDay: 'saturday',
     biggestWeakness: 'speed',
     injuryHistory: [],
@@ -46,7 +44,6 @@ function makeInputs(
   };
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 /** Collect all unique exercise names in a programme that have no exerciseId stamped. */
 function findUnstampedExercises(inputs: ProgrammeInputs): string[] {
@@ -87,7 +84,6 @@ function findAllIssues(inputs: ProgrammeInputs): {
   };
 }
 
-// ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('Programme generator — exercise ID stamping', () => {
   for (const position of POSITIONS) {

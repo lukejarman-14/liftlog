@@ -1,5 +1,5 @@
 /**
- * AI Programme Generator v2
+ * Smart Programme Generator v2
  * Elite football S&C — individualised, periodised, force-velocity aligned.
  * Deterministic: identical inputs → identical programme.
  */
@@ -10,7 +10,6 @@ import {
 } from '../types';
 import { NAME_TO_ID } from './sessionUtils';
 
-// ── Exercise ID resolution (generation-time) ───────────────────────────────
 // Resolves a display name → library ID using exact + partial lookup only.
 // No fuzzy fallback — gaps here are caught by the test suite, not papered over.
 
@@ -25,7 +24,6 @@ function resolveId(name: string): string | undefined {
   return undefined;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 function ex(
   name: string,
@@ -44,7 +42,6 @@ function ex(
   return { name, exerciseId: resolveId(name), sets, reps, rest, cue, ...opts };
 }
 
-// ── Readiness — 4-band (1–5 scale) ────────────────────────────────────────
 // score = mean of (sleep + inverted_fatigue + inverted_soreness + inverted_stress) / 4
 // sleep: 1=poor → 5=excellent  |  fatigue/soreness/stress: 1=none → 5=severe
 
@@ -89,7 +86,6 @@ export function calcReadiness(r: ProgrammeInputs['readiness']): {
   };
 }
 
-// ── Test grade emphasis ────────────────────────────────────────────────────
 // Reads testGrades from ProgrammeInputs and returns modifiers that the session
 // builders apply to set counts, exercise selection and conditioning types.
 
@@ -108,14 +104,14 @@ export interface TestEmphasis {
   coachNotes: string[];
 }
 
-export function buildTestEmphasis(grades: Partial<Record<string, 1 | 2 | 3 | 4>> | undefined): TestEmphasis {
+export function buildTestEmphasis(grades: Partial<Record<string, 1 | 2 | 3 | 4 | 5>> | undefined): TestEmphasis {
   if (!grades || Object.keys(grades).length === 0) {
     return { plyoSetBoost: 0, sprintSetBoost: 0, extraCondTypes: [], rsaIntervalBoost: 0, progressFaster: false, coachNotes: [] };
   }
 
   // Use the worse of 10m / 30m sprint grades
   const sprintGrade = (grades['10m'] != null && grades['30m'] != null)
-    ? Math.min(grades['10m']!, grades['30m']!) as 1|2|3|4
+    ? Math.min(grades['10m']!, grades['30m']!) as 1|2|3|4|5
     : (grades['10m'] ?? grades['30m'] ?? null);
 
   const cmjGrade  = grades['cmj']  ?? null;
@@ -131,39 +127,44 @@ export function buildTestEmphasis(grades: Partial<Record<string, 1 | 2 | 3 | 4>>
   if (yoyoGrade !== null && yoyoGrade === 1) extraCondTypes.push('hiit');
   if (rsaGrade  !== null && rsaGrade  <= 2) extraCondTypes.push('rsa');
 
-  // Grade 4 on any quality → progress faster
-  const progressFaster = [sprintGrade, cmjGrade, yoyoGrade, rsaGrade].some(g => g === 4);
+  // Grade 4 or 5 on any quality → progress faster
+  const progressFaster = [sprintGrade, cmjGrade, yoyoGrade, rsaGrade].some(g => g != null && g >= 4);
+
+  const GRADE_LABEL = ['', 'Needs Work', 'Fair', 'Good', 'Excellent', 'Elite'] as const;
 
   const coachNotes: string[] = [];
 
   if (sprintGrade !== null) {
-    const label = ['', 'Below average', 'Average', 'Good', 'Excellent'][sprintGrade];
+    const label = GRADE_LABEL[sprintGrade];
     if (sprintGrade <= 2) coachNotes.push(`Sprint grade: ${label} — acceleration volume has been increased (${sprintSetBoost} extra set${sprintSetBoost > 1 ? 's' : ''} per sprint block). Focus on first-step quickness and 0–10m mechanics.`);
-    if (sprintGrade === 4) coachNotes.push(`Sprint grade: Excellent — your speed is a strength. Intensity progressions are accelerated to keep the stimulus challenging.`);
+    if (sprintGrade === 4) coachNotes.push(`Sprint grade: Excellent — your speed is a clear strength. Intensity progressions are accelerated to keep the stimulus challenging.`);
+    if (sprintGrade === 5) coachNotes.push(`Sprint grade: Elite — world-class acceleration. Programmes are set at maximum progression rates to maintain this quality.`);
   }
   if (cmjGrade !== null) {
-    const label = ['', 'Below average', 'Average', 'Good', 'Excellent'][cmjGrade];
+    const label = GRADE_LABEL[cmjGrade];
     if (cmjGrade <= 2) coachNotes.push(`CMJ grade: ${label} — explosive power volume has been increased (${plyoSetBoost} extra set${plyoSetBoost > 1 ? 's' : ''} in the plyometric block). Prioritise full hip extension and aggressive arm drive.`);
     if (cmjGrade === 4) coachNotes.push(`CMJ grade: Excellent — plyometric targets are set at a higher progression rate to match your power output capacity.`);
+    if (cmjGrade === 5) coachNotes.push(`CMJ grade: Elite — exceptional vertical power. Plyometric progressions are set at maximum rate to extend this quality further.`);
   }
   if (yoyoGrade !== null) {
-    const label = ['', 'Below average', 'Average', 'Good', 'Excellent'][yoyoGrade];
+    const label = GRADE_LABEL[yoyoGrade];
     if (yoyoGrade <= 2) {
       const added = extraCondTypes.filter(t => t !== 'rsa').map(t => t === 'zone2' ? 'Zone 2' : 'Hi-Aerobic HIIT').join(' + ');
       coachNotes.push(`Yo-Yo grade: ${label} — aerobic capacity is a priority. ${added ? `${added} conditioning sessions have been added to your schedule.` : 'Conditioning volume has been boosted.'}`);
     }
     if (yoyoGrade === 4) coachNotes.push(`Yo-Yo grade: Excellent — aerobic base is strong. Conditioning sessions target higher-intensity zones to maintain the adaptation.`);
+    if (yoyoGrade === 5) coachNotes.push(`Yo-Yo grade: Elite — outstanding aerobic capacity. High-intensity conditioning is prioritised to sustain and extend this standard.`);
   }
   if (rsaGrade !== null) {
-    const label = ['', 'Below average', 'Average', 'Good', 'Excellent'][rsaGrade];
+    const label = GRADE_LABEL[rsaGrade];
     if (rsaGrade <= 2) coachNotes.push(`RSA / Fatigue Index grade: ${label} — repeated sprint resilience needs work. RSA conditioning has been added${rsaIntervalBoost > 0 ? ` with ${rsaIntervalBoost} extra interval set${rsaIntervalBoost > 1 ? 's' : ''}` : ''}. Focus on maintaining sprint quality into the 4th and 5th rep.`);
-    if (rsaGrade === 4) coachNotes.push(`RSA grade: Excellent — your repeated sprint ability is elite. Targets are set to extend this quality with higher rep counts and shorter recovery.`);
+    if (rsaGrade === 4) coachNotes.push(`RSA grade: Excellent — your repeated sprint ability is a real asset. Targets are set to extend this quality with higher rep counts and shorter recovery.`);
+    if (rsaGrade === 5) coachNotes.push(`RSA grade: Elite — elite-level fatigue resistance. Sprint density and volume are maximised to keep pushing this ceiling.`);
   }
 
   return { plyoSetBoost, sprintSetBoost, extraCondTypes, rsaIntervalBoost, progressFaster, coachNotes };
 }
 
-// ── Duration from experience ───────────────────────────────────────────────
 
 function durationWeeks(exp: string): number {
   return exp === '<1' ? 6 : exp === '1-3' ? 8 : exp === '3-5' ? 10 : 12;
@@ -174,7 +175,6 @@ function resolvedDuration(inputs: { experienceYears: string; customDurationWeeks
   return durationWeeks(inputs.experienceYears);
 }
 
-// ── Phase ──────────────────────────────────────────────────────────────────
 
 function getPhase(week: number, total: number): { phase: string; phaseGoal: string } {
   const p = week / total;
@@ -196,7 +196,6 @@ function getPhase(week: number, total: number): { phase: string; phaseGoal: stri
   };
 }
 
-// ── Off-season schedule — no MD loading, fatigue managed by session spacing ──
 // Methodology: mechanical tension (primary hypertrophy driver) requires 48h minimum
 // between gym sessions. High-CNS conditioning (RSA) needs 48h from heavy gym.
 // Zone 2 is restorative — placed between high-demand sessions with no gap requirements.
@@ -297,7 +296,6 @@ function buildMixedOffSeasonSchedule(
   return slots.sort((a, b) => (DAY_ORDER[a.dayOfWeek] ?? 0) - (DAY_ORDER[b.dayOfWeek] ?? 0));
 }
 
-// ── MD schedule ────────────────────────────────────────────────────────────
 
 type MdSlot = { mdDay: string; dayOfWeek: string };
 
@@ -379,7 +377,6 @@ const IN_SEASON_COND_SLOTS: Record<string, Record<'zone2' | 'hiAerobic' | 'rsa',
   },
 };
 
-// ── Force-velocity profile per session ────────────────────────────────────
 // Balanced: MD-4 = strength end; MD-3 = speed end; MD-2 = middle of curve
 
 function getFVProfile(mdDay: string): {
@@ -405,19 +402,18 @@ function getFVProfile(mdDay: string): {
   };
 }
 
-// ── Warm-up blocks ─────────────────────────────────────────────────────────
 
 const WARMUP_MOBILITY = [
   ex('Hip 90/90 Mobilisation', '1', '30s each side', '', 'Drive lead knee toward the floor. Breathe into end range — never force it.',
     { methodType: 'isometric', intensityIntent: 'controlled' }),
   ex("World's Greatest Stretch", '1', '5 each side', '', 'Lunge forward, thoracic rotation, reach ceiling. Eyes follow the hand.',
     { methodType: 'mixed', intensityIntent: 'controlled' }),
-  ex('Glute Bridge Hold + March', '2', '8 each leg', '30s', 'Full hip extension. Pelvis stays level as you march.',
+  ex('Glute Bridge Hold + March', '1', '8 each leg', '30s', 'Full hip extension. Pelvis stays level as you march.',
     { methodType: 'isometric', intensityIntent: 'controlled', tempo: '1-2-1-0' }),
 ];
 
 const WARMUP_NEURAL = [
-  ex('Lateral Shuffle', '2', '15 steps each way', '30s', 'Stay low — hips below shoulders. Push off outside foot each step. Do not cross feet. Groin activation and lateral movement prep.',
+  ex('Lateral Shuffle (Warmup)', '2', '15 steps each way', '30s', 'Stay low — hips below shoulders. Push off outside foot each step. Do not cross feet. Groin activation and lateral movement prep.',
     { methodType: 'concentric', intensityIntent: 'moderate' }),
   ex('A-Skip', '2', '2 × 20m', '30s', 'Knee to hip height. Claw foot back down. Tall posture, relaxed shoulders.',
     { intensityIntent: 'moderate' }),
@@ -432,7 +428,6 @@ const WARMUP_STRENGTH = [
     { methodType: 'concentric', intensityIntent: 'moderate' }),
 ];
 
-// ── Strength library — by phase × gym access × load scheme ────────────────
 // Science: concentric compound lifts ONLY here. Eccentrics are in ECCENTRIC_BLOCK (always last).
 // Sets: 2–3 max (athlete-specific volume). Load: 80%+ Foundation → 85%+ Build → 88%+ S&P → 90%+ Peak.
 // Bar speed autoregulation: stop any set when velocity drops >20% vs set 1 — that is the daily ceiling.
@@ -649,7 +644,6 @@ const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeE
   },
 };
 
-// ── Bulgarian Split Squat Library — vertical compound alternative ──────────
 // Replaces Back Squat when: speed primary goal | in-season | back/hamstring injury.
 // Same phase structure as STRENGTH_LIBRARY — single exercise per slot.
 
@@ -760,7 +754,6 @@ const BSS_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeExerci
   },
 };
 
-// ── Trap Bar Deadlift Library — primary lower compound for acceleration-based play styles ──
 // Used for box-to-box, press-heavy, counter-attack when gym access includes a barbell.
 // Replaces the vertical squat slot (slot 1 in Max Strength block).
 const TRAP_BAR_LIBRARY: Record<string, Record<string, Record<LoadKey, ProgrammeExercise>>> = {
@@ -912,8 +905,10 @@ function buildMaxStrengthBlock(
   upperEx: ProgrammeExercise[],
   fill: ProgrammeExercise[],
 ): ProgrammeExercise[] {
+  // Strip only movements that don't belong in a strength block (sprints, slow eccentrics,
+  // heavy isometrics). Reactive / plyometric fill IS allowed — it adds explosive variety.
   const cleanFill = fill.filter(
-    e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && e.methodType !== 'reactive' && !e.isRunning,
+    e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning,
   );
   const sequence: (ProgrammeExercise | undefined)[] = [
     vertical,      // lower 1 — vertical compound
@@ -925,7 +920,6 @@ function buildMaxStrengthBlock(
   return forceMaximal(sequence.filter((e): e is ProgrammeExercise => e !== undefined).slice(0, 5));
 }
 
-// ── Explosive Plyometric Pool — rotated weekly ────────────────────────────
 // Each sub-array = one week's pair. Rotated by weekNum % pool.length.
 // Low reps (2–3), full 3 min rest. Max CNS output every rep.
 const EXPLOSIVE_PLYO_POOL: Record<GymKey, ProgrammeExercise[][]> = {
@@ -1014,7 +1008,6 @@ function pickExplosivePlyo(gymKey: GymKey, weekNum: number): ProgrammeExercise[]
   return pool[weekNum % pool.length];
 }
 
-// ── Reactive Plyometric Pool — rotated weekly ─────────────────────────────
 // Pogo hops and variations. Tendon-spring / SSC training after max strength.
 const REACTIVE_PLYO_POOL: Record<GymKey, ProgrammeExercise[][]> = {
   full: [
@@ -1055,7 +1048,6 @@ function pickReactivePlyo(gymKey: GymKey, _weekNum: number): ProgrammeExercise[]
   return REACTIVE_PLYO_POOL[gymKey][0];
 }
 
-// ── Tendon & SSC Block — between strength and eccentrics ──────────────────
 // Science: tendon stiffness = heavy slow resistance isometrics + fast reactive plyometrics (short GCT).
 // Placed AFTER strength (not fatigued by strength), BEFORE eccentrics.
 // Heavy isometrics → tendon structural adaptation. Pogo hops → fast SSC tendon spring.
@@ -1066,81 +1058,67 @@ function pickReactivePlyo(gymKey: GymKey, _weekNum: number): ProgrammeExercise[]
 // Pogo hops = fast SSC — trains the tendon spring at match-speed loading rates.
 const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
   full: [
-    ex('Isometric Split Squat Hold (Heavy)', '3', '10-12s each leg', '90s', 'Bottom of split squat — rear knee 2cm from floor. Add load via barbell or heavy DB. Maximum effort throughout — zero relaxing. Patellar tendon HSR: brief maximal holds at ≥90% MVC optimise tendon stiffness. Tendon stiffness driver.',
+    ex('Isometric Split Squat Hold (Heavy)', '1', '10-12s each leg', '90s', 'Bottom of split squat — rear knee 2cm from floor. Add load via barbell or heavy DB. Maximum effort throughout — zero relaxing. Patellar tendon HSR: brief maximal holds at ≥90% MVC optimise tendon stiffness. Tendon stiffness driver.',
       { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Rise onto single-leg tiptoe. Hold at the top. Add weight via DB or barbell if available. Maximum effort. Achilles tendon HSR — brief ≥90% MVC holds maximise Achilles stiffness adaptation. Tendon stiffness driver.',
+    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '1', '8-10s each leg', '90s', 'Rise onto single-leg tiptoe. Hold at the top. Add weight via DB or barbell if available. Maximum effort. Achilles tendon HSR — brief ≥90% MVC holds maximise Achilles stiffness adaptation. Tendon stiffness driver.',
       { tempo: '0-10s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles STIFF — no dorsiflexion. Arms punch up. Minimum ground contact time. High frequency tendon-spring training: the isometric holds above build stiffness, pogos train the elastic SSC return at match-speed loading rate.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   basic: [
-    ex('Isometric Split Squat Hold (Heavy DB)', '3', '10-12s each leg', '90s', 'Bottom of split squat. Hold heaviest available DB. Maximum effort throughout. Patellar tendon HSR — brief maximal holds at ≥90% MVC drive greater tendon stiffness than longer submaximal holds. Tendon stiffness driver.',
+    ex('Isometric Split Squat Hold (Heavy DB)', '1', '10-12s each leg', '90s', 'Bottom of split squat. Hold heaviest available DB. Maximum effort throughout. Patellar tendon HSR — brief maximal holds at ≥90% MVC drive greater tendon stiffness than longer submaximal holds. Tendon stiffness driver.',
       { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Single-leg tiptoe hold. Hold heavy DB at side. Maximum effort. Achilles tendon HSR — brief ≥90% MVC holds maximise Achilles stiffness adaptation. Achilles health driver.',
+    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '1', '8-10s each leg', '90s', 'Single-leg tiptoe hold. Hold heavy DB at side. Maximum effort. Achilles tendon HSR — brief ≥90% MVC holds maximise Achilles stiffness adaptation. Achilles health driver.',
       { tempo: '0-10s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Stiff ankles. Minimum ground contact time. Elastic tendon return — train the spring at match-speed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
   none: [
-    ex('Isometric Split Squat Hold (Bodyweight)', '3', '10-12s each leg', '90s', 'Bottom of split squat, rear knee 2cm from floor, bodyweight. Maximum effort throughout — every second should feel hard. Brief maximal holds at ≥90% MVC drive patellar tendon stiffness. Tendon stiffness driver.',
+    ex('Isometric Split Squat Hold (Bodyweight)', '1', '10-12s each leg', '90s', 'Bottom of split squat, rear knee 2cm from floor, bodyweight. Maximum effort throughout — every second should feel hard. Brief maximal holds at ≥90% MVC drive patellar tendon stiffness. Tendon stiffness driver.',
       { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
-    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '2', '8-10s each leg', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — brief ≥90% MVC holds maximise stiffness adaptation. Tendon absorbs sprint load. Achilles health driver.',
+    ex('Single-Leg Calf Isometric Hold (Heel Raise)', '1', '8-10s each leg', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort. Achilles HSR — brief ≥90% MVC holds maximise stiffness adaptation. Tendon absorbs sprint load. Achilles health driver.',
       { tempo: '0-10s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Pogo Hops', '3', '20', '90s', 'REACTIVE — 20 reps, 90s rest. Ankles stiff. Minimum ground contact. Elastic SSC tendon return at match-speed.',
       { methodType: 'reactive', intensityIntent: 'reactive' }),
   ],
 };
 
-// ── Priority Isometric Block ───────────────────────────────────────────────
-// Exactly 3 isometrics every session. No light isometrics anywhere.
-// 1. Isometric Split Squat (Heavy)  — patellar tendon stiffness driver
-// 2. Single-Leg Calf Isometric      — Achilles health driver
-// 3. Dead Bug                       — core/pelvic stability for sprinting
-
-const DEAD_BUG: ProgrammeExercise = ex(
-  'Dead Bug',
-  '2', '8 each side', '60s',
-  'Lower back PRESSED into floor throughout — this is non-negotiable. Extend opposite arm and leg simultaneously, hold 1s at full extension, return under control. Do not lose lumbar contact at any point. Core/pelvic stability for sprinting: trains anti-extension stiffness that keeps your pelvis neutral during max-velocity running. No equipment needed.',
-  { methodType: 'isometric', intensityIntent: 'maximal' },
-);
+// 1 isometric per session — the single highest-priority tendon stiffness driver.
+// Patellar tendon isometric (split squat hold or wall sit) is chosen every session.
+// Calf isometric and Dead Bug removed to keep total volume low.
 
 // Alternate patellar-tendon isometric when Bulgarian Split Squat is already in the session.
 // Avoids back-to-back split squat pattern in the same session.
 const WALL_SIT_ISO: Record<GymKey, ProgrammeExercise> = {
   full: ex(
     'Single-Leg Isometric Wall Sit (Heavy)',
-    '3', '10-12s each leg', '90s',
+    '1', '10-12s each leg', '90s',
     'Single-leg wall sit at 90° knee angle. Hold heaviest available DB on thigh. Maximum effort throughout — zero relaxing. Patellar tendon HSR without the split squat pattern (BSS already in session). Tendon stiffness driver.',
     { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' },
   ),
   basic: ex(
     'Single-Leg Isometric Wall Sit (DB)',
-    '3', '10-12s each leg', '90s',
+    '1', '10-12s each leg', '90s',
     'Single-leg wall sit at 90° knee. Hold heaviest available DB on thigh. Maximum effort. Patellar tendon HSR — substituted for split squat hold since BSS is already in this session.',
     { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' },
   ),
   none: ex(
     'Single-Leg Isometric Wall Sit (Bodyweight)',
-    '3', '10-12s each leg', '90s',
+    '1', '10-12s each leg', '90s',
     'Single-leg wall sit at 90° knee. Bodyweight. Maximum effort every second. Patellar tendon HSR — substituted for split squat hold since BSS is already in this session.',
     { tempo: '0-12s-0-0', methodType: 'isometric', intensityIntent: 'maximal' },
   ),
 };
 
 /**
- * Returns the 3 priority isometrics for any session. Always exactly 3 — no more.
- * When hasBSS=true the session already contains a Bulgarian Split Squat — use wall sit
- * instead to avoid back-to-back split squat pattern.
+ * Returns exactly 1 isometric — the highest-priority patellar tendon stiffness driver.
+ * When hasBSS=true the session already has BSS so use the wall sit instead (avoids
+ * back-to-back split squat pattern in the same session).
  */
 function buildIsometricBlock(gymKey: GymKey, hasBSS = false): ProgrammeExercise[] {
-  return [
-    hasBSS ? WALL_SIT_ISO[gymKey] : TENDON_SSC_BLOCK[gymKey][0],
-    TENDON_SSC_BLOCK[gymKey][1], // Single-Leg Calf Isometric (Heel Raise) — Achilles
-    DEAD_BUG,                    // Dead Bug — core/pelvic stability
-  ];
+  return [hasBSS ? WALL_SIT_ISO[gymKey] : TENDON_SSC_BLOCK[gymKey][0]];
 }
 
-// ── Eccentric Block — ALWAYS placed last in every session ────────────────
 // Fascicle length physiology: eccentric contractions lengthen the muscle under tension →
 // individual sarcomeres are trained at a longer length → the muscle can handle a longer stretch
 // before individual sarcomeres "pop" (the mechanism of strain injury at high-speed running).
@@ -1152,24 +1130,23 @@ const ECCENTRIC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
   full: [
     ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s controlled lowering — maximum effort, fight the fall with everything. 2 reps only: every rep must be truly maximal. Physiology: eccentric lengthening increases hamstring fascicle length. Longer fascicles = individual sarcomeres operate over a wider range before failure — the primary mechanism reducing hamstring tear risk at high-speed running. Non-negotiable.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'maximal' }),
-    ex('Copenhagen Plank', '2', '15s each side', '90s', 'Top foot on bench, bottom leg free. Adductor eccentric — the best groin protection exercise in football. Build hold time by 3-5s each week.',
+    ex('Copenhagen Plank', '1', '15s each side', '90s', 'Top foot on bench, bottom leg free. Adductor eccentric — the best groin protection exercise in football. Build hold time by 3-5s each week.',
       { tempo: '0-15s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
   ],
   basic: [
     ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s controlled lowering. Maximum effort — fight the fall with everything. 2 reps only: each rep fully maximal. Partner anchors feet or secure under heavy furniture. Fascicle length adaptation: longer sarcomere operating range = reduced strain risk at max sprint. Non-negotiable.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'maximal' }),
-    ex('Copenhagen Plank', '2', '25s each side', '90s', 'Top foot on bench, hips free. Adductor eccentric + isometric. Groin strain prevention — highest evidence in football. Add 5s per week.',
+    ex('Copenhagen Plank', '1', '25s each side', '90s', 'Top foot on bench, hips free. Adductor eccentric + isometric. Groin strain prevention — highest evidence in football. Add 5s per week.',
       { tempo: '0-25s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
   ],
   none: [
     ex('Nordic Hamstring Curl', '3', '2', '3:00', '4s controlled lowering. Maximum effort — fight the fall completely. 2 reps only: each rep truly maximal. Anchor feet under sofa/door or use a partner. Fascicle length adaptation: the primary mechanism reducing hamstring tear risk at high-speed running. Non-negotiable every session.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'maximal' }),
-    ex('Copenhagen Plank', '2', '25s each side', '90s', 'Top foot on chair/bench, hips free. Adductor eccentric. Groin prevention. Build 5s per week.',
+    ex('Copenhagen Plank', '1', '25s each side', '90s', 'Top foot on chair/bench, hips free. Adductor eccentric. Groin prevention. Build 5s per week.',
       { tempo: '0-25s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
   ],
 };
 
-// ── Upper body — gym-access-aware ──────────────────────────────────────────
 // full: barbell + cable + machines available
 // basic: barbells + dumbbells only (no cables, machines, or sled)
 // none: bodyweight only (push-ups, inverted rows, pike push-ups)
@@ -1277,7 +1254,6 @@ const UPPER: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
   },
 };
 
-// ── Upper body — ROW variant (used when upperPullChoice === 'row') ─────────
 // Mirrors UPPER but replaces pull-up / weighted pull-up slots with row variants.
 // Foundation.full and all .none entries are unchanged (DB Row / Inverted Row).
 
@@ -1384,7 +1360,6 @@ const UPPER_ROW: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
   },
 };
 
-// ── Play-style specific exercises ──────────────────────────────────────────
 
 // Play-style running exercises — 3 variants each, rotated weekly so sessions feel fresh.
 // ALL marked isRunning: true so they are filtered OUT of the strength block and
@@ -1418,7 +1393,7 @@ const PLAY_STYLE_RUNNING: Record<string, ProgrammeExercise[]> = {
       { methodType: 'reactive', intensityIntent: 'controlled' }),
   ],
   'physical': [
-    ex('Isometric Split Squat Hold', '3', '30s each', '2:00',
+    ex('Isometric Split Squat Hold', '1', '30s each', '2:00',
       'Bottom position hold. Physical duel strength and joint integrity.',
       { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
   ],
@@ -1458,7 +1433,6 @@ const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
 };
 
 
-// ── In-session conditioning: Aerobic Base & High Intensity Intervals ──────
 // Evidence basis:
 
 //     VO₂max and capillary density. Minimum 2 weeks required before high-intensity loading
@@ -1474,7 +1448,7 @@ const CONDITIONING_AEROBIC: Record<string, ProgrammeExercise[]> = {
       'Conversational pace — you should be able to hold a full sentence throughout. This is not easy jogging: it is deliberate cardiac training. 65–70% HRmax builds stroke volume, increases capillary density, and lowers resting heart rate. Foundation phase weeks 1–2: aerobic base only to reduce connective tissue injury risk before higher intensities are introduced. No watch needed — use the talk test.',
       { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
     ex('Extensive Aerobic Intervals', '6', '4 min on · 2 min walk', '2:00 walk',
-      'Run each 4-minute rep at 72–75% HRmax — comfortable but purposeful. Walk recovery between reps. 6 reps = 24 min total work. This protocol maximises aerobic volume while managing fatigue.. (2001) — interval aerobic at 75% HRmax produces superior cardiac adaptations to continuous running at matched volume.',
+      'Run each 4-minute rep at 72–75% HRmax — comfortable but purposeful. Walk recovery between reps. 6 reps = 24 min total work. This protocol maximises aerobic volume while managing fatigue. (2001) — interval aerobic at 75% HRmax produces superior cardiac adaptations to continuous running at matched volume.',
       { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
     ex('Aerobic Threshold Run', '1', '20 min @ 75% HRmax', '—',
       'Comfortably hard — you can speak in short phrases but not hold a full conversation. Just below lactate threshold. Builds lactate clearance capacity and aerobic power. Foundation phase: keep strictly to 75% — no heroics. This is infrastructure work.',
@@ -1603,7 +1577,6 @@ const CONDITIONING_HIIT: Record<string, ProgrammeExercise[]> = {
  * Variant rotation: within each type, variants rotate using Math.floor(weekNum / 2)
  * so each variant gets ~2 weeks before cycling — prevents stagnation without repetition.
  */
-// ── Weakness exercises ─────────────────────────────────────────────────────
 
 const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
   speed: [
@@ -1636,21 +1609,12 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
     ex('Bounding', '3', '6 reps', '2:00', 'Alternate-leg bounding. Drive the knee, push the ground back. Max horizontal distance per stride.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
   ],
-  agility: [
-    ex('5-10-5 Pro Agility Drill', '4', 'Full shuttle', '2:30', '5m right, 10m left, 5m right. Drive off outside foot each turn.',
-      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
-    ex('T-Drill', '3', 'Full drill', '2:30', 'Sprint, shuffle left, shuffle right, back-pedal. Precise footwork at each cone.',
-      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
-    ex('Reactive Cone Drill (Partner)', '4', '6 reps', '2:00', 'Partner signals direction. React and accelerate. Decision speed is the variable.',
-      { methodType: 'reactive', intensityIntent: 'reactive', isRunning: true }),
-  ],
   injury_prone: [
     ex('Eccentric Step-Down (Single-Leg)', '3', '8 each', '90s', '4s controlled descent off a step — one leg only. Knee tracks over second toe throughout. Slow eccentric loads the quad and controls the knee, building the tissue resilience that reduces re-injury risk. Different pattern from the hip thrust and squat — covers the knee-dominant deceleration demand.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
   ],
 };
 
-// ── Prehab by injury area ──────────────────────────────────────────────────
 
 const PREHAB: Record<string, ProgrammeExercise[]> = {
   hamstring: [
@@ -1666,7 +1630,7 @@ const PREHAB: Record<string, ProgrammeExercise[]> = {
       { tempo: '1-0-3-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
   ],
   knee: [
-    ex('Isometric Wall Sit — Single-Leg at 60°', '3', '30s each', '2:00', '60° knee flexion against wall — single leg. Maximum effort. This is the clinically-validated patellar tendon HSR angle: heavy isometric at 60° directly increases patellar tendon stiffness. The tendon then absorbs more landing/deceleration load so the quad muscle doesn\'t overwork.',
+    ex('Isometric Wall Sit — Single-Leg at 60°', '1', '30s each', '2:00', '60° knee flexion against wall — single leg. Maximum effort. This is the clinically-validated patellar tendon HSR angle: heavy isometric at 60° directly increases patellar tendon stiffness. The tendon then absorbs more landing/deceleration load so the quad muscle doesn\'t overwork.',
       { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
     ex('Eccentric Step-Down (4s Lower)', '3', '8 each', '90s', '4s single-leg descent. Knee tracks over second toe. Eccentric quad loading — increases fascicle length. Longer fascicles = individual sarcomeres tolerate more stretch before failure.',
       { tempo: '4-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
@@ -1680,7 +1644,7 @@ const PREHAB: Record<string, ProgrammeExercise[]> = {
   calf: [
     ex('Alfredson Eccentric Calf Protocol', '3', '15', '90s', 'Raise with both, lower on single leg over 3s. Knee straight for gastrocnemius, then repeat with knee bent for soleus. Eccentric loading increases fascicle length AND tendon capacity. If symptomatic (Achilles pain), perform 3×15 twice daily.',
       { tempo: '3-0-x-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
-    ex('Heavy Single-Leg Calf Isometric Hold', '3', '30s each', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort — add weight via DB if possible. Achilles tendon HSR: heavy slow resistance increases tendon stiffness so the tendon (not the calf muscle) absorbs the sprint push-off load.',
+    ex('Heavy Single-Leg Calf Isometric Hold', '1', '30s each', '90s', 'Rise onto single-leg tiptoe. Hold maximum effort — add weight via DB if possible. Achilles tendon HSR: heavy slow resistance increases tendon stiffness so the tendon (not the calf muscle) absorbs the sprint push-off load.',
       { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'maximal' }),
   ],
   back: [
@@ -1700,12 +1664,74 @@ const PREHAB: Record<string, ProgrammeExercise[]> = {
 // Note: Nordics and Copenhagen Plank are in ECCENTRIC_BLOCK (always last in session).
 // DEFAULT_PREHAB: eccentric-only fallback for athletes with no injury history.
 // The Isometric Block is always handled separately via buildIsometricBlock().
+
+/**
+ * Position-specific power block — 2 exercises added on heavy days only.
+ * Exercises chosen to NOT overlap with EXPLOSIVE_PLYO_POOL, ECCENTRIC_BLOCK,
+ * or the main strength compounds (vertical squat, hip thrust, upper push/pull).
+ */
+const POSITION_BLOCK: Record<string, { title: string; focus: string; exercises: ProgrammeExercise[] }> = {
+  GK: {
+    title: '🧤 Goalkeeper — Lateral Power',
+    focus: 'Frontal-plane hip strength · dive mechanics · 2 sets only',
+    exercises: [
+      ex('Lateral Bound + Stick', '2', '5 each', '2:00',
+        'Push explosively off one foot sideways. Stick the landing on the opposite foot for 1 full second. GK dive power — the push-off replicated in a controlled drill. Maximise lateral displacement. 2 sets only — keep CNS cost low.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+  },
+  CB: {
+    title: '🛡️ Centre-Back — Aerial Duel Power',
+    focus: 'Single-leg vertical drive · aerial contest · 2 sets only',
+    exercises: [
+      ex('Explosive Step-Up', '2', '5 each', '2:30',
+        'Drive hard off the box foot — leave the ground at the top. Alternate legs each set. Aerial duel power: the single-leg drive-off replicates the jump from a run. 2 sets only — quality over volume.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+  },
+  FB: {
+    title: '⚡ Full-Back — Closing Speed & Overlap',
+    focus: 'Unilateral hip drive · overlap run mechanics · 2 sets only',
+    exercises: [
+      ex('Deficit Reverse Lunge (Explosive Drive)', '2', '5 each', '2:00',
+        'Step back into a reverse lunge off a small step. Explosive drive to bring the back foot forward. Full-back hip flexor power — the forward drive into an overlapping run. 2 sets only.',
+        { methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+  },
+  CM: {
+    title: '⚙️ Central Midfield — Stride Power',
+    focus: 'Unilateral hip extension · box-to-box stride mechanics · 2 sets only',
+    exercises: [
+      ex('Single-Leg Hip Thrust (Box)', '2', '10 each', '90s',
+        'Shoulders on bench, one leg planted, other raised. Full single-leg hip extension. CM sprint mechanics: the hip extension force in each stride of a box-to-box run. 2 sets only.',
+        { methodType: 'concentric', intensityIntent: 'moderate' }),
+    ],
+  },
+  W: {
+    title: '💨 Winger — Inside Cut Power',
+    focus: 'Horizontal push-off force · inside cut mechanics · 2 sets only',
+    exercises: [
+      ex('Lateral Bound + Stick', '2', '6 each', '2:00',
+        'Maximum lateral push off one foot. Stick landing on opposite foot for 1 second. Winger inside-cut mechanics — the frontal-plane force production that creates separation from defenders. 2 sets only.',
+        { methodType: 'reactive', intensityIntent: 'explosive' }),
+    ],
+  },
+  ST: {
+    title: '🎯 Striker — First-Step Power',
+    focus: 'Explosive hip extension from split stance · 2 sets only',
+    exercises: [
+      ex('Loaded Lunge (Explosive Drive)', '2', '5 each', '2:00',
+        'DBs in hands. Step into a deep forward lunge. Explosive drive off the front foot back to standing. Striker first-step: hip extension from a split-leg base — the push-off from a standing start or off the turn. 2 sets only.',
+        { methodType: 'concentric', intensityIntent: 'explosive' }),
+    ],
+  },
+};
+
 const DEFAULT_PREHAB: ProgrammeExercise[] = [
   ex('Eccentric Single-Leg Calf Raise', '2', '10 each', '60s', 'Rise on two legs, lower on one over 3s. Achilles and calf resilience — baseline eccentric maintenance for all footballers.',
     { tempo: '1-0-3-0', methodType: 'eccentric', intensityIntent: 'controlled' }),
 ];
 
-// ── Apply readiness — reduce sets and intensity ────────────────────────────
 
 function applyReadiness(
   exs: ProgrammeExercise[],
@@ -1737,7 +1763,6 @@ function applyReadiness(
   });
 }
 
-// ── Recovery session (MD+1) ────────────────────────────────────────────────
 
 function recoverySession(dow: string): ProgrammeSession {
   return {
@@ -1760,11 +1785,11 @@ function recoverySession(dow: string): ProgrammeSession {
         title: '🧘 Yielding Isometric Holds',
         methodFocus: 'Yielding isometrics · RPE 3–4 · analgesia not training',
         exercises: [
-          ex('Single-Leg Glute Bridge Hold', '2', '30s each side', '60s', 'Shoulders on floor, hips extended, squeeze glute. RPE 3–4 — this is analgesia, not strength training. Breathe steadily. The goal is blood flow and pain reduction, not force production.',
+          ex('Single-Leg Glute Bridge Hold', '1', '30s each side', '60s', 'Shoulders on floor, hips extended, squeeze glute. RPE 3–4 — this is analgesia, not strength training. Breathe steadily. The goal is blood flow and pain reduction, not force production.',
             { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
-          ex('Wall Sit (Bilateral)', '2', '30s', '60s', 'Back flat against wall. Knees at 90°. RPE 3–4. Quadriceps isometric hold — reduces muscle soreness without adding eccentric damage. Breathe steadily throughout.',
+          ex('Wall Sit (Bilateral)', '1', '30s', '60s', 'Back flat against wall. Knees at 90°. RPE 3–4. Quadriceps isometric hold — reduces muscle soreness without adding eccentric damage. Breathe steadily throughout.',
             { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
-          ex('Prone Hamstring Isometric Hold', '2', '30s each side', '60s', 'Face down, ankle hooked under a fixed surface. Pull heel toward glute and hold. RPE 3–4. Hamstring isometric at mid-length — reduces DOMS without the eccentric loading that would add more micro-damage.',
+          ex('Prone Hamstring Isometric Hold', '1', '30s each side', '60s', 'Face down, ankle hooked under a fixed surface. Pull heel toward glute and hold. RPE 3–4. Hamstring isometric at mid-length — reduces DOMS without the eccentric loading that would add more micro-damage.',
             { tempo: '0-30s-0-0', methodType: 'isometric', intensityIntent: 'controlled' }),
         ],
       },
@@ -1782,7 +1807,6 @@ function recoverySession(dow: string): ProgrammeSession {
   };
 }
 
-// ── Neural priming session (MD-1) ──────────────────────────────────────────
 
 function primingSession(dow: string, position: string, _playStyle: string): ProgrammeSession {
   // Position-specific priming per HPP philosophy:
@@ -1863,30 +1887,6 @@ function primingSession(dow: string, position: string, _playStyle: string): Prog
   };
 }
 
-// ── Session objective labels ───────────────────────────────────────────────
-
-const MD4_OBJ: Record<string, string> = {
-  Foundation: 'Heavy Strength — Foundation',
-  Build: 'Heavy Strength — Build',
-  'Strength & Power': 'Heavy Strength — Peak Force',
-  Peak: 'Heavy Strength — Peak Express',
-};
-
-const MD3_OBJ: Record<string, string> = {
-  Foundation: 'Structural — Eccentric Load',
-  Build: 'Structural — Hypertrophy & Fascicles',
-  'Strength & Power': 'Structural — Tissue Quality',
-  Peak: 'Structural — Min Effective Dose',
-};
-
-const MD2_OBJ: Record<string, string> = {
-  Foundation: 'Micro-Power Only · No Heavy Load',
-  Build: 'Micro-Power Only · No Heavy Load',
-  'Strength & Power': 'Micro-Power Only · Protect Legs',
-  Peak: 'Zero Load · Rest & Arrive Fresh',
-};
-
-// ── Shared helpers ─────────────────────────────────────────────────────────
 
 const MUSCLE_INJURY_AREAS = ['hamstring', 'groin', 'calf', 'knee'] as const;
 
@@ -1916,7 +1916,6 @@ function buildInjuryOrderedBlocks(
   return muscleInjury ? [eccBlock, isoBlock] : [isoBlock, eccBlock];
 }
 
-// ── Off-season session builder ─────────────────────────────────────────────
 // No match-day context. Load alternates Heavy/Moderate based on schedule spacing.
 // Full 5-block structure every session. DOMS managed by session spacing alone.
 
@@ -1928,7 +1927,7 @@ function buildOffSeasonSession(
   readiness: { level: ReadinessLevel; volumeMultiplier: number; intensityNote: string },
   emphasis?: TestEmphasis,
 ): ProgrammeSession {
-  const { biggestWeakness, injuryHistory, gymAccess } = inputs;
+  const { biggestWeakness, injuryHistory, gymAccess, position } = inputs;
 
   // Use heavy load on heavy days, moderate on moderate days
   const loadScheme = slot.load === 'heavy' ? 'heavy' : 'moderate';
@@ -1943,7 +1942,7 @@ function buildOffSeasonSession(
   const weaknessEx = WEAKNESS_EX[biggestWeakness]?.slice(0, 2) ?? [];
 
   const prehabEx: ProgrammeExercise[] = [];
-  for (const area of injuryHistory.slice(0, 2)) {
+  for (const area of injuryHistory) {
     const p = PREHAB[area];
     if (p) prehabEx.push(p[weekNum % p.length]);
   }
@@ -2005,7 +2004,7 @@ function buildOffSeasonSession(
   return {
     mdDay: loadLabel,
     dayOfWeek: slot.dayOfWeek,
-    objective: `Off Season — ${loadLabel} · ${phase} · Wk ${weekNum}`,
+    objective: `Off Season — ${loadLabel} · Wk ${weekNum}`,
     readinessNote,
     durationMin,
     fvProfile: inputs.playStyle === 'press-heavy'
@@ -2030,12 +2029,8 @@ function buildOffSeasonSession(
             : 'Single max rep · 3 min rest · quality over volume',
         exercises: explosivePlyo,
       },
-      {
-        title: '💪 Maximum Strength',
-        methodFocus: loadScheme === 'heavy'
-          ? '85%+ load · 5 ex max · 3 lower / 2 upper · explosive intent'
-          : 'Controlled load · 4 ex max · 3 lower / 1 upper · quality first',
-        exercises: applyReadiness(
+      (() => {
+        const maxStrengthExercises = applyReadiness(
           buildMaxStrengthBlock(
             osVertical,
             strengthEx[1],
@@ -2045,12 +2040,28 @@ function buildOffSeasonSession(
                   ...(playStyleEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
                   ...(weaknessEx.filter(e => e.methodType !== 'eccentric' && e.methodType !== 'isometric' && !e.isRunning)),
                 ]
-              : [], // moderate days: no fill exercise — 4 slots max keeps total load lower
+              : [], // moderate days: no fill exercise — keeps total load lower
           ),
           readiness.level,
           readiness.intensityNote,
-        ),
-      },
+        );
+        // Derive counts from actual exercises (slots 0,2,4 = lower; slots 1,3 = upper)
+        const lowerCount = [0, 2, 4].filter(i => maxStrengthExercises[i] !== undefined).length;
+        const upperCount = [1, 3].filter(i => maxStrengthExercises[i] !== undefined).length;
+        const totalCount = maxStrengthExercises.length;
+        const loadDesc = loadScheme === 'heavy' ? '85%+ load · explosive intent' : 'Controlled load · quality first';
+        return {
+          title: '💪 Maximum Strength',
+          methodFocus: `${loadDesc} · ${totalCount} exercises · ${lowerCount} lower / ${upperCount} upper`,
+          exercises: maxStrengthExercises,
+        };
+      })(),
+      // Position-specific block: heavy days only — 2 targeted exercises per position
+      ...(loadScheme === 'heavy' && POSITION_BLOCK[position] ? [{
+        title: POSITION_BLOCK[position].title,
+        methodFocus: POSITION_BLOCK[position].focus,
+        exercises: POSITION_BLOCK[position].exercises,
+      }] : []),
       {
         title: '🦘 Reactive Plyometrics',
         methodFocus: loadScheme === 'heavy'
@@ -2070,7 +2081,6 @@ function buildOffSeasonSession(
   };
 }
 
-// ── Main session builder ───────────────────────────────────────────────────
 
 /** Increase the `sets` string of every exercise in an array by `boost`. */
 function boostExerciseSets(exercises: ProgrammeExercise[], boost: number): ProgrammeExercise[] {
@@ -2107,7 +2117,7 @@ function buildSession(
   const weaknessEx = WEAKNESS_EX[biggestWeakness]?.slice(0, 2) ?? [];
 
   const prehabEx: ProgrammeExercise[] = [];
-  for (const area of injuryHistory.slice(0, 2)) {
+  for (const area of injuryHistory) {
     const p = PREHAB[area];
     if (p) prehabEx.push(p[weekNum % p.length]);
   }
@@ -2137,7 +2147,7 @@ function buildSession(
 
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
-      objective: `MD-4 — ${MD4_OBJ[phase] ?? MD4_OBJ.Build}`,
+      objective: 'MD-4 — Heavy Strength',
       readinessNote, durationMin,
       fvProfile: inputs.playStyle === 'press-heavy'
         ? 'Press system · explosive hip ext + lateral speed · aerobic base on moderate days'
@@ -2174,6 +2184,12 @@ function buildSession(
             readiness.intensityNote,
           ),
         },
+        // Position-specific block on the heavy day (MD-4)
+        ...(POSITION_BLOCK[position] ? [{
+          title: POSITION_BLOCK[position].title,
+          methodFocus: POSITION_BLOCK[position].focus,
+          exercises: POSITION_BLOCK[position].exercises,
+        }] : []),
         {
           title: '🦘 Reactive Plyometrics',
           methodFocus: 'Stiff ankles · min ground contact · tendon spring at match speed',
@@ -2221,7 +2237,7 @@ function buildSession(
 
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
-      objective: `MD-3 — ${MD3_OBJ[phase] ?? MD3_OBJ.Build}`,
+      objective: 'MD-3 — Structural Loading',
       readinessNote: readinessNote + ' MD-3: DOMS peaks 48h — cleared by match day.',
       durationMin: 55, fvProfile: fv.profile,
       blocks: [
@@ -2275,7 +2291,7 @@ function buildSession(
 
     return {
       mdDay: slot.mdDay, dayOfWeek: slot.dayOfWeek,
-      objective: `MD-2 — ${MD2_OBJ[phase] ?? MD2_OBJ.Build}`,
+      objective: 'MD-2 — Micro-Power',
       readinessNote: 'MD-2: No heavy load regardless of readiness. Micro-power only then leave.',
       durationMin: 30, fvProfile: fv.profile,
       blocks: [
@@ -2306,7 +2322,6 @@ function buildSession(
   return primingSession(slot.dayOfWeek, position, inputs.playStyle);
 }
 
-// ── Dedicated conditioning session builder ─────────────────────────────────
 // Each conditioning type is a standalone session — not bolted onto gym days.
 // Separation principle: each physical quality gets its own day so neither
 // strength nor aerobic adaptation is compromised by fatigue from the other.
@@ -2328,7 +2343,7 @@ function buildConditioningSession(
     return {
       mdDay: 'Zone 2',
       dayOfWeek,
-      objective: `Zone 2 — Aerobic Base · ${phase} · Wk ${weekNum}`,
+      objective: `Zone 2 — Aerobic Base · Wk ${weekNum}`,
       readinessNote: 'Zone 2 is restorative — always complete. Reduce duration if needed, never skip.',
       durationMin: 40,
       fvProfile: '65–70% HRmax · mitochondrial density · no CNS fatigue',
@@ -2348,7 +2363,7 @@ function buildConditioningSession(
     return {
       mdDay: 'High Aerobic',
       dayOfWeek,
-      objective: `High Intensity Aerobic · ${phase} · Wk ${weekNum}`,
+      objective: `High Intensity Aerobic · Wk ${weekNum}`,
       readinessNote: 'Requires full effort. Low readiness: sub Zone 2 at 70% HR — valid choice.',
       durationMin: 45,
       fvProfile: '85–95% HRmax · max VO₂max stimulus · after gym day',
@@ -2395,7 +2410,7 @@ function buildConditioningSession(
   return {
     mdDay: 'RSA',
     dayOfWeek,
-    objective: `RSA / Anaerobic · ${phase} · Wk ${weekNum}`,
+    objective: `RSA / Anaerobic · Wk ${weekNum}`,
     readinessNote: 'Highest CNS session. Low readiness: reduce sets, extend recovery to 35s.',
     durationMin: 45,
     fvProfile: 'Anaerobic · repeated sprint ability · neuromuscular fatigue resistance',
@@ -2420,7 +2435,6 @@ function buildConditioningSession(
 
 
 
-// ── Progression note per week ──────────────────────────────────────────────
 
 function progressNote(week: number): string {
   const hint = 'Progress both load (compounds) and sprint distances in parallel.';
@@ -2430,10 +2444,8 @@ function progressNote(week: number): string {
   return 'Final phase: reduce sets by 1, increase intensity. Peak expression — maximise output.';
 }
 
-// ── Conditioning session splitter ─────────────────────────────────────────
 // Removes ALL conditioning/speed-work blocks from the main session and returns them
 // as a standalone ProgrammeSession with its own neural warm-up on the same day.
-// ── Coach explanation ──────────────────────────────────────────────────────
 
 function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, readinessLevel: ReadinessLevel, emphasis?: TestEmphasis): string {
   const posLabels: Record<string, string> = {
@@ -2474,7 +2486,6 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
   return `${totalWeeks}-week programme for a ${pos} targeting ${goal}. ${weaknessLine}${styleNote} Sessions are structured around your match schedule — heaviest load furthest from match day, reducing as the game approaches.${doubleGameWeekNote} ${readinessLine}${testGradeSection}`;
 }
 
-// ── Main export ────────────────────────────────────────────────────────────
 
 export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
   const { score, level: readinessLevel, guidance: readinessGuidance, volumeMultiplier, intensityNote } = calcReadiness(inputs.readiness);
@@ -2491,15 +2502,12 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
   const pos = POSITION_LABELS[inputs.position] ?? inputs.position;
   const goal = GOAL_LABELS[inputs.primaryGoal] ?? inputs.primaryGoal;
 
-  // ── Test grade emphasis — computed once, applied throughout ─────────────
   const emphasis = buildTestEmphasis(inputs.testGrades);
 
-  // ── Off-season path ──────────────────────────────────────────────────────
   if (inputs.offSeason) {
     const gymCount = inputs.gymSessionsPerWeek ?? inputs.sessionsPerWeek ?? 3;
     // Merge user-selected conditioning types with any extra types driven by test grades
     const baseCondTypes = inputs.conditioningTypes ?? [];
-    const condTypeMap: Record<string, 'zone2' | 'hiit' | 'rsa'> = { zone2: 'zone2', hiit: 'hiit', rsa: 'rsa' };
     const mergedCondTypes = Array.from(new Set([
       ...baseCondTypes,
       ...emphasis.extraCondTypes.map(t => t === 'hiit' ? 'hiit' : t),
@@ -2507,7 +2515,6 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     const osSlots = mergedCondTypes.length > 0
       ? buildMixedOffSeasonSchedule(gymCount, mergedCondTypes)
       : (GYM_ONLY_SCHEDULES[gymCount] ?? GYM_ONLY_SCHEDULES[3]);
-    void condTypeMap; // suppress unused warning
 
     const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
       const weekNum = i + 1;
@@ -2534,7 +2541,7 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
       id: `prog-${Date.now()}`,
       createdAt: Date.now(),
       title: `${pos} — ${goal} (Off Season)`,
-      summary: `${totalWeeks}-week OFF-SEASON programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${inputs.sessionsPerWeek} sessions/week · No match-day loading — DOMS managed by session spacing.`,
+      summary: `${totalWeeks}-week OFF-SEASON programme for a ${pos.toLowerCase()} targeting ${goal.toLowerCase()}. ${osSlots.length} sessions/week · No match-day loading — DOMS managed by session spacing.`,
       coachExplanation: buildCoachExplanation(inputs, totalWeeks, readinessLevel, emphasis),
       readinessScore: score,
       readinessLevel,
@@ -2545,7 +2552,6 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     };
   }
 
-  // ── In-season path ───────────────────────────────────────────────────────
   const inSeasonGymCount = inputs.gymSessionsPerWeek ?? Math.min(inputs.sessionsPerWeek ?? 3, 3);
   const gymSlots = getMdSlots(inSeasonGymCount, inputs.matchDay, inputs.secondMatchDay);
   const baseCondTypes = inputs.conditioningTypes ?? [];

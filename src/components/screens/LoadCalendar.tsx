@@ -11,59 +11,29 @@ import { useStore } from '../../hooks/useStore';
 import { MatchEntry, GeneratedProgramme, WorkoutTemplate, ScheduledWorkout } from '../../types';
 import { classifyDay, getLoadProfile, getMonthProfiles } from '../../lib/loadManagement';
 import { FOOTBALL_PROGRAMS, BuiltInTemplate } from '../../data/programs';
+import { classifySessionType } from '../../utils/sessionClassify';
+import { getProgrammeAnchorMonday } from '../../lib/sessionUtils';
 
-// ── Session dot type ───────────────────────────────────────────────────────
 
 interface SessionDot {
-  sessionKey: string;   // "wi-dayOfWeek"
+  sessionKey: string;   // "wi-si" (week index - session index)
   objective: string;
   originalDate: string;
   mdDay: string;
   type: 'gym' | 'conditioning';
 }
 
-// ── Session type classifier ────────────────────────────────────────────────
-
-function classifySessionType(objective: string, mdDay: string): 'gym' | 'conditioning' {
-  const obj = objective.toLowerCase();
-  const md = mdDay.toLowerCase();
-  // Dedicated conditioning session mdDay values from the generator
-  if (md === 'md+1' || md === 'conditioning' || md === 'zone 2' || md === 'high aerobic' || md === 'rsa') return 'conditioning';
-  // Objective-based fallbacks
-  if (
-    obj.includes('active recovery') ||
-    obj.includes('conditioning session') ||
-    obj.includes('speed session') ||
-    obj.includes('cardio') ||
-    obj.includes('zone 2') ||
-    obj.includes('high intensity aerobic') ||
-    obj.includes('rsa') ||
-    obj.includes('anaerobic')
-  ) return 'conditioning';
-  return 'gym';
-}
-
-// ── Programme session date helpers ─────────────────────────────────────────
 
 const DOW_INDEX: Record<string, number> = {
   Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
   Friday: 4, Saturday: 5, Sunday: 6,
 };
 
-/** Monday of the week containing ts — rolls back so mid-week start dates schedule correctly. */
-function getAnchorMonday(ts: number): Date {
-  const d = new Date(ts);
-  const dow = d.getDay();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-  return d;
-}
-
 function getProgrammeDates(programme: GeneratedProgramme): Map<string, SessionDot[]> {
-  const anchor = programme.programmeStartDate
-    ? new Date(programme.programmeStartDate + 'T12:00:00').getTime()
-    : programme.createdAt;
-  const monday = getAnchorMonday(anchor);
+  // Use the same anchor as WeeklyCalendar (rolls forward to next Monday when
+  // programmeStartDate is set) so session keys ("wi-si") are identical in both
+  // components and drag-and-drop overrides take effect on the dashboard.
+  const monday = getProgrammeAnchorMonday(programme);
   const overrides = programme.sessionOverrides ?? {};
   const map = new Map<string, SessionDot[]>();
 
@@ -76,6 +46,14 @@ function getProgrammeDates(programme: GeneratedProgramme): Map<string, SessionDo
       d.setDate(monday.getDate() + wi * 7 + dayIdx);
       const originalDate = localDateStr(d);
       const effectiveDate = overrides[sessionKey] ?? originalDate;
+
+      // Skip sessions that fall before the plan's start date (anchor rolls to Monday,
+      // so the first few days of that week could predate when the user actually started).
+      if (programme.programmeStartDate) {
+        const startMidnight = new Date(programme.programmeStartDate + 'T00:00:00');
+        const sessionDate = new Date(originalDate + 'T00:00:00');
+        if (sessionDate < startMidnight) return;
+      }
 
       const dot: SessionDot = {
         sessionKey,
@@ -98,7 +76,6 @@ interface LoadCalendarProps {
   onUpdateProgramme?: (programme: GeneratedProgramme) => void;
 }
 
-// ── Risky day check ────────────────────────────────────────────────────────
 
 function isRiskyDay(dateStr: string, matchEntries: MatchEntry[]): { risky: boolean; reason: string } {
   const day = classifyDay(dateStr, matchEntries);
@@ -108,7 +85,6 @@ function isRiskyDay(dateStr: string, matchEntries: MatchEntry[]): { risky: boole
   return { risky: false, reason: '' };
 }
 
-// ── Session colour config ──────────────────────────────────────────────────
 
 const SESSION_STYLE = {
   gym: {
@@ -127,7 +103,6 @@ const SESSION_STYLE = {
   },
 };
 
-// ── Month calendar grid ────────────────────────────────────────────────────
 
 function MonthlyCalendarGrid({
   year,
@@ -279,7 +254,6 @@ function MonthlyCalendarGrid({
   );
 }
 
-// ── Overload warning confirm ───────────────────────────────────────────────
 
 function OverloadWarningModal({
   reason,
@@ -322,7 +296,6 @@ function OverloadWarningModal({
   );
 }
 
-// ── Day modal ──────────────────────────────────────────────────────────────
 
 function DayModal({
   dateStr,
@@ -730,7 +703,6 @@ function DayModal({
   );
 }
 
-// ── Periodisation explanations ─────────────────────────────────────────────
 
 const PERIOD_INFO = [
   {
@@ -844,7 +816,6 @@ function PeriodisationGuide() {
   );
 }
 
-// ── Main ───────────────────────────────────────────────────────────────────
 
 export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: LoadCalendarProps) {
   const {

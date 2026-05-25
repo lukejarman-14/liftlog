@@ -1,5 +1,5 @@
 /**
- * ProgrammeBuilder v2 — 5-step wizard collecting inputs for the AI programme generator.
+ * ProgrammeBuilder v2 — 6-step wizard collecting inputs for the programme generator.
  * Pre-fills position, experience, gym access from UserProfile. FV always balanced.
  */
 
@@ -22,11 +22,10 @@ interface Props {
   existingStrengthSetup?: StrengthSetup;
 }
 
-const STEPS = ['Goals', 'Position', 'Injuries', 'Schedule', 'Lifts', 'Duration'];
+const STEPS = ['Position', 'Schedule', 'Goals', 'Injuries', 'Lifts', 'Duration'];
 
 type Opt<T extends string> = { value: T; label: string; description?: string };
 
-// ── Option data ────────────────────────────────────────────────────────────
 
 const GYM_SESSIONS_OPTS: Opt<string>[] = [
   { value: '1', label: '1 gym session' },
@@ -81,18 +80,11 @@ const GOAL_OPTS: Opt<PrimaryGoal>[] = [
   { value: 'injury_prevention', label: '🛡️ Injury Prevention', description: 'Resilience & prehab focus' },
 ];
 
-const SECONDARY_GOAL_OPTS: { value: string; label: string }[] = [
-  { value: 'speed', label: 'Speed' }, { value: 'strength', label: 'Strength' },
-  { value: 'power', label: 'Power' }, { value: 'endurance', label: 'Endurance' },
-  { value: 'agility', label: 'Agility' }, { value: 'mobility', label: 'Mobility' },
-];
-
 const WEAKNESS_OPTS: Opt<Weakness>[] = [
   { value: 'speed', label: '⚡ Speed', description: 'First step or max velocity' },
   { value: 'strength', label: '💪 Strength', description: 'Lacking force base' },
   { value: 'endurance', label: '🫀 Endurance', description: 'Fade late in games' },
   { value: 'power', label: '🚀 Power', description: 'Explosive actions are weak' },
-  { value: 'agility', label: '🔄 Agility', description: 'Change of direction' },
   { value: 'injury_prone', label: '🩹 Injury-prone', description: 'Recurring injuries' },
 ];
 
@@ -106,7 +98,6 @@ const INJURY_OPTS: { value: InjuryArea; label: string; emoji: string }[] = [
   { value: 'shoulder', label: 'Shoulder', emoji: '💪' },
 ];
 
-// ── Day schedule helpers ───────────────────────────────────────────────────
 
 export type DaySlot = 'rest' | 'gym' | 'zone2' | 'hiit' | 'rsa' | 'training' | 'match' | 'gym+zone2' | 'gym+hiit' | 'gym+rsa' | 'gym+training' | 'gym-micro';
 
@@ -120,14 +111,14 @@ const EMPTY_SCHEDULE: WeekSchedule = {
   friday: 'rest', saturday: 'rest', sunday: 'rest',
 };
 
-// Load weight per session type (arbitrary units, higher = more recovery needed after)
+// Session stress scores (1–5 scale; higher = more recovery needed before next session).
+// Based on Impellizzeri et al. session-RPE load model adapted for football periodisation.
 const LOAD: Record<DaySlot, number> = {
   gym: 3, zone2: 1, hiit: 2, rsa: 3, training: 2, match: 3, rest: 0,
   'gym+zone2': 4, 'gym+hiit': 4, 'gym+rsa': 5, 'gym+training': 4,
   'gym-micro': 1,
 };
 
-// ── Match-count gym volume cap ─────────────────────────────────────────────
 // Prevents excess neuromuscular fatigue carryover into congested fixture weeks.
 function clampGymCount(requested: number, matchCount: number): number {
   if (matchCount >= 3) return Math.min(requested, 1);
@@ -329,7 +320,6 @@ function assignSessions(
   return schedule;
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
 
 function AvailabilityPicker({
   availableDays, onToggle, matchIndices, totalNeeded,
@@ -532,16 +522,15 @@ function ChipSelector<T extends string>({
   );
 }
 
-// ── Main wizard ────────────────────────────────────────────────────────────
 
 export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStrengthSetup }: Props) {
   const [step, setStep] = useState(0);
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [step]);
 
-  // Step 0 — Schedule
-  const [offSeason, setOffSeason] = useState<boolean | null>(null);
-  const [sessionsPerWeek] = useState<number>(3);
+  // Step 1 — Schedule (season type drives offSeason boolean for generator)
+  const [seasonType, setSeasonType] = useState<'in-season' | 'off-season' | 'pre-season' | null>(null);
+  const offSeason = seasonType === 'off-season' || seasonType === 'pre-season';
   const [gymSessionsPerWeek, setGymSessionsPerWeek] = useState<number>(2);
   const [conditioningTypes, setConditioningTypes] = useState<Set<CondType>>(new Set(['hiit', 'rsa', 'zone2']));
   // In-season specific
@@ -549,10 +538,10 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   const [inSeasonCondTypes, setInSeasonCondTypes] = useState<Set<CondType>>(new Set(['zone2']));
   const [matchesPerWeek, setMatchesPerWeek] = useState<number>(1);
 
-  // Analytics: track forward navigation from the Schedule step (step 3) to the next step
+  // Analytics: track forward navigation from the Schedule step (step 1) to the next step
   const prevStepRef = useRef(step);
   useEffect(() => {
-    if (prevStepRef.current === 3 && step === 4) {
+    if (prevStepRef.current === 1 && step === 2) {
       trackEvent('match_days_configured', { match_count: offSeason ? 0 : matchesPerWeek });
     }
     prevStepRef.current = step;
@@ -571,7 +560,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
 
   const matchIndicesSet = useCallback(() => {
     const s = new Set<number>();
-    if (offSeason === false) {
+    if (seasonType === 'in-season') {
       s.add(primaryMatchDayIndex);
       if (secondMatchDayKey) {
         const sk = DAY_KEYS.indexOf(secondMatchDayKey as typeof DAY_KEYS[number]);
@@ -579,7 +568,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
       }
     }
     return s;
-  }, [offSeason, primaryMatchDayIndex, secondMatchDayKey]);
+  }, [seasonType, primaryMatchDayIndex, secondMatchDayKey]);
 
   const setPrimaryMatchDay = (i: number) => {
     setPrimaryMatchDayIndex(i);
@@ -600,7 +589,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
 
   // Compute derived schedule from availability
   const weekSchedule = useCallback((): WeekSchedule => {
-    if (offSeason === null) return { ...EMPTY_SCHEDULE };
+    if (seasonType === null) return { ...EMPTY_SCHEDULE };
     const matchIdx = matchIndicesSet();
     // For in-season, match day indices are always in the available pool
     const pool = Array.from(new Set([...Array.from(availableDays), ...Array.from(matchIdx)])).sort((a,b) => a-b);
@@ -613,15 +602,21 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
       matchIdx,
       offSeason ? 0 : matchesPerWeek,
     );
-  }, [offSeason, availableDays, gymSessionsPerWeek, conditioningTypes, inSeasonGymCount, inSeasonCondTypes, matchIndicesSet, matchesPerWeek])();
+  }, [seasonType, availableDays, gymSessionsPerWeek, conditioningTypes, inSeasonGymCount, inSeasonCondTypes, matchIndicesSet, matchesPerWeek])();
 
   const condCount = conditioningTypes.size;
   const inSeasonCondCount = inSeasonCondTypes.size;
   const effectiveInSeasonGym = clampGymCount(inSeasonGymCount, matchesPerWeek);
-  // totalNeeded = training sessions only (match days are separate, not counted as "sessions")
-  const totalNeeded = offSeason === true
+  // Derived total shown in Programme Duration step — matches what handleGenerate passes to the generator
+  const sessionsPerWeek = offSeason
     ? gymSessionsPerWeek + condCount
-    : offSeason === false
+    : seasonType === 'in-season'
+    ? effectiveInSeasonGym + inSeasonCondCount + matchesPerWeek
+    : 3;
+  // totalNeeded = training sessions only (match days are separate, not counted as "sessions")
+  const totalNeeded = offSeason
+    ? gymSessionsPerWeek + condCount
+    : seasonType === 'in-season'
     ? effectiveInSeasonGym + inSeasonCondCount
     : 0;
   const matchIdx = matchIndicesSet();
@@ -631,22 +626,22 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
 
   const minDaysNeeded = Math.ceil(totalNeeded / 2);
   const scheduleValid =
-    offSeason !== null &&
+    seasonType !== null &&
     totalAvailable >= minDaysNeeded &&
     scheduleRestCount >= 1;
-  // Step 1 — Position & play style (nothing pre-selected)
+  // Step 0 — Position & play style (nothing pre-selected)
   const [primaryPos, setPrimaryPos] = useState<string>('');
-  const [secondaryPos, setSecondaryPos] = useState<string>('');
   const [playStyle, setPlayStyle] = useState<PlayStyle | ''>('');
   // Step 2 — Goals (nothing pre-selected)
   const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal | ''>('');
-  const [secondaryGoals, setSecondaryGoals] = useState<string[]>([]);
   const [biggestWeakness, setBiggestWeakness] = useState<Weakness | ''>('');
-  // Step 3 — Injuries & preferences
+  // Step 3 — Injuries
   const [injuryHistory, setInjuryHistory] = useState<InjuryArea[]>([]);
+  // Step 4 — Lift baselines (optional, pre-filled if existing) + lift preferences (moved from injuries)
   const [preferBackSquat, setPreferBackSquat] = useState(false);
-  // Step 4 — Lift baselines (optional, pre-filled if existing)
   const [upperPullChoice, setUpperPullChoice] = useState<'pull-up' | 'row'>('pull-up');
+  // Step 1 — gym access (editable inline in Schedule step, pre-filled from profile)
+  const [gymAccess, setGymAccess] = useState<'full' | 'basic' | 'none'>(userProfile.gymAccess);
   type LiftInput = { weightKg: string; reps: string };
   const [liftInputs, setLiftInputs] = useState<Partial<Record<LiftKey, LiftInput>>>(() => {
     if (!existingStrengthSetup?.lifts.length) return {};
@@ -662,17 +657,13 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   const [customDurStr, setCustomDurStr] = useState('');
   const DURATION_PRESETS = [4, 6, 8, 12, 16];
 
-  // Per-step validation
-  const step0Valid = offSeason !== null && scheduleValid;
-  const step1Valid = primaryPos !== '' && (primaryPos === 'GK' || playStyle !== '');
-  const step2Valid = primaryGoal !== '' && biggestWeakness !== '';
-  const canNext = step === 0 ? step2Valid : step === 1 ? step1Valid : step === 3 ? step0Valid : true;
-  // step 4 (lifts) is optional — always valid
+  // Per-step validation (new order: 0=Position, 1=Schedule, 2=Goals, 3=Injuries, 4=Lifts, 5=Duration)
+  const positionStepValid = primaryPos !== '' && (primaryPos === 'GK' || playStyle !== '');
+  const scheduleStepValid = seasonType !== null && scheduleValid;
+  const goalsStepValid    = primaryGoal !== '' && biggestWeakness !== '';
+  const canNext = step === 0 ? positionStepValid : step === 1 ? scheduleStepValid : step === 2 ? goalsStepValid : true;
+  // steps 3 (injuries), 4 (lifts), 5 (duration generate) are always passable
 
-  const toggleSecondary = (v: string) => {
-    if (primaryGoal && v === primaryGoal) return;
-    setSecondaryGoals(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v].slice(0, 3));
-  };
   const toggleInjury = (v: InjuryArea) => {
     setInjuryHistory(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
   };
@@ -718,7 +709,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   }, [isGenerating]);
 
   const handleGenerate = () => {
-    const isOff = offSeason === true;
+    const isOff = offSeason;
     const totalSessions = isOff
       ? gymSessionsPerWeek + condCount
       : clampGymCount(inSeasonGymCount, matchesPerWeek) + inSeasonCondCount + matchesPerWeek;
@@ -732,7 +723,6 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
     });
     const inputs: ProgrammeInputs = {
       position: primaryPos as ProgrammeInputs['position'],
-      secondaryPosition: secondaryPos ? secondaryPos as ProgrammeInputs['secondaryPosition'] : undefined,
       playStyle: playStyle as PlayStyle,
       experienceYears: userProfile.experienceYears,
       sessionsPerWeek: totalSessions,
@@ -741,16 +731,16 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
       conditioningTypes: isOff ? Array.from(conditioningTypes) : Array.from(inSeasonCondTypes),
       matchesPerWeek: !isOff ? (matchesPerWeek as 1 | 2 | 3) : undefined,
       primaryGoal: primaryGoal as PrimaryGoal,
-      secondaryGoals,
       matchDay,
       secondMatchDay: hasSecondMatchDay && !isOff ? secondMatchDay : undefined,
       offSeason: isOff,
+      preSeason: seasonType === 'pre-season',
       biggestWeakness: biggestWeakness as Weakness,
       injuryHistory,
-      gymAccess: userProfile.gymAccess,
+      gymAccess,
       customDurationWeeks: programDuration,
-      preferBackSquat: userProfile.gymAccess !== 'none' ? preferBackSquat : undefined,
-      upperPullChoice: userProfile.gymAccess !== 'none' ? upperPullChoice : undefined,
+      preferBackSquat: gymAccess !== 'none' ? preferBackSquat : undefined,
+      upperPullChoice: gymAccess !== 'none' ? upperPullChoice : undefined,
       lifts: computedLifts.length > 0 ? computedLifts : undefined,
     };
     genCallbackRef.current = () => onGenerate(inputs);
@@ -758,7 +748,8 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   };
 
   const totalSteps = STEPS.length;
-  const stepIcons = [Target, User, Brain, Activity, Dumbbell, Calendar];
+  // Icons match new step order: Position, Schedule, Goals, Injuries, Lifts, Duration
+  const stepIcons = [User, Activity, Target, Brain, Dumbbell, Calendar];
   const StepIcon = stepIcons[step] ?? Check;
 
   const expWeeks: Record<string, string> = { '<1': '6', '1-3': '8', '3-5': '10', '5+': '12' };
@@ -788,8 +779,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
               style={{ width: `${pct}%` }}
             />
           </div>
-          <div className="flex justify-between mt-1.5">
-            <span className="text-xs text-gray-500">Analysing inputs</span>
+          <div className="flex justify-end mt-1.5">
             <span className="text-xs text-brand-600 font-semibold">{pct}%</span>
           </div>
         </div>
@@ -825,51 +815,71 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
       <div className="flex items-center gap-2 mb-5 text-brand-600">
         <StepIcon size={22} />
         <h2 className="text-lg font-bold text-gray-900">
-          {step === 0 && 'Goals & Weakness'}
-          {step === 1 && 'Position & Play Style'}
-          {step === 2 && 'Injury History'}
-          {step === 3 && 'Training Schedule'}
+          {step === 0 && 'Position & Play Style'}
+          {step === 1 && 'Training Schedule'}
+          {step === 2 && 'Goals & Weakness'}
+          {step === 3 && 'Injury History'}
           {step === 4 && 'Lift Baselines'}
           {step === 5 && 'Programme Duration'}
         </h2>
       </div>
 
-      {/* ── Step 3: Schedule ── */}
-      {step === 3 && (
+      {step === 1 && (
         <div className="space-y-5">
-          {/* Season selector */}
+          {/* Season selector — 3 options */}
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-3">Where are you in your season?</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => { setOffSeason(false); setHasSecondMatchDay(false); trackEvent('season_selected', { season_type: 'in-season' }); }}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  offSeason === false
-                    ? 'border-brand-500 bg-brand-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="text-2xl mb-1">⚽</div>
-                <div className={`text-sm font-bold ${offSeason === false ? 'text-brand-700' : 'text-gray-700'}`}>In-Season</div>
-                <div className="text-xs text-gray-500 mt-0.5">Training built around match days</div>
-              </button>
-              <button
-                onClick={() => { setOffSeason(true); setHasSecondMatchDay(false); trackEvent('season_selected', { season_type: 'off-season' }); }}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  offSeason === true
-                    ? 'border-brand-500 bg-brand-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="text-2xl mb-1">🏝️</div>
-                <div className={`text-sm font-bold ${offSeason === true ? 'text-brand-700' : 'text-gray-700'}`}>Off-Season</div>
-                <div className="text-xs text-gray-500 mt-0.5">Focus purely on building fitness</div>
-              </button>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { type: 'in-season' as const, emoji: '⚽', label: 'In-Season', desc: 'Training built around match days' },
+                { type: 'pre-season' as const, emoji: '🏃', label: 'Pre-Season', desc: 'Ramping up — no matches yet' },
+                { type: 'off-season' as const, emoji: '🏝️', label: 'Off-Season', desc: 'Pure fitness building' },
+              ]).map(({ type, emoji, label, desc }) => (
+                <button
+                  key={type}
+                  onClick={() => { setSeasonType(type); setHasSecondMatchDay(false); trackEvent('season_selected', { season_type: type }); }}
+                  className={`p-3 rounded-xl border-2 text-left transition-all ${
+                    seasonType === type ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{emoji}</div>
+                  <div className={`text-sm font-bold ${seasonType === type ? 'text-brand-700' : 'text-gray-700'}`}>{label}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Off-season: separate gym + conditioning counts */}
-          {offSeason === true && (
+          {/* Gym access confirmation */}
+          {seasonType !== null && (
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Gym access</p>
+              <p className="text-xs text-gray-500 mb-2">Confirm your gym access for this programme — defaults to your profile setting.</p>
+              <div className="flex flex-col gap-2">
+                {([
+                  { value: 'full', label: '🏋️ Full Gym', desc: 'Barbells, rack, cables, dumbbells' },
+                  { value: 'basic', label: '🥊 Basic Gym', desc: 'Dumbbells, barbells — no rack' },
+                  { value: 'none', label: '🏠 No Gym', desc: 'Bodyweight & outdoor only' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setGymAccess(opt.value)}
+                    className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${
+                      gymAccess === opt.value
+                        ? 'border-brand-500 bg-brand-50 text-brand-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-sm">{opt.label}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Off-season / Pre-season: separate gym + conditioning counts */}
+          {offSeason && (
             <>
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-2">Gym sessions per week</p>
@@ -930,7 +940,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
           )}
 
           {/* In-season: gym count + conditioning types + match info */}
-          {offSeason === false && (
+          {seasonType === 'in-season' && (
             <>
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-2">Gym sessions per week</p>
@@ -1058,37 +1068,22 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
           <Card className="p-4 bg-blue-50 border-blue-200">
             <p className="text-xs text-blue-700 font-medium">Using your profile</p>
             <p className="text-xs text-blue-600 mt-1">
-              Experience: <strong>{userProfile.experienceYears} yrs</strong> · Gym: <strong>{userProfile.gymAccess}</strong> · Duration: <strong>{expWeeks[userProfile.experienceYears] ?? '8'} weeks</strong>
+              Experience: <strong>{userProfile.experienceYears} yrs</strong> · Duration: <strong>{expWeeks[userProfile.experienceYears] ?? '8'} weeks</strong>
             </p>
           </Card>
         </div>
       )}
 
-      {/* ── Step 1: Position & Play Style ── */}
-      {step === 1 && (
+      {step === 0 && (
         <div className="space-y-5">
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-1">Primary position</p>
-            <p className="text-xs text-gray-500 mb-2">Pre-filled from your profile — change if needed</p>
+            <p className="text-xs text-gray-500 mb-2">Your programme is built entirely around this position.</p>
             <div className="grid grid-cols-3 gap-2">
               {POSITION_OPTS.map(o => (
                 <button key={o.value} onClick={() => setPrimaryPos(o.value)}
                   className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all ${
                     primaryPos === o.value ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                  }`}>{o.label}</button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-700 mb-1">Secondary position <span className="text-gray-400 font-normal">(optional)</span></p>
-            <div className="grid grid-cols-3 gap-2">
-              {[{ value: '', label: '— None' }, ...POSITION_OPTS].map(o => (
-                <button key={o.value} onClick={() => setSecondaryPos(o.value === primaryPos ? '' : o.value)}
-                  className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                    secondaryPos === o.value && o.value !== '' ? 'border-purple-500 bg-purple-50 text-purple-700'
-                    : o.value === primaryPos && o.value !== '' ? 'opacity-30 border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : o.value === '' ? secondaryPos === '' ? 'border-gray-400 bg-gray-100 text-gray-600' : 'border-gray-200 bg-white text-gray-500'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                   }`}>{o.label}</button>
               ))}
             </div>
@@ -1107,8 +1102,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
         </div>
       )}
 
-      {/* ── Step 0: Goals ── */}
-      {step === 0 && (
+      {step === 2 && (
         <div className="space-y-5">
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-1">Primary goal</p>
@@ -1116,28 +1110,14 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
             <ChipSelector options={GOAL_OPTS} selected={primaryGoal as PrimaryGoal} onToggle={setPrimaryGoal} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-gray-700 mb-1">Secondary goals <span className="text-gray-400 font-normal">(up to 3)</span></p>
-            <p className="text-xs text-gray-500 mb-2">Maintained at minimum effective dose</p>
-            <div className="flex flex-wrap gap-2">
-              {SECONDARY_GOAL_OPTS.filter(o => o.value !== primaryGoal).map(o => (
-                <button key={o.value} onClick={() => toggleSecondary(o.value)}
-                  className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
-                    secondaryGoals.includes(o.value)
-                      ? 'bg-brand-500 border-brand-500 text-white'
-                      : 'bg-white border-gray-300 text-gray-600 hover:border-brand-400'
-                  }`}>{o.label}</button>
-              ))}
-            </div>
-          </div>
-          <div>
             <p className="text-sm font-semibold text-gray-700 mb-2">Biggest physical weakness</p>
+            <p className="text-xs text-gray-500 mb-2">Extra targeted work is built into every session</p>
             <ChipSelector options={WEAKNESS_OPTS} selected={biggestWeakness as Weakness} onToggle={setBiggestWeakness} />
           </div>
         </div>
       )}
 
-      {/* ── Step 2: Injury history ── */}
-      {step === 2 && (
+      {step === 3 && (
         <div>
           <p className="text-sm text-gray-600 mb-4">Select any areas with a history of injury. Targeted prehab will be built into every session.</p>
           <div className="grid grid-cols-2 gap-3">
@@ -1158,8 +1138,28 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
               <p className="text-xs text-green-700">No injury history — a general prehab protocol (hamstring + groin) will be included in every session.</p>
             </Card>
           )}
-          {userProfile.gymAccess !== 'none' && (
-            <div className="mt-5">
+          {injuryHistory.length > 0 && (
+            <Card className="mt-4 p-4 bg-red-50 border-red-200">
+              <p className="text-xs text-red-700 font-medium">{injuryHistory.length} area{injuryHistory.length !== 1 ? 's' : ''} selected — dedicated prehab exercises will be added to every session.</p>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="space-y-1">
+          <p className="text-sm text-gray-600 mb-2">
+            Enter your best working set for each lift — the algorithm uses these to set exact weekly weights with progressive overload. Leave blank any you haven't tested.
+          </p>
+          {existingStrengthSetup && (
+            <div className="px-3 py-2 mb-3 rounded-xl bg-green-50 border border-green-200">
+              <p className="text-xs text-green-700 font-medium">Pre-filled from your last programme — update if you've gotten stronger.</p>
+            </div>
+          )}
+
+          {/* Squat preference — drives which squat appears first */}
+          {gymAccess !== 'none' && (
+            <div className="mt-1 mb-3">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Squat Preference</p>
               <button
                 onClick={() => setPreferBackSquat(p => !p)}
@@ -1171,8 +1171,8 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
               >
                 <span className="text-2xl">🏋️</span>
                 <div className="flex-1">
-                  <div className="text-sm font-semibold">I enjoy Back Squat / have plateaued on split squat</div>
-                  <div className="text-xs text-gray-500 mt-0.5">Enables Back Squat in off-season Foundation phases. BSS always used when in-season, speed goal, or back/hamstring history.</div>
+                  <div className="text-sm font-semibold">I prefer Back Squat</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Enables Back Squat in heavy off/pre-season phases. BSS is always used in-season.</div>
                 </div>
                 <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
                   preferBackSquat ? 'bg-brand-500 border-brand-500' : 'border-gray-300'
@@ -1180,33 +1180,32 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
                   {preferBackSquat && <Check size={12} className="text-white" />}
                 </div>
               </button>
+              {!preferBackSquat && (
+                <p className="text-xs text-brand-600 font-medium mt-1.5 ml-1">🦵 Bulgarian Split Squat is your primary squat exercise</p>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* ── Step 4: Lift Baselines ── */}
-      {step === 4 && (
-        <div className="space-y-1">
-          <p className="text-sm text-gray-600 mb-2">
-            Enter your best working set for each lift — the algorithm uses these to set exact weekly weights with progressive overload. Leave blank any you haven't tested.
-          </p>
-          {existingStrengthSetup && (
-            <div className="px-3 py-2 mb-3 rounded-xl bg-green-50 border border-green-200">
-              <p className="text-xs text-green-700 font-medium">Pre-filled from your last programme — update if you've gotten stronger.</p>
-            </div>
-          )}
-          <div className="flex flex-col gap-4 mt-3">
-            {LIFT_KEYS.map(key => {
+          <div className="flex flex-col gap-4 mt-1">
+            {/* When preferBackSquat is false, hide Back Squat (BSS is primary — no squat needed).
+                Otherwise show all lifts with BSS reordered to match the squat preference. */}
+            {(preferBackSquat
+              ? (LIFT_KEYS as readonly LiftKey[])
+              : (['bss', ...LIFT_KEYS.filter(k => k !== 'bss' && k !== 'squat')] as LiftKey[])
+            ).map(key => {
               const meta = LIFT_META[key];
               const inp = liftInputs[key];
               const w = parseFloat(inp?.weightKg ?? '');
               const r = parseInt(inp?.reps ?? '', 10);
               const oneRM = w > 0 && r > 0 ? Math.round(epley1RM(w, r)) : null;
+              const isPrimarySquat = (!preferBackSquat && key === 'bss') || (preferBackSquat && key === 'squat');
               return (
-                <div key={key} className="p-4 rounded-xl border border-gray-200 bg-white">
+                <div key={key} className={`p-4 rounded-xl border bg-white ${isPrimarySquat ? 'border-brand-300 border-2' : 'border-gray-200'}`}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold text-gray-800">{meta.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-bold text-gray-800">{meta.label}</span>
+                      {isPrimarySquat && <span className="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full">Primary</span>}
+                    </div>
                     {oneRM && (
                       <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">~{oneRM} kg 1RM</span>
                     )}
@@ -1273,7 +1272,6 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
         </div>
       )}
 
-      {/* ── Step 5: Duration + Generate ── */}
       {step === 5 && (
         <div>
           <p className="text-sm text-gray-600 mb-5">Choose how long your programme should be. Longer programmes allow more progressive phases. You can always regenerate later.</p>
@@ -1334,7 +1332,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
 
           <Button fullWidth size="lg" onClick={handleGenerate}>
             <Zap size={18} />
-            Generate My Program
+            Generate My Programme
           </Button>
           <p className="text-center text-xs text-gray-400 mt-2 pb-6">
             {programDuration} weeks · {sessionsPerWeek} sessions/week

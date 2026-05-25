@@ -1,17 +1,24 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import {
   Camera, Mail, User, Shield, Calendar, Target, Dumbbell,
-  LogOut, ChevronRight, Activity, Zap, Lock, Eye, EyeOff, Check,
-  Ruler, Weight, AlertTriangle, Pencil, Plus, TrendingUp, TrendingDown,
+  LogOut, ChevronRight, ChevronDown, ChevronUp, Activity, Zap, Lock, Eye, EyeOff, Check,
+  Ruler, Weight, AlertTriangle, Pencil, Plus, TrendingUp, TrendingDown, Bell, BellOff, Download,
+  Trophy,
 } from 'lucide-react';
 import { isSupabaseConfigured, cloudUpdatePassword } from '../../lib/cloudSync';
+import { hashPassword } from '../../lib/authUtils';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
-import { UserProfile, WeightEntry } from '../../types';
+import { UserProfile, WeightEntry, UserSettings, WorkoutSession } from '../../types';
 import { BaselineData } from '../../hooks/useStore';
-import { GRADE_LABELS, GRADE_COLOURS } from '../../data/testingBattery';
+import { GRADE_LABELS, GRADE_COLOURS, calcVo2Max, calcYoyoDistance } from '../../data/testingBattery';
+import {
+  requestNotificationPermission,
+  checkNotificationPermission,
+  cancelAllTrainingReminders,
+} from '../../lib/notifications';
+import { trackEvent } from '../../lib/analytics';
 
-// ── Weight Tracker ─────────────────────────────────────────────────────────
 
 function WeightTracker({
   log,
@@ -140,13 +147,334 @@ function WeightTracker({
   );
 }
 
+
+function TrainingReminders({
+  settings,
+  onUpdate,
+}: {
+  settings: UserSettings;
+  onUpdate: (patch: Partial<UserSettings>) => void;
+}) {
+  const [permState, setPermState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [saving, setSaving] = useState(false);
+
+  // Check current permission on mount
+  useEffect(() => {
+    checkNotificationPermission().then(granted =>
+      setPermState(granted ? 'granted' : 'denied'),
+    );
+  }, []);
+
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const minutes = [0, 15, 30, 45];
+
+  const fmt2 = (n: number) => String(n).padStart(2, '0');
+
+  const handleToggle = async () => {
+    if (settings.reminderEnabled) {
+      await cancelAllTrainingReminders();
+      onUpdate({ reminderEnabled: false });
+      trackEvent('reminder_disabled');
+    } else {
+      setSaving(true);
+      const granted = await requestNotificationPermission();
+      setPermState(granted ? 'granted' : 'denied');
+      if (granted) {
+        onUpdate({ reminderEnabled: true });
+        trackEvent('reminder_enabled', { hour: settings.reminderHour, minute: settings.reminderMinute });
+      }
+      setSaving(false);
+    }
+  };
+
+  const handleTimeChange = (field: 'reminderHour' | 'reminderMinute', value: number) => {
+    onUpdate({ [field]: value });
+  };
+
+  return (
+    <Card className="p-4 mb-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Bell size={14} className="text-brand-500" />
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Training Reminders</h3>
+      </div>
+
+      {/* Toggle row */}
+      <div className="flex items-center justify-between py-1">
+        <div className="flex-1 min-w-0 pr-3">
+          <p className="text-sm font-medium text-gray-800">Daily session reminder</p>
+          <p className="text-xs text-gray-400 mt-0.5 leading-snug">
+            {settings.reminderEnabled
+              ? `Notifications scheduled at ${fmt2(settings.reminderHour)}:${fmt2(settings.reminderMinute)}`
+              : 'Get notified when a training session is due'}
+          </p>
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={saving}
+          className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${
+            settings.reminderEnabled ? 'bg-brand-500' : 'bg-gray-200'
+          } ${saving ? 'opacity-50' : ''}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+            settings.reminderEnabled ? 'translate-x-6' : 'translate-x-0'
+          }`} />
+        </button>
+      </div>
+
+      {/* Permission denied warning */}
+      {permState === 'denied' && !settings.reminderEnabled && (
+        <div className="mt-2 flex items-start gap-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200">
+          <BellOff size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-700 leading-snug">
+            Notifications are blocked. Go to <strong>Settings → Vector Football → Notifications</strong> and enable them, then come back and turn this on.
+          </p>
+        </div>
+      )}
+
+      {/* Time picker — only visible when enabled */}
+      {settings.reminderEnabled && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Remind me at</p>
+          <div className="flex items-center gap-2">
+            <select
+              value={settings.reminderHour}
+              onChange={e => handleTimeChange('reminderHour', Number(e.target.value))}
+              className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-400"
+              style={{ fontSize: 16 }}
+            >
+              {hours.map(h => (
+                <option key={h} value={h}>{fmt2(h)}:00</option>
+              ))}
+            </select>
+            <span className="text-gray-400 font-bold">:</span>
+            <select
+              value={settings.reminderMinute}
+              onChange={e => handleTimeChange('reminderMinute', Number(e.target.value))}
+              className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-400"
+              style={{ fontSize: 16 }}
+            >
+              {minutes.map(m => (
+                <option key={m} value={m}>{fmt2(m)}</option>
+              ))}
+            </select>
+          </div>
+          <p className="text-xs text-gray-400 mt-2 leading-snug">
+            Notifications will fire on each training day in your current programme. Re-toggle after changing time to apply.
+          </p>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+
+type BadgeCategory = 'consistency' | 'volume' | 'testing' | 'programme';
+
+const BADGE_DEFS: { id: string; emoji: string; name: string; desc: string; category: BadgeCategory }[] = [
+  { id: 'streak_1', emoji: '🌱', name: 'First Step', desc: 'Complete your first training week', category: 'consistency' },
+  { id: 'streak_4', emoji: '🔥', name: 'On Fire', desc: '4-week training streak', category: 'consistency' },
+  { id: 'streak_8', emoji: '💪', name: 'Unstoppable', desc: '8-week training streak', category: 'consistency' },
+  { id: 'streak_12', emoji: '👑', name: 'Elite', desc: '12-week training streak', category: 'consistency' },
+  { id: 'sessions_1', emoji: '⚡', name: 'Off the Mark', desc: 'Log your first session', category: 'volume' },
+  { id: 'sessions_10', emoji: '🏋️', name: 'Gaining Ground', desc: '10 sessions completed', category: 'volume' },
+  { id: 'sessions_25', emoji: '🎯', name: 'Dedicated', desc: '25 sessions completed', category: 'volume' },
+  { id: 'sessions_50', emoji: '🏆', name: 'Veteran', desc: '50 sessions completed', category: 'volume' },
+  { id: 'sessions_100', emoji: '💎', name: 'Legend', desc: '100 sessions completed', category: 'volume' },
+  { id: 'test_first', emoji: '🧪', name: 'Know Your Numbers', desc: 'Complete your first test battery', category: 'testing' },
+  { id: 'test_3', emoji: '📈', name: 'Data Driven', desc: 'Complete 3 test batteries', category: 'testing' },
+  { id: 'test_improve', emoji: '🚀', name: 'Level Up', desc: 'Improve on any test result', category: 'testing' },
+  { id: 'prog_built', emoji: '📋', name: 'Planner', desc: 'Build your first programme', category: 'programme' },
+  { id: 'prog_done', emoji: '🎖️', name: 'Finisher', desc: 'Complete a full programme', category: 'programme' },
+  { id: 'prog_done_2', emoji: '🥇', name: 'Returner', desc: 'Complete two full programmes', category: 'programme' },
+];
+
+const CAT_LABELS: Record<BadgeCategory, string> = {
+  consistency: '🔥 Consistency',
+  volume: '🏋️ Volume',
+  testing: '🧪 Testing',
+  programme: '📋 Programme',
+};
+
+function calcStreak(sessions: WorkoutSession[]): number {
+  if (!sessions.length) return 0;
+  const monday = (d: Date) => {
+    const m = new Date(d);
+    m.setDate(d.getDate() + (d.getDay() === 0 ? -6 : 1 - d.getDay()));
+    return m.toISOString().split('T')[0];
+  };
+  const weeks = new Set(sessions.map(s => monday(new Date(s.date))));
+  let n = 0;
+  const cur = new Date();
+  if (!weeks.has(monday(cur))) cur.setDate(cur.getDate() - 7);
+  while (n < 52 && weeks.has(monday(cur))) {
+    n++;
+    cur.setDate(cur.getDate() - 7);
+  }
+  return n;
+}
+
+function BadgesCard({
+  sessions,
+  totalSessions,
+  testSessionCount,
+  hasImprovedTest,
+  programmesBuilt,
+  programmesCompleted,
+}: {
+  sessions: WorkoutSession[];
+  totalSessions: number;
+  testSessionCount: number;
+  hasImprovedTest: boolean;
+  programmesBuilt: number;
+  programmesCompleted: number;
+}) {
+  const streak = calcStreak(sessions);
+  const [selectedBadge, setSelectedBadge] = useState<typeof BADGE_DEFS[0] | null>(null);
+
+  const earned = new Set<string>();
+  if (streak >= 1) earned.add('streak_1');
+  if (streak >= 4) earned.add('streak_4');
+  if (streak >= 8) earned.add('streak_8');
+  if (streak >= 12) earned.add('streak_12');
+  if (totalSessions >= 1) earned.add('sessions_1');
+  if (totalSessions >= 10) earned.add('sessions_10');
+  if (totalSessions >= 25) earned.add('sessions_25');
+  if (totalSessions >= 50) earned.add('sessions_50');
+  if (totalSessions >= 100) earned.add('sessions_100');
+  if (testSessionCount >= 1) earned.add('test_first');
+  if (testSessionCount >= 3) earned.add('test_3');
+  if (hasImprovedTest) earned.add('test_improve');
+  if (programmesBuilt >= 1) earned.add('prog_built');
+  if (programmesCompleted >= 1) earned.add('prog_done');
+  if (programmesCompleted >= 2) earned.add('prog_done_2');
+
+  const earnedCount = earned.size;
+  const total = BADGE_DEFS.length;
+  const categories: BadgeCategory[] = ['consistency', 'volume', 'testing', 'programme'];
+
+  const selectedEarned = selectedBadge ? earned.has(selectedBadge.id) : false;
+
+  return (
+    <>
+      <Card className="p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Trophy size={14} className="text-brand-500" />
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Badges &amp; Rewards</h3>
+          </div>
+          <span className="text-xs font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full">
+            {earnedCount}/{total}
+          </span>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden mb-4">
+          <div
+            className="h-full bg-brand-500 rounded-full transition-all"
+            style={{ width: `${(earnedCount / total) * 100}%` }}
+          />
+        </div>
+
+        {categories.map(cat => {
+          const badges = BADGE_DEFS.filter(b => b.category === cat);
+          return (
+            <div key={cat} className="mb-4 last:mb-0">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                {CAT_LABELS[cat]}
+              </p>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {badges.map(badge => {
+                  const isEarned = earned.has(badge.id);
+                  return (
+                    <button
+                      key={badge.id}
+                      onClick={() => setSelectedBadge(badge)}
+                      className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all active:scale-95 ${
+                        isEarned
+                          ? 'bg-brand-50 border-brand-200'
+                          : 'bg-gray-50 border-gray-100 opacity-40 grayscale'
+                      }`}
+                    >
+                      <span className="text-2xl leading-none">{badge.emoji}</span>
+                      <span className={`text-[10px] font-bold text-center leading-tight ${isEarned ? 'text-brand-700' : 'text-gray-400'}`}>
+                        {badge.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </Card>
+
+      {/* Badge detail sheet */}
+      {selectedBadge && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+          onClick={() => setSelectedBadge(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-t-3xl p-6 pb-28 shadow-2xl overflow-y-auto max-h-[85vh]"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Drag handle */}
+            <div className="w-10 h-1 bg-gray-200 dark:bg-zinc-700 rounded-full mx-auto mb-5" />
+
+            <div className="flex flex-col items-center text-center gap-3">
+              {/* Big emoji with earned ring */}
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center text-5xl border-4 ${
+                selectedEarned ? 'border-brand-400 bg-brand-50' : 'border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 grayscale opacity-50'
+              }`}>
+                {selectedBadge.emoji}
+              </div>
+
+              {/* Status pill */}
+              <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                selectedEarned
+                  ? 'bg-brand-100 text-brand-700'
+                  : 'bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400'
+              }`}>
+                {selectedEarned ? '✓ Earned' : 'Locked'}
+              </span>
+
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">{selectedBadge.name}</h2>
+
+              <p className="text-sm text-gray-500 dark:text-zinc-400 leading-relaxed">
+                {selectedEarned
+                  ? `You earned this badge by completing: ${selectedBadge.desc.toLowerCase()}.`
+                  : `To earn this badge: ${selectedBadge.desc.toLowerCase()}.`}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setSelectedBadge(null)}
+              className="mt-6 w-full py-3 rounded-2xl bg-brand-500 text-white font-bold text-sm"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+
 interface ProfileProps {
   userProfile: UserProfile;
   profilePicture: string | null;
   totalSessions: number;
+  sessions: WorkoutSession[];
+  testSessionCount: number;
+  hasImprovedTest: boolean;
+  programmesBuilt: number;
+  programmesCompleted: number;
   baseline: BaselineData | null;
   referralCode?: string;
   weightLog: WeightEntry[];
+  settings: UserSettings;
+  onUpdateSettings: (patch: Partial<UserSettings>) => void;
   onSetProfilePicture: (pic: string | null) => void;
   onStartBattery: () => void;
   onResetProfile: () => void;
@@ -157,13 +485,6 @@ interface ProfileProps {
   onDeleteWeight: (date: string) => void;
   onLogout: () => void;
   onBack: () => void;
-}
-
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 function ChangePasswordModal({
@@ -213,7 +534,8 @@ function ChangePasswordModal({
     }
     const newHash = await hashPassword(newPw);
     setSuccess(true);
-    setTimeout(() => { onSave(newHash); onClose(); }, 800);
+    onSave(newHash);
+    onClose();
     setLoading(false);
   };
 
@@ -334,12 +656,14 @@ function UnitToggle({ imperial, onChange }: { imperial: boolean; onChange: (v: b
 function EditMetricsModal({
   currentHeight,
   currentWeight,
+  currentDob,
   onSave,
   onClose,
 }: {
   currentHeight?: number;
   currentWeight?: number;
-  onSave: (heightCm?: number, weightKg?: number) => void;
+  currentDob?: string;
+  onSave: (heightCm?: number, weightKg?: number, dateOfBirth?: string) => void;
   onClose: () => void;
 }) {
   // Height state
@@ -352,6 +676,9 @@ function EditMetricsModal({
   const [weightImperial, setWeightImperial] = useState(false);
   const [kgStr,  setKgStr]  = useState(currentWeight ? String(currentWeight) : '');
   const [lbsStr, setLbsStr] = useState(currentWeight ? String(Math.round(currentWeight / 0.453592)) : '');
+
+  // Date of birth state
+  const [dobStr, setDobStr] = useState(currentDob ?? '');
 
   const [saved, setSaved] = useState(false);
 
@@ -403,7 +730,7 @@ function EditMetricsModal({
     }
 
     setSaved(true);
-    setTimeout(() => { onSave(heightCm, weightKg); onClose(); }, 600);
+    setTimeout(() => { onSave(heightCm, weightKg, dobStr || undefined); onClose(); }, 600);
   };
 
   const inputCls = `w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-400`;
@@ -498,6 +825,19 @@ function EditMetricsModal({
             )}
           </div>
 
+          {/* Date of Birth */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Date of Birth</label>
+            <p className="text-xs text-gray-400 mb-1.5">Used to track your age accurately over years of use.</p>
+            <input
+              value={dobStr}
+              onChange={e => setDobStr(e.target.value)}
+              type="date"
+              style={{ fontSize: '16px' }}
+              className={inputCls}
+            />
+          </div>
+
           {saved && (
             <div className="flex items-center justify-center gap-2 text-green-600 text-sm font-semibold">
               <Check size={16} /> Saved!
@@ -551,7 +891,6 @@ function getInitials(first: string, last: string) {
   return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
 }
 
-// ── Edit Training Profile Modal ────────────────────────────────────────────
 
 const POSITIONS = [
   { id: 'GK', label: '🧤 Goalkeeper' },
@@ -612,7 +951,6 @@ function EditTrainingProfileModal({
   const btnActive = 'bg-brand-500 text-white border-brand-500';
   const btnInactive = 'bg-white text-gray-600 border-gray-200 hover:border-brand-300';
 
-  // ── Step 1: warning ────────────────────────────────────────────────────────
   if (!confirmed) {
     return (
       <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 pb-8">
@@ -650,7 +988,6 @@ function EditTrainingProfileModal({
     );
   }
 
-  // ── Step 2: edit form ──────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 pb-8 overflow-y-auto">
       <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
@@ -739,15 +1076,29 @@ function EditTrainingProfileModal({
 
 export function Profile({
   userProfile, profilePicture, totalSessions,
+  sessions, testSessionCount, hasImprovedTest, programmesBuilt, programmesCompleted,
   baseline, referralCode, weightLog, onSetProfilePicture,
   onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onSaveTrainingProfile,
   onSaveWeight, onDeleteWeight, onLogout, onBack,
+  settings, onUpdateSettings,
 }: ProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showChangePw,         setShowChangePw]         = useState(false);
   const [showEditMetrics,      setShowEditMetrics]      = useState(false);
+  const [expandedMetric,       setExpandedMetric]       = useState<string | null>(null);
   const [showEditTraining,     setShowEditTraining]     = useState(false);
   const [showDeleteConfirm,    setShowDeleteConfirm]    = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('vf_dark_mode') === 'true');
+
+  const toggleDarkMode = (on: boolean) => {
+    setDarkMode(on);
+    localStorage.setItem('vf_dark_mode', String(on));
+    if (on) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -768,7 +1119,6 @@ export function Profile({
   return (
     <Layout title="My Profile" onBack={onBack}>
 
-      {/* ── Avatar + name ─────────────────────────────────────────────── */}
       <Card className="p-6 mb-4">
         <div className="flex flex-col items-center">
           <div className="relative mb-4">
@@ -811,7 +1161,6 @@ export function Profile({
         </div>
       </Card>
 
-      {/* ── Stats ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <Card className="p-4 text-center">
           <div className="text-2xl font-bold text-brand-500">{totalSessions}</div>
@@ -823,7 +1172,15 @@ export function Profile({
         </Card>
       </div>
 
-      {/* ── Training background ───────────────────────────────────────── */}
+      <BadgesCard
+        sessions={sessions}
+        totalSessions={totalSessions}
+        testSessionCount={testSessionCount}
+        hasImprovedTest={hasImprovedTest}
+        programmesBuilt={programmesBuilt}
+        programmesCompleted={programmesCompleted}
+      />
+
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Training Profile</h3>
@@ -874,7 +1231,6 @@ export function Profile({
         </div>
       </Card>
 
-      {/* ── Goals ─────────────────────────────────────────────────────── */}
       {userProfile.goals.length > 0 && (
         <Card className="p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
@@ -891,7 +1247,6 @@ export function Profile({
         </Card>
       )}
 
-      {/* ── Fitness Baseline ──────────────────────────────────────────── */}
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -944,35 +1299,100 @@ export function Profile({
             </div>
           )}
 
-          <div className="flex flex-col gap-2">
-            {([
-              { label: '10m Sprint',    value: baseline?.test.sprint10m          ? `${baseline.test.sprint10m}s`                  : null, grade: baseline?.results.sprint10mGrade },
-              { label: '30m Sprint',    value: baseline?.test.sprint30m          ? `${baseline.test.sprint30m}s`                  : null, grade: baseline?.results.sprint30mGrade },
-              { label: 'CMJ (best)',    value: baseline?.test.cmjBest            ? `${baseline.test.cmjBest}cm`                   : null, grade: baseline?.results.cmjGrade       },
-              { label: 'Fatigue Index', value: baseline?.results.fatigueIndex    ? `${baseline.results.fatigueIndex.toFixed(1)}%` : null, grade: baseline?.results.fiGrade        },
-              { label: 'Yo-Yo IR1',     value: baseline?.test.yoyoLevel          ? `Level ${baseline.test.yoyoLevel}`             : null, grade: baseline?.results.yoyoGrade      },
-            ] as { label: string; value: string | null; grade?: 1|2|3|4 }[]).map(row => (
-              <div key={row.label} className="flex items-center justify-between gap-2">
-                <span className="text-xs text-gray-600 flex-1">{row.label}</span>
-                {row.value ? (
-                  <>
-                    <span className="text-xs font-bold text-gray-800">{row.value}</span>
-                    {row.grade && (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${GRADE_COLOURS[row.grade].bg} ${GRADE_COLOURS[row.grade].text} ${GRADE_COLOURS[row.grade].border}`}>
-                        {GRADE_LABELS[row.grade]}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-xs font-medium text-gray-400 italic">Waiting</span>
-                )}
+          {/* Metric rows — tap any row to see norm benchmarks */}
+          {(() => {
+            const bSex: 'male'|'female' = baseline?.test.sex ?? (userProfile.gender === 'female' ? 'female' : 'male');
+            const wKg = userProfile.weightKg;
+            const fmtYoyo = (lvl: number) => { const l = Math.floor(lvl); const s = Math.round((lvl - l) * 10); return s > 0 ? `Level ${l} · Sh ${s}` : `Level ${l}`; };
+            const NORM_ROWS_P: Record<string, { grade: 1|2|3|4|5; male: string; female: string }[]> = {
+              '10m':       [{ grade:5,male:'< 1.60 s',female:'< 1.70 s'},{grade:4,male:'1.60–1.70 s',female:'1.70–1.80 s'},{grade:3,male:'1.71–1.80 s',female:'1.81–1.90 s'},{grade:2,male:'1.81–1.95 s',female:'1.91–2.05 s'},{grade:1,male:'> 1.95 s',female:'> 2.05 s'}],
+              '30m':       [{ grade:5,male:'< 3.90 s',female:'< 4.30 s'},{grade:4,male:'3.90–4.10 s',female:'4.30–4.50 s'},{grade:3,male:'4.11–4.30 s',female:'4.51–4.70 s'},{grade:2,male:'4.31–4.50 s',female:'4.71–4.90 s'},{grade:1,male:'> 4.50 s',female:'> 4.90 s'}],
+              cmj:         [{ grade:5,male:'≥ 60 cm',female:'≥ 48 cm'},{grade:4,male:'50–59 cm',female:'38–47 cm'},{grade:3,male:'40–49 cm',female:'28–37 cm'},{grade:2,male:'30–39 cm',female:'20–27 cm'},{grade:1,male:'< 30 cm',female:'< 20 cm'}],
+              broad_jump:  [{ grade:5,male:'≥ 280 cm',female:'≥ 240 cm'},{grade:4,male:'250–279 cm',female:'210–239 cm'},{grade:3,male:'230–249 cm',female:'195–209 cm'},{grade:2,male:'200–229 cm',female:'165–194 cm'},{grade:1,male:'< 200 cm',female:'< 165 cm'}],
+              fi:          [{ grade:5,male:'< 3.0 %',female:'< 3.5 %'},{grade:4,male:'3.0–5.0 %',female:'3.5–5.5 %'},{grade:3,male:'5.1–7.0 %',female:'5.6–7.5 %'},{grade:2,male:'7.1–9.0 %',female:'7.6–9.5 %'},{grade:1,male:'> 9.0 %',female:'> 9.5 %'}],
+              yoyo:        [{ grade:5,male:'> Level 20.2',female:'> Level 17.0'},{grade:4,male:'19.1–20.2',female:'15.5–17.0'},{grade:3,male:'18.1–19.0',female:'13.0–15.4'},{grade:2,male:'16.7–18.0',female:'10.5–12.9'},{grade:1,male:'< Level 16.6',female:'< Level 10.4'}],
+            };
+            const rows = [
+              { label: '10m Sprint',    testKey: '10m',        value: baseline?.test.sprint10m        ? `${baseline.test.sprint10m}s`                  : null, grade: baseline?.results.sprint10mGrade  },
+              { label: '30m Sprint',    testKey: '30m',        value: baseline?.test.sprint30m        ? `${baseline.test.sprint30m}s`                  : null, grade: baseline?.results.sprint30mGrade  },
+              { label: 'CMJ (best)',    testKey: 'cmj',        value: baseline?.test.cmjBest          ? `${baseline.test.cmjBest}cm`                   : null, grade: baseline?.results.cmjGrade        },
+              { label: 'Broad Jump',    testKey: 'broad_jump', value: baseline?.test.broadJumpBest    ? `${baseline.test.broadJumpBest}cm`             : null, grade: baseline?.results.broadJumpGrade  },
+              { label: 'Fatigue Index', testKey: 'fi',         value: baseline?.results.fatigueIndex  ? `${baseline.results.fatigueIndex.toFixed(1)}%` : null, grade: baseline?.results.fiGrade         },
+              { label: 'Yo-Yo IR1',     testKey: 'yoyo',       value: baseline?.test.yoyoLevel        ? fmtYoyo(baseline.test.yoyoLevel)               : null, grade: baseline?.results.yoyoGrade       },
+            ] as { label: string; testKey: string; value: string | null; grade?: 1|2|3|4|5 }[];
+            return (
+              <div className="flex flex-col gap-1">
+                {rows.map(row => {
+                  const isOpen = expandedMetric === row.testKey;
+                  const canExpand = !!row.value;
+                  const norms = NORM_ROWS_P[row.testKey];
+                  const vo2 = row.testKey === 'yoyo' && baseline?.test.yoyoLevel ? calcVo2Max(baseline.test.yoyoLevel) : null;
+                  const distM = row.testKey === 'yoyo' && baseline?.test.yoyoLevel ? calcYoyoDistance(baseline.test.yoyoLevel) : null;
+                  const vo2Abs = vo2 && wKg ? Math.round(vo2 * wKg / 1000 * 10) / 10 : null;
+                  return (
+                    <div key={row.testKey}>
+                      <button
+                        onClick={() => canExpand && setExpandedMetric(isOpen ? null : row.testKey)}
+                        disabled={!canExpand}
+                        className={`w-full flex items-center justify-between gap-2 py-1.5 rounded-lg px-1 transition-colors ${canExpand ? 'hover:bg-gray-50 active:bg-gray-100 cursor-pointer' : 'cursor-default'}`}
+                      >
+                        <span className="text-xs text-gray-600 flex-1 text-left">{row.label}</span>
+                        {row.value ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-gray-800">{row.value}</span>
+                            {row.grade && (
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${GRADE_COLOURS[row.grade].bg} ${GRADE_COLOURS[row.grade].text} ${GRADE_COLOURS[row.grade].border}`}>
+                                {GRADE_LABELS[row.grade]}
+                              </span>
+                            )}
+                            {isOpen ? <ChevronUp size={12} className="text-gray-400 shrink-0" /> : <ChevronDown size={12} className="text-gray-400 shrink-0" />}
+                          </div>
+                        ) : (
+                          <span className="text-xs font-medium text-gray-400 italic">Waiting</span>
+                        )}
+                      </button>
+                      {isOpen && norms && (
+                        <div className="mt-2 mb-1 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+                          {vo2 !== null && (
+                            <div className="px-3 pt-3 pb-2 border-b border-gray-100">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">VO₂max Estimate</p>
+                              <div className="flex items-end gap-4">
+                                <div>
+                                  <p className="text-2xl font-extrabold text-brand-600 leading-none">{vo2}</p>
+                                  <p className="text-xs text-gray-400 mt-0.5">ml · kg⁻¹ · min⁻¹</p>
+                                </div>
+                                {vo2Abs !== null && (<div><p className="text-lg font-bold text-gray-700 leading-none">{vo2Abs} L/min</p><p className="text-xs text-gray-400 mt-0.5">absolute ({wKg} kg)</p></div>)}
+                                {distM !== null && (<div className="ml-auto text-right"><p className="text-sm font-bold text-gray-600 leading-none">{distM} m</p><p className="text-xs text-gray-400 mt-0.5">distance covered</p></div>)}
+                              </div>
+                            </div>
+                          )}
+                          <div className="px-3 py-2">
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Benchmarks · Adult field-sport athletes</p>
+                            <div className="flex flex-col gap-1">
+                              {norms.map(nr => {
+                                const isAthlete = nr.grade === row.grade;
+                                const c = GRADE_COLOURS[nr.grade];
+                                return (
+                                  <div key={nr.grade} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${isAthlete ? `${c.bg} border ${c.border}` : 'bg-white border border-transparent'}`}>
+                                    <span className={`text-xs font-bold w-20 shrink-0 ${isAthlete ? c.text : 'text-gray-500'}`}>{GRADE_LABELS[nr.grade]}{isAthlete ? ' ← you' : ''}</span>
+                                    <span className={`text-xs flex-1 ${isAthlete ? 'text-gray-800 font-semibold' : 'text-gray-500'}`}>♂ {bSex === 'male' ? <strong>{nr.male}</strong> : nr.male}</span>
+                                    <span className={`text-xs flex-1 ${isAthlete ? 'text-gray-800 font-semibold' : 'text-gray-500'}`}>♀ {bSex === 'female' ? <strong>{nr.female}</strong> : nr.female}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
       </Card>
 
-      {/* ── Body Metrics ──────────────────────────────────────────────── */}
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Body Metrics</h3>
@@ -983,45 +1403,89 @@ export function Profile({
             Edit
           </button>
         </div>
-        <div className="flex gap-4">
-          <div className="flex items-center gap-2 flex-1">
-            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-              <Ruler size={14} className="text-blue-600" />
-            </div>
-            <div>
-              <div className="text-xs text-gray-400">Height</div>
-              <div className="text-sm font-bold text-gray-800">
-                {userProfile.heightCm ? `${userProfile.heightCm} cm` : <span className="text-gray-400 font-normal">Not set</span>}
+        {(() => {
+          const age = userProfile.dateOfBirth
+            ? (() => {
+                const dob = new Date(userProfile.dateOfBirth);
+                const today = new Date();
+                let a = today.getFullYear() - dob.getFullYear();
+                const m = today.getMonth() - dob.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) a--;
+                return a;
+              })()
+            : null;
+          return (
+            <div className="flex gap-3">
+              <div className="flex items-center gap-2 flex-1">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Ruler size={14} className="text-blue-600" />
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400">Height</div>
+                  <div className="text-sm font-bold text-gray-800">
+                    {userProfile.heightCm ? `${userProfile.heightCm} cm` : <span className="text-gray-400 font-normal">Not set</span>}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-1">
+                <div className="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+                  <Weight size={14} className="text-green-600" />
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400">Weight</div>
+                  <div className="text-sm font-bold text-gray-800">
+                    {userProfile.weightKg ? `${userProfile.weightKg} kg` : <span className="text-gray-400 font-normal">Not set</span>}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-1">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-600 text-xs font-bold">Age</span>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400">Date of Birth</div>
+                  <div className="text-sm font-bold text-gray-800">
+                    {age !== null ? `${age} yrs` : <span className="text-gray-400 font-normal">Not set</span>}
+                  </div>
+                </div>
               </div>
             </div>
+          );
+        })()}
+      </Card>
+
+      <WeightTracker log={weightLog} onSave={onSaveWeight} onDelete={onDeleteWeight} />
+
+      <TrainingReminders settings={settings} onUpdate={onUpdateSettings} />
+
+      <Card className="p-4 mb-4">
+        <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Appearance</h3>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Dark Mode</p>
+            <p className="text-xs text-gray-400 mt-0.5">{darkMode ? 'Dark theme enabled' : 'Light theme active'}</p>
           </div>
-          <div className="flex items-center gap-2 flex-1">
-            <div className="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
-              <Weight size={14} className="text-green-600" />
-            </div>
-            <div>
-              <div className="text-xs text-gray-400">Weight</div>
-              <div className="text-sm font-bold text-gray-800">
-                {userProfile.weightKg ? `${userProfile.weightKg} kg` : <span className="text-gray-400 font-normal">Not set</span>}
-              </div>
-            </div>
-          </div>
+          <button
+            onClick={() => toggleDarkMode(!darkMode)}
+            className={`relative w-12 h-6 rounded-full transition-colors ${darkMode ? 'bg-brand-500' : 'bg-gray-200'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-0'}`} />
+          </button>
         </div>
       </Card>
 
-      {/* ── Weight Log ────────────────────────────────────────────────── */}
-      <WeightTracker log={weightLog} onSave={onSaveWeight} onDelete={onDeleteWeight} />
-
-      {/* ── Referral ──────────────────────────────────────────────────── */}
       {referralCode && (
-        <Card className="p-4 mb-4">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Refer a Friend</h3>
-          <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-            Share your code — your friend gets <strong>21 days free</strong>, you get <strong>+14 days</strong> added to your subscription.
+        <div className="mb-4 rounded-2xl overflow-hidden bg-gradient-to-br from-brand-600 to-brand-500 p-5 shadow-md">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">🤝</span>
+            <h3 className="text-sm font-extrabold text-white">Refer a Friend</h3>
+          </div>
+          <p className="text-xs text-white/80 mb-4 leading-relaxed">
+            Your friend gets <strong className="text-white">21 days free</strong> — you get <strong className="text-white">+14 days</strong> added to your subscription.
           </p>
           <div className="flex items-center gap-2">
-            <div className="flex-1 px-4 py-3 rounded-xl bg-brand-50 border-2 border-brand-200 text-center">
-              <span className="text-lg font-extrabold text-brand-600 tracking-widest">{referralCode}</span>
+            <div className="flex-1 px-4 py-3 rounded-xl bg-white/20 text-center">
+              <span className="text-lg font-extrabold text-white tracking-widest">{referralCode}</span>
             </div>
             <button
               onClick={() => {
@@ -1034,15 +1498,14 @@ export function Profile({
                   navigator.clipboard.writeText(referralCode);
                 }
               }}
-              className="px-4 py-3 rounded-xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600 transition-colors"
+              className="px-4 py-3 rounded-xl bg-white text-brand-600 text-sm font-extrabold hover:bg-white/90 transition-colors"
             >
               Share
             </button>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* ── Account ───────────────────────────────────────────────────── */}
       <Card className="p-4 mb-8">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account</h3>
 
@@ -1057,6 +1520,53 @@ export function Profile({
           </div>
           <ChevronRight size={14} className="text-gray-300" />
         </button>
+
+        {/* Export my data */}
+        <button
+          onClick={() => {
+            const VF_KEYS = [
+              'vf_user_profile', 'vf_custom_exercises', 'vf_templates', 'vf_sessions',
+              'vf_active_plan', 'vf_profile_picture', 'vf_settings', 'vf_baseline', 'vf_match_entries',
+              'vf_test_sessions', 'vf_generated_programmes', 'vf_active_programme_id',
+              'vf_daily_readiness', 'vf_football_intensity', 'vf_scheduled_workouts',
+              'vf_weight_log',
+            ];
+            const exportData: Record<string, unknown> = { exportedAt: new Date().toISOString() };
+            VF_KEYS.forEach(k => {
+              try { exportData[k] = JSON.parse(localStorage.getItem(k) ?? 'null'); } catch { exportData[k] = null; }
+            });
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vector-football-data-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+          }}
+          className="w-full text-left text-sm text-gray-600 py-2.5 flex items-center justify-between gap-2 hover:text-gray-900 border-t border-gray-100"
+        >
+          <div className="flex items-center gap-2">
+            <Download size={15} className="text-gray-400" />
+            Export my data
+          </div>
+          <ChevronRight size={14} className="text-gray-300" />
+        </button>
+
+        {/* Privacy Policy */}
+        <a
+          href="https://vectorfootball.co.uk/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full text-left text-sm text-gray-600 py-2.5 flex items-center justify-between gap-2 hover:text-gray-900 border-t border-gray-100"
+        >
+          <div className="flex items-center gap-2">
+            <Shield size={15} className="text-gray-400" />
+            Privacy Policy
+          </div>
+          <ChevronRight size={14} className="text-gray-300" />
+        </a>
 
         {/* Log Out */}
         <button
@@ -1099,7 +1609,8 @@ export function Profile({
         <EditMetricsModal
           currentHeight={userProfile.heightCm}
           currentWeight={userProfile.weightKg}
-          onSave={(h, w) => onUpdateProfile({ heightCm: h, weightKg: w })}
+          currentDob={userProfile.dateOfBirth}
+          onSave={(h, w, dob) => onUpdateProfile({ heightCm: h, weightKg: w, dateOfBirth: dob })}
           onClose={() => setShowEditMetrics(false)}
         />
       )}

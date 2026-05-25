@@ -104,7 +104,6 @@ export interface WorkoutSession {
   flaggedExercises?: string[];     // exerciseIds flagged as painful/problematic
 }
 
-// ── Body weight log ───────────────────────────────────────────────────────
 
 export interface WeightEntry {
   date: string;      // YYYY-MM-DD
@@ -112,7 +111,6 @@ export interface WeightEntry {
   recordedAt: number; // timestamp
 }
 
-// ── Training Plans ────────────────────────────────────────────────────────
 
 export interface PlanSession {
   dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0 = Monday … 6 = Sunday
@@ -140,7 +138,6 @@ export interface ActivePlan {
   startDate: string; // YYYY-MM-DD (the Monday of week 1)
 }
 
-// ── Daily Readiness ───────────────────────────────────────────────────────
 
 export interface DailyReadiness {
   date: string;           // YYYY-MM-DD
@@ -153,19 +150,23 @@ export interface DailyReadiness {
   completedAt: number;    // timestamp
 }
 
-// ── User Settings ─────────────────────────────────────────────────────────
 
 export interface UserSettings {
   showTutorialVideos: boolean;   // show demo videos & how-to guides in workouts + exercise detail
   showRir: boolean;              // show Reps-in-Reserve selector after each set
+  reminderEnabled: boolean;      // daily training-session push notification
+  reminderHour: number;          // 0-23
+  reminderMinute: number;        // 0–59 (UI offers 0, 15, 30, 45)
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
   showTutorialVideos: true,
   showRir: true,
+  reminderEnabled: false,
+  reminderHour: 8,
+  reminderMinute: 0,
 };
 
-// ── User Profile / Onboarding ─────────────────────────────────────────────
 
 export interface UserProfile {
   firstName: string;
@@ -180,17 +181,18 @@ export interface UserProfile {
   completedAt: number;       // timestamp
   passwordHash?: string;     // SHA-256 hex of password (local auth only)
   // Optional profile details collected during onboarding
+  dateOfBirth?: string;  // ISO date string YYYY-MM-DD — age computed dynamically
   heightCm?: number;
   weightKg?: number;
   gender?: 'male' | 'female' | 'other';
 }
 
-// ── Fitness Baseline / Testing Battery ───────────────────────────────────
 
 export interface BaselineTest {
   sprint10m?: number;       // seconds (standing start)
   sprint30m?: number;       // seconds (standing start)
   cmjBest?: number;         // centimetres (best of 3 trials)
+  broadJumpBest?: number;   // centimetres (best of 3 trials)
   rsaSprints?: number[];    // array of 6 sprint times in seconds (30m each)
   yoyoLevel?: number;       // Yo-Yo IR1 level reached (e.g. 17.5 = level 17, shuttle 5)
   sex?: 'male' | 'female';
@@ -202,20 +204,20 @@ export interface BaselineResults {
   rsaBestTime?: number;
   rsaMeanTime?: number;
   rsaWorstTime?: number;
-  fatigueIndex?: number;         // % — Girard et al. 2011 formula
+  fatigueIndex?: number;         // %
   // Classifications 1–4 (1=poor, 2=average, 3=good, 4=excellent)
-  sprint10mGrade?: 1|2|3|4;
-  sprint30mGrade?: 1|2|3|4;
-  cmjGrade?: 1|2|3|4;
-  rsaGrade?: 1|2|3|4;
-  fiGrade?: 1|2|3|4;
-  yoyoGrade?: 1|2|3|4;
+  sprint10mGrade?: 1|2|3|4|5;
+  sprint30mGrade?: 1|2|3|4|5;
+  cmjGrade?: 1|2|3|4|5;
+  broadJumpGrade?: 1|2|3|4|5;
+  rsaGrade?: 1|2|3|4|5;
+  fiGrade?: 1|2|3|4|5;
+  yoyoGrade?: 1|2|3|4|5;
   // Overall energy system profile
   anaerobicScore?: number;       // 0–100
   aerobicScore?: number;         // 0–100
 }
 
-// ── Match Load Management ─────────────────────────────────────────────────
 
 export type MatchEntryType = 'match' | 'team_training';
 
@@ -232,7 +234,6 @@ export interface MatchEntry {
 
 export type LoadDay = 'MD' | 'MD-1' | 'MD-2' | 'MD-3' | 'MD+1' | 'MD+2' | 'free';
 
-// ── Navigation ────────────────────────────────────────────────────────────
 
 export type Screen =
   | 'dashboard'
@@ -259,12 +260,11 @@ export interface NavState {
   planId?: string;
 }
 
-// ── AI Programme Builder ──────────────────────────────────────────────────
 
 export type PrimaryGoal = 'speed' | 'strength' | 'power' | 'endurance' | 'injury_prevention';
 export type MatchDayPref = 'saturday' | 'sunday' | 'midweek';
 export type GameDayPref = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
-export type Weakness = 'speed' | 'strength' | 'endurance' | 'power' | 'agility' | 'injury_prone';
+export type Weakness = 'speed' | 'strength' | 'endurance' | 'power' | 'injury_prone';
 export type InjuryArea = 'hamstring' | 'ankle' | 'knee' | 'groin' | 'calf' | 'back' | 'shoulder';
 export type PlayStyle = 'box-to-box' | 'direct' | 'technical' | 'physical' | 'press-heavy' | 'counter-attack';
 // 4-band readiness: 1–3 low, 4–6 moderate, 7–8 high, 9–10 elite
@@ -274,7 +274,6 @@ export type IntensityIntent = 'explosive' | 'maximal' | 'controlled' | 'moderate
 
 export interface ProgrammeInputs {
   position: 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST';
-  secondaryPosition?: 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST';
   playStyle: PlayStyle;
   experienceYears: '<1' | '1-3' | '3-5' | '5+';
   sessionsPerWeek: number;
@@ -283,7 +282,6 @@ export interface ProgrammeInputs {
   conditioningTypes?: ('zone2' | 'hiit' | 'rsa')[];
   matchesPerWeek?: 1 | 2 | 3;
   primaryGoal: PrimaryGoal;
-  secondaryGoals: string[];
   matchDay: MatchDayPref;
   secondMatchDay?: GameDayPref;
   biggestWeakness: Weakness;
@@ -291,11 +289,12 @@ export interface ProgrammeInputs {
   readiness?: { sleep: number; fatigue: number; soreness: number; stress: number };
   gymAccess: 'full' | 'basic' | 'none';
   offSeason?: boolean;
+  preSeason?: boolean;           // pre-season variant — no matches but match-prep conditioning included
   customDurationWeeks?: number; // user-chosen programme length (overrides experience-based default)
   preferBackSquat?: boolean;   // player enjoys/prefers Back Squat — enables selection in eligible phases
   upperPullChoice?: 'pull-up' | 'row';  // whether the player uses pull-ups or rows for the upper-pull slot
   lifts?: LiftBaseline[];      // collected during wizard for personalised load prescriptions
-  testGrades?: Partial<Record<string, 1 | 2 | 3 | 4>>; // from most recent TestSession.grades — drives programme emphasis adjustments
+  testGrades?: Partial<Record<string, 1 | 2 | 3 | 4 | 5>>; // from most recent TestSession.grades — drives programme emphasis adjustments
 }
 
 export interface ProgrammeExercise {
@@ -338,7 +337,6 @@ export interface ProgrammeWeek {
   sessions: ProgrammeSession[];
 }
 
-// ── Progressive Overload Setup ─────────────────────────────────────────────
 
 export interface LiftBaseline {
   key: string;             // LiftKey e.g. 'squat', 'hipThrust'
@@ -370,9 +368,9 @@ export interface GeneratedProgramme {
   conditioningRepCounts?: Record<string, number>;   // exerciseId → current interval count (auto-adjusts after each session)
   conditioningStagnation?: Record<string, number>;  // exerciseId → sessions completed at current count without increasing
   programmeStartDate?: string;                      // YYYY-MM-DD chosen by user when activating — week 1 anchors here
+  skippedSessions?: Record<string, { reason: string; skippedAt: number }>; // sessionKey → skip info
 }
 
-// ── Premium / Paywall ─────────────────────────────────────────────────────
 
 export interface PremiumStatus {
   isPremium: boolean;
@@ -383,7 +381,6 @@ export interface PremiumStatus {
   rcCustomerId?: string;                 // RevenueCat customer ID (set when integrating)
 }
 
-// ── Testing Engine ─────────────────────────────────────────────────────────
 
 export type TestType = '10m' | '30m' | 'cmj' | 'broad_jump' | 'rsa' | 'yoyo';
 
@@ -398,7 +395,7 @@ export interface SingleTestResult {
   rsaAllSprints?: number[];  // 6 entered sprint times (seconds)
   rsaMeanTime?: number;
   rsaBestTime?: number;
-  fatigueIndex?: number;     // % (Girard et al. 2011)
+  fatigueIndex?: number;     // %
 }
 
 export interface TestSession {
@@ -409,7 +406,7 @@ export interface TestSession {
   selectedTests: TestType[];
   results: SingleTestResult[];
   /** Grading per test type, plus 'rsa_fi' for fatigue index */
-  grades: Partial<Record<string, 1 | 2 | 3 | 4>>;
+  grades: Partial<Record<string, 1 | 2 | 3 | 4 | 5>>;
   aerobicScore?: number;     // 0–100
   anaerobicScore?: number;   // 0–100
 }

@@ -1,7 +1,6 @@
 import { ProgrammeSession, WorkoutExercise, Exercise, GeneratedProgramme, StrengthSetup } from '../types';
 import { getLiftKey, prescribeWeekLoad } from './progressiveOverload';
 
-// ── Exercise ID resolution ─────────────────────────────────────────────────
 
 export type ResolutionVia = 'exact' | 'partial' | 'fuzzy' | 'none';
 
@@ -43,7 +42,6 @@ export function resolveExerciseId(name: string, exercises: Exercise[]): Resoluti
   return { id: undefined, via: 'none' };
 }
 
-// ── Session validation ─────────────────────────────────────────────────────
 
 export interface SessionValidation {
   /** Exercises the generator produced that will be silently dropped */
@@ -80,7 +78,6 @@ export function validateProgrammeSession(
   return { dropped, fuzzyMatched };
 }
 
-// ── Programme week helpers ─────────────────────────────────────────────────
 
 /** Monday of the week containing ts (rolls back). */
 function getCurrentWeekMonday(ts: number): Date {
@@ -131,13 +128,15 @@ export function getProgrammeAnchorMonday(programme: GeneratedProgramme): Date {
   const anchor = programme.programmeStartDate
     ? new Date(programme.programmeStartDate + 'T12:00:00').getTime()
     : programme.createdAt;
-  // Always roll back to the Monday of the chosen week so sessions within that week
-  // are scheduled correctly. Rolling forward would push mid-week start dates to the
-  // following Monday, delaying Week 1 by up to 6 days.
-  return getCurrentWeekMonday(anchor);
+  // When programmeStartDate is set, use getAnchorMonday (rolls forward to next Monday)
+  // to match getProgrammeWeekIndex — both must use the same anchor or sessions land in
+  // the wrong week. Without programmeStartDate, fall back to rolling back to the current
+  // week's Monday (legacy behaviour for older programmes).
+  return programme.programmeStartDate
+    ? getAnchorMonday(anchor)
+    : getCurrentWeekMonday(anchor);
 }
 
-// ── Name → exercise-library ID map (shared between GeneratedProgramme & WeeklyCalendar) ──
 
 export const NAME_TO_ID: Record<string, string> = {
   'back squat': 'squat', 'front squat': 'front-squat',
@@ -158,7 +157,7 @@ export const NAME_TO_ID: Record<string, string> = {
   'push press': 'ohp', 'overhead press': 'ohp',
   'dumbbell shoulder press': 'db-ohp', 'db shoulder press': 'db-ohp',
   'dumbbell row': 'db-row', 'db row': 'db-row',
-  'goblet squat': 'squat',
+  'goblet squat': 'squat', // intentionally mapped to Back Squat — no separate library entry; both track lower-body strength
   'bulgarian split squat': 'bulgarian-split-squat-db',
   'bulgarian split squat (db)': 'bulgarian-split-squat-db',
   'bulgarian split squat (bw)': 'bulgarian-split-squat',
@@ -172,7 +171,9 @@ export const NAME_TO_ID: Record<string, string> = {
   'jump squat': 'squat-jump',
   'box jump': 'box-jump',
   'broad jump': 'broad-jump',
-  'countermovement jump': 'cmj', 'cmj': 'test-cmj',
+  // 'cmj' as a programme exercise name → plyometrics library entry (id: 'cmj')
+  // 'cmj' as a Testing Battery exercise is accessed directly by exerciseId, not via this map
+  'countermovement jump': 'cmj',
   'depth jump': 'depth-jump',
   'pogo hop': 'pogo-jump', 'pogo jumps': 'pogo-jump',
   'nordic hamstring curl': 'eccentric-nordic', 'nordic curl': 'nordic-curl', 'leg curl': 'leg-curl',
@@ -190,13 +191,14 @@ export const NAME_TO_ID: Record<string, string> = {
   'air squat': 'air-squat',
   'prone t-y-i': 'prone-tyi',
   'lateral shuffle': 'lateral-shuffle',
+  'lateral shuffle (warmup)': 'lateral-shuffle-warmup',
   'a-skip': 'a-skip',
   'high knees': 'high-knees',
   // Reactive plyometrics — explicit entries prevent fuzzy matcher hitting 'Lat Pulldown' for 'lateral ankle hops'
   'pogo hops': 'pogo-jump',
   'single-leg pogo hops': 'pogo-jump',
   'lateral ankle hops': 'ankle-hop',
-  'skipping (fast cadence)': 'repeated-sprint',
+  'skipping (fast cadence)': 'pogo-jump',
   // Running / speed / conditioning — explicit to prevent fuzzy collision with box-jump etc.
   'box-to-box sprint': 'repeated-sprint',
   'box-to-box sprint repeats': 'repeated-sprint',
@@ -258,6 +260,13 @@ export const NAME_TO_ID: Record<string, string> = {
   'tuck jump': 'tuck-jump',
   'squat jump': 'squat-jump',
   'lateral bound': 'lateral-bound',
+  // Position-specific block exercises
+  'lateral bound + stick': 'lateral-bound',
+  'explosive lateral bound + stick': 'lateral-bound',
+  'explosive step-up': 'squat-jump',
+  'deficit reverse lunge (explosive drive)': 'lunge',
+  'single-leg hip thrust (box)': 'hip-thrust',
+  'loaded lunge (explosive drive)': 'lunge',
   // Bodyweight push-up variants
   'archer push-up': 'push-up',
   'explosive push-up': 'push-up',
@@ -270,7 +279,6 @@ export const NAME_TO_ID: Record<string, string> = {
   'isometric hip flexor hold (kneeling)': 'iso-lunge-hold',
 };
 
-// ── Neural priming utilities ───────────────────────────────────────────────
 
 /** Round a weight to the nearest 2.5 kg step. */
 function roundTo2_5(kg: number): number {
