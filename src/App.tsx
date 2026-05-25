@@ -171,6 +171,8 @@ export default function App() {
 
   useEffect(() => {
     if (!isAuthenticated || !isSupabaseConfigured) return;
+    // Save immediately on first auth so any data present before the timer fires is persisted
+    if (cloudUserIdRef.current) cloudSaveData(cloudUserIdRef.current);
     const id = setInterval(() => {
       if (cloudUserIdRef.current) cloudSaveData(cloudUserIdRef.current);
     }, 120_000);
@@ -220,6 +222,14 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [isAuthenticated]);
 
+  /** Fire-and-forget immediate cloud save — used after key mutations so data
+   *  reaches Supabase without waiting for the 2-minute interval. */
+  const immediateSave = useCallback(() => {
+    if (isSupabaseConfigured && cloudUserIdRef.current) {
+      cloudSaveData(cloudUserIdRef.current);
+    }
+  }, []);
+
   const navigate = useCallback((next: NavState) => {
     setNav(next);
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -262,8 +272,20 @@ export default function App() {
 
   const handleStartWorkout = (name: string, items: WorkoutExercise[]) => {
     const todayReadiness = store.getTodayReadiness();
-    if (todayReadiness && todayReadiness.level === 'low') {
+    const level = todayReadiness?.level;
+    if (level === 'low' || level === 'elite') {
+      // Show a choice modal — low offers volume reduction, elite offers bonus sets
       setPendingWorkout({ name, items });
+    } else if (level === 'moderate') {
+      // Auto-apply a moderate intensity note to every exercise coaching cue and launch directly
+      const moderateNote = '−10% load · quality focus';
+      const noted = items.map(ex => ({
+        ...ex,
+        coachingCue: ex.coachingCue
+          ? `${ex.coachingCue} · ${moderateNote}`
+          : moderateNote,
+      }));
+      launchWorkout(name, noted);
     } else {
       launchWorkout(name, items);
     }
@@ -273,6 +295,7 @@ export default function App() {
 
   const handleFinishWorkout = (session: WorkoutSession) => {
     store.saveSession(session);
+    immediateSave(); // push to Supabase immediately — don't wait for 2-min interval
     setActiveSession(null);
     setNav({ screen: 'dashboard' });
     // Analytics
@@ -634,8 +657,8 @@ export default function App() {
           templates={store.templates}
           initialTemplateId={nav.templateId}
           onStart={handleStartWorkout}
-          onSaveTemplate={store.saveTemplate}
-          onDeleteTemplate={store.deleteTemplate}
+          onSaveTemplate={(t) => { store.saveTemplate(t); immediateSave(); }}
+          onDeleteTemplate={(id) => { store.deleteTemplate(id); immediateSave(); }}
         />
       )}
 
@@ -1018,6 +1041,7 @@ export default function App() {
 
       {pendingWorkout && (() => {
         const r = store.getTodayReadiness();
+        const isElite = r?.level === 'elite';
         return (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-5">
             <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-sm p-6 shadow-xl">
@@ -1037,52 +1061,94 @@ export default function App() {
               </div>
               {/* Header */}
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                  <Battery size={22} className="text-amber-500" />
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${isElite ? 'bg-brand-100' : 'bg-amber-100'}`}>
+                  {isElite
+                    ? <Zap size={22} className="text-brand-500" />
+                    : <Battery size={22} className="text-amber-500" />
+                  }
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900 text-base">Low Readiness Detected</h3>
-                  <p className="text-xs text-amber-600 font-semibold">Score {r?.score.toFixed(1) ?? '—'} / 5 · Low</p>
+                  <h3 className="font-bold text-gray-900 text-base">
+                    {isElite ? 'Peak Readiness 🔥' : 'Low Readiness Detected'}
+                  </h3>
+                  <p className={`text-xs font-semibold ${isElite ? 'text-brand-600' : 'text-amber-600'}`}>
+                    Score {r?.score.toFixed(1) ?? '—'} / 5 · {isElite ? 'Elite' : 'Low'}
+                  </p>
                 </div>
               </div>
 
-              <p className="text-sm text-gray-600 mb-5">
-                Your readiness score is low today. Reducing <strong>volume</strong> (fewer sets) lets you train without overloading a tired body — load and reps stay the same.
-              </p>
-
-              {/* Preview */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-xs text-amber-800">
-                <p className="font-semibold mb-1">If you reduce volume:</p>
-                <p>Each exercise drops by 1 set (minimum 1). Weight, reps, and rest stay unchanged.</p>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => {
-                    const reduced = pendingWorkout.items.map(ex => ({
-                      ...ex,
-                      targetSets: Math.max(1, ex.targetSets - 1),
-                    }));
-                    setPendingWorkout(null);
-                    launchWorkout(pendingWorkout.name, reduced);
-                  }}
-                  className="w-full py-3 rounded-xl bg-amber-500 text-white font-semibold text-sm hover:bg-amber-600 transition-colors"
-                >
-                  Reduce Volume (−1 set each)
-                </button>
-                <button
-                  onClick={() => {
-                    const { name, items } = pendingWorkout;
-                    setPendingWorkout(null);
-                    launchWorkout(name, items);
-                  }}
-                  className="w-full py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-sm hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Zap size={15} className="text-brand-500" />
-                  Keep Full Volume
-                </button>
-              </div>
+              {isElite ? (
+                <>
+                  <p className="text-sm text-gray-600 mb-5">
+                    You're firing on all cylinders today. Add a <strong>bonus set</strong> to every exercise and make the most of it — load and reps stay the same.
+                  </p>
+                  <div className="bg-brand-50 border border-brand-200 rounded-xl p-3 mb-5 text-xs text-brand-800">
+                    <p className="font-semibold mb-1">If you add bonus sets:</p>
+                    <p>Every exercise gains 1 extra set. Weight and reps stay unchanged.</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => {
+                        const boosted = pendingWorkout.items.map(ex => ({
+                          ...ex,
+                          targetSets: ex.targetSets + 1,
+                        }));
+                        setPendingWorkout(null);
+                        launchWorkout(pendingWorkout.name, boosted);
+                      }}
+                      className="w-full py-3 rounded-xl bg-brand-500 text-white font-semibold text-sm hover:bg-brand-600 transition-colors"
+                    >
+                      Add Bonus Set (+1 each)
+                    </button>
+                    <button
+                      onClick={() => {
+                        const { name, items } = pendingWorkout;
+                        setPendingWorkout(null);
+                        launchWorkout(name, items);
+                      }}
+                      className="w-full py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-sm hover:bg-gray-200 transition-colors"
+                    >
+                      Standard Volume
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 mb-5">
+                    Your readiness score is low today. Reducing <strong>volume</strong> (fewer sets) lets you train without overloading a tired body — load and reps stay the same.
+                  </p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-xs text-amber-800">
+                    <p className="font-semibold mb-1">If you reduce volume:</p>
+                    <p>Each exercise drops by 1 set (minimum 1). Weight, reps, and rest stay unchanged.</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => {
+                        const reduced = pendingWorkout.items.map(ex => ({
+                          ...ex,
+                          targetSets: Math.max(1, ex.targetSets - 1),
+                        }));
+                        setPendingWorkout(null);
+                        launchWorkout(pendingWorkout.name, reduced);
+                      }}
+                      className="w-full py-3 rounded-xl bg-amber-500 text-white font-semibold text-sm hover:bg-amber-600 transition-colors"
+                    >
+                      Reduce Volume (−1 set each)
+                    </button>
+                    <button
+                      onClick={() => {
+                        const { name, items } = pendingWorkout;
+                        setPendingWorkout(null);
+                        launchWorkout(name, items);
+                      }}
+                      className="w-full py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-sm hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Zap size={15} className="text-brand-500" />
+                      Keep Full Volume
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         );

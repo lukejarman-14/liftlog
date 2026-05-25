@@ -277,6 +277,26 @@ export const NAME_TO_ID: Record<string, string> = {
   'inverted row (table or low bar)': 'inverted-row',
   // Isometric hip flexor
   'isometric hip flexor hold (kneeling)': 'iso-lunge-hold',
+  // Recovery session exercises
+  'low-intensity cycling or easy walk': 'aerobic-threshold-run',
+  'prone hamstring isometric hold': 'iso-lunge-hold',
+  'supine knee hug': 'hip-90-90',
+  // Priming session warm-up exercises
+  'progressive warm-up run': 'aerobic-threshold-run',
+  'build-up sprint 50→70→85%': 'repeated-sprint',
+  // Priming session position-specific exercises
+  'lateral pogo jumps': 'pogo-jump',
+  'low-amplitude drop jump': 'depth-jump',
+  'medicine ball broad toss': 'broad-jump',
+  'trap bar jump': 'squat-jump',
+  'block start acceleration': 'repeated-sprint',
+  // RSA conditioning warm-up
+  'progressive sprint warm-up': 'repeated-sprint',
+  // Strength weakness exercises
+  'paused squat (2s bottom hold)': 'squat',
+  // Barbell row — explicit entry to prevent fuzzy mis-match to 'barbell back squat' etc.
+  'barbell row': 'barbell-row',
+  'barbell rows': 'barbell-row',
 };
 
 

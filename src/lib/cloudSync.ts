@@ -7,7 +7,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { STORAGE_KEYS } from './dataSync';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function collectAllData(): Record<string, unknown> {
   const data: Record<string, unknown> = {};
@@ -28,7 +27,6 @@ function restoreAllData(data: Record<string, unknown>) {
   }
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
 
 /** Register a new user with Supabase. */
 export async function cloudSignUp(email: string, password: string): Promise<string | null> {
@@ -55,16 +53,12 @@ export async function cloudSignOut(): Promise<void> {
 /** Permanently delete the current user's account and all their data from Supabase. */
 export async function cloudDeleteAccount(): Promise<void> {
   if (!supabase) return;
-  try {
-    // Delete their data row first
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('user_data').delete().eq('id', user.id);
-      // Delete the auth user via the SQL function we created
-      await supabase.rpc('delete_user');
-    }
-  } catch {
-    // deletion errors are silent — local data cleared by caller regardless
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { error: dataError } = await supabase.from('user_data').delete().eq('id', user.id);
+    if (dataError) throw new Error(`Failed to delete user data: ${dataError.message}`);
+    const { error: authError } = await supabase.rpc('delete_user');
+    if (authError) throw new Error(`Failed to delete auth account: ${authError.message}`);
   }
   await supabase.auth.signOut();
 }
@@ -93,16 +87,17 @@ export async function getExistingSession(): Promise<string | null> {
   return session?.user?.id ?? null;
 }
 
-// ── Data sync ────────────────────────────────────────────────────────────────
 
 /** Push all localStorage data to Supabase for this user. */
 export async function cloudSaveData(userId: string): Promise<void> {
   if (!supabase) return;
   const appData = collectAllData();
-  await supabase
+  const { error } = await supabase
     .from('user_data')
     .upsert({ id: userId, app_data: appData, updated_at: new Date().toISOString() });
-  // save errors are silent — data will sync on next successful save
+  if (error) {
+    console.warn('[CloudSync] Save failed — will retry on next sync:', error.message);
+  }
 }
 
 /** Pull data from Supabase and write to localStorage. Returns true if data was found. */

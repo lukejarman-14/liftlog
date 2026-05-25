@@ -220,6 +220,9 @@ const DAY_ORDER: Record<string, number> = {
 
 // Gym-only fallback schedules (used when no conditioningTypes supplied)
 const GYM_ONLY_SCHEDULES: Record<number, OsSlot[]> = {
+  1: [
+    { dayOfWeek: 'Wednesday', load: 'heavy',    sessionType: 'gym' },
+  ],
   2: [
     { dayOfWeek: 'Tuesday',   load: 'heavy',    sessionType: 'gym' },
     { dayOfWeek: 'Saturday',  load: 'heavy',    sessionType: 'gym' },
@@ -1739,11 +1742,15 @@ function applyReadiness(
   intensityNote: string,
 ): ProgrammeExercise[] {
   if (level === 'elite') {
-    // Add bonus set cue to main sets
-    return exs.map((e, i) => i === 0
-      ? { ...e, sets: String(Number(e.sets) + 1), intensity: e.intensity ? `${e.intensity} (bonus set)` : 'Add 1 bonus set' }
-      : e,
-    );
+    // Add a bonus set to every exercise — athlete is firing on all cylinders
+    return exs.map(e => {
+      const setsNum = Number(e.sets);
+      return {
+        ...e,
+        sets: !isNaN(setsNum) ? String(setsNum + 1) : e.sets,
+        intensity: e.intensity ? `${e.intensity} (bonus set)` : 'Add 1 bonus set — elite readiness',
+      };
+    });
   }
   if (level === 'high') return exs;
   if (level === 'moderate') {
