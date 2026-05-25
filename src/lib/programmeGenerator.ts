@@ -1149,6 +1149,21 @@ const ECCENTRIC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
   ],
 };
 
+// Core block — always last block in every gym session.
+// Two exercises: one anti-extension (Dead Bug), one anti-rotation (Pallof Press).
+// Anti-extension + anti-rotation covers the primary trunk-stability demands of football:
+// sprinting, shooting, heading (extension) and cutting, turning, striking (rotation).
+// Dead Bug requires no equipment and is safe at any readiness level.
+// Pallof Press uses a cable or resistance band — works at full/basic/none gym levels.
+const CORE_BLOCK: ProgrammeExercise[] = [
+  ex('Dead Bug', '3', '8 each side', '45s',
+    'Flat back on floor. Opposite arm and leg extend slowly — lower back stays pinned to the floor throughout. Anti-extension: TVA and multifidus resist spinal extension under load. Exact demand during sprinting, shooting, and heading. No equipment needed.',
+    { tempo: '1-2-1-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+  ex('Pallof Press', '2', '10 each side', '60s',
+    'Cable or resistance band at chest height. Press hands straight out and resist rotation completely. Anti-rotation: trains obliques and deep core to stiffen the trunk against lateral forces of cutting, turning, and striking. Face perpendicular to anchor. Step out to increase band tension.',
+    { tempo: '1-1-1-1', methodType: 'isometric', intensityIntent: 'controlled' }),
+];
+
 // full: barbell + cable + machines available
 // basic: barbells + dumbbells only (no cables, machines, or sled)
 // none: bodyweight only (push-ups, inverted rows, pike push-ups)
@@ -1903,7 +1918,6 @@ function hasMuscleInjury(injuryHistory: string[]): boolean {
 function buildInjuryOrderedBlocks(
   muscleInjury: boolean,
   gymKey: GymKey,
-  prehabEccentric: ProgrammeExercise[],
   eccentricBlock: ProgrammeExercise[],
   isometricMethodFocus: string,
   eccentricMethodFocus: string,
@@ -1917,7 +1931,7 @@ function buildInjuryOrderedBlocks(
   const eccBlock: SessionBlock = {
     title: '🔴 Eccentric Block',
     methodFocus: eccentricMethodFocus,
-    exercises: [...eccentricBlock, ...prehabEccentric],
+    exercises: [...eccentricBlock],
   };
   return muscleInjury ? [eccBlock, isoBlock] : [isoBlock, eccBlock];
 }
@@ -1983,7 +1997,6 @@ function buildOffSeasonSession(
       : e,
   );
 
-  const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
   const muscleInjury = hasMuscleInjury(injuryHistory);
   const osVertical = selectVerticalSquat(inputs, phase, gymKey, loadScheme, strengthEx);
   const osHasBSS = osVertical.name.toLowerCase().includes('bulgarian split squat');
@@ -2076,13 +2089,18 @@ function buildOffSeasonSession(
         exercises: pogoHops,
       },
       ...buildInjuryOrderedBlocks(
-        muscleInjury, gymKey, prehabEccentric, eccentricBlock,
+        muscleInjury, gymKey, eccentricBlock,
         'Tendon HSR holds · patellar + Achilles stiffness',
         loadScheme === 'heavy'
           ? 'Fascicle length · DOMS peaks 48h · sessions spaced to manage'
           : 'Moderate · Nordic 2×2 · DOMS manageable at 48h spacing',
         osHasBSS,
       ),
+      {
+        title: '🧱 Core Block',
+        methodFocus: 'Anti-extension + anti-rotation · deep trunk stability · last block',
+        exercises: CORE_BLOCK,
+      },
     ],
   };
 }
@@ -2146,7 +2164,6 @@ function buildSession(
   if (slot.mdDay === 'MD-4') {
     const gymKey = (gymAccess as GymKey) in EXPLOSIVE_PLYO_POOL ? (gymAccess as GymKey) : 'basic';
     const pogoHops = pickReactivePlyo(gymKey, weekNum);
-    const prehabEccentric = prehabEx.filter(e => e.methodType === 'eccentric');
     const muscleInjury = hasMuscleInjury(injuryHistory);
     const md4Vertical = selectVerticalSquat(inputs, phase, gymKey, fv.loadScheme as LoadKey, strengthEx);
     const md4HasBSS = md4Vertical.name.toLowerCase().includes('bulgarian split squat');
@@ -2201,11 +2218,16 @@ function buildSession(
           exercises: pogoHops,
         },
         ...buildInjuryOrderedBlocks(
-          muscleInjury, gymKey, prehabEccentric, ECCENTRIC_BLOCK[gymKey],
+          muscleInjury, gymKey, ECCENTRIC_BLOCK[gymKey],
           'Heavy isometric holds · tendon stiffness adaptation',
           'Eccentric last · Nordic fascicle-length = primary hamstring protection',
           md4HasBSS,
         ),
+        {
+          title: '🧱 Core Block',
+          methodFocus: 'Anti-extension + anti-rotation · deep trunk stability · last block',
+          exercises: CORE_BLOCK,
+        },
       ],
     };
   }
@@ -2265,6 +2287,11 @@ function buildSession(
           title: '🔴 Eccentric Block',
           methodFocus: 'Nordic + Copenhagen · fascicle length · highest structural stress · always last',
           exercises: ECCENTRIC_BLOCK[gymKey],
+        },
+        {
+          title: '🧱 Core Block',
+          methodFocus: 'Anti-extension + anti-rotation · deep trunk stability · last block',
+          exercises: CORE_BLOCK,
         },
       ],
     };
