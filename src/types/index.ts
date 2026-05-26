@@ -60,7 +60,8 @@ export interface WorkoutExercise {
   blockTitle?: string;   // section heading shown before this exercise in active workout
   displayName?: string;  // programme-specific exercise name (overrides library name in header)
   coachingCue?: string;  // programme-specific coaching cue (shown in tutorial panel)
-  hasPrimingSingles?: boolean; // inject 3 ascending neural priming singles before working sets
+  hasPrimingSingles?: boolean; // inject 2 ascending neural priming singles before working sets (85%, 97%)
+  isPerSide?: boolean;   // true for exercises with "each side/leg" — shows sequential L+R timers
 }
 
 export interface WorkoutTemplate {
@@ -74,8 +75,9 @@ export interface CompletedSet {
   reps: number;
   weight: number;
   completedAt: number;
-  rir?: number;          // 0–4, Reps in Reserve actually achieved
-  isPriming?: boolean;   // true for neural priming singles (85/92/100% of working weight)
+  rir?: number;            // 0–4, Reps in Reserve actually achieved
+  isPriming?: boolean;     // true for neural priming singles (85/97% of working weight)
+  addedWeightKg?: number;  // extra load added to a bodyweight/isometric exercise (e.g. plate on Copenhagen Plank)
 }
 
 export interface SessionExercise {
@@ -89,6 +91,7 @@ export interface SessionExercise {
   displayName?: string;  // carried from WorkoutExercise
   coachingCue?: string;  // carried from WorkoutExercise
   hasPrimingSingles?: boolean; // carried from WorkoutExercise
+  isPerSide?: boolean;   // carried from WorkoutExercise
   sets: CompletedSet[];
 }
 

@@ -1,9 +1,4 @@
-import { useState } from 'react';
-import type React from 'react';
-
-function localDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+import { useState, type DragEvent } from 'react';
 import { ChevronLeft, ChevronRight, Trash2, Calendar, Info, ArrowRightLeft, AlertTriangle, X, Dumbbell, Plus, ChevronDown } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -14,6 +9,9 @@ import { FOOTBALL_PROGRAMS, BuiltInTemplate } from '../../data/programs';
 import { classifySessionType } from '../../utils/sessionClassify';
 import { getProgrammeAnchorMonday } from '../../lib/sessionUtils';
 
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 interface SessionDot {
   sessionKey: string;   // "wi-si" (week index - session index)
@@ -136,8 +134,8 @@ function MonthlyCalendarGrid({
   dropTarget: string | null;
   onSessionDragStart: (sessionKey: string) => void;
   onDragEnd: () => void;
-  onCellDragOver: (date: string, e: React.DragEvent) => void;
-  onCellDrop: (date: string, e: React.DragEvent) => void;
+  onCellDragOver: (date: string, e: DragEvent) => void;
+  onCellDrop: (date: string, e: DragEvent) => void;
 }) {
   const days = getMonthProfiles(matchEntries, year, month);
   const firstDow = days[0]?.dayOfWeek ?? 0;
@@ -861,7 +859,7 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
     setSelectedDate(null);
   };
 
-  const handleCellDrop = (toDate: string, e: React.DragEvent) => {
+  const handleCellDrop = (toDate: string, e: DragEvent) => {
     e.preventDefault();
     // Read sessionKey from dataTransfer — more reliable than React state which may be stale
     const sessionKey = e.dataTransfer.getData('text/plain');

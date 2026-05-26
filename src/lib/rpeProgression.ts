@@ -99,7 +99,7 @@ export function interSessionBaseline(
         ? curr
         : prev
     );
-    const suggestion = intraSessionSuggestion(targetRir, anchor.rir!, anchor.weight);
+    const suggestion = intraSessionSuggestion(targetRir, anchor.rir ?? 0, anchor.weight);
     return {
       weight: suggestion.suggestedWeight,
       reps: anchor.reps,
@@ -122,16 +122,13 @@ export function sessionAvgRpe(allSets: CompletedSet[]): number | null {
   return Math.round(avg * 10) / 10;
 }
 
-/** RIR labels for display */
-const RPE_LABELS: Record<number, string> = {
+export const RIR_LABELS: Record<number, string> = {
   0: 'Max effort',
   1: '1 rep left',
   2: '2 reps left',
   3: '3 reps left',
   4: '4+ reps left',
 };
-
-export const RIR_LABELS = RPE_LABELS;
 
 
 export interface WeeklySuggestion {

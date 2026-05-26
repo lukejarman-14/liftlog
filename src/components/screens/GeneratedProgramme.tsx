@@ -1,8 +1,3 @@
-/**
- * GeneratedProgramme v2 — displays a fully generated personalised football S&C programme.
- * Shows force-velocity profile, method tags, tempo, intensity intent, and coach explanation.
- */
-
 import { useState, useRef, useEffect } from 'react';
 import {
   ChevronLeft, ChevronDown, ChevronUp, ChevronRight,

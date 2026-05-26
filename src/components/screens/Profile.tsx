@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, type ChangeEvent } from 'react';
 import {
   Camera, Mail, User, Shield, Calendar, Target, Dumbbell,
   LogOut, ChevronRight, ChevronDown, ChevronUp, Activity, Zap, Lock, Eye, EyeOff, Check,
@@ -489,10 +489,12 @@ interface ProfileProps {
 
 function ChangePasswordModal({
   currentHash,
+  userEmail,
   onSave,
   onClose,
 }: {
   currentHash?: string;
+  userEmail: string;
   onSave: (newHash: string) => void;
   onClose: () => void;
 }) {
@@ -515,7 +517,7 @@ function ChangePasswordModal({
     setLoading(true);
     // Verify current password (local hash check)
     if (currentHash) {
-      const curHash = await hashPassword(currentPw);
+      const curHash = await hashPassword(currentPw, userEmail);
       if (curHash !== currentHash) {
         setError('Current password is incorrect.');
         setLoading(false);
@@ -532,7 +534,7 @@ function ChangePasswordModal({
         return;
       }
     }
-    const newHash = await hashPassword(newPw);
+    const newHash = await hashPassword(newPw, userEmail);
     setSuccess(true);
     onSave(newHash);
     onClose();
@@ -1100,7 +1102,7 @@ export function Profile({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -1528,7 +1530,7 @@ export function Profile({
               'vf_user_profile', 'vf_custom_exercises', 'vf_templates', 'vf_sessions',
               'vf_active_plan', 'vf_profile_picture', 'vf_settings', 'vf_baseline', 'vf_match_entries',
               'vf_test_sessions', 'vf_generated_programmes', 'vf_active_programme_id',
-              'vf_daily_readiness', 'vf_football_intensity', 'vf_scheduled_workouts',
+              'vf_daily_readiness', 'vf_football_intensity', 'vf_premium', 'vf_scheduled_workouts',
               'vf_weight_log',
             ];
             const exportData: Record<string, unknown> = { exportedAt: new Date().toISOString() };
@@ -1600,6 +1602,7 @@ export function Profile({
       {showChangePw && (
         <ChangePasswordModal
           currentHash={userProfile.passwordHash}
+          userEmail={userProfile.email}
           onSave={onChangePassword}
           onClose={() => setShowChangePw(false)}
         />

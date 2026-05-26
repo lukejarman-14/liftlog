@@ -4,7 +4,7 @@ import {
   UserProfile, UserSettings, DEFAULT_SETTINGS,
   BaselineTest, BaselineResults,
   MatchEntry, TestSession, GeneratedProgramme, DailyReadiness, ScheduledWorkout,
-  WeightEntry,
+  WeightEntry, MeasureType,
 } from '../types';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
@@ -48,7 +48,6 @@ export function useStore() {
       savedAt: Date.now(),
     }));
 
-  // Match entries
   const saveMatchEntry = (entry: MatchEntry) =>
     setMatchEntries(prev => {
       const idx = prev.findIndex(e => e.id === entry.id);
@@ -59,7 +58,6 @@ export function useStore() {
   const deleteMatchEntry = (id: string) =>
     setMatchEntries(prev => prev.filter(e => e.id !== id));
 
-  // Test sessions (historical — never overwritten)
   const saveTestSession = (session: TestSession) =>
     setTestSessions(prev => {
       const idx = prev.findIndex(s => s.id === session.id);
@@ -67,20 +65,21 @@ export function useStore() {
       return [...prev, session];
     });
 
-  // Generated programmes — store up to 10 most recent
-  const saveGeneratedProgramme = (programme: GeneratedProgramme) =>
-    setGeneratedProgrammes(prev => {
-      const filtered = prev.filter(p => p.id !== programme.id);
-      return [programme, ...filtered].slice(0, 10);
-    });
+  const saveGeneratedProgramme = (programme: GeneratedProgramme) => {
+    const filtered = generatedProgrammes.filter(p => p.id !== programme.id);
+    const next = [programme, ...filtered].slice(0, 10);
+    setGeneratedProgrammes(next);
+    // If the cap evicted the currently active programme, clear the stale reference
+    if (activeProgrammeId && !next.some(p => p.id === activeProgrammeId)) {
+      setActiveProgrammeId(null);
+    }
+  };
 
   const deleteGeneratedProgramme = (id: string) => {
     setGeneratedProgrammes(prev => prev.filter(p => p.id !== id));
-    // If the deleted programme was active, clear it
     setActiveProgrammeId(prev => (prev === id ? null : prev));
   };
 
-  // Daily readiness
   const saveDailyReadiness = (entry: DailyReadiness) =>
     setDailyReadinessLog(prev => {
       const filtered = prev.filter(r => r.date !== entry.date);
@@ -94,11 +93,9 @@ export function useStore() {
     return dailyReadinessLog.find(r => r.date === today) ?? null;
   };
 
-  // Football session intensity
   const saveFootballIntensity = (date: string, intensity: number) =>
     setFootballIntensityLog(prev => ({ ...prev, [date]: intensity }));
 
-  // Scheduled workouts (template workouts placed on calendar dates)
   const saveScheduledWorkout = (entry: ScheduledWorkout) =>
     setScheduledWorkouts(prev => {
       const idx = prev.findIndex(e => e.id === entry.id);
@@ -109,7 +106,6 @@ export function useStore() {
   const deleteScheduledWorkout = (id: string) =>
     setScheduledWorkouts(prev => prev.filter(e => e.id !== id));
 
-  // Weight log
   const saveWeightEntry = (entry: WeightEntry) =>
     setWeightLog(prev => {
       const filtered = prev.filter(e => e.date !== entry.date);
@@ -157,7 +153,6 @@ export function useStore() {
 
   const getExercise = (id: string) => exercises.find(e => e.id === id);
 
-  // Exercises
   const addCustomExercise = (ex: Exercise) => {
     setCustomExercises(prev => [...prev, ex]);
   };
@@ -166,7 +161,6 @@ export function useStore() {
     setCustomExercises(prev => prev.filter(e => e.id !== id));
   };
 
-  // Templates
   const saveTemplate = (template: WorkoutTemplate) => {
     setTemplates(prev => {
       const idx = prev.findIndex(t => t.id === template.id);
@@ -183,7 +177,6 @@ export function useStore() {
     setTemplates(prev => prev.filter(t => t.id !== id));
   };
 
-  // Sessions
   const saveSession = (session: WorkoutSession) => {
     setSessions(prev => {
       const idx = prev.findIndex(s => s.id === session.id);
@@ -205,7 +198,6 @@ export function useStore() {
       .filter(s => s.exercises.some(e => e.exerciseId === exerciseId))
       .sort((a, b) => a.startTime - b.startTime);
 
-  // Returns the most recent completed session (excluding currentSessionId) that contains exerciseId
   const getLastSession = (exerciseId: string, currentSessionId: string) => {
     const past = sessions
       .filter(s => s.id !== currentSessionId && s.exercises.some(e => e.exerciseId === exerciseId))
@@ -215,9 +207,7 @@ export function useStore() {
     return session.exercises.find(e => e.exerciseId === exerciseId) ?? null;
   };
 
-  // Returns the single best set ever for an exercise.
-  // For reps-only exercises (measureType 'reps') ranks by reps; otherwise by weight then reps.
-  const getPB = (exerciseId: string, measureType?: string) => {
+  const getPB = (exerciseId: string, measureType?: MeasureType) => {
     let best: { weight: number; reps: number } | null = null;
     for (const session of sessions) {
       const ex = session.exercises.find(e => e.exerciseId === exerciseId);

@@ -147,8 +147,12 @@ export function prescribeWeekLoad(
   if (basePct === null) return null;
 
   const wip = weekInPhase(weekNumber, totalWeeks);
-  // +2.5% per week within phase; hard cap at 97% of 1RM
-  const adjustedPct = Math.min(0.97, basePct + (wip - 1) * 0.025);
+  // Scale the per-step progression so the phase always reaches ~+5% regardless of phase length.
+  // 12-week (3 weeks/phase): 0.025 per step — same as before.
+  // 8-week (2 weeks/phase): 0.05 per step — meaningful jump in week 2.
+  const phaseWeeks = Math.max(1, Math.round(totalWeeks / 4));
+  const stepPct = phaseWeeks > 1 ? 0.05 / (phaseWeeks - 1) : 0.025;
+  const adjustedPct = Math.min(0.97, basePct + (wip - 1) * stepPct);
   const rawKg = oneRMkg * adjustedPct;
   const kg = roundPlate(rawKg);
 

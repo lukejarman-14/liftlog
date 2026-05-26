@@ -98,12 +98,18 @@ export function classifyDay(dateStr: string, matchEntries: MatchEntry[]): LoadDa
   if (!matchDates.length) return 'free';
 
   const target = new Date(dateStr + 'T12:00:00');
-  const MS_PER_DAY = 86_400_000;
+  const MS_PER_DAY = 86_400_000; // ms in one day
 
   let nearestDays = Infinity;
   for (const m of matchDates) {
     const days = Math.round((target.getTime() - m.getTime()) / MS_PER_DAY);
-    if (Math.abs(days) < Math.abs(nearestDays)) nearestDays = days;
+    // On an exact tie, prefer the upcoming match (days < 0 means match is ahead)
+    if (
+      Math.abs(days) < Math.abs(nearestDays) ||
+      (Math.abs(days) === Math.abs(nearestDays) && days < 0)
+    ) {
+      nearestDays = days;
+    }
   }
 
   switch (nearestDays) {
@@ -136,7 +142,7 @@ export function getMonthProfiles(
   month: number, // 0-indexed
 ): Array<{ date: string; dayNum: number; dayOfWeek: number; isToday: boolean; profile: LoadProfile; matchEntry?: MatchEntry; trainingEntry?: MatchEntry }> {
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = localDateStr(today);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   return Array.from({ length: daysInMonth }, (_, i) => {
@@ -164,7 +170,7 @@ export function getTwoWeekProfiles(
   matchEntries: MatchEntry[],
 ): Array<{ date: string; dayLabel: string; dayNum: number; isToday: boolean; profile: LoadProfile }> {
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = localDateStr(today);
   const dow = today.getDay(); // 0=Sun
   const monday = new Date(today);
   monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));

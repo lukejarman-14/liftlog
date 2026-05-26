@@ -7,7 +7,8 @@ export async function createStripeCheckout(
 ): Promise<{ url: string } | { error: string }> {
   const origin = window.location.origin;
 
-  const { data, error } = await supabase!.functions.invoke('create-checkout-session', {
+  if (!supabase) return { error: 'Payments not configured' };
+  const { data, error } = await supabase.functions.invoke('create-checkout-session', {
     body: {
       plan,
       userId,

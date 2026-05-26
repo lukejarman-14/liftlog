@@ -1,17 +1,41 @@
-/**
- * Training reminder notifications — wraps @capacitor/local-notifications.
- *
- * Strategy: schedule one notification per future programme session (up to 60,
- * the safe iOS limit). Each notification fires at the user's chosen time on the
- * session's calendar date with the session objective as the title.
- *
- * All scheduled notifications use IDs in the range 10000–10059 so they can be
- * reliably cancelled without touching any other notifications.
- */
+// Training reminder notifications — one per future programme session, IDs 10000–10059 (safe iOS cap).
+// Rest-end notification uses ID 99998 (outside training range so it can be cancelled independently).
 
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { GeneratedProgramme } from '../types';
 import { getProgrammeAnchorMonday } from './sessionUtils';
+
+const REST_NOTIF_ID = 99998;
+// Fire 1s early so the sound lands exactly as the timer hits zero on-screen
+const NOTIF_EARLY_S = 1;
+
+export async function scheduleRestEndNotification(secs: number): Promise<void> {
+  try {
+    const { display } = await LocalNotifications.checkPermissions();
+    if (display !== 'granted') return;
+    const at = new Date(Date.now() + (secs - NOTIF_EARLY_S) * 1000);
+    await LocalNotifications.schedule({
+      notifications: [{
+        id: REST_NOTIF_ID,
+        title: '⏱️ Rest complete',
+        body: 'Time to go — start your next set.',
+        schedule: { at, allowWhileIdle: true },
+        smallIcon: 'ic_stat_icon_config_sample',
+        iconColor: '#4f46e5',
+      }],
+    });
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[notifications] scheduleRestEnd failed:', err);
+  }
+}
+
+export async function cancelRestNotification(): Promise<void> {
+  try {
+    await LocalNotifications.cancel({ notifications: [{ id: REST_NOTIF_ID }] });
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[notifications] cancelRest failed:', err);
+  }
+}
 
 const DAY_NAME_TO_IDX: Record<string, number> = {
   Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
@@ -89,10 +113,6 @@ function buildSessionEntries(
     .slice(0, NOTIF_LIMIT);
 }
 
-/**
- * Schedule a single daily reminder at the given time — used when there is no
- * active programme (e.g. new users who haven't built one yet).
- */
 export async function scheduleDailyReminder(hour: number, minute: number): Promise<void> {
   await cancelAllTrainingReminders();
   const now = new Date();
@@ -113,10 +133,6 @@ export async function scheduleDailyReminder(hour: number, minute: number): Promi
   } catch {}
 }
 
-/**
- * Cancel existing training reminders and schedule fresh ones for the given
- * programme at the user's chosen time. Returns the number scheduled.
- */
 export async function scheduleTrainingReminders(
   programme: GeneratedProgramme,
   hour: number,

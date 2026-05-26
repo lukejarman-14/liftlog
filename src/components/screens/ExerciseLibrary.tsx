@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Search, Plus, Trash2, ChevronRight } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -28,7 +28,7 @@ function AddExerciseModal({ onAdd, onClose }: {
   const [category, setCategory] = useState<ExerciseCategory>('Chest');
   const [rest, setRest] = useState('90');
 
-  const handleAddExercise = (e: React.FormEvent) => {
+  const handleAddExercise = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     onAdd({

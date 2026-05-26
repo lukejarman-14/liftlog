@@ -60,7 +60,7 @@ export function ShareStatsCard({ sessions, streak, playerName, onClose }: ShareS
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 100);
+          setTimeout(() => URL.revokeObjectURL(url), 150);
         }
       }, 'image/png');
     } catch {

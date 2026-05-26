@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudSignOut, cloudResetPassword } from '../../lib/cloudSync';
@@ -22,7 +22,7 @@ function inputClass(hasError = false) {
   return `w-full px-4 py-3 rounded-xl border ${hasError ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'} bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400`;
 }
 
-function Label({ children }: { children: React.ReactNode }) {
+function Label({ children }: { children: ReactNode }) {
   return (
     <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5 block">
       {children}
@@ -114,7 +114,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [gymAccess,       setGymAccess]       = useState<'full' | 'basic' | 'none' | ''>('');
   const canEnterApp = position !== '' && experienceYears !== '' && gymFrequency !== '' && gymAccess !== '';
 
-  /** Always store metric internally — convert from display unit on the fly */
   const heightCm: number | undefined = (() => {
     if (!heightStr) return undefined;
     if (heightUnit === 'cm') return parseFloat(heightStr) || undefined;
@@ -169,9 +168,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         const loaded = await cloudLoadData(userId);
 
         if (loaded) {
-          // Cloud data found — reload so all useLocalStorage hooks re-read fresh data
+          // cloudLoadData fires 'vf-cloud-restored' — all useLocalStorage hooks
+          // re-read from localStorage so no page reload is needed
           setRestoreSuccess('Signed in! Loading your data…');
-          window.location.reload();
         } else {
           // No cloud data for this account. Check for valid local profile.
           let localProfile: { email?: string } | null = null;
@@ -210,7 +209,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
       }
 
       if (profile.passwordHash) {
-        const entered = await hashPassword(loginPassword);
+        const entered = await hashPassword(loginPassword, loginEmail.trim().toLowerCase());
         if (entered !== profile.passwordHash) {
           setLoginError('Email or password is incorrect.');
           setLoginLoading(false);
@@ -234,52 +233,56 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const handleEnterApp = async () => {
     if (submitting) return;
     setSubmitting(true);
-    // Only hash a password when the user is creating a new account
-    const passwordHash = existingUserId ? undefined : await hashPassword(password);
-    const profile: UserProfile = {
-      firstName:       firstName.trim(),
-      lastName:        lastName.trim(),
-      email:           email.trim().toLowerCase(),
-      passwordHash,
-      position:          position as 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST',
-      secondaryPosition: secondaryPos || undefined,
-      experienceYears:   experienceYears as '<1' | '1-3' | '3-5' | '5+',
-      gymFrequency:      gymFrequency as '0' | '1-2' | '3-4' | '5+',
-      goals:             [],
-      gymAccess:         gymAccess as 'full' | 'basic' | 'none',
-      completedAt:     Date.now(),
-      heightCm,
-      weightKg,
-      gender:          gender || undefined,
-    };
+    try {
+      // Only hash a password when the user is creating a new account
+      const passwordHash = existingUserId ? undefined : await hashPassword(password, email.trim().toLowerCase());
+      const profile: UserProfile = {
+        firstName:       firstName.trim(),
+        lastName:        lastName.trim(),
+        email:           email.trim().toLowerCase(),
+        passwordHash,
+        position:          position as 'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST',
+        secondaryPosition: secondaryPos || undefined,
+        experienceYears:   experienceYears as '<1' | '1-3' | '3-5' | '5+',
+        gymFrequency:      gymFrequency as '0' | '1-2' | '3-4' | '5+',
+        goals:             [],
+        gymAccess:         gymAccess as 'full' | 'basic' | 'none',
+        completedAt:     Date.now(),
+        heightCm,
+        weightKg,
+        gender:          gender || undefined,
+      };
 
-    // Write profile directly to localStorage NOW so cloudSaveData always finds it,
-    // regardless of whether React's useEffect has committed yet.
-    localStorage.setItem('vf_user_profile', JSON.stringify(profile));
+      // Write profile directly to localStorage NOW so cloudSaveData always finds it,
+      // regardless of whether React's useEffect has committed yet.
+      localStorage.setItem('vf_user_profile', JSON.stringify(profile));
 
-    let userId: string | undefined = existingUserId;
-    if (!userId && isSupabaseConfigured) {
-      try {
-        const id = await cloudSignUp(profile.email, password);
-        if (id) userId = id;
-      } catch (err: unknown) {
-        // If account already exists in Supabase, try signing in instead
-        const msg = err instanceof Error ? err.message : '';
-        if (msg.includes('already registered') || msg.includes('already exists')) {
-          try {
-            const id = await cloudSignIn(profile.email, password);
-            if (id) userId = id;
-          } catch { /* fall through to local-only */ }
+      let userId: string | undefined = existingUserId;
+      if (!userId && isSupabaseConfigured) {
+        try {
+          const id = await cloudSignUp(profile.email, password);
+          if (id) userId = id;
+        } catch (err: unknown) {
+          // If account already exists in Supabase, try signing in instead
+          const msg = err instanceof Error ? err.message : '';
+          if (msg.includes('already registered') || msg.includes('already exists')) {
+            try {
+              const id = await cloudSignIn(profile.email, password);
+              if (id) userId = id;
+            } catch { /* fall through to local-only */ }
+          }
         }
       }
-    }
 
-    // No plan pre-selected during onboarding — paywall shown immediately after
-    onComplete(profile, '', userId);
+      // No plan pre-selected during onboarding — paywall shown immediately after
+      onComplete(profile, '', userId);
 
-    // Push data to cloud immediately (profile is already in localStorage above)
-    if (userId) {
-      await cloudSaveData(userId);
+      // Push data to cloud immediately (profile is already in localStorage above)
+      if (userId) {
+        await cloudSaveData(userId);
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 

@@ -29,22 +29,17 @@ if (key) {
   });
 }
 
-/** Fire a named analytics event with optional properties. No-ops if PostHog key not set. */
+/** No-op if VITE_POSTHOG_KEY is not set. */
 export function trackEvent(eventName: string, properties?: Record<string, unknown>): void {
   if (!key) return;
   posthog.capture(eventName, properties);
 }
 
-/**
- * Tie subsequent events to a known user identity.
- * Call this after a successful login or sign-up.
- */
 export function identifyUser(userId: string, traits?: Record<string, unknown>): void {
   if (!key) return;
   posthog.identify(userId, traits);
 }
 
-/** Call on logout so the next session starts as a fresh anonymous user. */
 export function resetAnalyticsUser(): void {
   if (!key) return;
   posthog.reset();

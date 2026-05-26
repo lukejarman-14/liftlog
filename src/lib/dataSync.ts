@@ -1,9 +1,3 @@
-/**
- * Data export / import for cross-device backup and restore.
- * All app data lives in localStorage under 'vf_*' keys.
- * Export creates a single JSON file; import writes all keys back and reloads.
- */
-
 export const STORAGE_KEYS = [
   'vf_user_profile',
   'vf_custom_exercises',
@@ -58,7 +52,8 @@ export function exportData(): void {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 100);
+  // Revoke after a tick — enough time for the download to start
+  setTimeout(() => URL.revokeObjectURL(url), 150);
 }
 
 /** Read a backup file and restore all data to localStorage. Resolves with the restored profile email. */
@@ -87,6 +82,7 @@ export function importData(file: File): Promise<string> {
         const profile = backup.data['vf_user_profile'] as { email?: string } | null;
         resolve(profile?.email ?? 'your account');
       } catch (err) {
+        if (import.meta.env.DEV) console.error('[dataSync] importData parse error:', err);
         reject(new Error('Could not read the backup file. Make sure it is a valid VectorFootball backup.'));
       }
     };

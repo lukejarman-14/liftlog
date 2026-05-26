@@ -1,5 +1,3 @@
-// Football Fitness Testing Battery
-
 import { BaselineTest, BaselineResults, SingleTestResult, TestSession, TestType } from '../types';
 
 // Grade 5 = Elite, 4 = Excellent, 3 = Good, 2 = Fair, 1 = Needs Improvement

@@ -139,7 +139,6 @@ function SessionCard({ session, onDelete, onNavigate }: {
 }
 
 
-// ─── Norm benchmark tables shown when a test row is tapped ───────────────────
 
 interface NormRow { grade: 1|2|3|4|5; male: string; female: string }
 
@@ -188,7 +187,6 @@ const NORM_ROWS: Record<string, NormRow[]> = {
   ],
 };
 
-// ─── Expandable norm detail panel ────────────────────────────────────────────
 
 function NormDetail({
   testKey, athleteGrade, sex, yoyoLevel, weightKg,
@@ -272,7 +270,6 @@ function NormDetail({
   );
 }
 
-// ─── Main fitness profile card ────────────────────────────────────────────────
 
 function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => void }) {
   const { baseline, userProfile } = useStore();
@@ -706,7 +703,7 @@ const GRADE_DOT: Record<1|2|3|4|5, string> = {
   1: '#dc2626',
 };
 
-function TestChart({ meta, points }: { meta: TestMeta; points: DataPoint[]; type: TestType }) {
+function TestChart({ meta, points }: { meta: TestMeta; points: DataPoint[] }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   // SVG layout constants
@@ -897,7 +894,6 @@ function TestChart({ meta, points }: { meta: TestMeta; points: DataPoint[]; type
   );
 }
 
-// ─── VO₂max card ─────────────────────────────────────────────────────────────
 
 /** Classify a relative VO₂max (ml·kg⁻¹·min⁻¹) for field-sport athletes. */
 function gradeVo2(vo2: number, sex: 'male' | 'female'): { grade: 1|2|3|4|5; label: string } {
@@ -1031,7 +1027,6 @@ function Vo2MaxCard({ points, weightKg, sex }: {
   );
 }
 
-// ─── Tests progression tab ────────────────────────────────────────────────────
 
 function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => void }) {
   const { testSessions, userProfile, baseline } = useStore();
@@ -1120,7 +1115,7 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
               <h3 className="text-sm font-bold text-gray-800">{meta.label}</h3>
               <span className="ml-auto text-xs text-gray-400">{points.length} test{points.length !== 1 ? 's' : ''}</span>
             </div>
-            <TestChart meta={meta} points={points} type={type} />
+            <TestChart meta={meta} points={points} />
           </Card>
         );
       })}
@@ -1134,7 +1129,7 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
             <span className="ml-1 text-xs text-gray-400">(lower = better recovery)</span>
             <span className="ml-auto text-xs text-gray-400">{rsaFiPoints.length} test{rsaFiPoints.length !== 1 ? 's' : ''}</span>
           </div>
-          <TestChart meta={rsaFiMeta} points={rsaFiPoints} type="rsa" />
+          <TestChart meta={rsaFiMeta} points={rsaFiPoints} />
         </Card>
       )}
 

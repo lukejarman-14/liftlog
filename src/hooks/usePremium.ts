@@ -61,8 +61,8 @@ export function usePremium() {
   /** Days remaining in trial (null if not in trial or already premium). */
   const trialDaysLeft = (() => {
     if (status.isPremium || !status.trialStartedAt) return null;
-    const elapsed = Date.now() - status.trialStartedAt;
-    const remaining = Math.ceil((TRIAL_DAYS * MS_PER_DAY - elapsed) / MS_PER_DAY);
+    const expiryTs = status.expiresAt ?? (status.trialStartedAt + TRIAL_DAYS * MS_PER_DAY);
+    const remaining = Math.ceil((expiryTs - Date.now()) / MS_PER_DAY);
     return remaining > 0 ? remaining : 0;
   })();
 
@@ -142,13 +142,29 @@ export function usePremium() {
     }
   }, []);
 
-  /** Sync premium status from RC (call on app boot after RC is configured). */
+  /** Sync premium status from RC (call on app boot and after login). */
   const syncFromRC = useCallback(async () => {
     const active = await rcCheckEntitlement();
+    // active === null means RC couldn't be reached — preserve existing status
+    if (active === null) return;
+
+    const current = load();
     if (active) {
-      const current = load();
       if (!current.isPremium) {
         const updated: PremiumStatus = { ...current, isPremium: true };
+        save(updated);
+        setStatusRaw(updated);
+      }
+    } else {
+      // RC definitively says no active entitlement.
+      // Only revoke monthly/yearly subscriptions — never lifetime, and never
+      // timed grants (promo codes and referral rewards always set expiresAt).
+      if (
+        current.isPremium &&
+        (current.plan === 'monthly' || current.plan === 'yearly') &&
+        !current.expiresAt
+      ) {
+        const updated: PremiumStatus = { ...current, isPremium: false, plan: undefined };
         save(updated);
         setStatusRaw(updated);
       }

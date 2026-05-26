@@ -1,9 +1,3 @@
-/**
- * Cloud auth + data sync via Supabase.
- * All app data is stored in a single JSONB column in user_data table.
- * Falls back to local-only mode if Supabase is not configured.
- */
-
 import { supabase, isSupabaseConfigured } from './supabase';
 import { STORAGE_KEYS } from './dataSync';
 
@@ -25,6 +19,9 @@ function restoreAllData(data: Record<string, unknown>) {
       localStorage.setItem(key, JSON.stringify(val));
     }
   }
+  // Notify all useLocalStorage hooks that localStorage was bulk-updated externally.
+  // This lets them re-read their values without a page reload.
+  window.dispatchEvent(new CustomEvent('vf-cloud-restored'));
 }
 
 
@@ -92,6 +89,13 @@ export async function getExistingSession(): Promise<string | null> {
 export async function cloudSaveData(userId: string): Promise<void> {
   if (!supabase) return;
   const appData = collectAllData();
+  // Never upload the local password hash — it's a local-auth-only credential.
+  const profile = appData['vf_user_profile'];
+  if (profile && typeof profile === 'object') {
+    const { passwordHash: _pw, ...rest } = profile as Record<string, unknown>;
+    void _pw;
+    appData['vf_user_profile'] = rest;
+  }
   const { error } = await supabase
     .from('user_data')
     .upsert({ id: userId, app_data: appData, updated_at: new Date().toISOString() });

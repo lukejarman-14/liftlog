@@ -1,8 +1,3 @@
-/**
- * ProgrammeBuilder v2 — 6-step wizard collecting inputs for the programme generator.
- * Pre-fills position, experience, gym access from UserProfile. FV always balanced.
- */
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { trackEvent } from '../../lib/analytics';
 import { ChevronLeft, ChevronRight, Zap, Target, Activity, Brain, Check, User, Calendar, Dumbbell } from 'lucide-react';

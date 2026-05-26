@@ -7,9 +7,10 @@
 import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
 
-const IOS_API_KEY =
-  (import.meta.env.VITE_REVENUECAT_IOS_KEY as string | undefined) ??
-  'appl_cnqQEiStJZdfkFfmRmfGVGwWOhi';
+const IOS_API_KEY = import.meta.env.VITE_REVENUECAT_IOS_KEY as string | undefined;
+if (import.meta.env.DEV && !IOS_API_KEY) {
+  console.warn('[RevenueCat] VITE_REVENUECAT_IOS_KEY is not set — in-app purchases will not work on native.');
+}
 const ENTITLEMENT_ID = 'vectorfootball.co.uk Pro';
 
 const PLAN_TO_PACKAGE: Record<string, string> = {
@@ -26,6 +27,7 @@ let initialised = false;
 export async function rcConfigure(userId?: string): Promise<void> {
   if (!Capacitor.isNativePlatform()) return; // web: RevenueCat not available
   if (initialised) return;
+  if (!IOS_API_KEY) return; // key not configured — skip silently in production
   try {
     await Purchases.setLogLevel({ level: LOG_LEVEL.ERROR });
     await Purchases.configure({ apiKey: IOS_API_KEY, appUserID: userId ?? null });
@@ -33,14 +35,17 @@ export async function rcConfigure(userId?: string): Promise<void> {
   } catch { /* silent — RC unavailable */ }
 }
 
-/** Returns true if the user has an active premium entitlement. */
-export async function rcCheckEntitlement(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) return false;
+/**
+ * Returns true if the entitlement is active, false if definitively inactive,
+ * or null if the check could not be completed (offline / RC error).
+ */
+export async function rcCheckEntitlement(): Promise<boolean | null> {
+  if (!Capacitor.isNativePlatform()) return null;
   try {
     const { customerInfo } = await Purchases.getCustomerInfo();
     return customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
   } catch {
-    return false;
+    return null; // network error or RC unavailable — preserve existing status
   }
 }
 

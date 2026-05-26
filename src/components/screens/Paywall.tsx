@@ -158,9 +158,7 @@ export function Paywall({
                   onClick={() => setSelected(plan.id)}
                   disabled={busy}
                   className={`w-full text-left rounded-2xl border-2 transition-all relative disabled:opacity-50 ${
-                    isSelected
-                      ? isAnnual ? 'border-brand-500 bg-brand-50' : 'border-brand-500 bg-brand-50'
-                      : 'border-gray-200 bg-white'
+                    isSelected ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white'
                   } ${isAnnual ? 'p-4' : 'p-3.5'}`}
                 >
                   {plan.badge && (
@@ -375,6 +373,27 @@ export function Paywall({
         <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">
           <Shield size={12} />
           <span>Secure payment · Cancel anytime · Restore purchases</span>
+        </div>
+
+        {/* Legal links — required by App Store Guideline 3.1.2 */}
+        <div className="mt-4 flex items-center justify-center gap-3 text-xs text-gray-400">
+          <a
+            href="https://vectorfootball.co.uk/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-gray-600 transition-colors"
+          >
+            Privacy Policy
+          </a>
+          <span>·</span>
+          <a
+            href="https://vectorfootball.co.uk/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-gray-600 transition-colors"
+          >
+            Terms of Use
+          </a>
         </div>
       </div>
     </div>

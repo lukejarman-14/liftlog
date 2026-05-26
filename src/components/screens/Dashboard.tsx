@@ -5,7 +5,7 @@ import { trackEvent } from '../../lib/analytics';
 import { ShareStatsCard } from '../ShareStatsCard';
 import { WeeklyCalendar } from '../WeeklyCalendar';
 import { DailyReadinessWidget } from '../DailyReadinessWidget';
-import { WorkoutSession, NavState, ActivePlan, DailyReadiness, GeneratedProgramme, Exercise, WorkoutExercise } from '../../types';
+import { WorkoutSession, NavState, ActivePlan, DailyReadiness, GeneratedProgramme, Exercise, WorkoutExercise, ProgrammeSession } from '../../types';
 import { useStore } from '../../hooks/useStore';
 import { POSITION_PLANS, getCurrentPlanWeek } from '../../data/positionPlans';
 
@@ -20,7 +20,7 @@ interface DashboardProps {
   onNavigate: (nav: NavState) => void;
   onStartWorkout: (templateId: string, name: string) => void;
   onStartProgrammeSession: (name: string, items: WorkoutExercise[]) => void;
-  onStartTodayProgrammeSession?: (session: import('../../types').ProgrammeSession) => void;
+  onStartTodayProgrammeSession?: (session: ProgrammeSession) => void;
   onOpenStrengthSetup?: () => void;
   onSkipSession?: (weekIdx: number, sessionIdx: number, reason: string) => void;
   onRescheduleSession?: (weekIdx: number, sessionIdx: number, newDate: string) => void;
@@ -120,10 +120,12 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
   const [showShareCard, setShowShareCard] = useState(false);
 
   // Retest banner: dismissed for 10 days via localStorage timestamp
-  const retestDismissedUntil = Number(localStorage.getItem('vf_retest_dismissed_until') ?? 0);
-  const retestDismissed = Date.now() < retestDismissedUntil;
+  const [retestDismissed, setRetestDismissed] = useState(
+    () => Date.now() < Number(localStorage.getItem('vf_retest_dismissed_until') ?? 0),
+  );
   const dismissRetest = useCallback(() => {
     localStorage.setItem('vf_retest_dismissed_until', String(Date.now() + 10 * 24 * 60 * 60 * 1000));
+    setRetestDismissed(true);
   }, []);
 
   const daysSinceTest = getDaysSinceLastTest();
@@ -297,7 +299,6 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
               </div>
             </div>
           ) : (
-            /* ── In-progress state ── */
             <button
               onClick={() => onNavigate({ screen: activeProgramme ? 'generated-programme' : 'plans' })}
               className="w-full flex items-center justify-between p-3 rounded-2xl border border-brand-200 bg-white hover:bg-brand-50 transition-colors"

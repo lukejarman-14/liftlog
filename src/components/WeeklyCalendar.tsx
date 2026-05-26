@@ -48,15 +48,14 @@ function dateToStr(d: Date): string {
 export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onSkipSession, onRescheduleSession }: WeeklyCalendarProps) {
   const { matchEntries } = useStore();
   const [weekOffset, setWeekOffset] = useState(0);
-  const [previewSession, setPreviewSession] = useState<import('../types').ProgrammeSession | null>(null);
+  const [previewSession, setPreviewSession] = useState<ProgrammeSession | null>(null);
   const [previewWeekNumber, setPreviewWeekNumber] = useState<number>(1);
   const [previewOnStart, setPreviewOnStart] = useState<(() => void) | null>(null);
-  const [daySheet, setDaySheet] = useState<{ sessions: import('../types').ProgrammeSession[]; date: Date } | null>(null);
-  // Skip / reschedule sheet
+  const [daySheet, setDaySheet] = useState<{ sessions: ProgrammeSession[]; date: Date } | null>(null);
   const [skipSheet, setSkipSheet] = useState<{
     weekIdx: number;
     sessionIdx: number;
-    session: import('../types').ProgrammeSession;
+    session: ProgrammeSession;
     availableDates: { label: string; date: string }[];
   } | null>(null);
   const [skipView, setSkipView] = useState<'pick' | 'skip-reason' | 'reschedule'>('pick');

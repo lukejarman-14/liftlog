@@ -306,14 +306,14 @@ function roundTo2_5(kg: number): number {
 }
 
 /**
- * Returns the three priming single weights for a given working weight:
- * [85%, 92%, 100%] each rounded to the nearest 2.5 kg.
+ * Returns the two priming single weights for a given working weight:
+ * [85%, 97%] each rounded to the nearest 2.5 kg.
+ * Rest: 15 s after single 1, then 60 s after single 2 before working sets.
  */
-export function calcPrimingWeights(workingWeightKg: number): [number, number, number] {
+export function calcPrimingWeights(workingWeightKg: number): [number, number] {
   return [
     roundTo2_5(workingWeightKg * 0.85),
-    roundTo2_5(workingWeightKg * 0.92),
-    roundTo2_5(workingWeightKg * 1.00),
+    roundTo2_5(workingWeightKg * 0.97),
   ];
 }
 
@@ -323,7 +323,7 @@ const PRIMING_ELIGIBLE_CATEGORIES = new Set([
 ]);
 
 /**
- * Returns true when an exercise should receive 3 ascending priming singles
+ * Returns true when an exercise should receive 2 ascending priming singles
  * before its working sets: must be a strength-measure exercise in a
  * compound-lift category, not a warm-up exercise.
  */
@@ -525,6 +525,13 @@ export function sessionToWorkoutExercises(
           }
         }
 
+        // Detect single-side timed exercises ("30s each side", "25s each leg") so the
+        // workout UI can show sequential Left → Right countdown timers instead of one combined timer.
+        // isPerSide: true for working exercises prescribing separate work per leg/side/arm.
+        // Excluded for warm-up/mobility exercises (e.g. Hip 90/90, World's Greatest Stretch)
+        // which use "each side" descriptively but are performed as a single unit.
+        const isPerSide = !exercise.isWarmup && /\beach\b/i.test(pe.reps);
+
         result.push({
           exerciseId: id,
           targetSets,
@@ -535,6 +542,7 @@ export function sessionToWorkoutExercises(
           displayName: pe.name !== exercise.name ? pe.name : undefined,
           coachingCue: pe.cue || undefined,
           hasPrimingSingles: !isCond && isPrimingEligible(exercise),
+          isPerSide: isPerSide || undefined,
         });
         isFirstInBlock = false;
       }

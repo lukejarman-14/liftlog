@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Fragment, useState, useEffect, useCallback, useRef } from 'react';
 import { getAudioContext } from '../../lib/audio';
 import {
   CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp,
@@ -16,6 +16,7 @@ import { EXERCISE_DESCRIPTIONS } from '../../data/exerciseDescriptions';
 import { intraSessionSuggestion, interSessionBaseline, weeklyProgressionSuggestion } from '../../lib/rpeProgression';
 import { calcPrimingWeights } from '../../lib/sessionUtils';
 import { getLiftKey, LIFT_META, epley1RM } from '../../lib/progressiveOverload';
+import { scheduleRestEndNotification, cancelRestNotification } from '../../lib/notifications';
 
 interface ActiveWorkoutProps {
   session: WorkoutSession;
@@ -215,11 +216,11 @@ function WeeklyGoalCard({
 }
 
 
-function TutorialPanel({ exerciseId, coachingCue }: { exerciseId: string; coachingCue?: string }) {
+function TutorialPanel({ exerciseId, coachingCue, isPerSide }: { exerciseId: string; coachingCue?: string; isPerSide?: boolean }) {
   const [open, setOpen] = useState(false);
   const desc = EXERCISE_DESCRIPTIONS[exerciseId];
 
-  if (!desc && !coachingCue) return null;
+  if (!desc && !coachingCue && !isPerSide) return null;
 
   return (
     <div className="border-t border-gray-100 mt-1">
@@ -238,6 +239,15 @@ function TutorialPanel({ exerciseId, coachingCue }: { exerciseId: string; coachi
 
       {open && (
         <div className="px-4 pb-4 bg-gray-50/60">
+          {/* Per-side order tip */}
+          {isPerSide && (
+            <div className="mb-3 flex items-start gap-1.5 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+              <span className="text-orange-500 text-sm flex-shrink-0">💪</span>
+              <p className="text-xs font-semibold text-orange-700 leading-relaxed">
+                Always start with your <strong>weaker leg first</strong> — it gets the most quality reps when you're freshest.
+              </p>
+            </div>
+          )}
           {/* Programme-specific coaching cue takes priority */}
           {coachingCue && (
             <div className="mb-3">
@@ -294,10 +304,6 @@ function TutorialPanel({ exerciseId, coachingCue }: { exerciseId: string; coachi
   );
 }
 
-// Two-phase commit: user logs set data → confirms with RPE → set saved.
-// If measureType isn't 'strength', RPE is still captured but no weight
-// adjustment is suggested (performance outputs need different logic).
-
 interface SetRowProps {
   setIndex: number;
   completed: CompletedSet | null;
@@ -307,13 +313,17 @@ interface SetRowProps {
   unit?: string;
   targetRir?: number;
   isWarmup?: boolean;
+  isPerSide?: boolean;
+  /** 'L' or 'R' — shown instead of the set number for per-side strength exercises */
+  sideLabel?: 'L' | 'R';
   onComplete: (set: CompletedSet) => void;
   onEdit?: (set: CompletedSet) => void;
+  onUncomplete?: () => void;
 }
 
 function SetRow({
   setIndex, completed, defaultWeight, defaultReps,
-  measureType = 'strength', unit, targetRir, isWarmup, onComplete, onEdit,
+  measureType = 'strength', unit, targetRir, isWarmup, isPerSide, sideLabel, onComplete, onEdit, onUncomplete,
 }: SetRowProps) {
   // Use string state so we can show blank instead of "0"
   const [repsStr, setRepsStr]     = useState(defaultReps  > 0 ? String(defaultReps)  : '');
@@ -321,15 +331,31 @@ function SetRow({
   const reps   = parseInt(repsStr)   || 0;
   const weight = parseFloat(weightStr) || 0;
 
-  // Two-phase commit state
+  // Extra load for weighted isometrics (e.g. plate on Copenhagen Plank). Stored separately
+  // from the timer's weight field (which holds duration in seconds for time-based sets).
+  const [addedWeightStr, setAddedWeightStr] = useState(
+    completed?.addedWeightKg ? String(completed.addedWeightKg) : '0',
+  );
+  const addedWeightKg = parseFloat(addedWeightStr) || 0;
+
   const [pendingSet, setPendingSet] = useState<Omit<CompletedSet, 'rir'> | null>(null);
 
   // Timer state for time-based exercises (background-safe: uses absolute endTime)
   const [timerSecs, setTimerSecs] = useState(defaultReps);
   const [timerRunning, setTimerRunning] = useState(false);
+  // For per-side exercises: track which leg/side is currently active
+  const [timerSide, setTimerSide] = useState<'left' | 'right'>('left');
   const timerEndRef = useRef<number | null>(null);
   const timerSecsRef = useRef(timerSecs);
   timerSecsRef.current = timerSecs;
+  const timerSideRef = useRef<'left' | 'right'>('left');
+  timerSideRef.current = timerSide;
+  const defaultRepsRef = useRef(defaultReps);
+  defaultRepsRef.current = defaultReps;
+  const isPerSideRef = useRef(isPerSide ?? false);
+  isPerSideRef.current = isPerSide ?? false;
+  const addedWeightKgRef = useRef(addedWeightKg);
+  addedWeightKgRef.current = addedWeightKg;
   // Keep a ref to onComplete so the interval closure always calls the latest version
   const onCompleteRef = useRef(onComplete);
   useEffect(() => { onCompleteRef.current = onComplete; });
@@ -345,10 +371,26 @@ function SetRow({
       setTimerSecs(rem);
       if (rem <= 0) {
         timerEndRef.current = null;
-        setTimerRunning(false);
         playTimerDoneSound();
         if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
-        onCompleteRef.current({ reps: 1, weight: defaultReps, completedAt: Date.now() });
+
+        if (isPerSideRef.current && timerSideRef.current === 'left') {
+          // Left side done — pause briefly then auto-start right side
+          setTimerRunning(false);
+          setTimerSide('right');
+          setTimerSecs(defaultRepsRef.current);
+          setTimeout(() => setTimerRunning(true), 700);
+        } else {
+          // Single-side or right side done — complete the set
+          setTimerRunning(false);
+          const awk = addedWeightKgRef.current;
+          onCompleteRef.current({
+            reps: 1,
+            weight: defaultRepsRef.current,
+            completedAt: Date.now(),
+            ...(awk > 0 ? { addedWeightKg: awk } : {}),
+          });
+        }
       }
     };
 
@@ -361,9 +403,7 @@ function SetRow({
     };
   }, [timerRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Edit mode for completed sets
   const [isEditing, setIsEditing] = useState(false);
-  // RIR re-edit for completed sets
   const [isEditingRir, setIsEditingRir] = useState(false);
   const [editRepsStr, setEditRepsStr]     = useState('');
   const [editWeightStr, setEditWeightStr] = useState('');
@@ -388,11 +428,10 @@ function SetRow({
   const label = getMeasureLabel(measureType, unit);
   const step  = measureType === 'strength' ? 2.5 : measureType === 'distance' ? 0.1 : 1;
 
-  // Phase 1: user taps checkmark → capture set, await RPE
   const handleInitialLog = () => {
     if (completed || pendingSet) return;
-    if (isWarmup) {
-      // Warmup: skip RPE phase entirely
+    if (isWarmup || sideLabel === 'L') {
+      // Warmup or Left-side of a per-side pair: skip RIR — Right side captures it for the pair
       if (measureType === 'reps') {
         onComplete({ reps, weight: 0, completedAt: Date.now() });
       } else if (measureType === 'strength') {
@@ -412,14 +451,12 @@ function SetRow({
     }
   };
 
-  // Phase 2: user picks RIR → finalise set
   const handleRir = (rir: number) => {
     if (!pendingSet) return;
     onComplete({ ...pendingSet, rir });
     setPendingSet(null);
   };
 
-  // Skip RPE — save without it
   const handleSkipRpe = () => {
     if (!pendingSet) return;
     onComplete(pendingSet);
@@ -515,12 +552,14 @@ function SetRow({
     );
   }
 
-  // Completed time-based set: show simple green badge
   if (completed && measureType === 'time') {
     return (
       <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-100">
         <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
-        <span className="flex-1 text-sm font-semibold text-green-600">✓ {defaultReps}s</span>
+        <span className="flex-1 text-sm font-semibold text-green-600">
+          ✓ {defaultReps}s{isPerSide ? ' each side' : ''}
+          {completed.addedWeightKg ? ` + ${completed.addedWeightKg}kg` : ''}
+        </span>
         {completed && onEdit && (
           <button
             onClick={handleStartEdit}
@@ -530,6 +569,15 @@ function SetRow({
             <Pencil size={14} />
           </button>
         )}
+        {onUncomplete && (
+          <button
+            onClick={onUncomplete}
+            className="p-1 rounded-full text-green-500 hover:text-red-400 transition-colors flex-shrink-0"
+            title="Tap to undo this set"
+          >
+            <CheckCircle2 size={24} strokeWidth={2.5} />
+          </button>
+        )}
       </div>
     );
   }
@@ -537,25 +585,99 @@ function SetRow({
   return (
     <div>
       {measureType === 'time' && !completed && (
-        <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors bg-gray-50`}>
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
           <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
           <div className="flex flex-col items-center gap-2 py-2 w-full">
-            <div className="text-3xl font-black tabular-nums text-brand-600">
-              {formatRestTime(timerSecs)}
-            </div>
-            <div className="w-full bg-gray-100 rounded-full h-2">
-              <div
-                className="h-2 bg-brand-500 rounded-full transition-all duration-1000"
-                style={{ width: `${((defaultReps - timerSecs) / defaultReps) * 100}%` }}
-              />
-            </div>
+            {/* Added weight input for loaded isometrics (e.g. Copenhagen Plank with plate) */}
+            {defaultWeight > 0 && (
+              <div className="flex items-center gap-2 self-start">
+                <span className="text-xs text-gray-500 font-medium">Added weight</span>
+                <button
+                  onClick={() => setAddedWeightStr(w => String(Math.max(0, parseFloat(w || '0') - 2.5)))}
+                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200"
+                ><Minus size={12} /></button>
+                <input
+                  type="number" value={addedWeightStr} min="0" step="2.5" placeholder="0"
+                  onChange={e => setAddedWeightStr(e.target.value)}
+                  onFocus={e => e.target.select()}
+                  style={{ fontSize: '16px' }}
+                  className="w-14 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <button
+                  onClick={() => setAddedWeightStr(w => String(parseFloat(w || '0') + 2.5))}
+                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200"
+                ><Plus size={12} /></button>
+                <span className="text-xs text-gray-400">kg</span>
+              </div>
+            )}
+
+            {/* Per-side: show LEFT + RIGHT panels */}
+            {isPerSide ? (
+              <>
+                <div className="flex gap-2 w-full">
+                  {/* Left side */}
+                  <div className={`flex-1 flex flex-col items-center p-2.5 rounded-xl border-2 transition-all ${
+                    timerSide === 'left'
+                      ? 'border-brand-400 bg-brand-50'
+                      : 'border-green-300 bg-green-50'
+                  }`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${
+                      timerSide === 'left' ? 'text-brand-500' : 'text-green-600'
+                    }`}>Left</span>
+                    {timerSide === 'left' ? (
+                      <span className="text-2xl font-black tabular-nums text-brand-600">{formatRestTime(timerSecs)}</span>
+                    ) : (
+                      <span className="text-2xl font-black text-green-500">✓</span>
+                    )}
+                  </div>
+                  {/* Right side */}
+                  <div className={`flex-1 flex flex-col items-center p-2.5 rounded-xl border-2 transition-all ${
+                    timerSide === 'right'
+                      ? 'border-orange-400 bg-orange-50'
+                      : 'border-gray-200 bg-white opacity-60'
+                  }`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${
+                      timerSide === 'right' ? 'text-orange-500' : 'text-gray-400'
+                    }`}>Right</span>
+                    {timerSide === 'right' ? (
+                      <span className="text-2xl font-black tabular-nums text-orange-500">{formatRestTime(timerSecs)}</span>
+                    ) : (
+                      <span className="text-2xl font-black text-gray-300">{formatRestTime(defaultReps)}</span>
+                    )}
+                  </div>
+                </div>
+                {/* Progress bar for active side */}
+                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div
+                    className={`h-1.5 rounded-full transition-all duration-1000 ${timerSide === 'left' ? 'bg-brand-500' : 'bg-orange-400'}`}
+                    style={{ width: `${((defaultReps - timerSecs) / defaultReps) * 100}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-3xl font-black tabular-nums text-brand-600">
+                  {formatRestTime(timerSecs)}
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2">
+                  <div
+                    className="h-2 bg-brand-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${((defaultReps - timerSecs) / defaultReps) * 100}%` }}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Controls */}
             <div className="flex gap-2">
               {!timerRunning && timerSecs === defaultReps && (
                 <button
                   onClick={() => setTimerRunning(true)}
                   className="px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-bold hover:bg-brand-600"
                 >
-                  Start {formatRestTime(defaultReps)}
+                  {isPerSide
+                    ? `Start Left ${formatRestTime(defaultReps)}`
+                    : `Start ${formatRestTime(defaultReps)}`}
                 </button>
               )}
               {timerRunning && (
@@ -575,7 +697,7 @@ function SetRow({
                     Resume
                   </button>
                   <button
-                    onClick={() => setTimerSecs(defaultReps)}
+                    onClick={() => { setTimerSecs(defaultReps); setTimerSide('left'); }}
                     className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold"
                   >
                     Reset
@@ -592,9 +714,15 @@ function SetRow({
         isAwaitingRpe   ? 'bg-brand-50 border border-brand-200' :
                           'bg-gray-50'
       }`}>
-        <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">
-          {setIndex + 1}
-        </span>
+        {sideLabel ? (
+          <span className={`text-xs font-black w-6 text-center flex-shrink-0 rounded-md px-0.5 py-0.5 ${
+            sideLabel === 'L' ? 'bg-brand-100 text-brand-700' : 'bg-orange-100 text-orange-700'
+          }`}>{sideLabel}</span>
+        ) : (
+          <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">
+            {setIndex + 1}
+          </span>
+        )}
 
         <div className="flex-1 flex items-center gap-2 flex-wrap">
           {measureType === 'strength' && (
@@ -721,13 +849,14 @@ function SetRow({
         )}
 
         <button
-          onClick={handleInitialLog}
-          disabled={!!completed || isAwaitingRpe}
+          onClick={completed ? onUncomplete : handleInitialLog}
+          disabled={isAwaitingRpe}
           className={`p-1 rounded-full transition-colors flex-shrink-0 ${
-            completed ? 'text-green-500' :
+            completed ? 'text-green-500 hover:text-red-400' :
             isAwaitingRpe ? 'text-brand-400' :
             'text-gray-300 hover:text-brand-500'
           }`}
+          title={completed ? 'Tap to undo this set' : undefined}
         >
           <CheckCircle2 size={26} strokeWidth={completed ? 2.5 : 1.5} />
         </button>
@@ -756,9 +885,6 @@ function SetRow({
     </div>
   );
 }
-
-// Used for distance-based conditioning exercises (e.g. "Repeated Sprint 30m").
-// Shows: idle → Start Sprint → elapsed timer running → Done → (parent handles rest)
 
 function CondSprintRow({
   setIndex, totalSets, completed, isActive, onComplete,
@@ -823,7 +949,6 @@ function CondSprintRow({
     );
   }
 
-  // idle — active row shows Start button; queued rows are greyed out
   return (
     <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${isActive ? 'bg-gray-50' : 'bg-gray-50 opacity-40'}`}>
       <span className="text-sm font-bold text-gray-400 w-6 text-center flex-shrink-0">{setIndex + 1}</span>
@@ -850,6 +975,7 @@ function ExerciseSection({
   isFlagged,
   onCompleteSet,
   onEditSet,
+  onUncompleteSet,
   onFlagExercise,
 }: {
   sessionExercise: SessionExercise;
@@ -860,6 +986,7 @@ function ExerciseSection({
   isFlagged?: boolean;
   onCompleteSet: (setIndex: number, set: CompletedSet) => void;
   onEditSet: (setIndex: number, set: CompletedSet) => void;
+  onUncompleteSet: (setIndex: number) => void;
   onFlagExercise: () => void;
 }) {
   const { getExercise, getLastSession, getPB } = useStore();
@@ -886,17 +1013,22 @@ function ExerciseSection({
   // Use programme-defined RIR if set, otherwise fall back to exercise suggested RIR
   const targetRir   = sessionExercise.targetRir ?? exercise.suggestedRir;
   // RIR only applies to strength and eccentric work — not plyometrics, isometrics, speed, warmup etc.
-  const RIR_CATEGORIES = new Set(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body', 'Eccentric']);
+  const RIR_CATEGORIES = new Set(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body']);
   const showRir = globalShowRir && !exercise.isWarmup && RIR_CATEGORIES.has(exercise.category);
 
   // Priming sets are stored at the start of sessionExercise.sets with isPriming:true.
   // Working sets follow immediately after. We separate them for all display/logic.
-  const primingCount    = sessionExercise.hasPrimingSingles ? 3 : 0;
+  const primingCount    = sessionExercise.hasPrimingSingles ? 2 : 0;
   const workingSets     = sessionExercise.sets.filter(s => !s.isPriming);
   const primingDone     = sessionExercise.sets.filter(s =>  s.isPriming).length;
 
+  // For per-side STRENGTH exercises each physical set has a Left and Right row.
+  // Time-based per-side (e.g. Copenhagen Plank) handles L/R inside the timer — no doubling.
+  const isStrengthPerSide = !!(sessionExercise.isPerSide && measureType !== 'time');
   const completedCount  = workingSets.length;
-  const totalSets       = sessionExercise.targetSets;
+  const totalSets       = isStrengthPerSide
+    ? sessionExercise.targetSets * 2
+    : sessionExercise.targetSets;
   const allDone         = completedCount >= totalSets;
 
   // Non-priming history used for defaults, PB display, and suggestion baseline
@@ -994,7 +1126,11 @@ function ExerciseSection({
             <div className="min-w-0 text-left">
               <div className="font-semibold text-gray-900 text-sm">{sessionExercise.displayName ?? exercise.name}</div>
               <div className="text-xs text-gray-400 flex items-center gap-2">
-                <span>{completedCount}/{totalSets} {exercise.category === 'Testing' ? 'trials' : 'sets'}</span>
+                <span>
+                  {isStrengthPerSide
+                    ? `${Math.floor(completedCount / 2)}/${sessionExercise.targetSets} sets (L+R)`
+                    : `${completedCount}/${totalSets} ${exercise.category === 'Testing' ? 'trials' : 'sets'}`}
+                </span>
                 {sessionExercise.restSeconds > 0 && <span>· {sessionExercise.restSeconds}s rest</span>}
                 {targetRir !== undefined && showRir && <span className="text-brand-500 font-medium">· {targetRir} RIR target</span>}
                 {isFlagged && <span className="text-red-400 font-medium">· flagged</span>}
@@ -1018,7 +1154,7 @@ function ExerciseSection({
       {!collapsed && (
         <>
           {showTutorials && (
-            <TutorialPanel exerciseId={exercise.id} coachingCue={sessionExercise.coachingCue} />
+            <TutorialPanel exerciseId={exercise.id} coachingCue={sessionExercise.coachingCue} isPerSide={sessionExercise.isPerSide} />
           )}
 
           <div className="px-4 pb-4">
@@ -1099,7 +1235,7 @@ function ExerciseSection({
                         onEdit={set => onEditSet(pi, { ...set, isPriming: true })}
                       />
                       {/* Rest timer after a completed priming set (not after the last priming set) */}
-                      {restInfo && pi === primingDone - 1 && primingDone < 3 && (
+                      {restInfo && pi === primingDone - 1 && primingDone <= primingWeights.length && (
                         <InlineRestTimer restInfo={restInfo} />
                       )}
                     </div>
@@ -1112,8 +1248,15 @@ function ExerciseSection({
               )}
 
               {Array.from({ length: totalSets }).map((_, i) => {
-                const wsIdx   = primingCount + i;  // absolute index in sessionExercise.sets
-                const defaults = getSetDefaults(i);
+                // wsIdx: when priming rows are visible, working sets are offset after them.
+                // When priming can't be shown (no prior weight), store working sets from index 0.
+                const wsIdx   = (primingWeights !== null ? primingCount : 0) + i;
+                // For per-side strength: rows alternate L/R. getSetDefaults uses the pair index.
+                const sideLabel: 'L' | 'R' | undefined = isStrengthPerSide
+                  ? (i % 2 === 0 ? 'L' : 'R')
+                  : undefined;
+                const pairIdx  = isStrengthPerSide ? Math.floor(i / 2) : i;
+                const defaults = getSetDefaults(pairIdx);
                 return (
                   <div key={i}>
                     {/* Show suggestion banner just before the next uncompleted working set */}
@@ -1139,14 +1282,19 @@ function ExerciseSection({
                         defaultReps={defaults.reps}
                         measureType={measureType}
                         unit={unit}
-                        targetRir={showRir ? targetRir : undefined}
+                        targetRir={(showRir && sideLabel !== 'L') ? targetRir : undefined}
                         isWarmup={(exercise.isWarmup ?? false) || exercise.category === 'Conditioning'}
+                        isPerSide={sessionExercise.isPerSide && measureType === 'time'}
+                        sideLabel={sideLabel}
                         onComplete={set => onCompleteSet(wsIdx, set)}
                         onEdit={set => onEditSet(wsIdx, set)}
+                        onUncomplete={() => onUncompleteSet(wsIdx)}
                       />
                     )}
-                    {/* Rest timer appears between last completed working set and next pending set */}
-                    {restInfo && i === completedCount - 1 && (
+                    {/* Rest timer: after Right rows (i % 2 === 1) for per-side strength,
+                        or after any completed working set for normal exercises */}
+                    {restInfo && i === completedCount - 1 &&
+                      (!isStrengthPerSide || i % 2 === 1) && (
                       <InlineRestTimer restInfo={restInfo} />
                     )}
                   </div>
@@ -1172,7 +1320,7 @@ interface NewPBEntry {
 
 export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onConditioningFeedback, conditioningStagnation, onDiscard, strengthSetup, onUpdateStrengthSetup }: ActiveWorkoutProps) {
   const timer = useTimer();
-  const { getPB, getExercise, userSettings, updateSettings } = useStore();
+  const { getPB, getExercise, getLastSession, userSettings, updateSettings } = useStore();
   const showRir = userSettings.showRir ?? true;
   const [showFinish, setShowFinish] = useState(false);
   const [showPBModal, setShowPBModal] = useState(false);
@@ -1200,7 +1348,13 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const totalSets     = session.exercises.reduce((a, e) => a + e.targetSets, 0);
+  // For per-side strength exercises the UI shows targetSets × 2 rows (L + R each),
+  // so count those doubles here to keep the progress bar accurate.
+  const totalSets = session.exercises.reduce((a, e) => {
+    const ex = getExercise(e.exerciseId);
+    const isPerSideStrength = !!(e.isPerSide && (ex?.measureType ?? 'strength') !== 'time');
+    return a + (isPerSideStrength ? e.targetSets * 2 : e.targetSets);
+  }, 0);
   // Priming singles are stored in sets[] but excluded from progress tracking
   const completedSets = session.exercises.reduce((a, e) => a + e.sets.filter(s => !s.isPriming).length, 0);
   const progressPct   = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
@@ -1209,6 +1363,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   const handleSkipRest = useCallback(() => {
     timer.skip();
     setRestingExerciseIdx(null);
+    cancelRestNotification();
   }, [timer]);
 
   const conditioningExercises = session.exercises.filter(ex => {
@@ -1222,7 +1377,6 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     return !exercise || exercise.isWarmup || exercise.category === 'Conditioning';
   });
 
-  /** Detect tracked lifts in completed session, build recal list. */
   const buildRecalLifts = useCallback((s: WorkoutSession) => {
     const seen = new Set<string>();
     const lifts: { key: string; label: string; bestWeight: number; bestReps: number; current?: LiftBaseline; editWeight: string; editReps: string }[] = [];
@@ -1252,7 +1406,6 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     return lifts;
   }, [getExercise, strengthSetup]);
 
-  /** Last step — offer recalibration if tracked lifts were done, then truly finish. */
   const finalFinish = useCallback((s: WorkoutSession) => {
     if (strengthSetup && onUpdateStrengthSetup) {
       const lifts = buildRecalLifts(s);
@@ -1275,7 +1428,6 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     }
   }, [conditioningExercises.length, onConditioningFeedback, finalFinish]);
 
-  /** Classify a conditioning exercise ID into a display type for per-type feedback */
   const getCondTypeLabel = (exerciseId: string): string => {
     if (['aerobic-threshold-run', 'tempo-run', 'lactate-threshold-run'].includes(exerciseId)) return 'Zone 2';
     if (['hiit-run', 'ssg-simulation'].includes(exerciseId)) return 'HIIT';
@@ -1361,9 +1513,11 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
       exercises: pendingSession.exercises.map(ex => {
         if (!pbIds.includes(ex.exerciseId)) return ex;
         const pre = prePBsRef.current[ex.exerciseId];
-        if (!pre) return ex; // no prior PB — keep all sets
-        const kept = ex.sets.filter(s => s.weight <= pre.weight);
-        return { ...ex, sets: kept };
+        if (!pre) return ex;
+        // Cap weight at the pre-session PB — preserves all sets and volume
+        // but prevents a new record from being stored.
+        const sets = ex.sets.map(s => ({ ...s, weight: Math.min(s.weight, pre.weight) }));
+        return { ...ex, sets };
       }),
     };
     doFinish(updated);
@@ -1377,6 +1531,19 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
         if (i !== exerciseIdx) return ex;
         // Replace set at setIndex without creating sparse arrays
         const sets = ex.sets.map((s, si) => si === setIndex ? set : s);
+        return { ...ex, sets };
+      }),
+    };
+    onUpdateSession(updated);
+  }, [session, onUpdateSession]);
+
+  const handleUncompleteSet = useCallback((exerciseIdx: number, setIndex: number) => {
+    const updated: WorkoutSession = {
+      ...session,
+      exercises: session.exercises.map((ex, i) => {
+        if (i !== exerciseIdx) return ex;
+        // Drop the set at setIndex; keep all others in order
+        const sets = ex.sets.filter((_, si) => si !== setIndex);
         return { ...ex, sets };
       }),
     };
@@ -1401,21 +1568,40 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     };
     onUpdateSession(updated);
 
-    // Account for priming sets stored before working sets in the array.
-    // A priming set (index < primingCount) is never the "last" set.
-    // Singles 1 & 2 rest 15 s (CNS activation, not fatigue), single 3 rests 60 s before working sets.
-    const primingSetCount = ex.hasPrimingSingles ? 3 : 0;
-    const isPrimingSet    = setIndex < primingSetCount;
-    const isLastSet       = !isPrimingSet && setIndex >= primingSetCount + ex.targetSets - 1;
-    const isLastExercise  = exerciseIdx === session.exercises.length - 1;
-    const restSecs        = isPrimingSet
-      ? (setIndex === primingSetCount - 1 ? 60 : 15)  // 3rd priming single → 60 s; 1st & 2nd → 15 s
+    // Priming sets sit before working sets in the array; their rest durations differ (15 s / 60 s).
+    // primingSetCount is 0 when there's no prior working weight (same guard as ExerciseSection).
+    const lastExSession    = getLastSession(ex.exerciseId, session.id);
+    const workingHistory   = (lastExSession?.sets ?? []).filter((s: { isPriming?: boolean }) => !s.isPriming);
+    const lastWorkingWt    = ex.hasPrimingSingles
+      ? (workingHistory.length > 0
+          ? workingHistory.reduce((best: number, s: { weight: number }) => Math.max(best, s.weight), 0)
+          : ex.targetWeight)
+      : 0;
+    const primingWasShown  = ex.hasPrimingSingles && lastWorkingWt > 0;
+    const primingSetCount  = primingWasShown ? 2 : 0;
+    const isPrimingSet     = setIndex < primingSetCount;
+    const workingIdx       = setIndex - primingSetCount; // 0-based index within working sets
+
+    // For per-side strength exercises: each physical set = 2 rows (L then R).
+    // Rest fires only after the Right row (odd workingIdx). Left row (even) → no rest.
+    const exerciseObj      = getExercise(ex.exerciseId);
+    const exMeasureType    = exerciseObj?.measureType ?? 'strength';
+    const isPerSideStrengthEx = !!(ex.isPerSide && exMeasureType !== 'time');
+    const effectiveSets    = isPerSideStrengthEx ? ex.targetSets * 2 : ex.targetSets;
+    const isLeftSide       = isPerSideStrengthEx && !isPrimingSet && workingIdx % 2 === 0;
+
+    const isLastSet        = !isPrimingSet && setIndex >= primingSetCount + effectiveSets - 1;
+    const isLastExercise   = exerciseIdx === session.exercises.length - 1;
+    const restSecs         = isPrimingSet
+      ? (setIndex === primingSetCount - 1 ? 60 : 15)  // 2nd priming single → 60 s; 1st → 15 s
       : ex.restSeconds;
-    if (!(isLastSet && isLastExercise) && restSecs > 0) {
+    // Skip rest after Left-side rows — Right side follows immediately with no break
+    if (!isLeftSide && !(isLastSet && isLastExercise) && restSecs > 0) {
       timer.start(restSecs);
       setRestingExerciseIdx(exerciseIdx);
+      scheduleRestEndNotification(restSecs);
     }
-  }, [session, onUpdateSession, timer]);
+  }, [session, onUpdateSession, timer, getExercise, getLastSession]);
 
 
   useEffect(() => {
@@ -1491,7 +1677,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
 
         <div className="flex flex-col gap-3">
           {session.exercises.map((ex, exerciseIdx) => (
-            <React.Fragment key={ex.exerciseId}>
+            <Fragment key={`${exerciseIdx}-${ex.exerciseId}`}>
               {ex.blockTitle && (
                 <div className="flex items-center gap-2 mt-2 mb-1">
                   <div className="flex-1 h-px bg-gray-200" />
@@ -1510,9 +1696,10 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
                 isFlagged={flaggedExercises.includes(ex.exerciseId)}
                 onCompleteSet={(setIndex, set) => handleCompleteSet(exerciseIdx, setIndex, set)}
                 onEditSet={(setIndex, set) => handleEditSet(exerciseIdx, setIndex, set)}
+                onUncompleteSet={(setIndex) => handleUncompleteSet(exerciseIdx, setIndex)}
                 onFlagExercise={() => handleToggleFlag(ex.exerciseId)}
               />
-            </React.Fragment>
+            </Fragment>
           ))}
         </div>
 

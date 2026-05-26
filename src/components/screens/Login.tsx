@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Dumbbell, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignIn, cloudLoadData, cloudResetPassword } from '../../lib/cloudSync';
@@ -28,7 +28,7 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
   // Start over confirmation
   const [confirmStartOver, setConfirmStartOver] = useState(false);
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: FormEvent) => {
     e.preventDefault();
     if (!password || loading) return;
     setLoading(true);
@@ -37,13 +37,10 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
     if (isSupabaseConfigured) {
       try {
         const userId = await cloudSignIn(profile.email, password);
-        const loaded = await cloudLoadData(userId);
-        if (loaded) {
-          // Reload so all useLocalStorage hooks re-read the freshly restored cloud data
-          window.location.reload();
-        } else {
-          onLogin(userId);
-        }
+        // cloudLoadData fires 'vf-cloud-restored' which causes all useLocalStorage hooks
+        // to re-read from localStorage — no page reload needed
+        await cloudLoadData(userId);
+        onLogin(userId);
       } catch {
         setError('Incorrect password. Please try again.');
         setPassword('');
@@ -52,7 +49,7 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
       return;
     }
 
-    const hash = await hashPassword(password);
+    const hash = await hashPassword(password, profile.email);
     if (hash === profile.passwordHash) {
       onLogin();
     } else {
@@ -62,7 +59,7 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
     setLoading(false);
   };
 
-  const handleSendReset = async (e: React.FormEvent) => {
+  const handleSendReset = async (e: FormEvent) => {
     e.preventDefault();
     if (!forgotEmail || forgotLoading) return;
     setForgotLoading(true);
@@ -98,9 +95,14 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
           </div>
 
           {forgotSent ? (
-            <div className="flex flex-col items-center gap-3 text-green-600 font-semibold text-center">
-              <Check size={32} />
-              <p>Reset link sent to <strong>{forgotEmail}</strong>.<br />Check your inbox and click the link.</p>
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="flex flex-col items-center gap-3 text-green-600 font-semibold">
+                <Check size={32} />
+                <p>Reset link sent to <strong>{forgotEmail}</strong>.<br />Check your inbox and click the link.</p>
+              </div>
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                📬 If you don't see it within a minute, check your <strong>junk or spam folder</strong>.
+              </p>
             </div>
           ) : (
             <form onSubmit={handleSendReset} className="flex flex-col gap-4">

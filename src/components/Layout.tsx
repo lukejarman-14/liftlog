@@ -1,12 +1,12 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 
 interface LayoutProps {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
   onBack?: () => void;
-  leftAction?: React.ReactNode;
-  rightAction?: React.ReactNode;
+  leftAction?: ReactNode;
+  rightAction?: ReactNode;
 }
 
 export function Layout({ title, children, onBack, leftAction, rightAction }: LayoutProps) {

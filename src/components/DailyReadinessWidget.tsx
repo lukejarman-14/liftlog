@@ -1,10 +1,3 @@
-/**
- * DailyReadinessWidget — compact daily check-in that lives on the Dashboard.
- * 1–5 scale for all inputs.
- * Shows a summary card if today's readiness is already recorded;
- * otherwise shows a "Start" CTA that expands to the quick-tap sliders.
- */
-
 import { useState } from 'react';
 import { Zap, Check, PlayCircle } from 'lucide-react';
 import { DailyReadiness } from '../types';

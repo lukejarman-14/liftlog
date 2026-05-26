@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-/**
- * Background-safe countdown timer.
- * Uses absolute endTime instead of tick-counting so the browser's
- * setInterval throttling (hidden tabs, iOS background) doesn't cause drift.
- * A visibilitychange listener re-syncs immediately on tab restore.
- */
+// Tick often enough for smooth UI but not so often it burns battery.
+// Uses absolute endTime so iOS setInterval throttling doesn't cause drift.
+const TIMER_TICK_MS = 250;
+
 export function useTimer() {
   const [remaining, setRemaining] = useState(0);
   const [running, setRunning] = useState(false);
@@ -31,7 +29,7 @@ export function useTimer() {
       clearTick();
       return;
     }
-    intervalRef.current = setInterval(tick, 250);
+    intervalRef.current = setInterval(tick, TIMER_TICK_MS);
     const onVisibility = () => { if (!document.hidden) tick(); };
     document.addEventListener('visibilitychange', onVisibility);
     return () => {

@@ -1,9 +1,3 @@
-/**
- * ProgrammeHub — the Plans tab.
- * Primary entry: Build My Programme (programme generator).
- * Secondary: history of generated programmes.
- */
-
 import { useState } from 'react';
 import { Zap, Clock, ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
 import { Layout } from '../Layout';

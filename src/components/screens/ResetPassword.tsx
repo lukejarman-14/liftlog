@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Dumbbell, Eye, EyeOff, Check } from 'lucide-react';
 import { cloudUpdatePassword } from '../../lib/cloudSync';
 
@@ -14,7 +14,7 @@ export function ResetPassword({ onDone }: ResetPasswordProps) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!password || loading) return;
     if (password !== confirm) { setError('Passwords do not match.'); return; }

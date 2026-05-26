@@ -290,7 +290,7 @@ function ExerciseRow({
       </div>
 
       {open && (
-        <div className={`px-3 pb-3 grid gap-3 border-t border-gray-50 pt-3 ${showWeight ? 'grid-cols-2' : 'grid-cols-2'}`}>
+        <div className="px-3 pb-3 grid grid-cols-2 gap-3 border-t border-gray-50 pt-3">
           <Input
             label="Sets"
             type="number" min="1" max="20"
@@ -413,7 +413,7 @@ function ProgramsBrowser({ onLoad }: { onLoad: (t: BuiltInTemplate) => void }) {
         <button
           onClick={() => handleTabChange('football')}
           className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${
-            programTab === 'football' ? 'bg-brand-500 text-white shadow-sm' : 'text-gray-500'
+            programTab === 'football' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
           }`}
         >
           Football

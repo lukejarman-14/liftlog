@@ -25,16 +25,13 @@ import { supabase } from './lib/supabase';
 import { identifyUser, resetAnalyticsUser, trackEvent } from './lib/analytics';
 import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificationPermission, scheduleDailyReminder } from './lib/notifications';
 
-// ─── App constants ──────────────────────────────────────────────────────────
 const APP_STORE_URL = 'https://apps.apple.com/gb/app/vector-football/id6772522502?action=write-review';
 const MS_PER_DAY = 86_400_000;
-/** Delay before showing the trial prompt — gives the UI time to settle after login. */
 const TRIAL_PROMPT_DELAY_MS = 2_000;
-/** Delay before showing the notifications prompt — lets the user see their new programme first. */
 const NOTIF_PROMPT_DELAY_MS = 1_200;
-/** Delay before navigating away after a successful referral code redemption. */
 const REFERRAL_REDIRECT_DELAY_MS = 1_500;
-// ────────────────────────────────────────────────────────────────────────────
+// Default interval counts — used when no stored count or history exists for an exercise
+const CONDITIONING_DEFAULTS: Record<string, number> = { 'hiit-run': 8 };
 
 const ExerciseLibrary    = lazy(() => import('./components/screens/ExerciseLibrary').then(m => ({ default: m.ExerciseLibrary })));
 const ExerciseDetail     = lazy(() => import('./components/screens/ExerciseDetail').then(m => ({ default: m.ExerciseDetail })));
@@ -109,16 +106,11 @@ export default function App() {
           sessionStorage.removeItem('vf_auth_redirect');
           if (!sessionStorage.getItem('vf_boot_synced') && !isAuthRedirect) {
             sessionStorage.setItem('vf_boot_synced', '1');
-            const loaded = await cloudLoadData(userId);
-            if (loaded && sessionStorage.getItem('vf_recovery_mode') !== '1') {
-              window.location.reload();
-              return;
-            }
+            await cloudLoadData(userId);
           }
           await rcConfigure(userId);
           await premium.syncFromRC();
 
-          // Show trial prompt once per day for free users
           const today = new Date().toISOString().split('T')[0];
           const lastShown = localStorage.getItem('vf_trial_prompt_shown');
           if (lastShown !== today) {
@@ -215,11 +207,18 @@ export default function App() {
 
   useEffect(() => {
     if (!isAuthenticated || !isSupabaseConfigured) return;
-    const handler = () => {
+    const save = () => {
       if (cloudUserIdRef.current) cloudSaveData(cloudUserIdRef.current);
     };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
+    // beforeunload covers web/desktop; visibilitychange covers iOS WebView
+    // (beforeunload does not fire reliably when the OS suspends the app)
+    const onVisibility = () => { if (document.hidden) save(); };
+    window.addEventListener('beforeunload', save);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', save);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [isAuthenticated]);
 
   /** Fire-and-forget immediate cloud save — used after key mutations so data
@@ -261,6 +260,7 @@ export default function App() {
         displayName: item.displayName,
         coachingCue: item.coachingCue,
         hasPrimingSingles: item.hasPrimingSingles,
+        isPerSide: item.isPerSide,
         sets: [],
       })),
       startTime: Date.now(),
@@ -295,10 +295,9 @@ export default function App() {
 
   const handleFinishWorkout = (session: WorkoutSession) => {
     store.saveSession(session);
-    immediateSave(); // push to Supabase immediately — don't wait for 2-min interval
+    immediateSave();
     setActiveSession(null);
     setNav({ screen: 'dashboard' });
-    // Analytics
     const durationMins = session.endTime ? Math.round((session.endTime - session.startTime) / 60000) : 0;
     const totalSets = session.exercises.reduce((a, e) => a + e.sets.filter(s => !s.isPriming).length, 0);
     trackEvent('workout_completed', {
@@ -308,7 +307,6 @@ export default function App() {
       duration_mins: durationMins,
       total_sessions: store.sessions.length + 1,
     });
-    // Show review prompt at 5th, 15th, 30th session — max once per 30 days
     const count = store.sessions.length + 1;
     if ([5, 15, 30].includes(count)) {
       const lastReview = localStorage.getItem('vf_review_prompted');
@@ -321,9 +319,6 @@ export default function App() {
     store.activeProgrammeId
       ? store.generatedProgrammes.find(p => p.id === store.activeProgrammeId) ?? null
       : null;
-
-  // Default interval counts — used when no stored count or history exists
-  const CONDITIONING_DEFAULTS: Record<string, number> = { 'hiit-run': 8 };
 
   const handleStartProgrammeSession = (name: string, items: WorkoutExercise[]) => {
     const activeProg = getActiveProgramme();
@@ -372,8 +367,12 @@ export default function App() {
     const currentStagnation = activeProg.conditioningStagnation ?? {};
     const newStagnation = { ...currentStagnation };
     for (const [id, newCount] of Object.entries(updates)) {
-      const prev = currentCounts[id] ?? CONDITIONING_DEFAULTS[id] ?? newCount;
-      newStagnation[id] = newCount > prev ? 0 : (newStagnation[id] ?? 0) + 1;
+      const prev = currentCounts[id] ?? CONDITIONING_DEFAULTS[id];
+      if (prev === undefined) {
+        newStagnation[id] = 0;
+      } else {
+        newStagnation[id] = newCount > prev ? 0 : (newStagnation[id] ?? 0) + 1;
+      }
     }
     store.saveGeneratedProgramme({
       ...activeProg,
@@ -543,7 +542,11 @@ export default function App() {
           setIsAuthenticated(true);
         }}
         onLoginSuccess={(userId) => {
-          if (userId) { cloudUserIdRef.current = userId; identifyUser(userId); }
+          if (userId) {
+            cloudUserIdRef.current = userId;
+            identifyUser(userId);
+            rcConfigure(userId).then(() => premium.syncFromRC()).catch(() => {});
+          }
           setIsAuthenticated(true);
         }}
       />
@@ -556,7 +559,11 @@ export default function App() {
         <Login
           profile={store.userProfile}
           onLogin={(userId) => {
-            if (userId) { cloudUserIdRef.current = userId; identifyUser(userId); }
+            if (userId) {
+              cloudUserIdRef.current = userId;
+              identifyUser(userId);
+              rcConfigure(userId).then(() => premium.syncFromRC()).catch(() => {});
+            }
             setIsAuthenticated(true);
           }}
           onStartOver={() => {
@@ -748,12 +755,14 @@ export default function App() {
           onSetProfilePicture={store.setProfilePicture}
           onStartBattery={() => navigate({ screen: 'testing-battery' })}
           onResetProfile={async () => {
-            // Delete from Supabase first
-            if (isSupabaseConfigured) await cloudDeleteAccount();
-            // Wipe ALL localStorage for this origin — catches vf_* and Supabase session
-            // tokens. Must run synchronously before React can re-render and write values back.
+            if (isSupabaseConfigured) {
+              try {
+                await cloudDeleteAccount();
+              } catch {
+                // Cloud deletion failed — still wipe local data so the user isn't stuck
+              }
+            }
             localStorage.clear();
-            // Hard reload so the app boots clean from empty storage
             window.location.href = '/';
           }}
           onChangePassword={(newHash) => {

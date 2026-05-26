@@ -1776,22 +1776,21 @@ function ResultsScreen({
         <Card className="p-4 mb-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">RSA Sprint Times</p>
           <div className="grid grid-cols-3 gap-2">
-            {session.results
-              .find(r => r.type === 'rsa')!
-              .rsaAllSprints!.map((t, i) => {
-                const best = Math.min(...session.results.find(r => r.type === 'rsa')!.rsaAllSprints!.filter(x => x > 0));
-                return (
-                  <div key={i} className={`text-center p-2 rounded-xl border ${
-                    t === best && t > 0 ? 'border-brand-200 bg-brand-50' : 'border-gray-100 bg-gray-50'
-                  }`}>
-                    <p className="text-xs text-gray-400">#{i + 1}</p>
-                    <p className={`text-sm font-bold ${t === best && t > 0 ? 'text-brand-600' : 'text-gray-800'}`}>
-                      {t > 0 ? `${t.toFixed(2)}s` : '—'}
-                    </p>
-                    {t === best && t > 0 && <p className="text-xs text-brand-500">Best</p>}
-                  </div>
-                );
-              })}
+            {(() => {
+              const rsaSprints = session.results.find(r => r.type === 'rsa')?.rsaAllSprints ?? [];
+              const best = Math.min(...rsaSprints.filter(x => x > 0));
+              return rsaSprints.map((t, i) => (
+                <div key={i} className={`text-center p-2 rounded-xl border ${
+                  t === best && t > 0 ? 'border-brand-200 bg-brand-50' : 'border-gray-100 bg-gray-50'
+                }`}>
+                  <p className="text-xs text-gray-400">#{i + 1}</p>
+                  <p className={`text-sm font-bold ${t === best && t > 0 ? 'text-brand-600' : 'text-gray-800'}`}>
+                    {t > 0 ? `${t.toFixed(2)}s` : '—'}
+                  </p>
+                  {t === best && t > 0 && <p className="text-xs text-brand-500">Best</p>}
+                </div>
+              ));
+            })()}
           </div>
         </Card>
       )}
