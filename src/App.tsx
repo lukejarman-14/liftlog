@@ -850,6 +850,9 @@ export default function App() {
               const result = await createStripeCheckout(plan, userId, userEmail);
               if ('url' in result) {
                 window.location.href = result.url;
+              } else {
+                // Surface the error so the user knows something went wrong
+                premium.setPurchaseError(result.error ?? 'Could not start checkout. Please try again.');
               }
               return;
             }

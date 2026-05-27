@@ -270,6 +270,7 @@ export function usePremium() {
     purchasing,
     restoring,
     purchaseError,
+    setPurchaseError,
     startTrial,
     setPremium,
     purchase,
