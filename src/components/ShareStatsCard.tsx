@@ -44,25 +44,29 @@ export function ShareStatsCard({ sessions, streak, playerName, onClose }: ShareS
         useCORS: true,
         backgroundColor: null,
       });
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], 'vector-football-stats.png', { type: 'image/png' });
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'My Vector Football Stats',
-          });
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'vector-football-stats.png';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 150);
-        }
-      }, 'image/png');
+      // Wrap toBlob in a Promise so the finally block waits for the async callback
+      await new Promise<void>((resolve) => {
+        canvas.toBlob(async (blob) => {
+          try {
+            if (!blob) return;
+            const file = new File([blob], 'vector-football-stats.png', { type: 'image/png' });
+            if (navigator.share && navigator.canShare?.({ files: [file] })) {
+              await navigator.share({ files: [file], title: 'My Vector Football Stats' });
+            } else {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'vector-football-stats.png';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(url), 150);
+            }
+          } finally {
+            resolve();
+          }
+        }, 'image/png');
+      });
     } catch {
       // share cancelled or unsupported — fail silently
     } finally {

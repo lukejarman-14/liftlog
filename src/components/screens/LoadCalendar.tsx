@@ -4,14 +4,11 @@ import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { useStore } from '../../hooks/useStore';
 import { MatchEntry, GeneratedProgramme, WorkoutTemplate, ScheduledWorkout } from '../../types';
-import { classifyDay, getLoadProfile, getMonthProfiles } from '../../lib/loadManagement';
+import { classifyDay, getLoadProfile, getMonthProfiles, localDateStr } from '../../lib/loadManagement';
 import { FOOTBALL_PROGRAMS, BuiltInTemplate } from '../../data/programs';
 import { classifySessionType } from '../../utils/sessionClassify';
 import { getProgrammeAnchorMonday } from '../../lib/sessionUtils';
 
-function localDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 interface SessionDot {
   sessionKey: string;   // "wi-si" (week index - session index)

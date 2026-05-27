@@ -7,7 +7,7 @@
  *   - RevenueCat sets isPremium on successful purchase / restore.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { PremiumStatus } from '../types';
 import { rcPurchase, rcRestore, rcCheckEntitlement, RCPlan } from '../lib/revenueCat';
 import { redeemPromoCode } from '../lib/promoCodes';
@@ -45,26 +45,23 @@ export function usePremium() {
   }, []);
 
   /** True if user currently has access (paid OR active trial). */
-  const hasAccess = (() => {
+  const hasAccess = useMemo(() => {
     if (status.isPremium) {
-      // Check expiry if set (subscription lapsed)
       if (status.expiresAt && status.expiresAt < Date.now()) return false;
       return true;
     }
     if (!status.trialStartedAt) return false;
-    // Use expiresAt if set (extended referral trial), else standard 14-day window
     if (status.expiresAt) return status.expiresAt > Date.now();
-    const elapsed = Date.now() - status.trialStartedAt;
-    return elapsed < TRIAL_DAYS * MS_PER_DAY;
-  })();
+    return Date.now() - status.trialStartedAt < TRIAL_DAYS * MS_PER_DAY;
+  }, [status]);
 
   /** Days remaining in trial (null if not in trial or already premium). */
-  const trialDaysLeft = (() => {
+  const trialDaysLeft = useMemo(() => {
     if (status.isPremium || !status.trialStartedAt) return null;
     const expiryTs = status.expiresAt ?? (status.trialStartedAt + TRIAL_DAYS * MS_PER_DAY);
     const remaining = Math.ceil((expiryTs - Date.now()) / MS_PER_DAY);
     return remaining > 0 ? remaining : 0;
-  })();
+  }, [status]);
 
   const isTrialActive = trialDaysLeft !== null && trialDaysLeft > 0;
   const isTrialExpired = status.trialStartedAt != null && !status.isPremium && !isTrialActive;
@@ -97,9 +94,9 @@ export function usePremium() {
     setPurchaseError(null);
     setPurchasing(true);
     try {
-      const { success, cancelled } = await rcPurchase(plan);
+      const { success, cancelled, expiresAt } = await rcPurchase(plan);
       if (success) {
-        setPremium(plan);
+        setPremium(plan, expiresAt ?? undefined);
         return true;
       }
       if (!cancelled) setPurchaseError('Purchase failed. Please try again.');
@@ -117,8 +114,7 @@ export function usePremium() {
     setPurchaseError(null);
     setRestoring(true);
     try {
-      // Check RC first
-      const active = await rcRestore();
+      const { active, expiresAt } = await rcRestore();
       if (active) {
         // Preserve existing plan if known; fall back to yearly (most common subscription)
         const current = load();
@@ -127,6 +123,7 @@ export function usePremium() {
           isPremium: true,
           plan: current.plan ?? 'yearly',
           purchasedAt: current.purchasedAt ?? Date.now(),
+          expiresAt: expiresAt ?? current.expiresAt,
         };
         save(updated);
         setStatusRaw(updated);
@@ -144,27 +141,39 @@ export function usePremium() {
 
   /** Sync premium status from RC (call on app boot and after login). */
   const syncFromRC = useCallback(async () => {
-    const active = await rcCheckEntitlement();
-    // active === null means RC couldn't be reached — preserve existing status
-    if (active === null) return;
+    const result = await rcCheckEntitlement();
+    // null means RC couldn't be reached — preserve existing status
+    if (result === null) return;
 
     const current = load();
-    if (active) {
-      if (!current.isPremium) {
-        const updated: PremiumStatus = { ...current, isPremium: true };
+    if (result.active) {
+      const needsUpdate =
+        !current.isPremium ||
+        (result.expiresAt !== null && result.expiresAt !== current.expiresAt);
+      if (needsUpdate) {
+        const updated: PremiumStatus = {
+          ...current,
+          isPremium: true,
+          expiresAt: result.expiresAt ?? current.expiresAt,
+        };
         save(updated);
         setStatusRaw(updated);
       }
     } else {
-      // RC definitively says no active entitlement.
-      // Only revoke monthly/yearly subscriptions — never lifetime, and never
-      // timed grants (promo codes and referral rewards always set expiresAt).
+      // RC says no active entitlement. Revoke monthly/yearly subs only —
+      // never lifetime, and skip if a timed grant is still running.
+      const timedGrantLapsed = current.expiresAt != null && current.expiresAt < Date.now();
       if (
         current.isPremium &&
         (current.plan === 'monthly' || current.plan === 'yearly') &&
-        !current.expiresAt
+        (!current.expiresAt || timedGrantLapsed)
       ) {
-        const updated: PremiumStatus = { ...current, isPremium: false, plan: undefined };
+        const updated: PremiumStatus = {
+          ...current,
+          isPremium: false,
+          plan: undefined,
+          expiresAt: undefined,
+        };
         save(updated);
         setStatusRaw(updated);
       }
@@ -173,6 +182,12 @@ export function usePremium() {
 
   /** Redeem a referral code — grants 21-day trial. Returns error string or null on success. */
   const redeemReferral = useCallback(async (code: string, userId: string): Promise<string | null> => {
+    // Don't replace an active lifetime or open-ended RC subscription.
+    const current = load();
+    if (current.isPremium && !current.expiresAt) {
+      return 'You already have an active premium subscription.';
+    }
+
     const result = await redeemReferralCode(code, userId);
     if (!result.success) {
       const msgs: Record<string, string> = {
@@ -183,14 +198,12 @@ export function usePremium() {
       };
       return msgs[result.reason] ?? 'Unable to process your request. Please try again.';
     }
-    // Grant 21-day trial
-    // Store an explicit expiry so hasAccess uses it rather than the 14-day default window
     const trialExpiry = Date.now() + result.trialMs;
-    const updated: PremiumStatus = {
+    const withExpiry: PremiumStatus = {
       ...load(),
       trialStartedAt: Date.now(),
+      expiresAt: trialExpiry,
     };
-    const withExpiry: PremiumStatus = { ...updated, expiresAt: trialExpiry };
     save(withExpiry);
     setStatusRaw(withExpiry);
     return null;
@@ -251,13 +264,10 @@ export function usePremium() {
     setStatusRaw(updated);
   }, []);
 
-  /**
-   * Fully reset premium state for a fresh account / new onboarding.
-   * Clears trial clock and all purchase data so the paywall shows correctly.
-   * On native iOS, RevenueCat will restore any real purchase via syncFromRC().
-   */
+  /** Reset all premium state for a new account. RC will restore real purchases on next boot. */
   const resetForNewUser = useCallback(() => {
     localStorage.removeItem(KEY);
+    localStorage.removeItem('vf_trial_prompt_shown');
     setStatusRaw({ isPremium: false });
   }, []);
 

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Dumbbell, Eye, EyeOff, Check } from 'lucide-react';
 import { cloudUpdatePassword } from '../../lib/cloudSync';
 
@@ -13,6 +13,9 @@ export function ResetPassword({ onDone }: ResetPasswordProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (doneTimerRef.current) clearTimeout(doneTimerRef.current); }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -25,7 +28,7 @@ export function ResetPassword({ onDone }: ResetPasswordProps) {
     try {
       await cloudUpdatePassword(password);
       setSuccess(true);
-      setTimeout(onDone, 1500);
+      doneTimerRef.current = setTimeout(onDone, 1500);
     } catch {
       setError('Failed to update password. Please try again.');
     }

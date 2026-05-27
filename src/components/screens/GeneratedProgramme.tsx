@@ -18,6 +18,7 @@ import {
   epley1RM,
 } from '../../lib/progressiveOverload';
 import { getProgrammeWeekIndex, validateProgrammeSession } from '../../lib/sessionUtils';
+import { localDateStr } from '../../lib/loadManagement';
 
 interface Props {
   programme: GPType;
@@ -507,6 +508,8 @@ export function StrengthSetupModal({
 
   const [drafts, setDrafts] = useState<Record<string, Draft>>(initDrafts);
   const [saved, setSaved] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
 
   const setField = (key: string, field: 'weightStr' | 'repsStr', val: string) =>
     setDrafts(prev => ({ ...prev, [key]: { ...prev[key], [field]: val } }));
@@ -534,7 +537,7 @@ export function StrengthSetupModal({
       }
     }
     setSaved(true);
-    setTimeout(() => { onSave({ lifts, configuredAt: Date.now() }); onClose(); }, 600);
+    saveTimerRef.current = setTimeout(() => { onSave({ lifts, configuredAt: Date.now() }); onClose(); }, 600);
   };
 
   const inputCls = 'flex-1 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 text-center font-semibold';
@@ -652,8 +655,6 @@ export function GeneratedProgramme({
   const [pickerMonth, setPickerMonth] = useState(() => new Date().getMonth());
   const [chosenStartDate, setChosenStartDate] = useState(() => new Date().toISOString().split('T')[0]);
 
-  const localDateStr = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const todayStr = localDateStr(new Date());
 
   const getTomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return localDateStr(d); };

@@ -43,7 +43,7 @@ const CATEGORY_COLOURS: Record<string, string> = {
 
 function formatTarget(sets: number, reps: number, weight: number): string {
   if (weight > 0) return `${sets}×${reps} @ ${weight}kg`;
-  if (reps > 1)   return `${sets}×${reps}`;
+  if (reps >= 1)  return `${sets}×${reps}`;
   return `${sets} sets`;
 }
 

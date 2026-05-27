@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Zap, Check, PlayCircle } from 'lucide-react';
 import { DailyReadiness } from '../types';
 import { calcReadiness } from '../lib/programmeGenerator';
@@ -60,6 +60,15 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
   const [fatigue, setFatigue]   = useState(() => existing?.fatigue  ?? 3);
   const [soreness, setSoreness] = useState(() => existing?.soreness ?? 3);
   const [stress, setStress]     = useState(() => existing?.stress   ?? 3);
+
+  // Sync sliders if existing changes after mount (e.g. cloud restore)
+  useEffect(() => {
+    if (!existing) return;
+    setSleep(existing.sleep);
+    setFatigue(existing.fatigue);
+    setSoreness(existing.soreness);
+    setStress(existing.stress);
+  }, [existing]);
 
   const handleSave = () => {
     const raw = calcReadiness({ sleep, fatigue, soreness, stress });

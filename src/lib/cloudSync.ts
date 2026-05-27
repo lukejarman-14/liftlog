@@ -19,8 +19,6 @@ function restoreAllData(data: Record<string, unknown>) {
       localStorage.setItem(key, JSON.stringify(val));
     }
   }
-  // Notify all useLocalStorage hooks that localStorage was bulk-updated externally.
-  // This lets them re-read their values without a page reload.
   window.dispatchEvent(new CustomEvent('vf-cloud-restored'));
 }
 
@@ -51,13 +49,19 @@ export async function cloudSignOut(): Promise<void> {
 export async function cloudDeleteAccount(): Promise<void> {
   if (!supabase) return;
   const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    const { error: dataError } = await supabase.from('user_data').delete().eq('id', user.id);
-    if (dataError) throw new Error(`Failed to delete user data: ${dataError.message}`);
-    const { error: authError } = await supabase.rpc('delete_user');
-    if (authError) throw new Error(`Failed to delete auth account: ${authError.message}`);
+  try {
+    if (user) {
+      // Auth must be deleted first — the RPC runs under the current session,
+      // so the session needs to be valid when it executes.
+      const { error: authError } = await supabase.rpc('delete_user');
+      if (authError) throw new Error(`Failed to delete auth account: ${authError.message}`);
+      // Clean up any orphaned app data (CASCADE should handle this, but be explicit).
+      await supabase.from('user_data').delete().eq('id', user.id);
+    }
+  } finally {
+    // Always sign out, even if deletion threw — the local session must not survive.
+    await supabase.auth.signOut();
   }
-  await supabase.auth.signOut();
 }
 
 /** Send a password reset email to the user. */
@@ -89,17 +93,17 @@ export async function getExistingSession(): Promise<string | null> {
 export async function cloudSaveData(userId: string): Promise<void> {
   if (!supabase) return;
   const appData = collectAllData();
-  // Never upload the local password hash — it's a local-auth-only credential.
+  // Strip the local password hash before uploading — it's device-only.
   const profile = appData['vf_user_profile'];
   if (profile && typeof profile === 'object') {
-    const { passwordHash: _pw, ...rest } = profile as Record<string, unknown>;
-    void _pw;
-    appData['vf_user_profile'] = rest;
+    const safeProfile = { ...(profile as Record<string, unknown>) };
+    delete safeProfile.passwordHash;
+    appData['vf_user_profile'] = safeProfile;
   }
   const { error } = await supabase
     .from('user_data')
     .upsert({ id: userId, app_data: appData, updated_at: new Date().toISOString() });
-  if (error) {
+  if (error && import.meta.env.DEV) {
     console.warn('[CloudSync] Save failed — will retry on next sync:', error.message);
   }
 }
@@ -114,6 +118,20 @@ export async function cloudLoadData(userId: string): Promise<boolean> {
     .single();
   if (error || !data?.app_data) return false;
   const appData = data.app_data as Record<string, unknown>;
+
+  // Skip the write + event dispatch if nothing has changed — avoids unnecessary
+  // re-renders across all useLocalStorage hooks when the same data is polled.
+  let hasChanges = false;
+  for (const key of STORAGE_KEYS) {
+    const incoming = appData[key];
+    if (incoming === undefined || incoming === null) continue;
+    if (localStorage.getItem(key) !== JSON.stringify(incoming)) {
+      hasChanges = true;
+      break;
+    }
+  }
+  if (!hasChanges) return true;
+
   restoreAllData(appData);
   return true;
 }

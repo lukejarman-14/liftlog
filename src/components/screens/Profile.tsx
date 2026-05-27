@@ -6,6 +6,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { isSupabaseConfigured, cloudUpdatePassword } from '../../lib/cloudSync';
+import { exportData } from '../../lib/dataSync';
 import { hashPassword } from '../../lib/authUtils';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -29,18 +30,21 @@ function WeightTracker({
   onSave: (entry: WeightEntry) => void;
   onDelete: (date: string) => void;
 }) {
-  const today = new Date().toISOString().split('T')[0];
+  const _now = new Date();
+  const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
   const todayEntry = log.find(e => e.date === today);
   const [inputStr, setInputStr] = useState(todayEntry ? String(todayEntry.weightKg) : '');
   const [saved, setSaved] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current); }, []);
 
   const handleSave = () => {
     const val = parseFloat(inputStr);
     if (!val || val < 20 || val > 300) return;
     onSave({ date: today, weightKg: val, recordedAt: Date.now() });
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    savedTimerRef.current = setTimeout(() => setSaved(false), 2000);
   };
 
   // Last 10 entries for sparkline
@@ -485,6 +489,7 @@ interface ProfileProps {
   onDeleteWeight: (date: string) => void;
   onLogout: () => void;
   onBack: () => void;
+  onManageSubscription?: () => void;
 }
 
 function ChangePasswordModal({
@@ -535,10 +540,10 @@ function ChangePasswordModal({
       }
     }
     const newHash = await hashPassword(newPw, userEmail);
+    setLoading(false);
     setSuccess(true);
     onSave(newHash);
     onClose();
-    setLoading(false);
   };
 
   const inputCls = (err = false) =>
@@ -683,6 +688,8 @@ function EditMetricsModal({
   const [dobStr, setDobStr] = useState(currentDob ?? '');
 
   const [saved, setSaved] = useState(false);
+  const metricsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (metricsTimerRef.current) clearTimeout(metricsTimerRef.current); }, []);
 
   const switchHeightUnit = (toImperial: boolean) => {
     if (toImperial) {
@@ -719,20 +726,24 @@ function EditMetricsModal({
     if (heightImperial) {
       const ft = parseFloat(ftStr) || 0;
       const inches = parseFloat(inStr) || 0;
-      if (ft > 0 || inches > 0) heightCm = Math.round((ft * 12 + inches) * 2.54);
+      const computed = Math.round((ft * 12 + inches) * 2.54);
+      if (computed >= 100 && computed <= 250) heightCm = computed;
     } else {
-      if (cmStr) heightCm = parseFloat(cmStr);
+      const cm = parseFloat(cmStr);
+      if (cm >= 100 && cm <= 250) heightCm = cm;
     }
 
     if (weightImperial) {
       const lbs = parseFloat(lbsStr);
-      if (lbs > 0) weightKg = Math.round(lbs * 0.453592 * 10) / 10;
+      const computed = Math.round(lbs * 0.453592 * 10) / 10;
+      if (computed >= 30 && computed <= 300) weightKg = computed;
     } else {
-      if (kgStr) weightKg = parseFloat(kgStr);
+      const kg = parseFloat(kgStr);
+      if (kg >= 30 && kg <= 300) weightKg = kg;
     }
 
     setSaved(true);
-    setTimeout(() => { onSave(heightCm, weightKg, dobStr || undefined); onClose(); }, 600);
+    metricsTimerRef.current = setTimeout(() => { onSave(heightCm, weightKg, dobStr || undefined); onClose(); }, 600);
   };
 
   const inputCls = `w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-400`;
@@ -940,10 +951,12 @@ function EditTrainingProfileModal({
   const [gymFrequency, setFrequency]      = useState(current.gymFrequency);
   const [gymAccess, setGymAccess]         = useState(current.gymAccess);
   const [saved, setSaved]                 = useState(false);
+  const trainingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (trainingTimerRef.current) clearTimeout(trainingTimerRef.current); }, []);
 
   const handleSave = () => {
     setSaved(true);
-    setTimeout(() => {
+    trainingTimerRef.current = setTimeout(() => {
       onSave({ position, experienceYears, gymFrequency, gymAccess });
       onClose();
     }, 600);
@@ -1082,7 +1095,7 @@ export function Profile({
   baseline, referralCode, weightLog, onSetProfilePicture,
   onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onSaveTrainingProfile,
   onSaveWeight, onDeleteWeight, onLogout, onBack,
-  settings, onUpdateSettings,
+  settings, onUpdateSettings, onManageSubscription,
 }: ProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showChangePw,         setShowChangePw]         = useState(false);
@@ -1511,10 +1524,24 @@ export function Profile({
       <Card className="p-4 mb-8">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account</h3>
 
+        {/* Manage Subscription */}
+        {onManageSubscription && (
+          <button
+            onClick={onManageSubscription}
+            className="w-full text-left text-sm text-gray-600 py-2.5 flex items-center justify-between gap-2 hover:text-gray-900"
+          >
+            <div className="flex items-center gap-2">
+              <Zap size={15} className="text-gray-400" />
+              Manage Subscription
+            </div>
+            <ChevronRight size={14} className="text-gray-300" />
+          </button>
+        )}
+
         {/* Change Password */}
         <button
           onClick={() => setShowChangePw(true)}
-          className="w-full text-left text-sm text-gray-600 py-2.5 flex items-center justify-between gap-2 hover:text-gray-900"
+          className={`w-full text-left text-sm text-gray-600 py-2.5 flex items-center justify-between gap-2 hover:text-gray-900 ${onManageSubscription ? 'border-t border-gray-100' : ''}`}
         >
           <div className="flex items-center gap-2">
             <Lock size={15} className="text-gray-400" />
@@ -1525,28 +1552,7 @@ export function Profile({
 
         {/* Export my data */}
         <button
-          onClick={() => {
-            const VF_KEYS = [
-              'vf_user_profile', 'vf_custom_exercises', 'vf_templates', 'vf_sessions',
-              'vf_active_plan', 'vf_profile_picture', 'vf_settings', 'vf_baseline', 'vf_match_entries',
-              'vf_test_sessions', 'vf_generated_programmes', 'vf_active_programme_id',
-              'vf_daily_readiness', 'vf_football_intensity', 'vf_premium', 'vf_scheduled_workouts',
-              'vf_weight_log',
-            ];
-            const exportData: Record<string, unknown> = { exportedAt: new Date().toISOString() };
-            VF_KEYS.forEach(k => {
-              try { exportData[k] = JSON.parse(localStorage.getItem(k) ?? 'null'); } catch { exportData[k] = null; }
-            });
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `vector-football-data-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 100);
-          }}
+          onClick={() => exportData()}
           className="w-full text-left text-sm text-gray-600 py-2.5 flex items-center justify-between gap-2 hover:text-gray-900 border-t border-gray-100"
         >
           <div className="flex items-center gap-2">

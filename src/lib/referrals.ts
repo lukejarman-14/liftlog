@@ -12,7 +12,7 @@ const REFERRER_REWARD_MS = 14 * 24 * 60 * 60 * 1000;  // 14 days
 
 /** Generate a deterministic referral code from a user ID. */
 export function generateReferralCode(userId: string): string {
-  return 'VF' + userId.replace(/-/g, '').slice(0, 6).toUpperCase();
+  return 'VF' + userId.replace(/-/g, '').slice(0, 8).toUpperCase();
 }
 
 /** Register the user's referral code in Supabase (idempotent). */
@@ -21,7 +21,7 @@ export async function registerReferralCode(userId: string): Promise<string> {
   if (!supabase) return code;
   await supabase
     .from('referral_codes')
-    .upsert({ code, user_id: userId }, { onConflict: 'code' });
+    .upsert({ code, user_id: userId }, { onConflict: 'user_id' });
   return code;
 }
 
@@ -38,12 +38,13 @@ export async function redeemReferralCode(
   referredUserId: string,
 ): Promise<ReferralResult> {
   const code = rawCode.trim().toUpperCase();
-  if (!code || !supabase) return { success: false, reason: 'error' };
+  if (!code) return { success: false, reason: 'invalid' };
+  if (!referredUserId) return { success: false, reason: 'error' };
+  if (!supabase) return { success: false, reason: 'error' };
 
   try {
-    // Look up who owns this code using the anon-role client (no user JWT).
-    // The authenticated client would only return the current user's own row due to RLS,
-    // causing valid codes owned by other users to appear as 'invalid'.
+    // Use the anon client — RLS on the authenticated client only returns the
+    // current user's own row, which makes foreign codes appear invalid.
     const publicClient = supabasePublic ?? supabase;
     const { data: codeRow, error } = await publicClient
       .from('referral_codes')
@@ -77,28 +78,18 @@ export async function redeemReferralCode(
   }
 }
 
-/**
- * Check for unapplied referral rewards for this user and return total ms to add.
- * Marks them as applied immediately.
- */
+/** Claim unapplied referral rewards and return total ms to add to premium. */
 export async function claimReferralRewards(userId: string): Promise<number> {
   if (!supabase) return 0;
   try {
     const { data } = await supabase
       .from('referrals')
-      .select('id')
+      .update({ reward_applied: true })
       .eq('referrer_user_id', userId)
-      .eq('reward_applied', false);
+      .eq('reward_applied', false)
+      .select('id');
 
     if (!data || data.length === 0) return 0;
-
-    // Mark all as applied
-    const ids = data.map(r => r.id);
-    await supabase
-      .from('referrals')
-      .update({ reward_applied: true })
-      .in('id', ids);
-
     return data.length * REFERRER_REWARD_MS;
   } catch {
     return 0;

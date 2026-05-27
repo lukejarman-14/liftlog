@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect, useCallback, useRef } from 'react';
-import { getAudioContext } from '../../lib/audio';
+import { getAudioContext, makeSineBuffer, playAudioBuffer } from '../../lib/audio';
 import {
   CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp,
   Trophy, Clock, BookOpen, Lightbulb, MapPin, ChevronRight,
@@ -38,18 +38,9 @@ function playRestEndSound() {
   try {
     const ctx = getAudioContext(_audioCtxRef);
     if (!ctx) return;
-    ([[880, 0], [1100, 0.18], [1320, 0.36]] as [number, number][]).forEach(([freq, offset]) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.4, ctx.currentTime + offset);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.15);
-      osc.start(ctx.currentTime + offset);
-      osc.stop(ctx.currentTime + offset + 0.15);
-    });
+    for (const [freq, offset] of [[880, 0], [1100, 0.18], [1320, 0.36]] as [number, number][]) {
+      playAudioBuffer(ctx, makeSineBuffer(ctx, freq, 0.15, 0.4), ctx.currentTime + offset);
+    }
   } catch { /* audio not available */ }
 }
 
@@ -106,6 +97,9 @@ function formatRestTime(secs: number): string {
   return `${secs}s`;
 }
 
+
+// Categories where RIR (reps in reserve) feedback applies
+const RIR_CATEGORIES = new Set(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body']);
 
 interface RestInfo {
   remaining: number;
@@ -346,6 +340,7 @@ function SetRow({
   // For per-side exercises: track which leg/side is currently active
   const [timerSide, setTimerSide] = useState<'left' | 'right'>('left');
   const timerEndRef = useRef<number | null>(null);
+  const sideTransitionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerSecsRef = useRef(timerSecs);
   timerSecsRef.current = timerSecs;
   const timerSideRef = useRef<'left' | 'right'>('left');
@@ -358,7 +353,7 @@ function SetRow({
   addedWeightKgRef.current = addedWeightKg;
   // Keep a ref to onComplete so the interval closure always calls the latest version
   const onCompleteRef = useRef(onComplete);
-  useEffect(() => { onCompleteRef.current = onComplete; });
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
   useEffect(() => {
     if (!timerRunning) return;
@@ -379,7 +374,7 @@ function SetRow({
           setTimerRunning(false);
           setTimerSide('right');
           setTimerSecs(defaultRepsRef.current);
-          setTimeout(() => setTimerRunning(true), 700);
+          sideTransitionRef.current = setTimeout(() => setTimerRunning(true), 700);
         } else {
           // Single-side or right side done — complete the set
           setTimerRunning(false);
@@ -400,6 +395,10 @@ function SetRow({
     return () => {
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVisibility);
+      if (sideTransitionRef.current !== null) {
+        clearTimeout(sideTransitionRef.current);
+        sideTransitionRef.current = null;
+      }
     };
   }, [timerRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1013,7 +1012,6 @@ function ExerciseSection({
   // Use programme-defined RIR if set, otherwise fall back to exercise suggested RIR
   const targetRir   = sessionExercise.targetRir ?? exercise.suggestedRir;
   // RIR only applies to strength and eccentric work — not plyometrics, isometrics, speed, warmup etc.
-  const RIR_CATEGORIES = new Set(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body']);
   const showRir = globalShowRir && !exercise.isWarmup && RIR_CATEGORIES.has(exercise.category);
 
   // Priming sets are stored at the start of sessionExercise.sets with isPriming:true.
@@ -1116,7 +1114,6 @@ function ExerciseSection({
 
   return (
     <Card className={`overflow-hidden ${allDone ? 'opacity-80' : ''} ${isFlagged ? 'border-red-200' : ''}`}>
-      {/* Header */}
       <div className="flex items-center">
         <button className="flex-1 flex items-center justify-between p-4 min-w-0" onClick={() => setCollapsed(c => !c)}>
           <div className="flex items-center gap-3 min-w-0">
@@ -1202,7 +1199,6 @@ function ExerciseSection({
               </div>
             </div>}
 
-            {/* Weekly progression goal */}
             {weeklyGoal && (
               <WeeklyGoalCard
                 suggestedWeight={weeklyGoal.suggestedWeight}
@@ -1213,7 +1209,6 @@ function ExerciseSection({
               />
             )}
 
-            {/* Set rows */}
             <div className="flex flex-col gap-2">
               {primingWeights && (
                 <>

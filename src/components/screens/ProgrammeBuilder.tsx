@@ -553,7 +553,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   const matchDayKey = DAY_KEYS[primaryMatchDayIndex] ?? 'saturday';
   const secondMatchDayKey = hasSecondMatchDay ? secondMatchDay : undefined;
 
-  const matchIndicesSet = useCallback(() => {
+  const matchIndicesSet = () => {
     const s = new Set<number>();
     if (seasonType === 'in-season') {
       s.add(primaryMatchDayIndex);
@@ -563,7 +563,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
       }
     }
     return s;
-  }, [seasonType, primaryMatchDayIndex, secondMatchDayKey]);
+  };
 
   const setPrimaryMatchDay = (i: number) => {
     setPrimaryMatchDayIndex(i);

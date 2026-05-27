@@ -10,16 +10,7 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
   const signature = req.headers.get('stripe-signature');
   const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
 
@@ -41,17 +32,21 @@ Deno.serve(async (req) => {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.client_reference_id;
         const plan = session.metadata?.plan as string | undefined;
+        const stripeCustomerId = session.customer as string | null;
 
         if (!userId || !plan) break;
 
-        let expiresAt: number | null = null;
+        // For one-time payments, only proceed once Stripe has confirmed the charge.
+        // Subscriptions handle this via their own lifecycle events.
+        if (plan === 'lifetime' && session.payment_status !== 'paid') break;
 
+        let expiresAt: number | null = null;
         if (plan !== 'lifetime' && session.subscription) {
           const sub = await stripe.subscriptions.retrieve(session.subscription as string);
           expiresAt = sub.current_period_end * 1000;
         }
 
-        await upsertPremium(userId, plan, expiresAt);
+        await upsertPremium(userId, plan, expiresAt, stripeCustomerId);
         break;
       }
 
@@ -79,50 +74,65 @@ Deno.serve(async (req) => {
       }
 
       case 'invoice.payment_failed': {
+        // Only revoke after Stripe has exhausted retries — don't cut off users
+        // on a temporary card failure. Stripe retries 3–4 times over several days.
         const invoice = event.data.object as Stripe.Invoice;
+        const attemptCount = (invoice as { attempt_count?: number }).attempt_count ?? 1;
+        if (attemptCount < 3) break;
+
         if (invoice.subscription) {
           const sub = await stripe.subscriptions.retrieve(invoice.subscription as string);
           const userId = sub.metadata?.userId;
-          if (userId) await revokePremium(userId);
+          if (userId && sub.status !== 'active' && sub.status !== 'trialing') {
+            await revokePremium(userId);
+          }
         }
         break;
       }
     }
 
     return new Response(JSON.stringify({ received: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 });
 
-async function upsertPremium(userId: string, plan: string, expiresAt: number | null) {
+async function upsertPremium(
+  userId: string,
+  plan: string,
+  expiresAt: number | null,
+  stripeCustomerId?: string | null,
+) {
   const { data: existing } = await supabase
     .from('user_data')
-    .select('data')
-    .eq('user_id', userId)
+    .select('app_data')
+    .eq('id', userId)
     .single();
 
-  const currentData = existing?.data ?? {};
-  const premiumStatus = currentData.vf_premium ? JSON.parse(currentData.vf_premium) : {};
+  const currentData = (existing?.app_data ?? {}) as Record<string, unknown>;
+  const premiumStatus = (currentData.vf_premium ?? {}) as Record<string, unknown>;
 
-  const updated = {
+  const updated: Record<string, unknown> = {
     ...premiumStatus,
     isPremium: true,
     plan,
     purchasedAt: premiumStatus.purchasedAt ?? Date.now(),
-    ...(expiresAt ? { expiresAt } : {}),
   };
+  if (expiresAt !== null) updated.expiresAt = expiresAt;
+
+  const newAppData: Record<string, unknown> = { ...currentData, vf_premium: updated };
+  if (stripeCustomerId) newAppData.vf_stripe_customer_id = stripeCustomerId;
 
   await supabase
     .from('user_data')
     .upsert({
-      user_id: userId,
-      data: { ...currentData, vf_premium: JSON.stringify(updated) },
+      id: userId,
+      app_data: newAppData,
       updated_at: new Date().toISOString(),
     });
 }
@@ -130,27 +140,30 @@ async function upsertPremium(userId: string, plan: string, expiresAt: number | n
 async function revokePremium(userId: string) {
   const { data: existing } = await supabase
     .from('user_data')
-    .select('data')
-    .eq('user_id', userId)
+    .select('app_data')
+    .eq('id', userId)
     .single();
 
   if (!existing) return;
 
-  const currentData = existing.data ?? {};
-  const premiumStatus = currentData.vf_premium ? JSON.parse(currentData.vf_premium) : {};
+  const currentData = (existing.app_data ?? {}) as Record<string, unknown>;
+  const premiumStatus = (currentData.vf_premium ?? {}) as Record<string, unknown>;
 
-  const updated = {
+  // Never revoke lifetime purchases via webhook
+  if (premiumStatus.plan === 'lifetime') return;
+
+  const updated: Record<string, unknown> = {
     ...premiumStatus,
     isPremium: false,
-    plan: undefined,
-    expiresAt: undefined,
+    plan: null,
+    expiresAt: null,
   };
 
   await supabase
     .from('user_data')
     .update({
-      data: { ...currentData, vf_premium: JSON.stringify(updated) },
+      app_data: { ...currentData, vf_premium: updated },
       updated_at: new Date().toISOString(),
     })
-    .eq('user_id', userId);
+    .eq('id', userId);
 }

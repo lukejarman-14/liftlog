@@ -126,7 +126,7 @@ export function weekInPhase(weekNumber: number, totalWeeks: number): number {
 
 
 /** Round kg to nearest 2.5 kg (standard barbell plate increment). */
-function roundPlate(kg: number): number {
+export function roundPlate(kg: number): number {
   return Math.round(kg / 2.5) * 2.5;
 }
 

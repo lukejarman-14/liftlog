@@ -4,7 +4,8 @@ export const STORAGE_KEYS = [
   'vf_templates',
   'vf_sessions',
   'vf_active_plan',
-  'vf_profile_picture',
+  // vf_profile_picture is intentionally excluded — it's a raw base64 blob that can
+  // exceed Supabase's JSONB row size limit. It stays device-local only.
   'vf_settings',
   'vf_baseline',
   'vf_match_entries',
@@ -25,10 +26,11 @@ export type BackupFile = {
   data: Record<string, unknown>;
 };
 
-/** Download all app data as a JSON backup file. */
+/** Download all app data as a JSON backup file. Premium status is excluded — it is tied to the account. */
 export function exportData(): void {
   const data: Record<string, unknown> = {};
   for (const key of STORAGE_KEYS) {
+    if (key === 'vf_premium') continue;
     const raw = localStorage.getItem(key);
     try {
       data[key] = raw ? JSON.parse(raw) : null;
@@ -77,6 +79,9 @@ export function importData(file: File): Promise<string> {
             localStorage.setItem(key, JSON.stringify(val));
           }
         }
+
+        // Notify all useLocalStorage hooks to re-read from the freshly populated storage
+        window.dispatchEvent(new CustomEvent('vf-cloud-restored'));
 
         // Return the email so the UI can confirm who was restored
         const profile = backup.data['vf_user_profile'] as { email?: string } | null;

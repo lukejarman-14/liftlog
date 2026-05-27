@@ -11,7 +11,7 @@ import { sessionToWorkoutExercises, getProgrammeWeekIndex } from './lib/sessionU
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 import { usePremium } from './hooks/usePremium';
 import { rcConfigure } from './lib/revenueCat';
-import { createStripeCheckout } from './lib/stripeCheckout';
+import { createStripeCheckout, createStripePortalSession } from './lib/stripeCheckout';
 import { Capacitor } from '@capacitor/core';
 import {
   isSupabaseConfigured,
@@ -85,6 +85,7 @@ export default function App() {
   const premium = usePremium();
   const [paywallFeatureLabel, setPaywallFeatureLabel] = useState<string | undefined>();
   const [showTrialPrompt, setShowTrialPrompt] = useState(false);
+  const [stripeCheckoutPending, setStripeCheckoutPending] = useState(false);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [notifPendingProgramme, setNotifPendingProgramme] = useState<GPType | null>(null);
 
@@ -108,17 +109,15 @@ export default function App() {
             sessionStorage.setItem('vf_boot_synced', '1');
             await cloudLoadData(userId);
           }
-          await rcConfigure(userId);
+          await rcConfigure(userId).catch(err => {
+            if (import.meta.env.DEV) console.warn('[RC] configure failed:', err);
+          });
           await premium.syncFromRC();
 
           const today = new Date().toISOString().split('T')[0];
           const lastShown = localStorage.getItem('vf_trial_prompt_shown');
-          if (lastShown !== today) {
-            setTimeout(() => {
-              // Re-check premium status at fire time — RC sync may have updated it
-              const fresh = premium.refresh();
-              if (!fresh.isPremium) setShowTrialPrompt(true);
-            }, TRIAL_PROMPT_DELAY_MS);
+          if (lastShown !== today && !premium.refresh().isPremium) {
+            setTimeout(() => setShowTrialPrompt(true), TRIAL_PROMPT_DELAY_MS);
           }
           const code = await premium.getOrCreateReferralCode(userId);
           setMyReferralCode(code);
@@ -127,13 +126,19 @@ export default function App() {
           const params = new URLSearchParams(window.location.search);
           if (params.get('stripe_success') === '1') {
             window.history.replaceState({}, '', window.location.pathname);
-            // Grant premium immediately from the plan stored before Stripe redirect,
-            // so the user doesn't have to wait for the webhook to fire.
             const stripePlan = (sessionStorage.getItem('vf_stripe_plan') ?? 'monthly') as 'monthly' | 'yearly' | 'lifetime';
+            // Poll Supabase for up to 10s waiting for the Stripe webhook to confirm the purchase.
+            // Falls back to optimistic grant if the webhook hasn't fired by then.
+            let confirmed = false;
+            for (let attempt = 0; attempt < 10; attempt++) {
+              await new Promise<void>(r => setTimeout(r, 1000));
+              await cloudLoadData(userId);
+              const fresh = premium.refresh();
+              if (fresh.isPremium) { confirmed = true; break; }
+            }
+            // Clear only after we've resolved — prevents losing the plan on a mid-poll reload.
             sessionStorage.removeItem('vf_stripe_plan');
-            premium.setPremium(stripePlan);
-            // Also reload from cloud in the background to pick up webhook data
-            cloudLoadData(userId).then(() => premium.refresh());
+            if (!confirmed) premium.setPremium(stripePlan);
             navigate({ screen: 'programme-builder' });
           } else if (params.get('stripe_cancel') === '1') {
             window.history.replaceState({}, '', window.location.pathname);
@@ -142,8 +147,8 @@ export default function App() {
       })
       .catch(() => { /* session check failed — continue as unauthenticated */ })
       .finally(() => { setSessionChecking(false); });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // navigate is declared below but is a stable useCallback — intentionally omitted
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!supabase) return;
@@ -294,6 +299,9 @@ export default function App() {
   const handleUpdateSession = (session: WorkoutSession) => setActiveSession(session);
 
   const handleFinishWorkout = (session: WorkoutSession) => {
+    // Capture count before saveSession — React batches the state update, so
+    // store.sessions.length would still reflect the pre-save value after the call.
+    const completedCount = store.sessions.length + 1;
     store.saveSession(session);
     immediateSave();
     setActiveSession(null);
@@ -305,10 +313,9 @@ export default function App() {
       exercise_count: session.exercises.length,
       set_count: totalSets,
       duration_mins: durationMins,
-      total_sessions: store.sessions.length + 1,
+      total_sessions: completedCount,
     });
-    const count = store.sessions.length + 1;
-    if ([5, 15, 30].includes(count)) {
+    if ([5, 15, 30].includes(completedCount)) {
       const lastReview = localStorage.getItem('vf_review_prompted');
       const daysSince = lastReview ? (Date.now() - Number(lastReview)) / MS_PER_DAY : Infinity;
       if (daysSince > 30) setShowReviewPrompt(true);
@@ -500,6 +507,8 @@ export default function App() {
     } catch {
       // logout proceeds regardless of cloud errors
     } finally {
+      // Clear the boot-sync guard so the next login re-fetches cloud data fresh.
+      sessionStorage.removeItem('vf_boot_synced');
       resetAnalyticsUser();
       cloudUserIdRef.current = null;
       setIsAuthenticated(false);
@@ -762,7 +771,7 @@ export default function App() {
                 // Cloud deletion failed — still wipe local data so the user isn't stuck
               }
             }
-            localStorage.clear();
+            store.clearAll();
             window.location.href = '/';
           }}
           onChangePassword={(newHash) => {
@@ -788,6 +797,20 @@ export default function App() {
           onUpdateSettings={store.updateSettings}
           onLogout={handleLogout}
           onBack={() => navigate({ screen: 'dashboard' })}
+          onManageSubscription={premium.hasAccess ? async () => {
+            if (Capacitor.isNativePlatform()) {
+              // iOS: open Apple subscription management page
+              window.open('https://apps.apple.com/account/subscriptions', '_system');
+            } else {
+              // Web: open Stripe customer portal
+              const result = await createStripePortalSession();
+              if ('url' in result) {
+                window.location.href = result.url;
+              } else {
+                alert(result.error ?? 'Could not open subscription management. Please try again.');
+              }
+            }
+          } : undefined}
         />
       )}
 
@@ -830,28 +853,30 @@ export default function App() {
           featureLabel={paywallFeatureLabel}
           trialDaysLeft={premium.trialDaysLeft}
           isTrialExpired={premium.isTrialExpired}
-          purchasing={premium.purchasing}
+          purchasing={premium.purchasing || stripeCheckoutPending}
           restoring={premium.restoring}
           purchaseError={premium.purchaseError}
-          onStartTrial={() => {
-            premium.startTrial();
-            navigate({ screen: 'programme-builder' });
+          onStartTrial={async (plan) => {
+            if (Capacitor.isNativePlatform()) {
+              // iOS: trial must go through StoreKit via RevenueCat
+              const ok = await premium.purchase(plan);
+              if (ok) navigate({ screen: 'programme-builder' });
+            } else {
+              // Web: local 14-day trial clock, no payment required up front
+              premium.startTrial();
+              navigate({ screen: 'programme-builder' });
+            }
           }}
-          onSelectPlan={async (plan) => {
+          onSelectPlan={async (plan, noTrial) => {
             if (!Capacitor.isNativePlatform()) {
-              // Web: Stripe Checkout — store plan so we can grant it on return
-              const userId = cloudUserIdRef.current;
-              if (!userId) {
-                if (import.meta.env.DEV) console.warn('[Stripe] Cannot start checkout — no authenticated user ID.');
-                return;
-              }
-              const userEmail = (await supabase?.auth.getUser())?.data.user?.email ?? '';
+              setStripeCheckoutPending(true);
               sessionStorage.setItem('vf_stripe_plan', plan);
-              const result = await createStripeCheckout(plan, userId, userEmail);
+              const result = await createStripeCheckout(plan, noTrial);
               if ('url' in result) {
                 window.location.href = result.url;
+                // Don't clear pending — the page is navigating away.
               } else {
-                // Surface the error so the user knows something went wrong
+                setStripeCheckoutPending(false);
                 premium.setPurchaseError(result.error ?? 'Could not start checkout. Please try again.');
               }
               return;
@@ -882,6 +907,10 @@ export default function App() {
             } else {
               navigate({ screen: 'plans' });
             }
+          }}
+          onContinueFree={() => {
+            // Dismiss paywall without granting access — paywall will re-appear on next gated tap
+            navigate({ screen: 'dashboard' });
           }}
         />
       )}
@@ -940,17 +969,20 @@ export default function App() {
             <p className="text-sm text-gray-600 text-center mb-4 leading-relaxed">
               You have an active programme. Apply your new test results so the training adjusts to your current fitness profile?
             </p>
-            {pendingReTestSession.grades && Object.keys(pendingReTestSession.grades).length > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-200">
-                <p className="text-xs font-semibold text-blue-700 mb-1.5">What will change:</p>
-                {buildTestEmphasis(pendingReTestSession.grades).coachNotes.length > 0
-                  ? buildTestEmphasis(pendingReTestSession.grades).coachNotes.map((note, i) => (
-                      <p key={i} className="text-xs text-blue-600 leading-relaxed mb-1">• {note}</p>
-                    ))
-                  : <p className="text-xs text-blue-500 italic">Your grades are good — no major adjustments needed. Standard plan continues.</p>
-                }
-              </div>
-            )}
+            {pendingReTestSession.grades && Object.keys(pendingReTestSession.grades).length > 0 && (() => {
+              const reTestNotes = buildTestEmphasis(pendingReTestSession.grades).coachNotes;
+              return (
+                <div className="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                  <p className="text-xs font-semibold text-blue-700 mb-1.5">What will change:</p>
+                  {reTestNotes.length > 0
+                    ? reTestNotes.map((note, i) => (
+                        <p key={i} className="text-xs text-blue-600 leading-relaxed mb-1">• {note}</p>
+                      ))
+                    : <p className="text-xs text-blue-500 italic">Your grades are good — no major adjustments needed. Standard plan continues.</p>
+                  }
+                </div>
+              );
+            })()}
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => applyRetestToProgramme(pendingReTestSession)}
@@ -980,15 +1012,20 @@ export default function App() {
             <p className="text-sm text-gray-600 text-center mb-4 leading-relaxed">
               Your recent testing data can personalise this programme — extra focus where your grades show room to improve.
             </p>
-            <div className="mb-4 p-3 bg-brand-50 rounded-xl border border-brand-200">
-              <p className="text-xs font-semibold text-brand-700 mb-1.5">What will be adjusted:</p>
-              {buildTestEmphasis(pendingTestGrades).coachNotes.length > 0
-                ? buildTestEmphasis(pendingTestGrades).coachNotes.map((note, i) => (
-                    <p key={i} className="text-xs text-brand-600 leading-relaxed mb-1">• {note}</p>
-                  ))
-                : <p className="text-xs text-brand-500 italic">Your grades are strong — no major adjustments needed.</p>
-              }
-            </div>
+            {(() => {
+              const testNotes = buildTestEmphasis(pendingTestGrades).coachNotes;
+              return (
+                <div className="mb-4 p-3 bg-brand-50 rounded-xl border border-brand-200">
+                  <p className="text-xs font-semibold text-brand-700 mb-1.5">What will be adjusted:</p>
+                  {testNotes.length > 0
+                    ? testNotes.map((note, i) => (
+                        <p key={i} className="text-xs text-brand-600 leading-relaxed mb-1">• {note}</p>
+                      ))
+                    : <p className="text-xs text-brand-500 italic">Your grades are strong — no major adjustments needed.</p>
+                  }
+                </div>
+              );
+            })()}
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => {
@@ -1397,7 +1434,7 @@ export default function App() {
               >
                 Start Free Trial
               </button>
-              <p className="text-center text-xs text-gray-400 mt-2">No payment required · £7.99/mo after trial</p>
+              <p className="text-center text-xs text-gray-400 mt-2">No payment required · from £6.67/mo after trial</p>
             </div>
           </div>
         </div>

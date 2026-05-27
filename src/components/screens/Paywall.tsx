@@ -10,12 +10,13 @@ interface PaywallProps {
   purchasing: boolean;
   restoring: boolean;
   purchaseError: string | null;
-  onSelectPlan: (plan: RCPlan) => void;
-  onStartTrial: () => void;
+  onSelectPlan: (plan: RCPlan, noTrial?: boolean) => void;
+  onStartTrial: (plan: RCPlan) => void;
   onRestore: () => void;
   onRedeemCode: (code: string) => Promise<string | null>;
   onRedeemReferral: (code: string) => Promise<string | null>;
   onDismiss: () => void;
+  onContinueFree?: () => void;
 }
 
 const FEATURES = [
@@ -46,6 +47,7 @@ export function Paywall({
   onRedeemCode,
   onRedeemReferral,
   onDismiss,
+  onContinueFree,
 }: PaywallProps) {
   const [selected, setSelected] = useState<RCPlan>('yearly');
   const [showCodeInput, setShowCodeInput] = useState(false);
@@ -81,12 +83,12 @@ export function Paywall({
 
   const handleStartTrial = () => {
     trackEvent('trial_started', { tier: toTier(selected) });
-    onStartTrial();
+    onStartTrial(selected);
   };
 
-  const handleSelectPlan = (plan: RCPlan) => {
-    trackEvent('purchase_initiated', { tier: toTier(plan) });
-    onSelectPlan(plan);
+  const handleSelectPlan = (plan: RCPlan, noTrial?: boolean) => {
+    trackEvent('purchase_initiated', { tier: toTier(plan), no_trial: noTrial ?? false });
+    onSelectPlan(plan, noTrial);
   };
 
   return (
@@ -209,15 +211,18 @@ export function Paywall({
               >
                 Start 14-Day Free Trial
               </button>
-              <p className="text-center text-xs text-gray-400">
-                No payment needed now. Subscribe before trial ends to keep access.
+              <p className="text-center text-xs text-gray-400 leading-snug">
+                {selected === 'lifetime'
+                  ? `Free for 14 days, then ${selectedPlan.price} once — no subscription.`
+                  : `Free for 14 days, then ${selectedPlan.price}${selected === 'yearly' ? '/year' : '/month'}, auto-renewing. Cancel anytime.`
+                }
               </p>
               <button
-                onClick={() => handleSelectPlan(selected)}
+                onClick={() => handleSelectPlan(selected, true)}
                 disabled={busy}
                 className="w-full py-3.5 rounded-2xl border-2 border-brand-500 text-brand-600 font-extrabold text-base hover:bg-brand-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {purchasing ? (
+                {busy ? (
                   <span className="w-5 h-5 border-2 border-brand-400 border-t-brand-600 rounded-full animate-spin" />
                 ) : (
                   `${selected === 'lifetime' ? 'Buy' : 'Subscribe'} Now — ${selectedPlan.price}`
@@ -259,6 +264,16 @@ export function Paywall({
               </>
             )}
           </button>
+
+          {onContinueFree && (
+            <button
+              onClick={onContinueFree}
+              disabled={busy}
+              className="w-full py-3 rounded-2xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50 hover:text-gray-700 transition-colors disabled:opacity-40"
+            >
+              Continue with free version
+            </button>
+          )}
         </div>
 
         {/* Referral code */}

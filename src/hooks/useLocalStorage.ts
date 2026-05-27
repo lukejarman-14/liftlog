@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
   const [value, setValue] = useState<T>(() => {
@@ -10,11 +10,18 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
     }
   });
 
+  // Skip the write if the serialised value hasn't changed (avoids redundant I/O
+  // when state updates produce equal content via object spreads).
+  const lastWritten = useRef<string | null>(null);
+
   useEffect(() => {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      const serialized = JSON.stringify(value);
+      if (serialized === lastWritten.current) return;
+      localStorage.setItem(key, serialized);
+      lastWritten.current = serialized;
     } catch {
-      // storage full or private browsing
+      // Storage full or private browsing — silently ignore.
     }
   }, [key, value]);
 

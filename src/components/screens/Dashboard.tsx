@@ -8,6 +8,7 @@ import { DailyReadinessWidget } from '../DailyReadinessWidget';
 import { WorkoutSession, NavState, ActivePlan, DailyReadiness, GeneratedProgramme, Exercise, WorkoutExercise, ProgrammeSession } from '../../types';
 import { useStore } from '../../hooks/useStore';
 import { POSITION_PLANS, getCurrentPlanWeek } from '../../data/positionPlans';
+import { getProgrammeWeekIndex } from '../../lib/sessionUtils';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
@@ -160,13 +161,9 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
   let progLabel = '';
   if (activeProgramme) {
     progTotal = activeProgramme.durationWeeks;
-    // Use programmeStartDate when set (user chose their start date) — fall back to createdAt
-    // for programmes generated before this field existed.
-    const startMs = activeProgramme.programmeStartDate
-      ? new Date(activeProgramme.programmeStartDate + 'T12:00:00').getTime()
-      : activeProgramme.createdAt;
-    const weeksSinceStart = Math.floor((Date.now() - startMs) / (7 * 24 * 60 * 60 * 1000));
-    progWeek = Math.min(weeksSinceStart + 1, progTotal);
+    // Use the same Monday-aligned week boundaries as getProgrammeWeekIndex so the
+    // displayed week number always matches the sessions shown in the weekly calendar.
+    progWeek = getProgrammeWeekIndex(activeProgramme) + 1;
     progLabel = activeProgramme.summary.split('·')[0].trim();
   } else if (activePlan) {
     const plan = POSITION_PLANS.find(p => p.id === activePlan.planId);

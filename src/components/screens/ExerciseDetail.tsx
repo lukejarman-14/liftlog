@@ -60,7 +60,6 @@ export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: Exerc
 
   return (
     <Layout title={exercise.name} onBack={onBack}>
-      {/* Meta tags */}
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <span className={`text-xs px-2 py-1 rounded-full font-medium ${CATEGORY_COLORS[exercise.category]}`}>
           {exercise.category}
@@ -81,7 +80,6 @@ export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: Exerc
         <span className="text-xs text-gray-400 ml-auto">Rest: {exercise.defaultRestSeconds}s</span>
       </div>
 
-      {/* How to do it */}
       {desc && (
         <Card className="mb-5 p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -130,7 +128,6 @@ export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: Exerc
         </Card>
       )}
 
-      {/* Personal records */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <Card className="p-4 text-center">
           <div className="text-xl font-bold text-brand-500">{bestSet ? `${bestSet.weight}kg` : '—'}</div>
@@ -149,7 +146,6 @@ export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: Exerc
         </Card>
       </div>
 
-      {/* Chart */}
       {chartData.length >= 2 ? (
         <Card className="p-4 mb-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -186,7 +182,6 @@ export function ExerciseDetail({ exercise, sessions, onNavigate, onBack }: Exerc
         </Card>
       ) : null}
 
-      {/* Session history */}
       {exerciseSessions.length > 0 ? (
         <section>
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">History</h3>

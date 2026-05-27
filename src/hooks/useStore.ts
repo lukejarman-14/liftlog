@@ -66,10 +66,10 @@ export function useStore() {
     });
 
   const saveGeneratedProgramme = (programme: GeneratedProgramme) => {
-    const filtered = generatedProgrammes.filter(p => p.id !== programme.id);
-    const next = [programme, ...filtered].slice(0, 10);
+    const prev = generatedProgrammes;
+    const next = [programme, ...prev.filter(p => p.id !== programme.id)].slice(0, 20);
     setGeneratedProgrammes(next);
-    // If the cap evicted the currently active programme, clear the stale reference
+    // If the 20-item cap evicted the currently active programme, clear the stale reference.
     if (activeProgrammeId && !next.some(p => p.id === activeProgrammeId)) {
       setActiveProgrammeId(null);
     }
@@ -142,7 +142,7 @@ export function useStore() {
     for (let i = 1; i <= 3; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const hasEntry = matchEntries.some(e => e.date === dateStr && (e.type === 'match' || e.type === 'team_training'));
       if (hasEntry && footballIntensityLog[dateStr] == null) return dateStr;
     }
@@ -286,7 +286,7 @@ export function useStore() {
       ];
       VF_KEYS.forEach(k => localStorage.removeItem(k));
       // Clear ephemeral prompt-suppression keys so a reset account sees them fresh
-      ['vf_trial_prompt_shown', 'vf_notif_prompted', 'vf_review_prompted', 'vf_boot_synced'].forEach(k => localStorage.removeItem(k));
+      ['vf_trial_prompt_shown', 'vf_notif_prompted', 'vf_review_prompted', 'vf_boot_synced', 'vf_redeemed_codes'].forEach(k => localStorage.removeItem(k));
       // Clear per-programme completion dismissals
       Object.keys(localStorage)
         .filter(k => k.startsWith('vf_prog_complete_'))

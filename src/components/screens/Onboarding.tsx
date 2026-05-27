@@ -187,9 +187,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
             // Signed in to Supabase but zero data exists — account was deleted.
             await cloudSignOut();
             setLoginError('No account found for this email. Please create a new account.');
-            setLoginLoading(false);
           }
         }
+        setLoginLoading(false);
         return;
       }
 

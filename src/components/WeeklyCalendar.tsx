@@ -9,6 +9,7 @@ import {
   isSameDay,
 } from '../data/positionPlans';
 import { sessionToWorkoutExercises, getProgrammeWeekIndex, getProgrammeAnchorMonday } from '../lib/sessionUtils';
+import { localDateStr } from '../lib/loadManagement';
 import { SessionPreviewModal } from './screens/GeneratedProgramme';
 import { useStore } from '../hooks/useStore';
 import { isConditioningSession } from '../utils/sessionClassify';
@@ -41,9 +42,6 @@ const PHASE_COLOURS: Record<string, string> = {
   Peak:       'bg-red-100 text-red-700',
 };
 
-function dateToStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onSkipSession, onRescheduleSession }: WeeklyCalendarProps) {
   const { matchEntries } = useStore();
@@ -223,19 +221,15 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
       <div className="grid grid-cols-7 gap-1 mb-3">
         {weekDates.map((date, i) => {
           const isToday = isSameDay(date, today);
-          const dateStr = dateToStr(date);
+          const dateStr = localDateStr(date);
           const done = completedDates.has(dateStr);
           const planned = plannedByDay.has(i) || progDayIndices.has(i);
 
           const daySessions = progSessionsByDay.get(i);
-          const El = daySessions ? 'button' : 'div';
           const sessionCount = daySessions?.length ?? 0;
-          return (
-            <El
-              key={i}
-              {...(daySessions ? { onClick: () => handleDayTap(daySessions, date) } : {})}
-              className="flex flex-col items-center gap-1"
-            >
+
+          const dayInner = (
+            <>
               <span className={`text-xs font-medium ${isToday ? 'text-brand-500' : 'text-gray-400'}`}>
                 {DAY_LABELS[i]}
               </span>
@@ -256,7 +250,6 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                   date.getDate()
                 )}
               </div>
-              {/* dot(s) — one per session on that day */}
               <div className="flex gap-0.5">
                 {sessionCount > 0 && !done
                   ? Array.from({ length: Math.min(sessionCount, 3) }).map((_, di) => (
@@ -267,7 +260,22 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                   : <div className="w-1.5 h-1.5 rounded-full bg-transparent" />
                 }
               </div>
-            </El>
+            </>
+          );
+
+          return daySessions ? (
+            <button
+              key={i}
+              type="button"
+              onClick={() => handleDayTap(daySessions, date)}
+              className="flex flex-col items-center gap-1"
+            >
+              {dayInner}
+            </button>
+          ) : (
+            <div key={i} className="flex flex-col items-center gap-1">
+              {dayInner}
+            </div>
           );
         })}
       </div>
@@ -322,7 +330,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
           <div className="flex flex-col gap-2 mb-2">
             {progSessionsThisWeek.map(({ session, effectiveDayIdx, effectiveDate }, i) => {
               const date = effectiveDate;
-              const dateStr = dateToStr(date);
+              const dateStr = localDateStr(date);
               const done = completedDates.has(dateStr);
               const isToday = isSameDay(date, today);
               const isPast = date < today && !isToday;
@@ -340,7 +348,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                 .filter(({ di }) => di !== effectiveDayIdx)
                 .map(({ d }) => ({
                   label: d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
-                  date: dateToStr(d),
+                  date: localDateStr(d),
                 }));
 
               return (
@@ -439,7 +447,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
         <div className="flex flex-col gap-2">
           {planWeek.sessions.map(planSession => {
             const date = weekDates[planSession.dayOfWeek];
-            const dateStr = dateToStr(date);
+            const dateStr = localDateStr(date);
             const done = completedDates.has(dateStr);
             const isPast = date < today && !isSameDay(date, today);
             const template = POSITION_TEMPLATES.find(t => t.id === planSession.templateId);

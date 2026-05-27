@@ -27,7 +27,7 @@ function formatDuration(ms: number) {
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-GB', {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', {
     weekday: 'long', month: 'short', day: 'numeric', year: 'numeric',
   });
 }

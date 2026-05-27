@@ -1,5 +1,5 @@
 import { ProgrammeSession, WorkoutExercise, Exercise, GeneratedProgramme, StrengthSetup } from '../types';
-import { getLiftKey, prescribeWeekLoad } from './progressiveOverload';
+import { getLiftKey, prescribeWeekLoad, roundPlate } from './progressiveOverload';
 
 
 export type ResolutionVia = 'exact' | 'partial' | 'fuzzy' | 'none';
@@ -22,16 +22,16 @@ export function resolveExerciseId(name: string, exercises: Exercise[]): Resoluti
   const fullKey = name.toLowerCase();
   const key = fullKey.split('(')[0].trim();
 
-  // Step 1: exact entry in NAME_TO_ID
+  // Exact match against the canonical name map
   const exactId = NAME_TO_ID[fullKey] ?? NAME_TO_ID[key];
   if (exactId) return { id: exactId, via: 'exact' };
 
-  // Step 2: partial — key contains a NAME_TO_ID pattern
+  // Partial match — key contains a known pattern
   for (const [pattern, mappedId] of Object.entries(NAME_TO_ID)) {
     if (key.includes(pattern)) return { id: mappedId, via: 'partial' };
   }
 
-  // Step 3: fuzzy — first-word match against exercise library (fragile)
+  // Fuzzy — first-word match against exercise library (fragile)
   const firstWord = key.split(' ')[0];
   const found = exercises.find(e =>
     e.name.toLowerCase().includes(firstWord) ||
@@ -300,11 +300,6 @@ export const NAME_TO_ID: Record<string, string> = {
 };
 
 
-/** Round a weight to the nearest 2.5 kg step. */
-function roundTo2_5(kg: number): number {
-  return Math.round(kg / 2.5) * 2.5;
-}
-
 /**
  * Returns the two priming single weights for a given working weight:
  * [85%, 97%] each rounded to the nearest 2.5 kg.
@@ -312,8 +307,8 @@ function roundTo2_5(kg: number): number {
  */
 export function calcPrimingWeights(workingWeightKg: number): [number, number] {
   return [
-    roundTo2_5(workingWeightKg * 0.85),
-    roundTo2_5(workingWeightKg * 0.97),
+    roundPlate(workingWeightKg * 0.85),
+    roundPlate(workingWeightKg * 0.97),
   ];
 }
 
@@ -411,14 +406,17 @@ function parseRest(rest: string): number {
   return 90;
 }
 
+const MAX_REPS_CAP = 60;
+const MAX_SETS_CAP = 6;
+
 function parseReps(reps: string): number {
   const n = parseInt(reps, 10);
-  return isNaN(n) ? 8 : Math.min(n, 60);
+  return isNaN(n) ? 8 : Math.min(n, MAX_REPS_CAP);
 }
 
 function parseSets(sets: string): number {
   const n = parseInt(sets, 10);
-  return isNaN(n) ? 3 : Math.min(n, 6);
+  return isNaN(n) ? 3 : Math.min(n, MAX_SETS_CAP);
 }
 
 export function sessionToWorkoutExercises(
@@ -512,7 +510,7 @@ export function sessionToWorkoutExercises(
         // Falls back to the player's raw working weight if the intensity isn't
         // a parseable %1RM string (e.g. "3 RIR" or bodyweight exercises).
         let targetWeight = 0;
-        if (!isCond && opts?.strengthSetup && opts?.weekNumber && opts?.totalWeeks) {
+        if (!isCond && opts?.strengthSetup && opts.weekNumber != null && opts.totalWeeks != null) {
           const liftKey = getLiftKey(pe.name);
           if (liftKey) {
             const baseline = opts.strengthSetup.lifts.find(l => l.key === liftKey);

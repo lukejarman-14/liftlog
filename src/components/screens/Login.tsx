@@ -145,7 +145,6 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-5">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-brand-500 flex items-center justify-center mb-4 shadow-lg">
             <Dumbbell size={28} className="text-white" />
@@ -156,7 +155,6 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
           </p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSignIn} className="flex flex-col gap-4">
           <div>
             <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5 block">
@@ -200,7 +198,6 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
           </button>
         </form>
 
-        {/* Forgot password */}
         <button
           onClick={() => setShowForgot(true)}
           className="w-full mt-3 text-sm text-brand-500 hover:text-brand-600 text-center py-2 font-semibold"
@@ -208,7 +205,6 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
           Forgot password?
         </button>
 
-        {/* Start over */}
         {!confirmStartOver ? (
           <button
             onClick={() => setConfirmStartOver(true)}

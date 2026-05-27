@@ -83,9 +83,6 @@ export function calcReadiness(r: ProgrammeInputs['readiness']): {
   };
 }
 
-// Reads testGrades from ProgrammeInputs and returns modifiers that the session
-// builders apply to set counts, exercise selection and conditioning types.
-
 export interface TestEmphasis {
   // Extra sets to add to explosive plyometric exercises (CMJ/Depth Jump block)
   plyoSetBoost: 0 | 1 | 2;
@@ -1041,8 +1038,9 @@ const REACTIVE_PLYO_POOL: Record<GymKey, ProgrammeExercise[][]> = {
   ],
 };
 
-function pickReactivePlyo(gymKey: GymKey): ProgrammeExercise[] {
-  return REACTIVE_PLYO_POOL[gymKey][0];
+function pickReactivePlyo(gymKey: GymKey, weekNum: number): ProgrammeExercise[] {
+  const pool = REACTIVE_PLYO_POOL[gymKey];
+  return pool[weekNum % pool.length];
 }
 
 // Science: tendon stiffness = heavy slow resistance isometrics + fast reactive plyometrics (short GCT).
@@ -1961,7 +1959,7 @@ function buildOffSeasonSession(
   const gymKey = (gymAccess as GymKey) in EXPLOSIVE_PLYO_POOL ? (gymAccess as GymKey) : 'basic';
 
   // Heavy days: full pogo volume (3×20). Moderate days: reduced (2×12).
-  const pogoHops = pickReactivePlyo(gymKey).map(e =>
+  const pogoHops = pickReactivePlyo(gymKey, weekNum).map(e =>
     loadScheme === 'moderate'
       ? { ...e, sets: '2', reps: e.reps.includes('20') ? '12' : e.reps }
       : e,
@@ -2149,7 +2147,7 @@ function buildSession(
 
   if (slot.mdDay === 'MD-4') {
     const gymKey = (gymAccess as GymKey) in EXPLOSIVE_PLYO_POOL ? (gymAccess as GymKey) : 'basic';
-    const pogoHops = pickReactivePlyo(gymKey);
+    const pogoHops = pickReactivePlyo(gymKey, weekNum);
     const muscleInjury = hasMuscleInjury(injuryHistory);
     const md4Vertical = selectVerticalSquat(inputs, phase, gymKey, fv.loadScheme as LoadKey, strengthEx);
     const md4HasBSS = md4Vertical.name.toLowerCase().includes('bulgarian split squat');

@@ -115,17 +115,15 @@ function buildSessionEntries(
 
 export async function scheduleDailyReminder(hour: number, minute: number): Promise<void> {
   await cancelAllTrainingReminders();
-  const now = new Date();
-  const at = new Date();
-  at.setHours(hour, minute, 0, 0);
-  if (at <= now) at.setDate(at.getDate() + 1);
   try {
+    // Use calendar-based repeat (on: { hour, minute }) which works reliably on iOS.
+    // `repeats: true` with an `at` date is not guaranteed to repeat on iOS.
     await LocalNotifications.schedule({
       notifications: [{
         id: NOTIF_ID_BASE,
         title: '⚡ Vector Football',
         body: 'Time to train — open the app to log your session.',
-        schedule: { at, repeats: true, allowWhileIdle: true },
+        schedule: { on: { hour, minute }, allowWhileIdle: true },
         smallIcon: 'ic_stat_icon_config_sample',
         iconColor: '#4f46e5',
       }],

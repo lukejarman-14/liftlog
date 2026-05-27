@@ -12,7 +12,7 @@
 
 import posthog from 'posthog-js';
 
-const key  = import.meta.env.VITE_POSTHOG_KEY  as string | undefined;
+const key = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
 const host = import.meta.env.VITE_POSTHOG_HOST as string | undefined;
 
 if (key) {
@@ -29,15 +29,25 @@ if (key) {
   });
 }
 
-/** No-op if VITE_POSTHOG_KEY is not set. */
 export function trackEvent(eventName: string, properties?: Record<string, unknown>): void {
   if (!key) return;
   posthog.capture(eventName, properties);
 }
 
+function fnv1a64(str: string): string {
+  let hash = BigInt('0xcbf29ce484222325');
+  const prime = BigInt('0x100000001b3');
+  for (let i = 0; i < str.length; i++) {
+    hash ^= BigInt(str.charCodeAt(i));
+    hash = BigInt.asUintN(64, hash * prime);
+  }
+  return hash.toString(36);
+}
+
 export function identifyUser(userId: string, traits?: Record<string, unknown>): void {
   if (!key) return;
-  posthog.identify(userId, traits);
+  const anonymousId = `vf_${fnv1a64(userId)}`;
+  posthog.identify(anonymousId, traits);
 }
 
 export function resetAnalyticsUser(): void {
