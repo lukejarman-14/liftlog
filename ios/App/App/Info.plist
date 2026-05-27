@@ -55,7 +55,5 @@
 	<string>Used to choose a profile photo from your library.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>This identifier is used to measure app performance and improve your training experience.</string>
 </dict>
 </plist>
