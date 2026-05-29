@@ -183,12 +183,28 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
     if (idx >= 0) matchByDay.set(idx, entry);
   }
 
-  // Completed session dates (as YYYY-MM-DD strings) for this week
+  // Completed session dates for the day-strip (any session done = day marked)
   const completedDates = new Set(
     sessions
       .filter(s => s.endTime != null && weekDates.some(d => isSameDay(new Date(s.date + 'T12:00:00'), d)))
       .map(s => s.date)
   );
+
+  // Per-type completed counts per date — gym and conditioning tracked separately
+  // so two sessions on the same day don't cross-complete each other.
+  const conditioningKeywords = ['conditioning', 'rsa', 'zone 2', 'zone2', 'aerobic', 'hiit', 'hi aerobic'];
+  const completedByType = new Map<string, { gym: number; cond: number }>();
+  sessions
+    .filter(s => s.endTime != null && weekDates.some(d => isSameDay(new Date(s.date + 'T12:00:00'), d)))
+    .forEach(s => {
+      const lc = s.name.toLowerCase();
+      const isCond = conditioningKeywords.some(kw => lc.includes(kw));
+      const prev = completedByType.get(s.date) ?? { gym: 0, cond: 0 };
+      completedByType.set(s.date, {
+        gym:  prev.gym  + (isCond ? 0 : 1),
+        cond: prev.cond + (isCond ? 1 : 0),
+      });
+    });
 
   return (
     <section className="mb-6">
@@ -361,13 +377,14 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
             {progSessionsThisWeek.map(({ session, effectiveDayIdx, effectiveDate }, i) => {
               const date = effectiveDate;
               const dateStr = localDateStr(date);
-              const done = completedDates.has(dateStr);
+              const isCond = isConditioningSession(session);
+              const typeCounts = completedByType.get(dateStr) ?? { gym: 0, cond: 0 };
+              const done = isCond ? typeCounts.cond > 0 : typeCounts.gym > 0;
               const isToday = isSameDay(date, today);
               const isPast = date < today && !isToday;
               const isMissed = isPast && !done;
               const sessionKey = `${progWeekIdx}-${i}`;
               const isSkipped = !!skipped[sessionKey];
-              const isCond = isConditioningSession(session);
               const mdDisplay = isCond ? 'Conditioning' : session.mdDay.replace('MD-', 'MD');
               const matchOnDay = matchByDay.get(effectiveDayIdx);
 

@@ -23,11 +23,20 @@ function restoreAllData(data: Record<string, unknown>) {
 }
 
 
-/** Register a new user with Supabase. */
+/** Register a new user with Supabase.
+ *  If Supabase returns a session immediately (email confirmation disabled),
+ *  the session is persisted so the user never hits the Login screen.
+ *  If confirmation is required, returns the user ID but no session —
+ *  the cloudUnlinked banner will prompt the user to confirm. */
 export async function cloudSignUp(email: string, password: string): Promise<string | null> {
   if (!supabase) throw new Error('not_configured');
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
+  // If email confirmation is disabled, Supabase returns a session immediately.
+  // Set it explicitly so getSession() returns it on next load.
+  if (data.session) {
+    await supabase.auth.setSession(data.session);
+  }
   return data.user?.id ?? null;
 }
 
@@ -86,6 +95,14 @@ export async function getExistingSession(): Promise<string | null> {
   if (!supabase) return null;
   const { data: { session } } = await supabase.auth.getSession();
   return session?.user?.id ?? null;
+}
+
+/** Returns true if the signed-in user has confirmed their email address. */
+export async function isEmailConfirmed(): Promise<boolean> {
+  if (!supabase) return true; // no cloud — nothing to confirm
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return true; // not signed in — don't show the banner
+  return !!user.email_confirmed_at;
 }
 
 

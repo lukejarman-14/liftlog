@@ -26,6 +26,7 @@ interface DashboardProps {
   onSkipSession?: (weekIdx: number, sessionIdx: number, reason: string) => void;
   onRescheduleSession?: (weekIdx: number, sessionIdx: number, newDate: string) => void;
   referralCode?: string;
+  cloudUnlinked?: boolean; // Supabase configured but no active session — data not backed up
 }
 
 
@@ -115,7 +116,7 @@ function IntensityPrompt({ date, onSave }: {
   );
 }
 
-export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup, onSkipSession, onRescheduleSession, referralCode }: DashboardProps) {
+export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup, onSkipSession, onRescheduleSession, referralCode, cloudUnlinked = false }: DashboardProps) {
   const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries, getDaysSinceLastTest } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
   const [showShareCard, setShowShareCard] = useState(false);
@@ -184,6 +185,12 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         if (completedDates.has(dateStr)) completedSessions++;
       });
     });
+    if (import.meta.env.DEV) {
+      console.log('[Dashboard progPct] anchor:', anchor.toISOString().split('T')[0],
+        '| completedDates:', [...completedDates],
+        '| totalSessions:', totalSessions,
+        '| completedSessions:', completedSessions);
+    }
     progPct = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
   } else if (activePlan) {
     const plan = POSITION_PLANS.find(p => p.id === activePlan.planId);
@@ -202,12 +209,18 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
       leftAction={
         <button
           onClick={() => onNavigate({ screen: 'profile' })}
-          className="w-9 h-9 rounded-full overflow-hidden border-2 border-brand-200 flex items-center justify-center bg-brand-100 flex-shrink-0 hover:border-brand-400 transition-colors"
+          className="relative w-9 h-9 rounded-full overflow-visible flex-shrink-0"
+          title={cloudUnlinked ? 'Confirm your email — details may be lost' : undefined}
         >
-          {profilePicture ? (
-            <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-xs font-bold text-brand-600">{initials}</span>
+          <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-brand-200 flex items-center justify-center bg-brand-100 hover:border-brand-400 transition-colors">
+            {profilePicture ? (
+              <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs font-bold text-brand-600">{initials}</span>
+            )}
+          </div>
+          {cloudUnlinked && (
+            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full" />
           )}
         </button>
       }
@@ -221,6 +234,20 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         </button>
       }
     >
+      {cloudUnlinked && (
+        <button
+          onClick={() => onNavigate({ screen: 'profile' })}
+          className="w-full flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 mb-4 text-left hover:bg-red-100 transition-colors"
+        >
+          <span className="text-red-500 text-base shrink-0">⚠️</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-red-700">Confirm your email address</p>
+            <p className="text-xs text-red-500 leading-snug">Your data may be lost if your email is unconfirmed — tap to go to Profile.</p>
+          </div>
+          <ChevronRight size={14} className="text-red-400 shrink-0" />
+        </button>
+      )}
+
       {sessionStreak > 0 && (() => {
         const tier = sessionStreak >= 12 ? 'red' : sessionStreak >= 8 ? 'orange' : sessionStreak >= 4 ? 'amber' : 'green';
 

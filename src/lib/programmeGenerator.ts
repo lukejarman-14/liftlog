@@ -2361,9 +2361,18 @@ function buildConditioningSession(
       dayOfWeek,
       objective: `Zone 2 — Aerobic Base · Wk ${weekNum}`,
       readinessNote: 'Zone 2 is restorative — always complete. Reduce duration if needed, never skip.',
-      durationMin: 40,
+      durationMin: 45,
       fvProfile: '65–70% HRmax · mitochondrial density · no CNS fatigue',
       blocks: [
+        {
+          title: '⚡ Sprint Activation',
+          methodFocus: 'Max CNS activation before aerobic work · short, sharp, full recovery',
+          exercises: [
+            ex('Short Sprint Activation', '5', '10m', '60s',
+              'The Mark: start with your heels on the goal line and sprint toward the penalty spot. The Math: the penalty spot is 12 yards (11m) from the goal line. The Sprint: accelerate from the goal line and decelerate just one stride before you step on the penalty spot. Maximum effort every rep — full 60s walk-back recovery between each. This is pure speed work, not conditioning.',
+              { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
+          ],
+        },
         {
           title: '🌿 Zone 2 Aerobic',
           methodFocus: 'Steady-state cardiac output · conversational pace · 65–70% HRmax',
@@ -2381,9 +2390,18 @@ function buildConditioningSession(
       dayOfWeek,
       objective: `High Intensity Aerobic · Wk ${weekNum}`,
       readinessNote: 'Requires full effort. Low readiness: sub Zone 2 at 70% HR — valid choice.',
-      durationMin: 45,
+      durationMin: 50,
       fvProfile: '85–95% HRmax · max VO₂max stimulus · after gym day',
       blocks: [
+        {
+          title: '⚡ Sprint Activation',
+          methodFocus: 'Max CNS activation before aerobic work · short, sharp, full recovery',
+          exercises: [
+            ex('Short Sprint Activation', '5', '10m', '60s',
+              'The Mark: start with your heels on the goal line and sprint toward the penalty spot. The Math: the penalty spot is 12 yards (11m) from the goal line. The Sprint: accelerate from the goal line and decelerate just one stride before you step on the penalty spot. Maximum effort every rep — full 60s walk-back recovery between each. This is pure speed work, not conditioning. Finish feeling sharp, not tired.',
+              { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
+          ],
+        },
         {
           title: '🔥 Aerobic Warm-Up',
           methodFocus: 'Progressive CV activation · 60% → 80% HRmax',

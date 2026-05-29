@@ -642,6 +642,7 @@ export default function App() {
             trackEvent('session_rescheduled', { week: weekIdx + 1, new_date: newDate });
           }}
           referralCode={myReferralCode}
+          cloudUnlinked={isSupabaseConfigured && !cloudUserIdRef.current}
         />
       )}
 
@@ -772,7 +773,7 @@ export default function App() {
                 // Cloud deletion failed — still wipe local data so the user isn't stuck
               }
             }
-            store.clearAll();
+            startTransition(() => store.clearAll());
             window.location.href = '/';
           }}
           onChangePassword={(newHash) => {

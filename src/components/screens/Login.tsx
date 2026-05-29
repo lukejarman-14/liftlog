@@ -42,8 +42,16 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
         await cloudLoadData(userId);
         onLogin(userId);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(msg || 'Incorrect password. Please try again.');
+        const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+        // Supabase returns "Invalid login credentials" for BOTH wrong password AND
+        // unconfirmed email — check for confirmation clues in the message.
+        if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+          setError('Your email isn\'t confirmed yet — check your inbox and click the link, then try again.');
+        } else if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('invalid email or password')) {
+          setError('Incorrect password. Please try again.');
+        } else {
+          setError(err instanceof Error ? err.message : 'Sign in failed. Please try again.');
+        }
         setPassword('');
       }
       setLoading(false);

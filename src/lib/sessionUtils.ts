@@ -289,6 +289,16 @@ export const NAME_TO_ID: Record<string, string> = {
   'block start acceleration': 'repeated-sprint',
   // RSA conditioning warm-up
   'progressive sprint warm-up': 'repeated-sprint',
+  // RSA session variants
+  'rsa block training': 'repeated-sprint',
+  'rsa maintenance sprints': 'repeated-sprint',
+  'rsa activation sprints': 'repeated-sprint',
+  'rsa sprint sets': 'repeated-sprint',
+  'sprint rsa introduction': 'repeated-sprint',
+  // Recovery / cool-down
+  'cool-down jog': 'aerobic-threshold-run',
+  // Core stability
+  'bird dog': 'bird-dog',
   // Strength weakness exercises
   'paused squat (2s bottom hold)': 'squat',
   // Barbell row — explicit entry to prevent fuzzy mis-match to 'barbell back squat' etc.
