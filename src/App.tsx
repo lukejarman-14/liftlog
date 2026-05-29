@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useCallback, useEffect, useRef, lazy, Suspense, startTransition } from 'react';
 import { Battery, Zap, X } from 'lucide-react';
 import { useStore } from './hooks/useStore';
 import { Navigation } from './components/Navigation';
@@ -235,7 +235,7 @@ export default function App() {
   }, []);
 
   const navigate = useCallback((next: NavState) => {
-    setNav(next);
+    startTransition(() => setNav(next));
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
@@ -701,6 +701,7 @@ export default function App() {
       {screen === 'history' && (
         <History
           sessions={store.sessions}
+          matchEntries={store.matchEntries}
           onNavigate={navigate}
           onDeleteSession={store.deleteSession}
           isPremium={premium.hasAccess}

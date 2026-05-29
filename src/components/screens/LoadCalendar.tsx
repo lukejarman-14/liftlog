@@ -830,8 +830,16 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const today = new Date();
-  const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  // Default to the month containing the first programme session, not the current month
+  const initialViewDate = (() => {
+    if (activeProgramme && programmeDates.size > 0) {
+      const firstDate = [...programmeDates.keys()].sort()[0];
+      if (firstDate) return new Date(firstDate + 'T12:00:00');
+    }
+    return today;
+  })();
+  const [viewYear, setViewYear] = useState(initialViewDate.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initialViewDate.getMonth());
 
   // Drag state
   const [dragKey, setDragKey] = useState<string | null>(null);

@@ -105,6 +105,7 @@ export interface WorkoutSession {
   date: string;
   notes?: string;                  // free-text player notes added at finish
   flaggedExercises?: string[];     // exerciseIds flagged as painful/problematic
+  sessionRpe?: number;             // 1–10 overall session effort, logged at finish
 }
 
 

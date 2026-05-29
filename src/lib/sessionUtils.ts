@@ -89,17 +89,13 @@ function getCurrentWeekMonday(ts: number): Date {
 }
 
 /**
- * Monday ON OR AFTER ts.
- * Sunday → next Monday. Monday → same day. Tue-Sat → following Monday.
- * Ensures Week 1 sessions always fall in the future when user picks a start date.
+ * Monday of the week containing ts (rolls back).
+ * Anchors week 1 to the Monday of the chosen week so sessions in the same
+ * week as the start date are visible. Sessions before programmeStartDate are
+ * filtered in WeeklyCalendar and LoadCalendar so no past sessions are shown.
  */
 function getAnchorMonday(ts: number): Date {
-  const d = new Date(ts);
-  const dow = d.getDay();
-  d.setHours(0, 0, 0, 0);
-  if (dow === 1) return d;
-  d.setDate(d.getDate() + (dow === 0 ? 1 : 8 - dow));
-  return d;
+  return getCurrentWeekMonday(ts);
 }
 
 /**
@@ -152,6 +148,7 @@ export const NAME_TO_ID: Record<string, string> = {
   'trap bar deadlift': 'deadlift', 'hex bar deadlift': 'deadlift', 'deadlift': 'deadlift',
   // Dead Bug — explicit to prevent fuzzy match on 'dead-hang' / 'deadlift'
   'dead bug': 'dead-bug',
+  'pallof press': 'pallof-press',
   'bench press': 'bench-press', 'db bench press': 'db-bench',
   'pull-up': 'pull-up', 'weighted pull-up': 'pull-up',
   'push press': 'ohp', 'overhead press': 'ohp',

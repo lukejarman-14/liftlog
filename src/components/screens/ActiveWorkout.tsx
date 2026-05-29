@@ -1329,6 +1329,11 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   const [sessionNotes, setSessionNotes] = useState('');
   const [flaggedExercises, setFlaggedExercises] = useState<string[]>(session.flaggedExercises ?? []);
 
+  // Session RPE modal — shown at the very end of the finish flow
+  const [showRpeModal, setShowRpeModal] = useState(false);
+  const [pendingRpeSession, setPendingRpeSession] = useState<WorkoutSession | null>(null);
+  const [selectedRpe, setSelectedRpe] = useState(7);
+
   // Lift recalibration state — shown after session completes when tracked lifts are detected
   interface RecalLift { key: string; label: string; bestWeight: number; bestReps: number; current?: LiftBaseline; editWeight: string; editReps: string; }
   const [showRecalModal, setShowRecalModal] = useState(false);
@@ -1411,8 +1416,10 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
         return;
       }
     }
-    onFinish(s);
-  }, [strengthSetup, onUpdateStrengthSetup, buildRecalLifts, onFinish]);
+    setSelectedRpe(7);
+    setPendingRpeSession(s);
+    setShowRpeModal(true);
+  }, [strengthSetup, onUpdateStrengthSetup, buildRecalLifts]);
 
   const doFinish = useCallback((s: WorkoutSession) => {
     if (conditioningExercises.length > 0 && onConditioningFeedback) {
@@ -1908,7 +1915,9 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
               <button
                 onClick={() => {
                   setShowRecalModal(false);
-                  onFinish(pendingRecalSession);
+                  setSelectedRpe(7);
+                  setPendingRpeSession(pendingRecalSession);
+                  setShowRpeModal(true);
                   setPendingRecalSession(null);
                 }}
                 className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50"
@@ -1925,7 +1934,6 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
                     const r = Number(edit.editReps) || existing.workingReps;
                     return { ...existing, workingWeightKg: w, workingReps: r, estimated1RM: epley1RM(w, r) };
                   });
-                  // Add any new keys not yet in setup
                   recalLifts.forEach(edit => {
                     if (!updatedLifts.find(l => l.key === edit.key)) {
                       const w = Number(edit.editWeight) || edit.bestWeight;
@@ -1935,7 +1943,9 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
                   });
                   onUpdateStrengthSetup({ lifts: updatedLifts, configuredAt: Date.now() });
                   setShowRecalModal(false);
-                  onFinish(pendingRecalSession);
+                  setSelectedRpe(7);
+                  setPendingRpeSession(pendingRecalSession);
+                  setShowRpeModal(true);
                   setPendingRecalSession(null);
                 }}
                 className="flex-1 py-3 rounded-xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600 transition-colors"
@@ -1985,6 +1995,63 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
           </div>
         </div>
       )}
+
+      {showRpeModal && pendingRpeSession && (() => {
+        const RPE_LABELS: Record<number, { label: string; color: string }> = {
+          1:  { label: 'Very easy',      color: 'text-green-500' },
+          2:  { label: 'Easy',           color: 'text-green-500' },
+          3:  { label: 'Moderate',       color: 'text-green-600' },
+          4:  { label: 'Somewhat hard',  color: 'text-lime-600'  },
+          5:  { label: 'Hard',           color: 'text-yellow-600' },
+          6:  { label: 'Hard',           color: 'text-yellow-600' },
+          7:  { label: 'Very hard',      color: 'text-orange-500' },
+          8:  { label: 'Very hard',      color: 'text-orange-600' },
+          9:  { label: 'Extremely hard', color: 'text-red-500'   },
+          10: { label: 'Max effort',     color: 'text-red-600'   },
+        };
+        const meta = RPE_LABELS[selectedRpe];
+        return (
+          <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl mb-2">
+              <h2 className="font-bold text-gray-900 text-lg mb-1">How hard was that?</h2>
+              <p className="text-sm text-gray-500 mb-5">Rate the overall session effort (RPE 1–10). Used to track your training load accurately.</p>
+
+              <div className="flex items-end justify-between gap-1 mb-3">
+                {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setSelectedRpe(n)}
+                    className={`flex-1 rounded-lg transition-all text-xs font-bold py-2 ${
+                      n === selectedRpe
+                        ? 'bg-brand-500 text-white scale-110 shadow'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+
+              <p className={`text-center text-sm font-semibold mb-5 ${meta.color}`}>
+                RPE {selectedRpe} — {meta.label}
+              </p>
+
+              <Button
+                fullWidth
+                onClick={() => {
+                  const s = { ...pendingRpeSession, sessionRpe: selectedRpe };
+                  setShowRpeModal(false);
+                  setPendingRpeSession(null);
+                  onFinish(s);
+                }}
+              >
+                Save session
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }

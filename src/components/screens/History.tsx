@@ -5,7 +5,7 @@ const TOOLTIP_HIDE_DELAY_MS = 1_500;
 import { Trash2, Clock, TrendingUp, ChevronDown, ChevronUp, Activity, Zap, BarChart2, FlaskConical, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
-import { WorkoutSession, NavState, MeasureType, CompletedSet, TestType } from '../../types';
+import { WorkoutSession, MatchEntry, NavState, MeasureType, CompletedSet, TestType } from '../../types';
 import { useStore } from '../../hooks/useStore';
 import { sessionAvgRpe, RIR_LABELS } from '../../lib/rpeProgression';
 import { GRADE_LABELS, GRADE_COLOURS, calcVo2Max, calcYoyoDistance } from '../../data/testingBattery';
@@ -484,8 +484,18 @@ function WeekSummary({ sessions }: { sessions: WorkoutSession[] }) {
 }
 
 
-function LoadTab({ sessions }: { sessions: WorkoutSession[] }) {
-  // Build 12 weekly buckets ending with the current week
+/**
+ * Converts a match entry to a load equivalent in the same arbitrary units as
+ * gym volume (kg × reps). Formula: minutes × intensity × 60.
+ * A 90-min intensity-5 match ≈ 27,000 AU — comparable to a demanding gym session.
+ */
+function matchLoadEquiv(entry: MatchEntry): number {
+  const mins = entry.minutes ?? 0;
+  const intensity = entry.intensity ?? 3;
+  return mins * intensity * 60;
+}
+
+function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; matchEntries: MatchEntry[] }) {
   const getMonday = (d: Date): Date => {
     const day = d.getDay();
     const diff = day === 0 ? -6 : 1 - day;
@@ -496,7 +506,7 @@ function LoadTab({ sessions }: { sessions: WorkoutSession[] }) {
   };
 
   const thisMonday = getMonday(new Date());
-  const weeks: { label: string; volume: number; sessions: number }[] = [];
+  const weeks: { label: string; volume: number; gymVolume: number; matchVolume: number; sessions: number; matches: number }[] = [];
   for (let i = 11; i >= 0; i--) {
     const mon = new Date(thisMonday);
     mon.setDate(thisMonday.getDate() - i * 7);
@@ -506,11 +516,19 @@ function LoadTab({ sessions }: { sessions: WorkoutSession[] }) {
       const d = new Date(s.date + 'T12:00:00');
       return d >= mon && d < sun;
     });
-    const vol = ws.reduce((a, s) => a + totalVolume(s), 0);
+    const ms = matchEntries.filter(m => {
+      const d = new Date(m.date + 'T12:00:00');
+      return d >= mon && d < sun;
+    });
+    const gymVol = ws.reduce((a, s) => a + totalVolume(s), 0);
+    const matchVol = ms.reduce((a, m) => a + matchLoadEquiv(m), 0);
     weeks.push({
       label: mon.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      volume: vol,
+      volume: gymVol + matchVol,
+      gymVolume: gymVol,
+      matchVolume: matchVol,
       sessions: ws.length,
+      matches: ms.length,
     });
   }
 
@@ -634,7 +652,7 @@ function LoadTab({ sessions }: { sessions: WorkoutSession[] }) {
             );
           })}
         </svg>
-        <p className="text-[10px] text-gray-400 mt-1">Purple = this week. Volume = total kg lifted (weight × reps).</p>
+        <p className="text-[10px] text-gray-400 mt-1">Purple = this week. Includes gym volume + match load equivalent.</p>
       </Card>
 
       {/* Weekly breakdown table */}
@@ -645,17 +663,21 @@ function LoadTab({ sessions }: { sessions: WorkoutSession[] }) {
             w.volume > 0 && (
               <div key={i} className="flex items-center gap-2">
                 <span className="text-xs text-gray-400 w-16 flex-shrink-0">{w.label}</span>
-                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden flex">
                   <div
-                    className="h-full bg-brand-400 rounded-full"
-                    style={{ width: `${(w.volume / maxVol) * 100}%` }}
+                    className="h-full bg-brand-400 rounded-l-full"
+                    style={{ width: `${(w.gymVolume / maxVol) * 100}%` }}
+                  />
+                  <div
+                    className="h-full bg-orange-400"
+                    style={{ width: `${(w.matchVolume / maxVol) * 100}%` }}
                   />
                 </div>
                 <span className="text-xs font-semibold text-gray-700 w-14 text-right flex-shrink-0">
-                  {w.volume >= 1000 ? `${(w.volume / 1000).toFixed(1)}k` : w.volume}kg
+                  {w.volume >= 1000 ? `${(w.volume / 1000).toFixed(1)}k` : w.volume}
                 </span>
-                <span className="text-[10px] text-gray-400 w-12 flex-shrink-0">
-                  {w.sessions} sess
+                <span className="text-[10px] text-gray-400 w-14 flex-shrink-0">
+                  {w.sessions > 0 && `${w.sessions}💪`}{w.matches > 0 && ` ${w.matches}⚽`}
                 </span>
               </div>
             )
@@ -1146,13 +1168,14 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
 
 interface HistoryProps {
   sessions: WorkoutSession[];
+  matchEntries: MatchEntry[];
   onNavigate: (nav: NavState) => void;
   onDeleteSession: (id: string) => void;
   isPremium: boolean;
   onUpgrade: (featureLabel: string) => void;
 }
 
-export function History({ sessions, onNavigate, onDeleteSession, isPremium, onUpgrade }: HistoryProps) {
+export function History({ sessions, matchEntries, onNavigate, onDeleteSession, isPremium, onUpgrade }: HistoryProps) {
   const [activeTab, setActiveTab] = useState<'sessions' | 'load' | 'tests'>('sessions');
 
   const sorted = [...sessions].sort((a, b) => b.startTime - a.startTime);
@@ -1186,10 +1209,13 @@ export function History({ sessions, onNavigate, onDeleteSession, isPremium, onUp
       </div>
 
       {activeTab === 'tests' ? (
-        <TestProgressionTab onNavigate={onNavigate} />
+        <>
+          <PerformanceOverview onNavigate={onNavigate} />
+          <TestProgressionTab onNavigate={onNavigate} />
+        </>
       ) : activeTab === 'load' ? (
         isPremium ? (
-          <LoadTab sessions={sessions} />
+          <LoadTab sessions={sessions} matchEntries={matchEntries} />
         ) : (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
             <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center mb-4">
@@ -1209,9 +1235,6 @@ export function History({ sessions, onNavigate, onDeleteSession, isPremium, onUp
         )
       ) : (
         <>
-          {/* Performance fitness overview */}
-          <PerformanceOverview onNavigate={onNavigate} />
-
           {/* This week summary */}
           {sessions.length > 0 && <WeekSummary sessions={sessions} />}
 

@@ -60,6 +60,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'hanging-leg-raise', name: 'Hanging Leg Raise', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Abs', 'Hip Flexors'] },
   { id: 'russian-twist', name: 'Russian Twist', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Obliques'] },
   { id: 'cable-crunch', name: 'Cable Crunch', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Abs'] },
+  { id: 'pallof-press', name: 'Pallof Press', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Obliques', 'Core'], measureType: 'reps' },
 
   // Cardio
   { id: 'treadmill', name: 'Treadmill', category: 'Cardio', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'] },

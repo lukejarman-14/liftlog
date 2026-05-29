@@ -8,7 +8,7 @@ import { DailyReadinessWidget } from '../DailyReadinessWidget';
 import { WorkoutSession, NavState, ActivePlan, DailyReadiness, GeneratedProgramme, Exercise, WorkoutExercise, ProgrammeSession } from '../../types';
 import { useStore } from '../../hooks/useStore';
 import { POSITION_PLANS, getCurrentPlanWeek } from '../../data/positionPlans';
-import { getProgrammeWeekIndex } from '../../lib/sessionUtils';
+import { getProgrammeWeekIndex, getProgrammeAnchorMonday } from '../../lib/sessionUtils';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
@@ -159,18 +159,39 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
   let progWeek: number | null = null;
   let progTotal: number | null = null;
   let progLabel = '';
+  let progPhase = '';
+  let progPct: number | null = null;
   if (activeProgramme) {
     progTotal = activeProgramme.durationWeeks;
-    // Use the same Monday-aligned week boundaries as getProgrammeWeekIndex so the
-    // displayed week number always matches the sessions shown in the weekly calendar.
     progWeek = getProgrammeWeekIndex(activeProgramme) + 1;
     progLabel = activeProgramme.summary.split('·')[0].trim();
+    const weekData = activeProgramme.weeks[Math.min(progWeek - 1, activeProgramme.weeks.length - 1)];
+    progPhase = weekData?.phase ?? '';
+
+    // Session-based completion: count programme session dates that have a matching completed session
+    const anchor = getProgrammeAnchorMonday(activeProgramme);
+    const DOW: Record<string, number> = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 };
+    const completedDates = new Set(sessions.map(s => s.date));
+    let totalSessions = 0;
+    let completedSessions = 0;
+    activeProgramme.weeks.forEach((week, wi) => {
+      week.sessions.forEach(session => {
+        const dayIdx = DOW[session.dayOfWeek] ?? 0;
+        const d = new Date(anchor);
+        d.setDate(anchor.getDate() + wi * 7 + dayIdx);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        totalSessions++;
+        if (completedDates.has(dateStr)) completedSessions++;
+      });
+    });
+    progPct = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
   } else if (activePlan) {
     const plan = POSITION_PLANS.find(p => p.id === activePlan.planId);
     if (plan) {
       progTotal = plan.weeks.length;
       progWeek = Math.min(getCurrentPlanWeek(activePlan.startDate) + 1, progTotal);
       progLabel = plan.shortName;
+      progPct = Math.round((progWeek / progTotal) * 100);
     }
   }
 
@@ -298,21 +319,29 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
           ) : (
             <button
               onClick={() => onNavigate({ screen: activeProgramme ? 'generated-programme' : 'plans' })}
-              className="w-full flex items-center justify-between p-3 rounded-2xl border border-brand-200 bg-white hover:bg-brand-50 transition-colors"
+              className="w-full p-4 rounded-2xl border border-brand-200 bg-white hover:bg-brand-50 transition-colors text-left"
             >
-              <div className="text-left min-w-0">
-                <div className="text-sm font-semibold text-gray-900 truncate">{progLabel}</div>
-                <div className="text-xs text-gray-400 mt-0.5">Week {progWeek} of {progTotal}</div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-brand-500 rounded-full"
-                    style={{ width: `${(progWeek / progTotal) * 100}%` }}
-                  />
+              <div className="flex items-center justify-between mb-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-gray-900 truncate">{progLabel}</div>
+                  {progPhase && (
+                    <div className="text-[11px] text-brand-500 font-medium mt-0.5">{progPhase}</div>
+                  )}
                 </div>
-                <ChevronRight size={14} className="text-gray-400" />
+                <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
+                  <span className="text-xs font-bold text-brand-600">
+                    {progPct ?? 0}%
+                  </span>
+                  <ChevronRight size={14} className="text-gray-400" />
+                </div>
               </div>
+              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-brand-500 rounded-full transition-all duration-500"
+                  style={{ width: `${progPct ?? 0}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-gray-400 mt-1.5">Week {progWeek} of {progTotal}</div>
             </button>
           )}
         </div>

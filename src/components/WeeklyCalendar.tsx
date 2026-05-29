@@ -8,7 +8,7 @@ import {
   getWeekDates,
   isSameDay,
 } from '../data/positionPlans';
-import { sessionToWorkoutExercises, getProgrammeWeekIndex, getProgrammeAnchorMonday } from '../lib/sessionUtils';
+import { sessionToWorkoutExercises, getProgrammeAnchorMonday } from '../lib/sessionUtils';
 import { localDateStr } from '../lib/loadManagement';
 import { SessionPreviewModal } from './screens/GeneratedProgramme';
 import { useStore } from '../hooks/useStore';
@@ -45,7 +45,21 @@ const PHASE_COLOURS: Record<string, string> = {
 
 export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onSkipSession, onRescheduleSession }: WeeklyCalendarProps) {
   const { matchEntries } = useStore();
-  const [weekOffset, setWeekOffset] = useState(0);
+
+  // Default to the first programme week if the programme hasn't started yet
+  const initialOffset = (() => {
+    if (!generatedProgramme) return 0;
+    const anchor = getProgrammeAnchorMonday(generatedProgramme);
+    const nowMonday = new Date();
+    const dow = nowMonday.getDay();
+    nowMonday.setDate(nowMonday.getDate() - (dow === 0 ? 6 : dow - 1));
+    nowMonday.setHours(0, 0, 0, 0);
+    const weeksUntilStart = Math.round(
+      (anchor.getTime() - nowMonday.getTime()) / (7 * 24 * 60 * 60 * 1000),
+    );
+    return weeksUntilStart > 0 ? weeksUntilStart : 0;
+  })();
+  const [weekOffset, setWeekOffset] = useState(initialOffset);
   const [previewSession, setPreviewSession] = useState<ProgrammeSession | null>(null);
   const [previewWeekNumber, setPreviewWeekNumber] = useState<number>(1);
   const [previewOnStart, setPreviewOnStart] = useState<(() => void) | null>(null);
@@ -85,11 +99,18 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
     }
   }
 
-  // Week index in the generated programme (offset-adjusted)
-  const baseProgWeekIdx = generatedProgramme ? getProgrammeWeekIndex(generatedProgramme) : -1;
-  const progWeekIdx = baseProgWeekIdx >= 0
-    ? baseProgWeekIdx + weekOffset
-    : -1;
+  // Week index derived from which calendar dates are on screen relative to the anchor Monday.
+  // This handles future-start programmes correctly — a programme starting June 1 will show
+  // week 0 sessions when the calendar is displaying June 1-7, regardless of today's date.
+  const progWeekIdx = (() => {
+    if (!generatedProgramme) return -1;
+    const anchor = getProgrammeAnchorMonday(generatedProgramme);
+    const displayMonday = weekDates[0];
+    const diff = Math.round(
+      (displayMonday.getTime() - anchor.getTime()) / (7 * 24 * 60 * 60 * 1000),
+    );
+    return diff;
+  })();
   // Only show programme sessions for weeks that actually exist — never clamp to final week
   // (clamping would show final-week sessions on future empty weeks and corrupt skip keys)
   const progWeekInBounds = progWeekIdx >= 0 && progWeekIdx < (generatedProgramme?.weeks.length ?? 0);
@@ -207,7 +228,16 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
             Wk {progWeekIdx + 1} · {progWeek.phase}
           </span>
         )}
-        {!hasPlan && !progWeek && (
+        {!hasPlan && !progWeek && generatedProgramme && progWeekIdx < 0 && (() => {
+          const anchor = getProgrammeAnchorMonday(generatedProgramme);
+          const startLabel = anchor.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          return (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">
+              Starting {startLabel} →
+            </span>
+          );
+        })()}
+        {!hasPlan && !progWeek && !generatedProgramme && (
           <button
             onClick={() => onNavigate({ screen: 'plans' })}
             className="text-xs text-brand-500 font-medium"

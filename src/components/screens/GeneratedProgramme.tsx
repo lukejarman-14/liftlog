@@ -660,7 +660,7 @@ export function GeneratedProgramme({
   const getTomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return localDateStr(d); };
   const getFollowingMonday = () => {
     const d = new Date();
-    const dow = d.getDay(); // 0=Sun
+    const dow = d.getDay();
     const daysUntilMon = dow === 0 ? 1 : dow === 1 ? 7 : 8 - dow;
     d.setDate(d.getDate() + daysUntilMon);
     return localDateStr(d);
@@ -774,12 +774,12 @@ export function GeneratedProgramme({
               <h3 className="text-base font-bold text-gray-900">When do you want to start?</h3>
               <button onClick={() => setShowStartModal(false)}><X size={18} className="text-gray-400" /></button>
             </div>
-            <p className="text-xs text-gray-500 mb-5">Week 1 anchors to the Monday of your chosen week.</p>
+            <p className="text-xs text-gray-500 mb-5">Week 1 starts this week. Sessions before your chosen date are skipped.</p>
 
             <div className="flex flex-col gap-2.5">
               {[
-                { label: 'Start today', sub: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }), date: todayStr },
-                { label: 'Start tomorrow', sub: (() => { const d = new Date(); d.setDate(d.getDate()+1); return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }); })(), date: getTomorrow() },
+                { label: 'Start today', sub: `Week 1 this week · skips past days`, date: todayStr },
+                { label: 'Start tomorrow', sub: `Week 1 this week · skips past days`, date: getTomorrow() },
                 { label: 'Following Monday', sub: (() => { const d = new Date(); const dow = d.getDay(); d.setDate(d.getDate() + (dow === 0 ? 1 : dow === 1 ? 7 : 8 - dow)); return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }); })(), date: getFollowingMonday() },
               ].map(({ label, sub, date }) => (
                 <button

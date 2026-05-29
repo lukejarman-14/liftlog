@@ -41,8 +41,9 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
         // to re-read from localStorage — no page reload needed
         await cloudLoadData(userId);
         onLogin(userId);
-      } catch {
-        setError('Incorrect password. Please try again.');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(msg || 'Incorrect password. Please try again.');
         setPassword('');
       }
       setLoading(false);
