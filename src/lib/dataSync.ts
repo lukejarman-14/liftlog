@@ -54,8 +54,8 @@ export function exportData(): void {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  // Revoke after a tick — enough time for the download to start
-  setTimeout(() => URL.revokeObjectURL(url), 150);
+  // Revoke after 1s — iOS Safari needs longer than a tick to initiate the download
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** Read a backup file and restore all data to localStorage. Resolves with the restored profile email. */

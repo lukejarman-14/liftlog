@@ -142,7 +142,19 @@ export async function cloudLoadData(userId: string): Promise<boolean> {
   for (const key of STORAGE_KEYS) {
     const incoming = appData[key];
     if (incoming === undefined || incoming === null) continue;
-    if (localStorage.getItem(key) !== JSON.stringify(incoming)) {
+    // Re-serialise both sides through JSON to normalise key ordering before comparing,
+    // avoiding false "no changes" when the server returns a different key order.
+    const local = localStorage.getItem(key);
+    const incomingStr = JSON.stringify(JSON.parse(JSON.stringify(incoming)));
+    let localStr: string | null = null;
+    try {
+      localStr = local ? JSON.stringify(JSON.parse(local)) : null;
+    } catch {
+      // Malformed local JSON — treat as changed so cloud data overwrites the corrupt value
+      hasChanges = true;
+      break;
+    }
+    if (localStr !== incomingStr) {
       hasChanges = true;
       break;
     }

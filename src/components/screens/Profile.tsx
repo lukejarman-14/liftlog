@@ -35,6 +35,11 @@ function WeightTracker({
   const todayEntry = log.find(e => e.date === today);
   const [inputStr, setInputStr] = useState(todayEntry ? String(todayEntry.weightKg) : '');
   const [saved, setSaved] = useState(false);
+
+  // Sync input when today's entry arrives after cloud restore
+  useEffect(() => {
+    if (todayEntry) setInputStr(String(todayEntry.weightKg));
+  }, [todayEntry?.weightKg]);
   const [showHistory, setShowHistory] = useState(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current); }, []);

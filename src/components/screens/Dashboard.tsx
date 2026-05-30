@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap, FlaskConical, Dumbbell, Share2 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { trackEvent } from '../../lib/analytics';
@@ -9,6 +9,7 @@ import { WorkoutSession, NavState, ActivePlan, DailyReadiness, GeneratedProgramm
 import { useStore } from '../../hooks/useStore';
 import { POSITION_PLANS, getCurrentPlanWeek } from '../../data/positionPlans';
 import { getProgrammeWeekIndex, getProgrammeAnchorMonday } from '../../lib/sessionUtils';
+import { localDateStr } from '../../lib/loadManagement';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
@@ -137,15 +138,16 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
     ? `${userProfile.firstName.charAt(0)}${userProfile.lastName.charAt(0)}`.toUpperCase()
     : '?';
 
-  const sessionStreak = (() => {
+  const sessionStreak = useMemo(() => {
     if (!sessions.length) return 0;
     const toMonday = (d: Date) => {
       const day = d.getDay();
       const mon = new Date(d);
       mon.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
-      return mon.toISOString().split('T')[0];
+      return localDateStr(mon); // local date, not UTC ISO string
     };
-    const weeks = new Set(sessions.filter(s => s.date).map(s => toMonday(new Date(s.date))));
+    // Parse date strings at local noon to avoid UTC midnight shifting the day
+    const weeks = new Set(sessions.filter(s => s.date).map(s => toMonday(new Date(s.date + 'T12:00:00'))));
     let n = 0;
     const now = new Date();
     let cur = new Date(now);
@@ -156,7 +158,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
       cur.setDate(cur.getDate() - 7);
     }
     return n;
-  })();
+  }, [sessions]);
   let progWeek: number | null = null;
   let progTotal: number | null = null;
   let progLabel = '';
@@ -169,28 +171,30 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
     const weekData = activeProgramme.weeks[Math.min(progWeek - 1, activeProgramme.weeks.length - 1)];
     progPhase = weekData?.phase ?? '';
 
-    // Session-based completion: count programme session dates that have a matching completed session
+    // Session-based completion: count programme session dates that have a matching completed session.
+    // Respect sessionOverrides so rescheduled sessions are checked against their new date.
     const anchor = getProgrammeAnchorMonday(activeProgramme);
     const DOW: Record<string, number> = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 };
     const completedDates = new Set(sessions.map(s => s.date));
+    const overrides = activeProgramme.sessionOverrides ?? {};
     let totalSessions = 0;
     let completedSessions = 0;
     activeProgramme.weeks.forEach((week, wi) => {
-      week.sessions.forEach(session => {
-        const dayIdx = DOW[session.dayOfWeek] ?? 0;
-        const d = new Date(anchor);
-        d.setDate(anchor.getDate() + wi * 7 + dayIdx);
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      week.sessions.forEach((session, si) => {
+        const overrideKey = `${wi}-${si}`;
+        let dateStr: string;
+        if (overrides[overrideKey]) {
+          dateStr = overrides[overrideKey];
+        } else {
+          const dayIdx = DOW[session.dayOfWeek] ?? 0;
+          const d = new Date(anchor);
+          d.setDate(anchor.getDate() + wi * 7 + dayIdx);
+          dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
         totalSessions++;
         if (completedDates.has(dateStr)) completedSessions++;
       });
     });
-    if (import.meta.env.DEV) {
-      console.log('[Dashboard progPct] anchor:', anchor.toISOString().split('T')[0],
-        '| completedDates:', [...completedDates],
-        '| totalSessions:', totalSessions,
-        '| completedSessions:', completedSessions);
-    }
     progPct = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
   } else if (activePlan) {
     const plan = POSITION_PLANS.find(p => p.id === activePlan.planId);
@@ -493,14 +497,18 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
             </div>
           </div>
           <button
-            onClick={() => {
+            onClick={async () => {
               if (navigator.share) {
-                navigator.share({
-                  title: 'Join Vector Football',
-                  text: `Use my code ${referralCode} on Vector Football and get 21 days free! vectorfootball.co.uk`,
-                });
+                try {
+                  await navigator.share({
+                    title: 'Join Vector Football',
+                    text: `Use my code ${referralCode} on Vector Football and get 21 days free! vectorfootball.co.uk`,
+                  });
+                } catch { /* user cancelled share sheet */ }
               } else {
-                navigator.clipboard?.writeText(referralCode);
+                try {
+                  await navigator.clipboard.writeText(referralCode);
+                } catch { /* clipboard denied — silently ignore */ }
               }
             }}
             className="w-full py-2 rounded-xl bg-white/20 text-white text-xs font-bold hover:bg-white/30 transition-colors"

@@ -410,6 +410,9 @@ function parseRest(rest: string): number {
   if (min) return parseInt(min[1], 10) * 60;
   const plain = rest.match(/^(\d+)$/);
   if (plain) return parseInt(plain[1], 10);
+  if (import.meta.env.DEV && rest !== '—') {
+    console.warn(`[sessionUtils] parseRest: unrecognised format "${rest}" — defaulting to 90s`);
+  }
   return 90;
 }
 
@@ -503,7 +506,7 @@ export function sessionToWorkoutExercises(
           : isCond ? Math.min(Math.max(parseInt(pe.sets, 10) || 1, 1) * distanceRepsPerSet, 25)
           : parseSets(pe.sets);
         const targetReps = isTimedAerobic
-          ? (() => { const m = pe.reps.match(/(\d+)\s*min/); return m ? parseInt(m[1], 10) * 60 : 1800; })()
+          ? (() => { const m = pe.reps.match(/(\d+)\s*mins?/); return m ? parseInt(m[1], 10) * 60 : 1800; })()
           : isCond ? (condWorkSecs > 0 ? condWorkSecs : 1)
           : parseReps(pe.reps);
         // For interval conditioning: parse rest from the reps string (e.g. "· 30s rest")

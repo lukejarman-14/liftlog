@@ -354,6 +354,9 @@ function SetRow({
   // Keep a ref to onComplete so the interval closure always calls the latest version
   const onCompleteRef = useRef(onComplete);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+  // Guard async side-effects (side-transition timeout) after unmount
+  const rowMountedRef = useRef(true);
+  useEffect(() => () => { rowMountedRef.current = false; }, []);
 
   useEffect(() => {
     if (!timerRunning) return;
@@ -374,7 +377,9 @@ function SetRow({
           setTimerRunning(false);
           setTimerSide('right');
           setTimerSecs(defaultRepsRef.current);
-          sideTransitionRef.current = setTimeout(() => setTimerRunning(true), 700);
+          sideTransitionRef.current = setTimeout(() => {
+            if (rowMountedRef.current) setTimerRunning(true);
+          }, 700);
         } else {
           // Single-side or right side done — complete the set
           setTimerRunning(false);
@@ -897,10 +902,16 @@ function CondSprintRow({
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef<number | null>(null);
+  // Store exact elapsed milliseconds on pause so resume doesn't lose up to 999ms
+  const elapsedMsRef = useRef(0);
 
   useEffect(() => {
-    if (!running) return;
-    startRef.current = Date.now() - elapsed * 1000;
+    if (!running) {
+      // Capture exact ms when pausing so the next resume anchors precisely
+      if (startRef.current !== null) elapsedMsRef.current = Date.now() - startRef.current;
+      return;
+    }
+    startRef.current = Date.now() - elapsedMsRef.current;
     const tick = () => {
       if (startRef.current !== null) setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
     };
@@ -1500,7 +1511,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     } else {
       doFinish(finalSession);
     }
-  }, [computeNewPBs, doFinish]);
+  }, [computeNewPBs, doFinish, sessionNotes, flaggedExercises]);
 
   const handleKeepPBs = useCallback(() => {
     if (pendingSession) doFinish(pendingSession);
@@ -1515,10 +1526,10 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
       exercises: pendingSession.exercises.map(ex => {
         if (!pbIds.includes(ex.exerciseId)) return ex;
         const pre = prePBsRef.current[ex.exerciseId];
-        if (!pre) return ex;
-        // Cap weight at the pre-session PB — preserves all sets and volume
-        // but prevents a new record from being stored.
-        const sets = ex.sets.map(s => ({ ...s, weight: Math.min(s.weight, pre.weight) }));
+        // When pre is null this is a first-ever lift — cap to 0 so the record
+        // is not stored. Without this the discard has no effect for new exercises.
+        const capWeight = pre ? pre.weight : 0;
+        const sets = ex.sets.map(s => ({ ...s, weight: Math.min(s.weight, capWeight) }));
         return { ...ex, sets };
       }),
     };
@@ -1613,7 +1624,9 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
       timer.stop();
       setRestingExerciseIdx(null);
     }
-  }, [timer.finished, timer]);
+  // timer.stop is stable; only re-run when finished flag flips
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timer.finished]);
 
   // Live elapsed timer for conditioning sessions
   useEffect(() => {

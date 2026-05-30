@@ -36,15 +36,16 @@ export function useStore() {
     setUserSettings(prev => ({ ...prev, ...partial }));
 
   const saveBaseline = (test: BaselineTest, results: BaselineResults) =>
-    setBaselineRaw(prev => ({
-      test: {
-        ...prev?.test,
-        ...Object.fromEntries(Object.entries(test).filter(([, v]) => v !== undefined && v !== null)),
-      } as BaselineTest,
-      results: {
-        ...prev?.results,
-        ...Object.fromEntries(Object.entries(results).filter(([, v]) => v !== undefined && v !== null)),
-      } as BaselineResults,
+    setBaselineRaw(() => ({
+      // Replace entirely — do NOT merge with prev. Merging caused stale values from
+      // previous sessions to persist for tests the athlete skipped on re-test.
+      // Full history is preserved in testSessions; baseline always reflects latest session only.
+      test: Object.fromEntries(
+        Object.entries(test).filter(([, v]) => v !== undefined && v !== null),
+      ) as BaselineTest,
+      results: Object.fromEntries(
+        Object.entries(results).filter(([, v]) => v !== undefined && v !== null),
+      ) as BaselineResults,
       savedAt: Date.now(),
     }));
 
@@ -66,11 +67,14 @@ export function useStore() {
     });
 
   const saveGeneratedProgramme = (programme: GeneratedProgramme) => {
-    const prev = generatedProgrammes;
-    const next = [programme, ...prev.filter(p => p.id !== programme.id)].slice(0, 20);
-    setGeneratedProgrammes(next);
-    // If the 20-item cap evicted the currently active programme, clear the stale reference.
-    if (activeProgrammeId && !next.some(p => p.id === activeProgrammeId)) {
+    // Capture `next` from inside the updater so the eviction check uses the
+    // authoritative prev value, not the potentially-stale closed-over state.
+    let computedNext: GeneratedProgramme[] = [];
+    setGeneratedProgrammes(prev => {
+      computedNext = [programme, ...prev.filter(p => p.id !== programme.id)].slice(0, 20);
+      return computedNext;
+    });
+    if (activeProgrammeId && !computedNext.some(p => p.id === activeProgrammeId)) {
       setActiveProgrammeId(null);
     }
   };

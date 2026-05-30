@@ -65,12 +65,18 @@ export async function redeemReferralCode(
     if (existing && existing.length > 0) return { success: false, reason: 'already_used' };
 
     // Log the referral — reward_applied starts false (applied on referrer's next boot)
-    await supabase.from('referrals').insert({
+    const { error: insertError } = await supabase.from('referrals').insert({
       referral_code: code,
       referrer_user_id: codeRow.user_id,
       referred_user_id: referredUserId,
       reward_applied: false,
     });
+
+    // Unique constraint violation (23505) means a concurrent request already inserted this row
+    if (insertError) {
+      if (insertError.code === '23505') return { success: false, reason: 'already_used' };
+      return { success: false, reason: 'error' };
+    }
 
     return { success: true, trialMs: REFERRAL_TRIAL_MS };
   } catch {

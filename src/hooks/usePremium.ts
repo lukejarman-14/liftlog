@@ -50,8 +50,10 @@ export function usePremium() {
       if (status.expiresAt && status.expiresAt < Date.now()) return false;
       return true;
     }
-    if (!status.trialStartedAt) return false;
+    // Check expiresAt BEFORE trialStartedAt so referral rewards grant access
+    // even to users who have never started a trial (trialStartedAt is null).
     if (status.expiresAt) return status.expiresAt > Date.now();
+    if (!status.trialStartedAt) return false;
     return Date.now() - status.trialStartedAt < TRIAL_DAYS * MS_PER_DAY;
   }, [status]);
 
@@ -116,12 +118,13 @@ export function usePremium() {
     try {
       const { active, expiresAt } = await rcRestore();
       if (active) {
-        // Preserve existing plan if known; fall back to yearly (most common subscription)
+        // Preserve existing plan if known. If unknown, leave plan undefined rather than
+        // guessing 'yearly' — a lifetime purchaser would otherwise see the wrong label.
         const current = load();
         const updated: PremiumStatus = {
           ...current,
           isPremium: true,
-          plan: current.plan ?? 'yearly',
+          plan: current.plan,
           purchasedAt: current.purchasedAt ?? Date.now(),
           expiresAt: expiresAt ?? current.expiresAt,
         };
@@ -220,7 +223,9 @@ export function usePremium() {
       : Date.now();
     const updated: PremiumStatus = {
       ...current,
-      isPremium: true,
+      // Don't force isPremium — referral rewards extend trial-style time access only.
+      // hasAccess derives from expiresAt > Date.now() when isPremium is false, so
+      // access is still granted for the full reward period without polluting plan state.
       expiresAt: base + msToAdd,
       purchasedAt: current.purchasedAt ?? Date.now(),
     };

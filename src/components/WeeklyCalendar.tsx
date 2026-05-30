@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, Play, Clock, X, ChevronRight, ChevronLeft } from 'lucide-react';
 import { WorkoutSession, ActivePlan, NavState, GeneratedProgramme, Exercise, WorkoutExercise, MatchEntry, ProgrammeSession } from '../types';
 import {
@@ -47,7 +47,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
   const { matchEntries } = useStore();
 
   // Default to the first programme week if the programme hasn't started yet
-  const initialOffset = (() => {
+  const initialOffset = useMemo(() => {
     if (!generatedProgramme) return 0;
     const anchor = getProgrammeAnchorMonday(generatedProgramme);
     const nowMonday = new Date();
@@ -58,8 +58,16 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
       (anchor.getTime() - nowMonday.getTime()) / (7 * 24 * 60 * 60 * 1000),
     );
     return weeksUntilStart > 0 ? weeksUntilStart : 0;
-  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generatedProgramme?.id]);
   const [weekOffset, setWeekOffset] = useState(initialOffset);
+
+  // Reset to the correct starting week whenever the active programme changes
+  useEffect(() => {
+    setWeekOffset(initialOffset);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generatedProgramme?.id]);
+
   const [previewSession, setPreviewSession] = useState<ProgrammeSession | null>(null);
   const [previewWeekNumber, setPreviewWeekNumber] = useState<number>(1);
   const [previewOnStart, setPreviewOnStart] = useState<(() => void) | null>(null);

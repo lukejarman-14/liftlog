@@ -41,6 +41,8 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
         // to re-read from localStorage — no page reload needed
         await cloudLoadData(userId);
         onLogin(userId);
+        // Component unmounts here — do not call any state setters after this point
+        return;
       } catch (err) {
         const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
         // Supabase returns "Invalid login credentials" for BOTH wrong password AND
@@ -53,8 +55,8 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
           setError(err instanceof Error ? err.message : 'Sign in failed. Please try again.');
         }
         setPassword('');
+        setLoading(false);
       }
-      setLoading(false);
       return;
     }
 

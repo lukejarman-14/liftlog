@@ -24,6 +24,7 @@ import {
 import { supabase } from './lib/supabase';
 import { identifyUser, resetAnalyticsUser, trackEvent } from './lib/analytics';
 import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificationPermission, scheduleDailyReminder } from './lib/notifications';
+import { localDateStr } from './lib/loadManagement';
 
 const APP_STORE_URL = 'https://apps.apple.com/gb/app/vector-football/id6772522502?action=write-review';
 const MS_PER_DAY = 86_400_000;
@@ -75,6 +76,8 @@ export default function App() {
   const [isRecoveryMode, setIsRecoveryMode] = useState(detectRecoveryUrl);
 
   const cloudUserIdRef = useRef<string | null>(null);
+  const appMountedRef  = useRef(true);
+  useEffect(() => () => { appMountedRef.current = false; }, []);
   const [showProgrammePrompt, setShowProgrammePrompt] = useState(false);
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
@@ -116,7 +119,17 @@ export default function App() {
 
           const today = new Date().toISOString().split('T')[0];
           const lastShown = localStorage.getItem('vf_trial_prompt_shown');
-          if (lastShown !== today && !premium.refresh().isPremium) {
+          // Read directly from localStorage after syncFromRC has written — avoids calling
+          // refresh() which triggers an extra setStatusRaw state update inside this async chain.
+          const premiumAfterSync = (() => {
+            try {
+              const s = JSON.parse(localStorage.getItem('vf_premium') ?? '{}');
+              // Also treat active timed grants (referral/promo) as having access
+              return s.isPremium === true || (s.expiresAt && s.expiresAt > Date.now());
+            }
+            catch { return false; }
+          })();
+          if (lastShown !== today && !premiumAfterSync) {
             setTimeout(() => setShowTrialPrompt(true), TRIAL_PROMPT_DELAY_MS);
           }
           const code = await premium.getOrCreateReferralCode(userId);
@@ -126,20 +139,28 @@ export default function App() {
           const params = new URLSearchParams(window.location.search);
           if (params.get('stripe_success') === '1') {
             window.history.replaceState({}, '', window.location.pathname);
-            const stripePlan = (sessionStorage.getItem('vf_stripe_plan') ?? 'monthly') as 'monthly' | 'yearly' | 'lifetime';
+            // Read the plan BEFORE any async work — if sessionStorage was cleared
+            // (e.g. different browser/device), don't fallback to 'monthly' incorrectly.
+            const rawStripePlan = sessionStorage.getItem('vf_stripe_plan') as 'monthly' | 'yearly' | 'lifetime' | null;
             // Poll Supabase for up to 10s waiting for the Stripe webhook to confirm the purchase.
-            // Falls back to optimistic grant if the webhook hasn't fired by then.
+            // Falls back to optimistic grant only if we know the exact plan purchased.
             let confirmed = false;
             for (let attempt = 0; attempt < 10; attempt++) {
+              if (!appMountedRef.current) break;
               await new Promise<void>(r => setTimeout(r, 1000));
+              if (!appMountedRef.current) break;
               await cloudLoadData(userId);
               const fresh = premium.refresh();
               if (fresh.isPremium) { confirmed = true; break; }
             }
+            if (!appMountedRef.current) return;
             // Clear only after we've resolved — prevents losing the plan on a mid-poll reload.
             sessionStorage.removeItem('vf_stripe_plan');
-            if (!confirmed) premium.setPremium(stripePlan);
-            navigate({ screen: 'programme-builder' });
+            if (!confirmed && rawStripePlan) premium.setPremium(rawStripePlan);
+            // Only navigate if we have evidence of a real purchase — if rawStripePlan is
+            // null (cross-device redirect, new tab) and webhook didn't confirm, skip
+            // navigation so the user isn't sent to a gated screen with no access.
+            if (confirmed || rawStripePlan) navigate({ screen: 'programme-builder' });
           } else if (params.get('stripe_cancel') === '1') {
             window.history.replaceState({}, '', window.location.pathname);
           }
@@ -191,7 +212,8 @@ export default function App() {
         setShowProgrammeComplete(true);
       }
     }
-  }, [nav.screen]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nav.screen, store.activeProgrammeId, store.generatedProgrammes, showProgrammeComplete]);
 
   useEffect(() => {
     const { reminderEnabled, reminderHour, reminderMinute } = store.userSettings;
@@ -208,6 +230,7 @@ export default function App() {
     store.userSettings.reminderHour,
     store.userSettings.reminderMinute,
     store.activeProgrammeId,
+    store.generatedProgrammes, // re-schedule when programme content changes (e.g. rebuild)
   ]);
 
   useEffect(() => {
@@ -250,7 +273,7 @@ export default function App() {
   }, [premium.hasAccess, navigate]);
 
 
-  const launchWorkout = (name: string, items: WorkoutExercise[]) => {
+  const launchWorkout = useCallback((name: string, items: WorkoutExercise[]) => {
     const session: WorkoutSession = {
       id: `session-${Date.now()}`,
       name: name || 'Workout',
@@ -269,11 +292,11 @@ export default function App() {
         sets: [],
       })),
       startTime: Date.now(),
-      date: new Date().toISOString().split('T')[0],
+      date: localDateStr(new Date()), // local date, not UTC
     };
     setActiveSession(session);
-    setNav({ screen: 'active-workout' });
-  };
+    startTransition(() => setNav({ screen: 'active-workout' }));
+  }, []);
 
   const handleStartWorkout = (name: string, items: WorkoutExercise[]) => {
     const todayReadiness = store.getTodayReadiness();
@@ -349,7 +372,7 @@ export default function App() {
   const handleStartTodayProgrammeSession = (session: ProgrammeSession) => {
     const activeProg = getActiveProgramme();
     if (!activeProg) return;
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDateStr(new Date());
     const updated = {
       ...activeProg,
       programmeStartDate: todayStr,
@@ -375,9 +398,8 @@ export default function App() {
     const newStagnation = { ...currentStagnation };
     for (const [id, newCount] of Object.entries(updates)) {
       const prev = currentCounts[id] ?? CONDITIONING_DEFAULTS[id];
-      if (prev === undefined) {
-        newStagnation[id] = 0;
-      } else {
+      if (prev !== undefined) {
+        // Only track stagnation once we have a baseline to compare against
         newStagnation[id] = newCount > prev ? 0 : (newStagnation[id] ?? 0) + 1;
       }
     }
@@ -397,7 +419,7 @@ export default function App() {
     if (!planId) return;
     // Start from today — no waiting for next Monday, no missed sessions
     const today = new Date();
-    store.setActivePlan({ planId, startDate: today.toISOString().split('T')[0] });
+    store.setActivePlan({ planId, startDate: localDateStr(today) });
   };
 
   const handleOnboardingComplete = (
@@ -419,7 +441,7 @@ export default function App() {
 
   const doGenerateProgramme = (resolvedInputs: ProgrammeInputs) => {
     const programme = generateProgramme(resolvedInputs);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDateStr(new Date());
     const finalProgramme = {
       ...programme,
       programmeStartDate: todayStr,
@@ -896,8 +918,10 @@ export default function App() {
             return err;
           }}
           onRedeemReferral={async (code) => {
-            const userId = cloudUserIdRef.current ?? '';
-            const err = await premium.redeemReferral(code, userId);
+            if (!cloudUserIdRef.current) {
+              return 'Sign in to your account before redeeming a referral code.';
+            }
+            const err = await premium.redeemReferral(code, cloudUserIdRef.current);
             if (!err) setTimeout(() => navigate({ screen: 'programme-builder' }), REFERRAL_REDIRECT_DELAY_MS);
             return err;
           }}
@@ -1268,7 +1292,7 @@ export default function App() {
         const prog = getActiveProgramme();
         const progSessions = store.sessions.filter(s => {
           if (!prog) return false;
-          const anchorDate = prog.programmeStartDate ?? new Date(prog.createdAt).toISOString().split('T')[0];
+          const anchorDate = prog.programmeStartDate ?? localDateStr(new Date(prog.createdAt));
           return s.date >= anchorDate;
         });
         const totalVol = progSessions.reduce((a, s) =>

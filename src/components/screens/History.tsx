@@ -34,7 +34,7 @@ function formatDate(dateStr: string) {
 
 function totalVolume(session: WorkoutSession) {
   return session.exercises.reduce((acc, ex) =>
-    acc + ex.sets.reduce((s, set) => s + set.reps * set.weight, 0), 0);
+    acc + ex.sets.filter(set => !set.isPriming).reduce((s, set) => s + set.reps * set.weight, 0), 0);
 }
 
 // RIR: lower = harder. 0 = max effort (red), 4 = easy (green)
@@ -406,9 +406,10 @@ function WeekSummary({ sessions }: { sessions: WorkoutSession[] }) {
   const prevStart = new Date(weekStart);
   prevStart.setDate(weekStart.getDate() - 7);
 
-  const thisWeek = sessions.filter(s => new Date(s.date) >= weekStart);
+  // Parse date strings at local noon to avoid UTC midnight shifting the day for non-UTC users
+  const thisWeek = sessions.filter(s => new Date(s.date + 'T12:00:00') >= weekStart);
   const lastWeek = sessions.filter(s => {
-    const d = new Date(s.date);
+    const d = new Date(s.date + 'T12:00:00');
     return d >= prevStart && d < weekStart;
   });
 
@@ -1069,7 +1070,7 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
       pts.push({
         date:  session.date,
         value: res.best,
-        grade: session.grades[type] as 1|2|3|4|5 | undefined,
+        grade: (() => { const g = session.grades[type]; return (typeof g === 'number' && g >= 1 && g <= 5) ? g as 1|2|3|4|5 : undefined; })(),
       });
     }
     if (pts.length > 0) pointsByType[type] = pts;
@@ -1180,10 +1181,11 @@ export function History({ sessions, matchEntries, onNavigate, onDeleteSession, i
 
   const sorted = [...sessions].sort((a, b) => b.startTime - a.startTime);
 
-  // Group by month
+  // Group by month — use stable YYYY-MM key so locale changes don't split groups
   const grouped: Record<string, WorkoutSession[]> = {};
   sorted.forEach(s => {
-    const key = new Date(s.date + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const d = new Date(s.date + 'T12:00:00');
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(s);
   });
@@ -1254,9 +1256,11 @@ export function History({ sessions, matchEntries, onNavigate, onDeleteSession, i
             </Card>
           ) : (
             <div className="flex flex-col gap-6">
-              {Object.entries(grouped).map(([month, monthSessions]) => (
-                <section key={month}>
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">{month}</h3>
+              {Object.entries(grouped).map(([monthKey, monthSessions]) => (
+                <section key={monthKey}>
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+                    {new Date(monthKey + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                  </h3>
                   <div className="flex flex-col gap-3">
                     {monthSessions.map(session => (
                       <SessionCard
