@@ -244,7 +244,7 @@ export function usePremium() {
     if (!result.success) {
       const msgs: Record<string, string> = {
         invalid: 'That code is not valid.',
-        already_used: 'This code has already been used on this device.',
+        already_used: 'This code has already been redeemed on your account.',
         inactive: 'That code is no longer active.',
         error: 'Could not verify the code. Check your connection and try again.',
       };

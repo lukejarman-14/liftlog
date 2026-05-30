@@ -59,7 +59,6 @@ function detectRecoveryUrl(): boolean {
   return (
     hash.includes('type=recovery') ||
     search.includes('type=recovery') ||
-    sessionStorage.getItem('vf_auth_redirect') === '1' ||
     sessionStorage.getItem('vf_recovery_mode') === '1'
   );
 }
@@ -106,9 +105,7 @@ export default function App() {
           cloudUserIdRef.current = userId;
           setIsAuthenticated(true);
           identifyUser(userId);
-          const isAuthRedirect = sessionStorage.getItem('vf_auth_redirect') === '1';
-          sessionStorage.removeItem('vf_auth_redirect');
-          if (!sessionStorage.getItem('vf_boot_synced') && !isAuthRedirect) {
+          if (!sessionStorage.getItem('vf_boot_synced')) {
             sessionStorage.setItem('vf_boot_synced', '1');
             await cloudLoadData(userId);
           }
