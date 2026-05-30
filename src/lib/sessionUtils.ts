@@ -192,6 +192,7 @@ export const NAME_TO_ID: Record<string, string> = {
   'a-skip': 'a-skip',
   'high knees': 'high-knees',
   // Reactive plyometrics — explicit entries prevent fuzzy matcher hitting 'Lat Pulldown' for 'lateral ankle hops'
+  'hurdle jump': 'hurdle-hop', 'hurdle hop': 'hurdle-hop',
   'pogo hops': 'pogo-jump',
   'single-leg pogo hops': 'pogo-jump',
   'lateral ankle hops': 'ankle-hop',

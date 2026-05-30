@@ -38,9 +38,6 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
           >
             Reload App
           </button>
-          {import.meta.env.DEV && (
-            <p className="mt-4 text-xs text-red-500 font-mono max-w-sm break-all">{this.state.message}</p>
-          )}
         </div>
       );
     }

@@ -484,6 +484,9 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         onRescheduleSession={onRescheduleSession}
       />
 
+      {/* Daily readiness check-in */}
+      <DailyReadinessWidget existing={todayReadiness} onSave={onSaveReadiness} />
+
       {/* Referral card — shown to all users with a code */}
       {referralCode && (
         <div className="mb-4 rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 p-4 shadow-md">
@@ -517,9 +520,6 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
           </button>
         </div>
       )}
-
-      {/* Daily readiness check-in */}
-      <DailyReadinessWidget existing={todayReadiness} onSave={onSaveReadiness} />
 
     </Layout>
 

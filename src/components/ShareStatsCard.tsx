@@ -49,14 +49,15 @@ export function ShareStatsCard({ sessions, streak, playerName, onClose }: ShareS
         canvas.toBlob(async (blob) => {
           try {
             if (!blob) return;
-            const file = new File([blob], 'vector-football-stats.png', { type: 'image/png' });
+            const file = new File([blob], 'vector-football-stats.jpg', { type: 'image/jpeg' });
             if (navigator.share && navigator.canShare?.({ files: [file] })) {
-              await navigator.share({ files: [file], title: 'My Vector Football Stats' });
+              // Share files only — no title/text, as some apps (Snapchat) reject mixed payloads
+              await navigator.share({ files: [file] });
             } else {
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
-              a.download = 'vector-football-stats.png';
+              a.download = 'vector-football-stats.jpg';
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
@@ -65,7 +66,7 @@ export function ShareStatsCard({ sessions, streak, playerName, onClose }: ShareS
           } finally {
             resolve();
           }
-        }, 'image/png');
+        }, 'image/jpeg', 0.95);
       });
     } catch {
       // share cancelled or unsupported — fail silently
