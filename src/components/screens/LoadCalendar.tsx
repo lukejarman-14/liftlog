@@ -331,6 +331,7 @@ function DayModal({
   const dayScheduled = scheduledWorkouts.filter(w => w.date === dateStr);
   const [label, setLabel] = useState(existing?.label ?? '');
   const [minutes, setMinutes] = useState<string>(existing?.minutes?.toString() ?? '');
+  const [intensity, setIntensity] = useState<number | null>(existing?.intensity ?? null);
   const [performanceRating, setPerformanceRating] = useState<number | null>(existing?.performanceRating ?? null);
   const [physicalIncidents, setPhysicalIncidents] = useState(existing?.physicalIncidents ?? '');
   const [movingSession, setMovingSession] = useState<SessionDot | null>(null);
@@ -352,6 +353,7 @@ function DayModal({
       type,
       label: label.trim() || undefined,
       minutes: minutes ? parseInt(minutes, 10) : undefined,
+      intensity: intensity ?? undefined,
       performanceRating: performanceRating ?? undefined,
       physicalIncidents: physicalIncidents.trim() || undefined,
     };
@@ -569,6 +571,11 @@ function DayModal({
                   {existing.type === 'match' ? '⚽ Match' : '🏃 Team Training'}
                   {existing.label && ` — ${existing.label}`}
                 </div>
+                {existing.intensity && (
+                  <p className="text-xs text-gray-500 mb-1">
+                    Intensity: {['🧘','🚶','🏃','💪','🔥'][existing.intensity - 1]} {['Easy','Light','Moderate','Hard','Max'][existing.intensity - 1]}
+                  </p>
+                )}
                 {existing.performanceRating && (
                   <p className="text-xs text-gray-500 mb-1">
                     Performance: {['😞','😐','😊','😄','🔥'][existing.performanceRating - 1]} {['Poor','Below avg','OK','Good','Excellent'][existing.performanceRating - 1]}
@@ -610,6 +617,36 @@ function DayModal({
                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
               <p className="text-xs text-gray-400 mt-1">Used to auto-adjust recovery session load</p>
+            </div>
+
+            {/* Physical intensity — drives load calculation */}
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">
+                Physical intensity (optional)
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { v: 1, emoji: '🧘', label: 'Easy' },
+                  { v: 2, emoji: '🚶', label: 'Light' },
+                  { v: 3, emoji: '🏃', label: 'Moderate' },
+                  { v: 4, emoji: '💪', label: 'Hard' },
+                  { v: 5, emoji: '🔥', label: 'Max' },
+                ].map(({ v, emoji, label: lbl }) => (
+                  <button
+                    key={v}
+                    onClick={() => setIntensity(intensity === v ? null : v)}
+                    className={`flex-1 flex flex-col items-center py-2 rounded-xl border-2 transition-all text-xs font-semibold ${
+                      intensity === v
+                        ? 'border-brand-500 bg-brand-50 text-brand-700'
+                        : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-lg leading-none mb-0.5">{emoji}</span>
+                    <span className="text-[10px]">{lbl}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Used to calculate accurate match load in your weekly stats</p>
             </div>
 
             {/* Performance rating — only for match entries */}
@@ -1009,6 +1046,7 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
                         <div className="text-xs text-gray-400">
                           {dateLabel}
                           {e.minutes && <span className="ml-2 text-brand-500">{e.minutes} min</span>}
+                          {e.intensity && <span className="ml-2">{['🧘','🚶','🏃','💪','🔥'][e.intensity - 1]}</span>}
                           {e.performanceRating && <span className="ml-2">{PERF_EMOJIS[e.performanceRating - 1]}</span>}
                         </div>
                       </div>
