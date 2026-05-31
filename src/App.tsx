@@ -182,6 +182,24 @@ export default function App() {
         setSessionChecking(false);
         setNav({ screen: 'reset-password' });
       }
+
+      // Email confirmation link clicked — Supabase fires SIGNED_IN with a fresh
+      // session. The boot useEffect has already run (it found no session before
+      // the user clicked the link), so we must handle this event to authenticate
+      // the user and load their cloud data.
+      if (event === 'SIGNED_IN' && session?.user?.id) {
+        const userId = session.user.id;
+        // Only act if we're not already authenticated (avoids re-running on
+        // normal sign-in flows that are handled by the Login screen directly).
+        if (!cloudUserIdRef.current) {
+          cloudUserIdRef.current = userId;
+          setIsAuthenticated(true);
+          setSessionChecking(false);
+          identifyUser(userId);
+          cloudLoadData(userId).catch(() => {});
+          rcConfigure(userId).catch(() => {});
+        }
+      }
     });
     return () => subscription.unsubscribe();
   }, []);

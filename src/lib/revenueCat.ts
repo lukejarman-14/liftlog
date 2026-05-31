@@ -66,8 +66,14 @@ export async function rcGetOfferings() {
   if (!Capacitor.isNativePlatform()) return null;
   try {
     const offerings = await Purchases.getOfferings();
+    if (!offerings.current) {
+      console.warn('[RC] getOfferings: no current offering returned. Check RevenueCat dashboard → Offerings.');
+    } else {
+      console.log('[RC] getOfferings: OK — packages:', offerings.current.availablePackages.map((p: { identifier: string }) => p.identifier));
+    }
     return offerings.current;
-  } catch {
+  } catch (err) {
+    console.error('[RC] getOfferings failed:', err);
     return null;
   }
 }
@@ -84,17 +90,26 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
   if (!Capacitor.isNativePlatform()) return { success: false, cancelled: false, expiresAt: null };
   try {
     const offering = await rcGetOfferings();
-    if (!offering) return { success: false, cancelled: false, expiresAt: null };
+    if (!offering) {
+      console.error('[RC] rcPurchase: no offering available — cannot purchase.');
+      return { success: false, cancelled: false, expiresAt: null };
+    }
 
     const packageId = PLAN_TO_PACKAGE[plan] ?? plan;
     const pkg = offering.availablePackages.find((p: { identifier: string }) =>
       p.identifier === packageId
     );
-    if (!pkg) return { success: false, cancelled: false, expiresAt: null };
+    if (!pkg) {
+      console.error(`[RC] rcPurchase: package "${packageId}" not found in offering. Available:`, offering.availablePackages.map((p: { identifier: string }) => p.identifier));
+      return { success: false, cancelled: false, expiresAt: null };
+    }
 
     const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
     const entitlement = customerInfo.entitlements.active[ENTITLEMENT_ID];
-    if (!entitlement) return { success: false, cancelled: false, expiresAt: null };
+    if (!entitlement) {
+      console.error(`[RC] rcPurchase: entitlement "${ENTITLEMENT_ID}" not active after purchase. Active entitlements:`, Object.keys(customerInfo.entitlements.active));
+      return { success: false, cancelled: false, expiresAt: null };
+    }
 
     const expiresAt = entitlement.expirationDate
       ? new Date(entitlement.expirationDate).getTime()
@@ -102,6 +117,7 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
     return { success: true, cancelled: false, expiresAt };
   } catch (err: unknown) {
     const isCancel = (err as { userCancelled?: boolean })?.userCancelled === true;
+    if (!isCancel) console.error('[RC] rcPurchase threw:', err);
     return { success: false, cancelled: isCancel, expiresAt: null };
   }
 }
