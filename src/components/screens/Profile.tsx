@@ -1109,6 +1109,7 @@ export function Profile({
   const [showEditTraining,     setShowEditTraining]     = useState(false);
   const [showDeleteConfirm,    setShowDeleteConfirm]    = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('vf_dark_mode') === 'true');
+  const [isSharingCode, setIsSharingCode] = useState(false);
 
   const toggleDarkMode = (on: boolean) => {
     setDarkMode(on);
@@ -1508,19 +1509,28 @@ export function Profile({
               <span className="text-lg font-extrabold text-white tracking-widest">{referralCode}</span>
             </div>
             <button
-              onClick={() => {
-                if (navigator.share) {
-                  navigator.share({
-                    title: 'Join Vector Football',
-                    text: `Use my referral code ${referralCode} on Vector Football and get 21 days free! vectorfootball.co.uk`,
-                  });
-                } else {
-                  navigator.clipboard.writeText(referralCode);
+              onClick={async () => {
+                if (isSharingCode) return;
+                setIsSharingCode(true);
+                try {
+                  if (navigator.share) {
+                    await navigator.share({
+                      title: 'Join Vector Football',
+                      text: `Use my referral code ${referralCode} on Vector Football and get 21 days free! vectorfootball.co.uk`,
+                    });
+                  } else {
+                    navigator.clipboard.writeText(referralCode);
+                  }
+                } catch {
+                  // User dismissed the share sheet — not an error
+                } finally {
+                  setIsSharingCode(false);
                 }
               }}
-              className="px-4 py-3 rounded-xl bg-white text-brand-600 text-sm font-extrabold hover:bg-white/90 transition-colors"
+              disabled={isSharingCode}
+              className="px-4 py-3 rounded-xl bg-white text-brand-600 text-sm font-extrabold hover:bg-white/90 transition-colors disabled:opacity-60"
             >
-              Share
+              {isSharingCode ? 'Sharing…' : 'Share'}
             </button>
           </div>
         </div>

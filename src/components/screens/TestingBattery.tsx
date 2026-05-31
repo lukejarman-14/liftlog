@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAudioContext, makeSineBuffer, playAudioBuffer } from '../../lib/audio';
+import { capitalize } from '../../lib/utils';
 import {
   ChevronRight, ChevronLeft, Check, Zap, Activity,
   TrendingUp, TrendingDown, Wind, Award, X, AlertTriangle,
@@ -478,7 +479,7 @@ function SexScreen({ sex, onChange }: { sex: 'male' | 'female'; onChange: (s: 'm
             }`}
           >
             <span className="text-3xl mb-2">{s === 'male' ? '♂' : '♀'}</span>
-            {s.charAt(0).toUpperCase() + s.slice(1)}
+            {capitalize(s)}
             {sex === s && (
               <div className="mt-3 w-5 h-5 rounded-full bg-brand-500 flex items-center justify-center">
                 <Check size={11} className="text-white" />
@@ -1098,6 +1099,7 @@ function useYoyoEngine() {
   const completedScoreRef = useRef<number>(0);
   const endAtRef = useRef<number>(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const [audioFailed, setAudioFailed] = useState(false);
 
   const beep = useCallback((freq: number, dur: number, vol = 0.7) => {
     const ctx = getAudioContext(audioCtxRef);
@@ -1278,13 +1280,14 @@ function useYoyoEngine() {
     ctx.resume().catch(() => {});
 
     completedScoreRef.current = 0;
+    setAudioFailed(false);
     endAtRef.current = Date.now() + YOYO_COUNTDOWN_SECS * 1000;
 
     // Schedule the start beep — fires immediately once context is running
     const fireStart = () => {
       try { playAudioBuffer(ctx, makeSineBuffer(ctx, 880, 0.25, 0.9)); } catch {}
     };
-    if (ctx.state === 'running') fireStart(); else ctx.resume().then(fireStart).catch(() => {});
+    if (ctx.state === 'running') fireStart(); else ctx.resume().then(fireStart).catch(() => { setAudioFailed(true); });
 
     setSt({ phase: 'countdown', levelIdx: 0, shuttle: 1, remaining: YOYO_COUNTDOWN_SECS, phaseSecs: YOYO_COUNTDOWN_SECS });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1295,8 +1298,9 @@ function useYoyoEngine() {
 
   const reset = useCallback(() => {
     completedScoreRef.current = 0;
+    setAudioFailed(false);
     setSt({ phase: 'idle', levelIdx: 0, shuttle: 1, remaining: 0, phaseSecs: 1 });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Accept a manually entered score — sets completedScoreRef and jumps to done state. */
   const setManualScore = useCallback((score: number) => {
@@ -1308,6 +1312,7 @@ function useYoyoEngine() {
     st,
     completedScoreRef,
     currentLevel: YOYO_LEVELS[st.levelIdx],
+    audioFailed,
     start, fail, reset, setManualScore,
   };
 }
@@ -1320,7 +1325,7 @@ function YoyoScreen({
   onChangeDraft: (d: TestDraft) => void;
   onSkip: () => void;
 }) {
-  const { st, completedScoreRef, currentLevel, start, fail, reset, setManualScore } = useYoyoEngine();
+  const { st, completedScoreRef, currentLevel, audioFailed, start, fail, reset, setManualScore } = useYoyoEngine();
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualLevel, setManualLevel] = useState<number>(14);
   const [manualShuttle, setManualShuttle] = useState<number>(1);
@@ -1565,6 +1570,13 @@ function YoyoScreen({
 
   return (
     <div className="flex-1 flex flex-col py-8 pt-14">
+      {audioFailed && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
+          <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
+          <p className="text-xs text-amber-700">Audio unavailable — beeps are off. The timer is still running.</p>
+        </div>
+      )}
+
       {/* Level & speed header */}
       {!isCountdown && (
         <div className="flex items-center justify-between mb-3">

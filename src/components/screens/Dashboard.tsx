@@ -10,6 +10,7 @@ import { useStore } from '../../hooks/useStore';
 import { POSITION_PLANS, getCurrentPlanWeek } from '../../data/positionPlans';
 import { getProgrammeWeekIndex, getProgrammeAnchorMonday } from '../../lib/sessionUtils';
 import { localDateStr } from '../../lib/loadManagement';
+import { DAY_INDEX } from '../../lib/utils';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
@@ -174,7 +175,6 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
     // Session-based completion: count programme session dates that have a matching completed session.
     // Respect sessionOverrides so rescheduled sessions are checked against their new date.
     const anchor = getProgrammeAnchorMonday(activeProgramme);
-    const DOW: Record<string, number> = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 };
     const completedDates = new Set(sessions.map(s => s.date));
     const overrides = activeProgramme.sessionOverrides ?? {};
     let totalSessions = 0;
@@ -186,7 +186,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         if (overrides[overrideKey]) {
           dateStr = overrides[overrideKey];
         } else {
-          const dayIdx = DOW[session.dayOfWeek] ?? 0;
+          const dayIdx = DAY_INDEX[session.dayOfWeek] ?? 0;
           const d = new Date(anchor);
           d.setDate(anchor.getDate() + wi * 7 + dayIdx);
           dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

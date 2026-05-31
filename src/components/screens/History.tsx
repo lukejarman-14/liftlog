@@ -538,10 +538,17 @@ function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; match
   // ACWR calculation — both acute and chronic use the same Monday-anchored calendar weeks
   // so the windows are aligned and the ratio is meaningful mid-week
   const acuteWeek = weeks[weeks.length - 1]?.volume ?? 0;
-  const chronic28Weeks = weeks.slice(-4);
-  const chronicAvg = chronic28Weeks.reduce((a, w) => a + w.volume, 0) / 4;
+  // Chronic baseline = average over the last 4 weeks that ACTUALLY have training data.
+  // Averaging over only trained weeks (not the zero-padded weeks before the athlete
+  // started) prevents a brand-new athlete's first logged week being divided by a
+  // deflated baseline and falsely flagged "High Risk". Needs ≥2 trained weeks to mean
+  // anything — below that we show no ratio (the card stays hidden until a baseline exists).
+  const chronicWindow = weeks.slice(-4).filter(w => w.volume > 0);
+  const chronicAvg = chronicWindow.length > 0
+    ? chronicWindow.reduce((a, w) => a + w.volume, 0) / chronicWindow.length
+    : 0;
   const acute7 = acuteWeek; // rename alias so display labels stay the same
-  const acwr = chronicAvg > 0 ? acute7 / chronicAvg : null;
+  const acwr = (chronicAvg > 0 && chronicWindow.length >= 2) ? acute7 / chronicAvg : null;
   const acwrZone =
     acwr === null ? null :
     acwr < 0.8  ? { label: 'Undertraining', color: 'text-blue-600',  bg: 'bg-blue-50',  border: 'border-blue-200' } :

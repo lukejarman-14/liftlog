@@ -4,6 +4,7 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { GeneratedProgramme } from '../types';
 import { getProgrammeAnchorMonday } from './sessionUtils';
+import { DAY_INDEX } from './utils';
 
 const REST_NOTIF_ID = 99998;
 // Fire 1s early so the sound lands exactly as the timer hits zero on-screen
@@ -36,10 +37,6 @@ export async function cancelRestNotification(): Promise<void> {
     if (import.meta.env.DEV) console.warn('[notifications] cancelRest failed:', err);
   }
 }
-
-const DAY_NAME_TO_IDX: Record<string, number> = {
-  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
-};
 
 const NOTIF_ID_BASE = 10000;
 const NOTIF_LIMIT   = 60; // safe iOS cap (hard limit is 64)
@@ -90,7 +87,7 @@ function buildSessionEntries(
   for (const week of programme.weeks) {
     const weekOffset = week.weekNumber - 1;
     for (const session of week.sessions) {
-      const dayOffset = DAY_NAME_TO_IDX[session.dayOfWeek] ?? -1;
+      const dayOffset = DAY_INDEX[session.dayOfWeek] ?? -1;
       if (dayOffset < 0) continue;
 
       const d = new Date(anchor);

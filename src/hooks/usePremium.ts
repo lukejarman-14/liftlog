@@ -235,7 +235,11 @@ export function usePremium() {
 
   /** Register this user's referral code in Supabase and return it. */
   const getOrCreateReferralCode = useCallback(async (userId: string): Promise<string> => {
-    return registerReferralCode(userId);
+    try {
+      return await registerReferralCode(userId);
+    } catch {
+      throw new Error('Could not save your referral code. Check your connection and try again.');
+    }
   }, []);
 
   /** Redeem a promo code — grants 30 days premium. Returns error string or null on success. */

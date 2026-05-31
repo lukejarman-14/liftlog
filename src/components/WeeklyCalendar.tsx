@@ -10,13 +10,11 @@ import {
 } from '../data/positionPlans';
 import { sessionToWorkoutExercises, getProgrammeAnchorMonday } from '../lib/sessionUtils';
 import { localDateStr } from '../lib/loadManagement';
+import { DAY_INDEX } from '../lib/utils';
 import { SessionPreviewModal } from './screens/GeneratedProgramme';
 import { useStore } from '../hooks/useStore';
 import { isConditioningSession } from '../utils/sessionClassify';
 
-const DAY_NAME_TO_INDEX: Record<string, number> = {
-  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
-};
 
 interface WeeklyCalendarProps {
   sessions: WorkoutSession[];
@@ -144,7 +142,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
         effectiveDayIdx = weekDates.findIndex(wd => isSameDay(wd, od));
       } else {
         // Absolute date: anchorMonday + week offset + day-of-week offset
-        const dayOffset = DAY_NAME_TO_INDEX[s.dayOfWeek] ?? -1;
+        const dayOffset = DAY_INDEX[s.dayOfWeek] ?? -1;
         if (dayOffset >= 0) {
           const sessionDate = new Date(anchorMonday);
           sessionDate.setDate(anchorMonday.getDate() + progWeekIdx * 7 + dayOffset);
@@ -338,7 +336,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
       {weekOffset === 0 && !hasPlan && generatedProgramme && progWeek && progSessionsThisWeek.length === 0 && (() => {
         const anchorMonday = getProgrammeAnchorMonday(generatedProgramme);
         const firstSession = generatedProgramme.weeks[0]?.sessions[0];
-        const firstDayOffset = firstSession ? (DAY_NAME_TO_INDEX[firstSession.dayOfWeek] ?? 0) : 0;
+        const firstDayOffset = firstSession ? (DAY_INDEX[firstSession.dayOfWeek] ?? 0) : 0;
         const firstDate = new Date(anchorMonday);
         firstDate.setDate(anchorMonday.getDate() + firstDayOffset);
         const label = firstDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });

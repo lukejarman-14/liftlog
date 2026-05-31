@@ -129,7 +129,9 @@ export default function App() {
           if (lastShown !== today && !premiumAfterSync) {
             setTimeout(() => setShowTrialPrompt(true), TRIAL_PROMPT_DELAY_MS);
           }
-          const code = await premium.getOrCreateReferralCode(userId);
+          // If DB write fails, leave referral code undefined — card won't render
+          // but the app still boots normally. Code will be registered on next boot.
+          const code = await premium.getOrCreateReferralCode(userId).catch(() => undefined);
           setMyReferralCode(code);
           await premium.claimReferralRewardsForUser(userId);
 

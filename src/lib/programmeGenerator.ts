@@ -6,6 +6,7 @@ import {
   ProgrammeExercise, SessionBlock, ReadinessLevel, MethodType, IntensityIntent,
 } from '../types';
 import { NAME_TO_ID } from './sessionUtils';
+import { DAY_INDEX, capitalize } from './utils';
 
 // Resolves a display name → library ID using exact + partial lookup only.
 // No fuzzy fallback — gaps here are caught by the test suite, not papered over.
@@ -208,10 +209,6 @@ function getPhase(week: number, total: number): { phase: string; phaseGoal: stri
 type OsSessionType = 'gym' | 'zone2' | 'hiAerobic' | 'rsa';
 type OsSlot = { dayOfWeek: string; load: 'heavy' | 'moderate'; sessionType: OsSessionType };
 
-const DAY_ORDER: Record<string, number> = {
-  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
-};
-
 // Gym-only fallback schedules (used when no conditioningTypes supplied)
 const GYM_ONLY_SCHEDULES: Record<number, OsSlot[]> = {
   1: [
@@ -290,7 +287,7 @@ function buildMixedOffSeasonSchedule(
     return GYM_ONLY_SCHEDULES[gymCount] ?? GYM_ONLY_SCHEDULES[3];
   }
 
-  return slots.sort((a, b) => (DAY_ORDER[a.dayOfWeek] ?? 0) - (DAY_ORDER[b.dayOfWeek] ?? 0));
+  return slots.sort((a, b) => (DAY_INDEX[a.dayOfWeek] ?? 0) - (DAY_INDEX[b.dayOfWeek] ?? 0));
 }
 
 
@@ -298,16 +295,21 @@ type MdSlot = { mdDay: string; dayOfWeek: string };
 
 const SCHEDULES: Record<string, Record<number, MdSlot[]>> = {
   saturday: {
+    // Single in-season session (congested period) — one MD-3 dose: moderate load,
+    // mid-week, DOMS clears by match day. NEVER fall through to the 3-session schedule.
+    1: [{ mdDay: 'MD-3', dayOfWeek: 'Wednesday' }],
     2: [{ mdDay: 'MD-4', dayOfWeek: 'Tuesday' }, { mdDay: 'MD-2', dayOfWeek: 'Thursday' }],
     3: [{ mdDay: 'MD-4', dayOfWeek: 'Tuesday' }, { mdDay: 'MD-3', dayOfWeek: 'Wednesday' }, { mdDay: 'MD-1', dayOfWeek: 'Friday' }],
     4: [{ mdDay: 'MD+1', dayOfWeek: 'Sunday' }, { mdDay: 'MD-4', dayOfWeek: 'Tuesday' }, { mdDay: 'MD-3', dayOfWeek: 'Wednesday' }, { mdDay: 'MD-1', dayOfWeek: 'Friday' }],
   },
   sunday: {
+    1: [{ mdDay: 'MD-3', dayOfWeek: 'Thursday' }],
     2: [{ mdDay: 'MD-4', dayOfWeek: 'Wednesday' }, { mdDay: 'MD-2', dayOfWeek: 'Friday' }],
     3: [{ mdDay: 'MD-4', dayOfWeek: 'Wednesday' }, { mdDay: 'MD-3', dayOfWeek: 'Thursday' }, { mdDay: 'MD-1', dayOfWeek: 'Saturday' }],
     4: [{ mdDay: 'MD+1', dayOfWeek: 'Monday' }, { mdDay: 'MD-4', dayOfWeek: 'Wednesday' }, { mdDay: 'MD-3', dayOfWeek: 'Thursday' }, { mdDay: 'MD-1', dayOfWeek: 'Saturday' }],
   },
   midweek: {
+    1: [{ mdDay: 'MD-3', dayOfWeek: 'Sunday' }],
     2: [{ mdDay: 'MD-3', dayOfWeek: 'Sunday' }, { mdDay: 'MD-1', dayOfWeek: 'Tuesday' }],
     3: [{ mdDay: 'MD-4', dayOfWeek: 'Saturday' }, { mdDay: 'MD-3', dayOfWeek: 'Sunday' }, { mdDay: 'MD-1', dayOfWeek: 'Tuesday' }],
     4: [{ mdDay: 'MD-4', dayOfWeek: 'Saturday' }, { mdDay: 'MD-3', dayOfWeek: 'Sunday' }, { mdDay: 'MD-2', dayOfWeek: 'Monday' }, { mdDay: 'MD-1', dayOfWeek: 'Tuesday' }],
@@ -327,8 +329,7 @@ function getMdSlots(
   if (!secondMatchDay) return slots;
 
   // Normalise to Title Case (inputs may be lowercase e.g. 'tuesday')
-  const secondMatchDayTitle =
-    secondMatchDay.charAt(0).toUpperCase() + secondMatchDay.slice(1);
+  const secondMatchDayTitle = capitalize(secondMatchDay);
 
   const matchDays = new Set([
     DAY_NAMES.find(d => d.toLowerCase() === matchDay.toLowerCase()) ?? '',
@@ -341,7 +342,7 @@ function getMdSlots(
   return slots
     .map(slot => {
       if (!matchDays.has(slot.dayOfWeek)) return slot;
-      const baseIdx = DAY_ORDER[slot.dayOfWeek] ?? 0;
+      const baseIdx = DAY_INDEX[slot.dayOfWeek] ?? 0;
       for (let shift = 1; shift <= 2; shift++) {
         const candidate = DAY_NAMES[(baseIdx - shift + 7) % 7];
         if (!matchDays.has(candidate)) {
@@ -2503,7 +2504,7 @@ function buildCoachExplanation(inputs: ProgrammeInputs, totalWeeks: number, read
     ? ` Your ${inputs.playStyle.replace(/-/g, '-')} play style is reflected in position-specific speed patterns and conditioning protocols.`
     : '';
   const doubleGameWeekNote = inputs.secondMatchDay
-    ? `\n\nDouble game week — Survival Mode: your schedule includes a second match day (${inputs.secondMatchDay.charAt(0).toUpperCase() + inputs.secondMatchDay.slice(1)}). When two matches fall within 4 days, the HPP rule is simple: you cannot build fitness, you can only mitigate fatigue. MD-4 and MD-3 strength blocks are completely deleted from the algorithm in double-game weeks. MD+1 becomes recovery only (isometrics + bike). MD-1 becomes neural priming only — zero heavy lifting. The pitch is the only priority. Sleep, nutrition and soft-tissue work take precedence over prescribed sets.`
+    ? `\n\nDouble game week — Survival Mode: your schedule includes a second match day (${capitalize(inputs.secondMatchDay)}). When two matches fall within 4 days, the HPP rule is simple: you cannot build fitness, you can only mitigate fatigue. MD-4 and MD-3 strength blocks are completely deleted from the algorithm in double-game weeks. MD+1 becomes recovery only (isometrics + bike). MD-1 becomes neural priming only — zero heavy lifting. The pitch is the only priority. Sleep, nutrition and soft-tissue work take precedence over prescribed sets.`
     : '';
 
   const testGradeSection = emphasis?.coachNotes.length
@@ -2596,22 +2597,55 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
   ]));
   const condSlotsForMatchDay = IN_SEASON_COND_SLOTS[inputs.matchDay] ?? IN_SEASON_COND_SLOTS.saturday;
 
-  // Normalise blocked match days for conditioning collision check
-  const allMatchDays = new Set([
-    (DAY_NAMES.find(d => d.toLowerCase() === inputs.matchDay.toLowerCase()) ?? ''),
+  // Days already taken by the match(es) AND every gym session. Conditioning must avoid
+  // ALL of these — not just match days — otherwise a conditioning session can stack on a
+  // gym day (previously e.g. a Saturday-match athlete with 2 gym + HIIT got both the MD-2
+  // gym and the Hi-Aerobic session on Thursday). 'midweek' has no literal day name, so map
+  // it to its implied match day (Wednesday) to keep that day protected too.
+  const PRIMARY_MATCH_DAY: Record<string, string> = {
+    saturday: 'Saturday', sunday: 'Sunday', midweek: 'Wednesday',
+  };
+  const occupiedDays = new Set<string>([
+    PRIMARY_MATCH_DAY[inputs.matchDay] ?? '',
     ...(inputs.secondMatchDay
-      ? [inputs.secondMatchDay.charAt(0).toUpperCase() + inputs.secondMatchDay.slice(1)]
+      ? [capitalize(inputs.secondMatchDay)]
       : []),
+    ...gymSlots.map(s => s.dayOfWeek),
   ]);
 
-  // Build conditioning session slots for the chosen types — skip any that land on a match day
+  // Place a conditioning session on its preferred day if free; otherwise shift to the
+  // earliest free day in the week (earlier = further from a weekend match = safer for a
+  // high-fatigue session). Returns null only if all 7 days are full (unreachable with
+  // ≤2 gym + ≤2 matches + 3 conditioning).
+  const placeCond = (preferred: MdSlot): MdSlot | null => {
+    if (!occupiedDays.has(preferred.dayOfWeek)) {
+      occupiedDays.add(preferred.dayOfWeek);
+      return preferred;
+    }
+    for (const day of DAY_NAMES) {
+      if (!occupiedDays.has(day)) {
+        occupiedDays.add(day);
+        return { ...preferred, dayOfWeek: day };
+      }
+    }
+    return null;
+  };
+
+  // Build conditioning slots. Place the higher-fatigue types first (RSA, then Hi-Aerobic)
+  // so they claim their match-protective preferred days before flexible Zone 2 fills in.
   const condSlots: { slot: MdSlot; sessionType: 'zone2' | 'hiAerobic' | 'rsa' }[] = [];
-  if (inSeasonCondTypes.includes('zone2') && !allMatchDays.has(condSlotsForMatchDay.zone2.dayOfWeek))
-    condSlots.push({ slot: condSlotsForMatchDay.zone2, sessionType: 'zone2' });
-  if (inSeasonCondTypes.includes('hiit') && !allMatchDays.has(condSlotsForMatchDay.hiAerobic.dayOfWeek))
-    condSlots.push({ slot: condSlotsForMatchDay.hiAerobic, sessionType: 'hiAerobic' });
-  if (inSeasonCondTypes.includes('rsa') && !allMatchDays.has(condSlotsForMatchDay.rsa.dayOfWeek))
-    condSlots.push({ slot: condSlotsForMatchDay.rsa, sessionType: 'rsa' });
+  if (inSeasonCondTypes.includes('rsa')) {
+    const placed = placeCond(condSlotsForMatchDay.rsa);
+    if (placed) condSlots.push({ slot: placed, sessionType: 'rsa' });
+  }
+  if (inSeasonCondTypes.includes('hiit')) {
+    const placed = placeCond(condSlotsForMatchDay.hiAerobic);
+    if (placed) condSlots.push({ slot: placed, sessionType: 'hiAerobic' });
+  }
+  if (inSeasonCondTypes.includes('zone2')) {
+    const placed = placeCond(condSlotsForMatchDay.zone2);
+    if (placed) condSlots.push({ slot: placed, sessionType: 'zone2' });
+  }
 
   const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNum = i + 1;
@@ -2640,9 +2674,9 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     };
   });
 
-  const matchStr = inputs.matchDay.charAt(0).toUpperCase() + inputs.matchDay.slice(1);
+  const matchStr = capitalize(inputs.matchDay);
   const secondMatchStr = inputs.secondMatchDay
-    ? ` + ${inputs.secondMatchDay.charAt(0).toUpperCase() + inputs.secondMatchDay.slice(1)}`
+    ? ` + ${capitalize(inputs.secondMatchDay)}`
     : '';
   const condNote = condSlots.length > 0
     ? ` + ${condSlots.length} conditioning (${inSeasonCondTypes.join(', ')})`

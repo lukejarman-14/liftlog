@@ -7,19 +7,21 @@ import { supabase } from './supabase';
 const REDEEMED_KEY = 'vf_redeemed_codes';
 const PROMO_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-function getLocalRedeemedCodes(): string[] {
+// Cache key is scoped per user so different accounts on the same device
+// don't share "already redeemed" state.
+function getLocalRedeemedCodes(userId: string): string[] {
   try {
-    const raw = localStorage.getItem(REDEEMED_KEY);
+    const raw = localStorage.getItem(`${REDEEMED_KEY}:${userId}`);
     return raw ? (JSON.parse(raw) as string[]) : [];
   } catch {
     return [];
   }
 }
 
-function cacheRedeemedLocally(code: string) {
-  const existing = getLocalRedeemedCodes();
+function cacheRedeemedLocally(code: string, userId: string) {
+  const existing = getLocalRedeemedCodes(userId);
   if (!existing.includes(code)) {
-    localStorage.setItem(REDEEMED_KEY, JSON.stringify([...existing, code]));
+    localStorage.setItem(`${REDEEMED_KEY}:${userId}`, JSON.stringify([...existing, code]));
   }
 }
 
@@ -31,10 +33,6 @@ export type RedeemResult =
 export async function redeemPromoCode(rawCode: string): Promise<RedeemResult> {
   const code = rawCode.trim().toUpperCase();
   if (!code) return { success: false, reason: 'invalid' };
-
-  if (getLocalRedeemedCodes().includes(code)) {
-    return { success: false, reason: 'already_used' };
-  }
 
   if (!supabase) return { success: false, reason: 'error' };
 
@@ -51,15 +49,25 @@ export async function redeemPromoCode(rawCode: string): Promise<RedeemResult> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, reason: 'error' };
 
-    const { data: existingRedemption } = await supabase
+    // Local cache check is scoped to this user — done after getUser() so we
+    // have the user ID. Avoids a false "already used" for a different account
+    // on the same device.
+    if (getLocalRedeemedCodes(user.id).includes(code)) {
+      return { success: false, reason: 'already_used' };
+    }
+
+    // Destructure error so a network/RLS failure doesn't look like "not redeemed"
+    const { data: existingRedemption, error: redemptionCheckError } = await supabase
       .from('promo_redemptions')
       .select('id')
       .eq('code', code)
       .eq('user_id', user.id)
       .maybeSingle();
 
+    if (redemptionCheckError) return { success: false, reason: 'error' };
+
     if (existingRedemption) {
-      cacheRedeemedLocally(code);
+      cacheRedeemedLocally(code, user.id);
       return { success: false, reason: 'already_used' };
     }
 
@@ -71,13 +79,13 @@ export async function redeemPromoCode(rawCode: string): Promise<RedeemResult> {
     if (insertError) {
       // 23505 = unique_violation — a concurrent request got there first.
       if (insertError.code === '23505') {
-        cacheRedeemedLocally(code);
+        cacheRedeemedLocally(code, user.id);
         return { success: false, reason: 'already_used' };
       }
       return { success: false, reason: 'error' };
     }
 
-    cacheRedeemedLocally(code);
+    cacheRedeemedLocally(code, user.id);
     return { success: true, expiresAt };
   } catch {
     return { success: false, reason: 'error' };

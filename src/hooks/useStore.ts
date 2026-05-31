@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import {
   Exercise, WorkoutTemplate, WorkoutSession, ActivePlan,
@@ -135,7 +136,7 @@ export function useStore() {
   /** Returns days since the most recent test session, or null if never tested */
   const getDaysSinceLastTest = (): number | null => {
     if (!testSessions.length) return null;
-    const latest = testSessions.reduce((a, b) => a.completedAt > b.completedAt ? a : b);
+    const latest = testSessions.reduce((a, b) => (a.completedAt ?? 0) > (b.completedAt ?? 0) ? a : b);
     return Math.floor((Date.now() - latest.completedAt) / (1000 * 60 * 60 * 24));
   };
 
@@ -153,7 +154,9 @@ export function useStore() {
     return null;
   };
 
-  const exercises = [...DEFAULT_EXERCISES, ...customExercises];
+  // Memoised so downstream useMemo/useEffect hooks that depend on this array
+  // don't re-run on every render when customExercises hasn't changed.
+  const exercises = useMemo(() => [...DEFAULT_EXERCISES, ...customExercises], [customExercises]);
 
   const getExercise = (id: string) => exercises.find(e => e.id === id);
 

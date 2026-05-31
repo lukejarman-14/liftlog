@@ -127,11 +127,6 @@ export function getLoadProfile(day: LoadDay): LoadProfile {
   return PROFILES[day];
 }
 
-export function getTodayProfile(matchEntries: MatchEntry[]): LoadProfile {
-  const today = localDateStr(new Date());
-  return PROFILES[classifyDay(today, matchEntries)];
-}
-
 /**
  * Returns load profiles for every day in a given calendar month.
  * dayOfWeek: 0=Mon … 6=Sun (ISO week order)
@@ -162,31 +157,5 @@ export function getMonthProfiles(
   });
 }
 
-/**
- * Returns load profiles for each day of a two-week window
- * starting from the Monday of the current week.
- */
-export function getTwoWeekProfiles(
-  matchEntries: MatchEntry[],
-): Array<{ date: string; dayLabel: string; dayNum: number; isToday: boolean; profile: LoadProfile }> {
-  const today = new Date();
-  const todayStr = localDateStr(today);
-  const dow = today.getDay(); // 0=Sun
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
-
-  const SHORT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  return Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    const dateStr = localDateStr(d);
-    return {
-      date: dateStr,
-      dayLabel: SHORT_DAYS[i % 7],
-      dayNum: d.getDate(),
-      isToday: dateStr === todayStr,
-      profile: PROFILES[classifyDay(dateStr, matchEntries)],
-    };
-  });
-}
+// (getTodayProfile / getTwoWeekProfiles removed — unused. getMonthProfiles above is the
+//  only profile-window helper the UI consumes.)

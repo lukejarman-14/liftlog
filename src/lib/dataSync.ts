@@ -58,40 +58,4 @@ export function exportData(): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Read a backup file and restore all data to localStorage. Resolves with the restored profile email. */
-export function importData(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        const backup: BackupFile = JSON.parse(text);
-
-        if (!backup?.data || backup.app !== 'VectorFootball') {
-          reject(new Error('This does not appear to be a VectorFootball backup file.'));
-          return;
-        }
-
-        // Restore every key that exists in the backup
-        for (const key of STORAGE_KEYS) {
-          const val = backup.data[key];
-          if (val !== undefined && val !== null) {
-            localStorage.setItem(key, JSON.stringify(val));
-          }
-        }
-
-        // Notify all useLocalStorage hooks to re-read from the freshly populated storage
-        window.dispatchEvent(new CustomEvent('vf-cloud-restored'));
-
-        // Return the email so the UI can confirm who was restored
-        const profile = backup.data['vf_user_profile'] as { email?: string } | null;
-        resolve(profile?.email ?? 'your account');
-      } catch (err) {
-        if (import.meta.env.DEV) console.error('[dataSync] importData parse error:', err);
-        reject(new Error('Could not read the backup file. Make sure it is a valid VectorFootball backup.'));
-      }
-    };
-    reader.onerror = () => reject(new Error('Failed to read the file.'));
-    reader.readAsText(file);
-  });
-}
+// (importData was removed — the restore-from-file UI never shipped; cloud sync handles restores.)

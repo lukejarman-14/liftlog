@@ -8,6 +8,7 @@ import { classifyDay, getLoadProfile, getMonthProfiles, localDateStr } from '../
 import { FOOTBALL_PROGRAMS, BuiltInTemplate } from '../../data/programs';
 import { classifySessionType } from '../../utils/sessionClassify';
 import { getProgrammeAnchorMonday } from '../../lib/sessionUtils';
+import { DAY_INDEX } from '../../lib/utils';
 
 
 interface SessionDot {
@@ -18,11 +19,6 @@ interface SessionDot {
   type: 'gym' | 'conditioning';
 }
 
-
-const DOW_INDEX: Record<string, number> = {
-  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
-  Friday: 4, Saturday: 5, Sunday: 6,
-};
 
 function getProgrammeDates(programme: GeneratedProgramme): Map<string, SessionDot[]> {
   // Use the same anchor as WeeklyCalendar (rolls forward to next Monday when
@@ -38,7 +34,7 @@ function getProgrammeDates(programme: GeneratedProgramme): Map<string, SessionDo
         try {
           // Use session index (not dayOfWeek) so two sessions on the same day get unique keys
           const sessionKey = `${wi}-${si}`;
-          const dayIdx = DOW_INDEX[session.dayOfWeek] ?? 0;
+          const dayIdx = DAY_INDEX[session.dayOfWeek] ?? 0;
           const d = new Date(monday);
           d.setDate(monday.getDate() + wi * 7 + dayIdx);
           const originalDate = localDateStr(d);
@@ -1074,6 +1070,7 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
 
       {selectedDate && (
         <DayModal
+          key={selectedDate}
           dateStr={selectedDate}
           matchEntries={matchEntries}
           programmeSessions={programmeDates.get(selectedDate) ?? []}

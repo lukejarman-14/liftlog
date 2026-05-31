@@ -3,6 +3,7 @@ import { Zap, Clock, ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { GeneratedProgramme, NavState, UserProfile } from '../../types';
+import { capitalize } from '../../lib/utils';
 
 interface Props {
   userProfile: UserProfile;
@@ -55,7 +56,7 @@ export function ProgrammeHub({ userProfile, generatedProgrammes, activeProgramme
             <p className="text-xs text-gray-500 mt-0.5">{prog.summary.split(/\.\s/)[0].replace(/\.$/, '')}.</p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${levelStyle.bg} ${levelStyle.text}`}>
-                {prog.readinessLevel.charAt(0).toUpperCase() + prog.readinessLevel.slice(1)} readiness
+                {capitalize(prog.readinessLevel)} readiness
               </span>
               <span className="flex items-center gap-1 text-xs text-gray-400">
                 <Clock size={10} /> {timeSince(prog.createdAt)}

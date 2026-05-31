@@ -19,9 +19,12 @@ export function generateReferralCode(userId: string): string {
 export async function registerReferralCode(userId: string): Promise<string> {
   const code = generateReferralCode(userId);
   if (!supabase) return code;
-  await supabase
+  const { error } = await supabase
     .from('referral_codes')
     .upsert({ code, user_id: userId }, { onConflict: 'user_id' });
+  // Surface the error so callers know the code isn't in the DB yet.
+  // Without this, the code appears in the UI but redemptions silently fail.
+  if (error) throw new Error(`Failed to register referral code: ${error.message}`);
   return code;
 }
 
@@ -45,8 +48,10 @@ export async function redeemReferralCode(
   try {
     // Use the anon client — RLS on the authenticated client only returns the
     // current user's own row, which makes foreign codes appear invalid.
-    const publicClient = supabasePublic ?? supabase;
-    const { data: codeRow, error } = await publicClient
+    // Guard explicitly: falling back to the authenticated client would silently
+    // make all foreign codes look invalid due to RLS.
+    if (!supabasePublic) return { success: false, reason: 'error' };
+    const { data: codeRow, error } = await supabasePublic
       .from('referral_codes')
       .select('user_id')
       .eq('code', code)

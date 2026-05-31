@@ -97,14 +97,6 @@ export async function getExistingSession(): Promise<string | null> {
   return session?.user?.id ?? null;
 }
 
-/** Returns true if the signed-in user has confirmed their email address. */
-export async function isEmailConfirmed(): Promise<boolean> {
-  if (!supabase) return true; // no cloud — nothing to confirm
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return true; // not signed in — don't show the banner
-  return !!user.email_confirmed_at;
-}
-
 
 /** Push all localStorage data to Supabase for this user. */
 export async function cloudSaveData(userId: string): Promise<void> {

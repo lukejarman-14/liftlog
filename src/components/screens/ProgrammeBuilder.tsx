@@ -9,6 +9,7 @@ import {
   PlayStyle, UserProfile, StrengthSetup, LiftBaseline,
 } from '../../types';
 import { LIFT_META, LiftKey, LIFT_KEYS, epley1RM } from '../../lib/progressiveOverload';
+import { capitalize } from '../../lib/utils';
 
 interface Props {
   userProfile: UserProfile;
@@ -1041,7 +1042,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
                               : 'bg-white border border-gray-200 text-gray-600 hover:border-brand-400 hover:text-brand-600'
                           }`}
                         >
-                          {short.charAt(0).toUpperCase() + short.slice(1)}
+                          {capitalize(short)}
                         </button>
                       );
                     })}
