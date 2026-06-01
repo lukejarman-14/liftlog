@@ -34,7 +34,13 @@ function restoreAllData(data: Record<string, unknown>) {
  *  the session is persisted so the user never hits the Login screen.
  *  If confirmation is required, returns the user ID but no session —
  *  the cloudUnlinked banner will prompt the user to confirm. */
-export async function cloudSignUp(email: string, password: string): Promise<string | null> {
+export type SignUpResult = {
+  userId: string | null;
+  /** true when Supabase requires the user to click a confirmation email before a session is issued */
+  needsEmailConfirmation: boolean;
+};
+
+export async function cloudSignUp(email: string, password: string): Promise<SignUpResult> {
   if (!supabase) throw new Error('not_configured');
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
@@ -43,7 +49,10 @@ export async function cloudSignUp(email: string, password: string): Promise<stri
   if (data.session) {
     await supabase.auth.setSession(data.session);
   }
-  return data.user?.id ?? null;
+  return {
+    userId: data.user?.id ?? null,
+    needsEmailConfirmation: !data.session,
+  };
 }
 
 /** Sign in with Supabase. Returns the user ID on success. */

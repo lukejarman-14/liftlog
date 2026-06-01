@@ -2,6 +2,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudSignOut, cloudResetPassword } from '../../lib/cloudSync';
+import { supabase } from '../../lib/supabase';
 import { trackEvent } from '../../lib/analytics';
 import { hashPassword } from '../../lib/authUtils';
 
@@ -67,11 +68,27 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   // If existingUserId is provided, skip landing and go straight to profile setup
   const [step, setStep] = useState(existingUserId ? 1 : 0);
   const [submitting, setSubmitting] = useState(false);
+  // Shown after sign-up when Supabase requires email confirmation before issuing a session
+  const [awaitingEmailConfirm, setAwaitingEmailConfirm] = useState(false);
+  const [pendingOnComplete, setPendingOnComplete] = useState<(() => void) | null>(null);
 
   // Analytics: fire once when the user first lands in the onboarding flow
   useEffect(() => { trackEvent('onboarding_started'); }, []);
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [step]);
+
+  // Listen for email confirmation — when Supabase fires SIGNED_IN after the user
+  // clicks the confirmation link, proceed with onboarding completion.
+  useEffect(() => {
+    if (!awaitingEmailConfirm || !supabase) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' && pendingOnComplete) {
+        setAwaitingEmailConfirm(false);
+        pendingOnComplete();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [awaitingEmailConfirm, pendingOnComplete]);
 
   // Login mode state (step -1)
   const [loginEmail,      setLoginEmail]      = useState('');
@@ -297,10 +314,12 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
       localStorage.setItem('vf_user_profile', JSON.stringify(profile));
 
       let userId: string | undefined = existingUserId;
+      let needsConfirmation = false;
       if (!userId && isSupabaseConfigured) {
         try {
-          const id = await cloudSignUp(profile.email, password);
-          if (id) userId = id;
+          const result = await cloudSignUp(profile.email, password);
+          if (result.userId) userId = result.userId;
+          needsConfirmation = result.needsEmailConfirmation;
         } catch (err: unknown) {
           // If account already exists in Supabase, try signing in instead
           const msg = err instanceof Error ? err.message : '';
@@ -308,24 +327,55 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
             try {
               const id = await cloudSignIn(profile.email, password);
               if (id) userId = id;
+              needsConfirmation = false;
             } catch { /* fall through to local-only */ }
           }
         }
       }
 
-      // No plan pre-selected during onboarding — paywall shown immediately after
-      onComplete(profile, '', userId);
-
       // Push data to cloud immediately (profile is already in localStorage above)
       if (userId) {
         await cloudSaveData(userId);
       }
+
+      if (needsConfirmation) {
+        // Block here — show "check your email" screen and wait for SIGNED_IN event
+        const proceed = () => onComplete(profile, '', userId);
+        setPendingOnComplete(() => proceed);
+        setAwaitingEmailConfirm(true);
+        return;
+      }
+
+      // No plan pre-selected during onboarding — paywall shown immediately after
+      onComplete(profile, '', userId);
     } finally {
       setSubmitting(false);
     }
   };
 
   const progressPct = step <= 0 ? 0 : (step / TOTAL_STEPS) * 100;
+
+  // Blocking email confirmation screen — shown after sign-up until user clicks the link
+  if (awaitingEmailConfirm) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center mb-6">
+          <svg className="w-8 h-8 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">Check your email</h2>
+        <p className="text-gray-500 text-sm mb-2">We've sent a confirmation link to:</p>
+        <p className="text-brand-600 font-semibold text-sm mb-6">{email}</p>
+        <p className="text-gray-400 text-xs max-w-xs">
+          Tap the link in the email to confirm your account. This page will update automatically once confirmed.
+        </p>
+        <p className="mt-6 text-xs text-gray-400">
+          Can't find it? Check your spam folder.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
