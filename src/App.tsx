@@ -139,6 +139,9 @@ export default function App() {
           cloudUserIdRef.current = userId;
           setIsAuthenticated(true);
           identifyUser(userId);
+          // Unblock the UI immediately — the spinner disappears as soon as we know
+          // the auth state. All background syncs (cloud, RC) continue after this.
+          setSessionChecking(false);
           if (!sessionStorage.getItem('vf_boot_synced')) {
             sessionStorage.setItem('vf_boot_synced', '1');
             await cloudLoadData(userId);
