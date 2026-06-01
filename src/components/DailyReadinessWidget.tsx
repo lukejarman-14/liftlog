@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Zap, Check, PlayCircle } from 'lucide-react';
+import { Zap, Check, PlayCircle, Activity, Loader2 } from 'lucide-react';
 import { DailyReadiness } from '../types';
 import { calcReadiness } from '../lib/programmeGenerator';
+import {
+  isHealthKitSupported, connectHealth, fetchRecovery,
+  sleepHoursToScore, hrvToFatigueScore, restingHrToStressScore,
+  type RecoveryData,
+} from '../lib/healthKit';
 
 interface Props {
   existing: DailyReadiness | null;
@@ -170,8 +175,84 @@ function ReadinessForm({
   setSoreness: (v: number) => void; setStress: (v: number) => void;
   onSave: () => void;
 }) {
+  const [hkBusy, setHkBusy] = useState(false);
+  const [recovery, setRecovery] = useState<RecoveryData | null>(null);
+  const [hkError, setHkError] = useState(false);
+
+  // Web-preview flag: HealthKit is iOS-only, so the button is hidden on web for
+  // real users. Setting localStorage 'vf_health_preview' = '1' reveals the UI on
+  // web with SAMPLE data, purely to preview layout before the iOS build.
+  const healthPreview = (() => {
+    try { return localStorage.getItem('vf_health_preview') === '1'; } catch { return false; }
+  })();
+  const showHealth = isHealthKitSupported() || healthPreview;
+
+  // iOS-only: pull last night's recovery from Apple Health and auto-fill the
+  // sleep slider. HRV / resting HR are shown as context. Scoring is unchanged —
+  // the user can still adjust every slider before saving.
+  const autofillFromHealth = async () => {
+    setHkBusy(true);
+    setHkError(false);
+    try {
+      if (!isHealthKitSupported()) {
+        // Web preview only — HealthKit can't exist on web, so show sample data.
+        const demo = { sleepHours: 7.4, hrvMs: 62, restingHr: 51 };
+        setRecovery(demo);
+        setSleep(sleepHoursToScore(demo.sleepHours));
+        setFatigue(hrvToFatigueScore(demo.hrvMs));
+        setStress(restingHrToStressScore(demo.restingHr));
+        return;
+      }
+      const granted = await connectHealth();
+      if (!granted) { setHkError(true); return; }
+      const data = await fetchRecovery();
+      if (!data) { setHkError(true); return; }
+      setRecovery(data);
+      // Auto-fill every slider we have data for — user can still adjust before saving.
+      if (data.sleepHours != null) setSleep(sleepHoursToScore(data.sleepHours));
+      if (data.hrvMs != null)      setFatigue(hrvToFatigueScore(data.hrvMs));
+      if (data.restingHr != null)  setStress(restingHrToStressScore(data.restingHr));
+    } finally {
+      setHkBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
+      {showHealth && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+          <button
+            onClick={autofillFromHealth}
+            disabled={hkBusy}
+            className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-brand-700 disabled:opacity-60"
+          >
+            {hkBusy ? <Loader2 size={15} className="animate-spin" /> : <Activity size={15} />}
+            {hkBusy ? 'Reading Apple Health…' : 'Autofill from Apple Health'}
+          </button>
+          {recovery && (
+            <div className="mt-2 space-y-1">
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                {recovery.sleepHours != null && <span>😴 {recovery.sleepHours.toFixed(1)}h sleep</span>}
+                {recovery.hrvMs != null && <span>💓 {Math.round(recovery.hrvMs)}ms HRV</span>}
+                {recovery.restingHr != null && <span>❤️ {Math.round(recovery.restingHr)} bpm resting</span>}
+              </div>
+              <p className="text-center text-xs text-brand-600 font-medium">
+                Sliders updated — adjust anything below then tap Save.
+              </p>
+            </div>
+          )}
+          {hkError && (
+            <p className="mt-2 text-center text-xs text-gray-400">
+              Couldn't read Health data. Check Settings → Privacy → Health, or fill in manually below.
+            </p>
+          )}
+          {!isHealthKitSupported() && (
+            <p className="mt-2 text-center text-xs text-gray-400">
+              Preview with sample data — live Apple Health sync works in the iPhone app.
+            </p>
+          )}
+        </div>
+      )}
       <QuickSlider label="Sleep quality" value={sleep} onChange={setSleep} />
       <QuickSlider label="Fatigue" value={fatigue} onChange={setFatigue} inverted />
       <QuickSlider label="Soreness" value={soreness} onChange={setSoreness} inverted />
