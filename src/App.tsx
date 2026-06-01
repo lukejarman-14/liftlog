@@ -79,6 +79,7 @@ export default function App() {
   const appMountedRef  = useRef(true);
   useEffect(() => () => { appMountedRef.current = false; }, []);
   const [showProgrammePrompt, setShowProgrammePrompt] = useState(false);
+  const [pendingEmailConfirm, setPendingEmailConfirm] = useState(false);
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
@@ -194,6 +195,8 @@ export default function App() {
       // the user and load their cloud data.
       if (event === 'SIGNED_IN' && session?.user?.id) {
         const userId = session.user.id;
+        // Email confirmed — clear the pending confirmation banner
+        setPendingEmailConfirm(false);
         // Only act if we're not already authenticated (avoids re-running on
         // normal sign-in flows that are handled by the Login screen directly).
         if (!cloudUserIdRef.current) {
@@ -461,6 +464,8 @@ export default function App() {
     // always shows correctly for a new account. On native iOS, syncFromRC() will
     // restore any real purchase at next boot.
     premium.resetForNewUser();
+    // If we have a userId but no Supabase session yet, email confirmation is pending
+    if (userId) setPendingEmailConfirm(true);
     // Show paywall immediately for new users — if they dismiss it, drop to dashboard with welcome prompt
     setPaywallFeatureLabel(undefined);
     navigate({ screen: 'paywall' });
@@ -920,6 +925,7 @@ export default function App() {
       {screen === 'paywall' && (
         <Paywall
           featureLabel={paywallFeatureLabel}
+          pendingEmailConfirm={pendingEmailConfirm}
           trialDaysLeft={premium.trialDaysLeft}
           isTrialExpired={premium.isTrialExpired}
           purchasing={premium.purchasing || stripeCheckoutPending}

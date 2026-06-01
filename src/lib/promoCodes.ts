@@ -44,7 +44,7 @@ function cacheRedeemedLocally(code: string, userId: string) {
 
 export type RedeemResult =
   | { success: true; expiresAt: number }
-  | { success: false; reason: 'invalid' | 'already_used' | 'inactive' | 'error' };
+  | { success: false; reason: 'invalid' | 'already_used' | 'inactive' | 'error' | 'not_authenticated' };
 
 /** Check a promo code and return the expiry timestamp if valid. */
 export async function redeemPromoCode(rawCode: string): Promise<RedeemResult> {
@@ -65,7 +65,7 @@ export async function redeemPromoCode(rawCode: string): Promise<RedeemResult> {
     if (!promoRow.active) return { success: false, reason: 'inactive' };
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, reason: 'error' };
+    if (!user) return { success: false, reason: 'not_authenticated' };
 
     // Local cache check is scoped to this user — done after getUser() so we
     // have the user ID. Avoids a false "already used" for a different account

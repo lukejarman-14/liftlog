@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { X, Zap, Check, Shield, Lock, RotateCcw, Tag } from 'lucide-react';
+import { X, Zap, Check, Shield, Lock, RotateCcw, Tag, Mail } from 'lucide-react';
 import { RCPlan } from '../../hooks/usePremium';
 import { trackEvent } from '../../lib/analytics';
 
 interface PaywallProps {
   featureLabel?: string;
+  pendingEmailConfirm?: boolean;
   trialDaysLeft: number | null;
   isTrialExpired: boolean;
   purchasing: boolean;
@@ -36,6 +37,7 @@ const PLANS: { id: RCPlan; label: string; price: string; sub: string; badge?: st
 
 export function Paywall({
   featureLabel,
+  pendingEmailConfirm,
   trialDaysLeft,
   isTrialExpired,
   purchasing,
@@ -132,6 +134,15 @@ export function Paywall({
       </div>
 
       <div className="flex-1 px-5 py-6 max-w-sm mx-auto w-full">
+        {/* Email confirmation banner */}
+        {pendingEmailConfirm && (
+          <div className="mb-4 flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+            <Mail size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 font-medium">
+              Check your inbox for a confirmation email and tap the link before using a promo code or starting a trial.
+            </p>
+          </div>
+        )}
         {/* Feature list */}
         <div className="mb-6">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">What you get</p>

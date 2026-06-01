@@ -250,6 +250,7 @@ export function usePremium() {
         invalid: 'That code is not valid.',
         already_used: 'This code has already been redeemed on your account.',
         inactive: 'That code is no longer active.',
+        not_authenticated: 'Please confirm your email address first — check your inbox for a confirmation link, then try again.',
         error: 'Could not verify the code. Check your connection and try again.',
       };
       return msgs[result.reason] ?? 'Unable to process your request. Please try again.';
