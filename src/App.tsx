@@ -64,6 +64,36 @@ function detectRecoveryUrl(): boolean {
   );
 }
 
+// Detect email confirmation redirect — Supabase appends #type=signup after the user clicks the link
+function detectEmailConfirmUrl(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.hash.includes('type=signup');
+}
+
+function EmailConfirmedLanding() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 text-center">
+      <div className="w-20 h-20 rounded-3xl bg-green-100 flex items-center justify-center mb-6">
+        <svg className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+      </div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-3">Email confirmed!</h1>
+      <p className="text-gray-500 text-sm max-w-xs mb-8 leading-relaxed">
+        Your email address has been verified. Return to the Vector Football app and tap{' '}
+        <span className="font-semibold text-gray-700">"I've confirmed my email"</span>{' '}
+        to continue.
+      </p>
+      <div className="w-12 h-12 rounded-2xl bg-brand-500 flex items-center justify-center mx-auto">
+        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M12 12.75h.008v.008H12v-.008z" />
+        </svg>
+      </div>
+      <p className="mt-3 text-xs text-gray-400">You can close this tab.</p>
+    </div>
+  );
+}
+
 export default function App() {
   const store = useStore();
   const [nav, setNav] = useState<NavState>({ screen: 'dashboard' });
@@ -74,6 +104,8 @@ export default function App() {
   const [sessionChecking, setSessionChecking] = useState(isSupabaseConfigured && !detectRecoveryUrl());
   // true when the user has arrived via a password-reset link — bypasses profile/auth guards
   const [isRecoveryMode, setIsRecoveryMode] = useState(detectRecoveryUrl);
+  // true when the user has arrived via an email confirmation link — show landing page
+  const [isEmailConfirmLanding] = useState(detectEmailConfirmUrl);
 
   const cloudUserIdRef = useRef<string | null>(null);
   const appMountedRef  = useRef(true);
@@ -569,6 +601,12 @@ export default function App() {
     }
   };
 
+
+  // Email confirmation landing — user tapped the link in their email, now on the web app.
+  // Show a simple "confirmed, go back to the app" screen instead of loading the dashboard.
+  if (isEmailConfirmLanding) {
+    return <EmailConfirmedLanding />;
+  }
 
   // Password-reset flow: bypass all auth/profile guards so the reset form is
   // always reachable regardless of local profile state or auth status.
