@@ -30,6 +30,8 @@
 	<string>Used to set your profile photo.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Vector Football reads your sleep, heart rate variability and resting heart rate to personalise your daily readiness and training load. This data stays on your device and is never shared.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Vector Football does not write any data to Apple Health.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Used to choose a profile photo from your library.</string>
 	<key>NSUserNotificationsUsageDescription</key>
