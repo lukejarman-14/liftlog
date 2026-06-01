@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus } from 'lucide-react';
 import { UserProfile } from '../../types';
-import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudSignOut, cloudResetPassword } from '../../lib/cloudSync';
+import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudSignOut, cloudResetPassword, cloudResendConfirmation } from '../../lib/cloudSync';
 import { supabase } from '../../lib/supabase';
 import { trackEvent } from '../../lib/analytics';
 import { hashPassword } from '../../lib/authUtils';
@@ -71,6 +71,10 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   // Shown after sign-up when Supabase requires email confirmation before issuing a session
   const [awaitingEmailConfirm, setAwaitingEmailConfirm] = useState(false);
   const [pendingOnComplete, setPendingOnComplete] = useState<(() => void) | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
 
   // Analytics: fire once when the user first lands in the onboarding flow
   useEffect(() => { trackEvent('onboarding_started'); }, []);
@@ -355,8 +359,42 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
   const progressPct = step <= 0 ? 0 : (step / TOTAL_STEPS) * 100;
 
-  // Blocking email confirmation screen — shown after sign-up until user clicks the link
+  // Blocking email confirmation screen — shown after sign-up until user confirms their email
   if (awaitingEmailConfirm) {
+    const handleConfirmedEmail = async () => {
+      setConfirmError('');
+      setConfirmLoading(true);
+      try {
+        const userId = await cloudSignIn(email.trim().toLowerCase(), password);
+        // Sign-in succeeded — email is confirmed
+        setAwaitingEmailConfirm(false);
+        if (pendingOnComplete) pendingOnComplete();
+        else if (userId) onComplete({ firstName, lastName, email: email.trim().toLowerCase() } as Parameters<typeof onComplete>[0], '', userId);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '';
+        if (msg.toLowerCase().includes('email not confirmed') || msg.toLowerCase().includes('not confirmed')) {
+          setConfirmError('Email not confirmed yet. Please tap the link in your inbox first.');
+        } else {
+          setConfirmError('Could not sign in. Check your connection and try again.');
+        }
+      } finally {
+        setConfirmLoading(false);
+      }
+    };
+
+    const handleResend = async () => {
+      setResendLoading(true);
+      setResendSent(false);
+      try {
+        await cloudResendConfirmation(email.trim().toLowerCase());
+        setResendSent(true);
+      } catch {
+        // silent — user can try again
+      } finally {
+        setResendLoading(false);
+      }
+    };
+
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 text-center">
         <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center mb-6">
@@ -367,12 +405,31 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         <h2 className="text-2xl font-bold text-gray-900 mb-3">Check your email</h2>
         <p className="text-gray-500 text-sm mb-2">We've sent a confirmation link to:</p>
         <p className="text-brand-600 font-semibold text-sm mb-6">{email}</p>
-        <p className="text-gray-400 text-xs max-w-xs">
-          Tap the link in the email to confirm your account. This page will update automatically once confirmed.
+        <p className="text-gray-400 text-xs max-w-xs mb-8">
+          Tap the link in the email, then come back here and tap the button below.
         </p>
-        <p className="mt-6 text-xs text-gray-400">
-          Can't find it? Check your spam folder.
-        </p>
+
+        <button
+          onClick={handleConfirmedEmail}
+          disabled={confirmLoading}
+          className="w-full max-w-xs py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-lg disabled:opacity-50 mb-3"
+        >
+          {confirmLoading ? 'Checking…' : "I've confirmed my email"}
+        </button>
+
+        {confirmError && (
+          <p className="text-red-500 text-xs mb-3 max-w-xs">{confirmError}</p>
+        )}
+
+        <button
+          onClick={handleResend}
+          disabled={resendLoading || resendSent}
+          className="text-xs text-brand-500 underline disabled:opacity-50"
+        >
+          {resendSent ? 'Email resent! Check your inbox.' : resendLoading ? 'Sending…' : "Didn't get it? Resend email"}
+        </button>
+
+        <p className="mt-4 text-xs text-gray-400">Can't find it? Check your spam folder.</p>
       </div>
     );
   }
