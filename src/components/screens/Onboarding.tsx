@@ -1,5 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus, Mail } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudSignOut, cloudResetPassword, cloudResendConfirmation } from '../../lib/cloudSync';
 import { supabase } from '../../lib/supabase';
@@ -420,6 +421,18 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         {confirmError && (
           <p className="text-red-500 text-xs mb-3 max-w-xs">{confirmError}</p>
         )}
+
+        <button
+          onClick={() => {
+            // On iOS open the native Mail app; fallback to mailto: on web
+            const url = Capacitor.isNativePlatform() ? 'message://' : 'mailto:';
+            window.open(url, '_system');
+          }}
+          className="w-full max-w-xs flex items-center justify-center gap-2 py-3 rounded-2xl bg-white border-2 border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors mb-3"
+        >
+          <Mail size={16} />
+          Open Mail App
+        </button>
 
         <button
           onClick={handleResend}
