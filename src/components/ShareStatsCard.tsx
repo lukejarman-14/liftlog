@@ -22,7 +22,7 @@ export function ShareStatsCard({ sessions, streak, playerName, onClose }: ShareS
     const monday = new Date();
     monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
     monday.setHours(0, 0, 0, 0);
-    return sessions.filter(s => new Date(s.date) >= monday).length;
+    return sessions.filter(s => new Date(s.date + 'T12:00:00') >= monday).length;
   })();
 
   const tier = streak >= 12 ? 'red' : streak >= 8 ? 'orange' : streak >= 4 ? 'amber' : 'green';

@@ -50,7 +50,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { returnUrl } = await req.json().catch(() => ({}));
+    // returnUrl is hardcoded server-side — never trusted from the client body
+    // to prevent open-redirect attacks.
+    const returnUrl = Deno.env.get('SITE_URL') ?? 'https://vectorfootball.co.uk';
+    void await req.json().catch(() => ({})); // consume body to avoid parse errors
 
     // Use the stored Stripe customer ID when available; fall back to email search
     // for accounts created before the webhook started persisting it.
@@ -90,7 +93,7 @@ Deno.serve(async (req) => {
 
     const params = new URLSearchParams();
     params.set('customer', customerId);
-    params.set('return_url', returnUrl ?? 'https://vectorfootball.co.uk');
+    params.set('return_url', returnUrl);
 
     const portalRes = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {
       method: 'POST',

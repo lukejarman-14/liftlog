@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 /** How long (ms) a touch-triggered chart tooltip stays visible before auto-hiding. */
 const TOOLTIP_HIDE_DELAY_MS = 1_500;
@@ -592,11 +592,11 @@ function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; match
           <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500">
             <div>
               <span className="font-semibold text-gray-700">7-day load: </span>
-              {acute7 >= 1000 ? `${(acute7 / 1000).toFixed(1)}k` : acute7} kg
+              {acute7 >= 1000 ? `${(acute7 / 1000).toFixed(1)}k` : acute7} AU
             </div>
             <div>
               <span className="font-semibold text-gray-700">28-day avg: </span>
-              {chronicAvg >= 1000 ? `${(chronicAvg / 1000).toFixed(1)}k` : Math.round(chronicAvg)} kg/wk
+              {chronicAvg >= 1000 ? `${(chronicAvg / 1000).toFixed(1)}k` : Math.round(chronicAvg)} AU/wk
             </div>
           </div>
           <p className="text-[10px] text-gray-400 mt-2 leading-snug">
@@ -660,7 +660,10 @@ function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; match
             );
           })}
         </svg>
-        <p className="text-[10px] text-gray-400 mt-1">Purple = this week. Includes gym volume + match load equivalent.</p>
+        <p className="text-[10px] text-gray-400 mt-1 leading-snug">
+          Purple = this week. Bars are in arbitrary units (AU): gym volume × weight + match time × intensity.
+          {' '}<span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-300 inline-block" /> Gym{' '}<span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> Match</span>
+        </p>
       </Card>
 
       {/* Weekly breakdown table */}
@@ -735,6 +738,8 @@ const GRADE_DOT: Record<1|2|3|4|5, string> = {
 
 function TestChart({ meta, points }: { meta: TestMeta; points: DataPoint[] }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(hideTimer.current), []);
 
   // SVG layout constants
   const W = 300, H = 110;
@@ -880,7 +885,7 @@ function TestChart({ meta, points }: { meta: TestMeta; points: DataPoint[] }) {
                 onMouseEnter={() => setHoveredIdx(i)}
                 onMouseLeave={() => setHoveredIdx(null)}
                 onTouchStart={() => setHoveredIdx(i)}
-                onTouchEnd={() => setTimeout(() => setHoveredIdx(null), TOOLTIP_HIDE_DELAY_MS)}
+                onTouchEnd={() => { hideTimer.current = setTimeout(() => setHoveredIdx(null), TOOLTIP_HIDE_DELAY_MS); }}
                 style={{ cursor: 'pointer' }}
               />
               {/* Outer ring on hover */}
@@ -1129,8 +1134,17 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
   return (
     <div className="flex flex-col gap-5 pb-6">
       <p className="text-xs text-gray-400 leading-relaxed">
-        Every test you complete adds a data point. Tap any dot to see the exact result. Colour = grade.
+        Every test you complete adds a data point. Tap any dot to see the exact result.
       </p>
+      {/* Grade colour legend */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {([5,4,3,2,1] as const).map(g => (
+          <span key={g} className="flex items-center gap-1 text-[10px] text-gray-500">
+            <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0" style={{ background: GRADE_DOT[g] }} />
+            {g === 5 ? 'Elite' : g === 4 ? 'Good' : g === 3 ? 'Average' : g === 2 ? 'Below avg' : 'Poor'}
+          </span>
+        ))}
+      </div>
 
       {/* VO₂max card — shown whenever Yo-Yo data exists */}
       <Vo2MaxCard points={vo2Points} weightKg={weightKg} sex={sex} />
@@ -1138,6 +1152,7 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
       {typesWithData.map(type => {
         const meta   = TEST_META[type];
         const points = pointsByType[type]!;
+        const latest = points[points.length - 1];
         return (
           <Card key={type} className="p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -1145,7 +1160,19 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
               <h3 className="text-sm font-bold text-gray-800">{meta.label}</h3>
               <span className="ml-auto text-xs text-gray-400">{points.length} test{points.length !== 1 ? 's' : ''}</span>
             </div>
-            <TestChart meta={meta} points={points} />
+            {points.length === 1 ? (
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-2xl font-black text-gray-900">
+                    {latest.value.toFixed(meta.decimals)}{meta.unit && <span className="text-sm font-semibold text-gray-400 ml-1">{meta.unit}</span>}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{shortDate(latest.date)}</p>
+                </div>
+                <p className="text-xs text-gray-400 text-right max-w-[120px] leading-snug">Complete another test to see your trend</p>
+              </div>
+            ) : (
+              <TestChart meta={meta} points={points} />
+            )}
           </Card>
         );
       })}

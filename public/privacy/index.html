@@ -14,47 +14,33 @@
       background: #f9fafb;
       padding: 0 16px 80px;
     }
-    .wrap { max-width: 680px; margin: 0 auto; }
-    header {
-      padding: 48px 0 32px;
-      border-bottom: 1px solid #e5e7eb;
-      margin-bottom: 40px;
-    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    header { padding: 48px 0 32px; border-bottom: 1px solid #e5e7eb; margin-bottom: 40px; }
     header a { text-decoration: none; color: inherit; }
     .logo { font-size: 20px; font-weight: 800; color: #4f46e5; letter-spacing: -0.5px; }
     h1 { font-size: 28px; font-weight: 800; margin-top: 12px; letter-spacing: -0.5px; }
     .meta { font-size: 14px; color: #6b7280; margin-top: 6px; }
-    h2 {
-      font-size: 18px;
-      font-weight: 700;
-      margin: 36px 0 12px;
-      color: #111827;
-    }
+    h2 { font-size: 19px; font-weight: 700; margin: 40px 0 12px; color: #111827; padding-top: 8px; border-top: 2px solid #e5e7eb; }
+    h3 { font-size: 15px; font-weight: 700; margin: 20px 0 6px; color: #374151; }
     p { margin-bottom: 14px; color: #374151; }
-    ul { margin: 0 0 14px 20px; color: #374151; }
-    ul li { margin-bottom: 6px; }
+    ul, ol { margin: 0 0 14px 22px; color: #374151; }
+    ul li, ol li { margin-bottom: 6px; }
     a { color: #4f46e5; }
-    .card {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 20px 24px;
-      margin-bottom: 14px;
-    }
-    .card h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px 22px; margin-bottom: 12px; }
+    .card h3 { margin-top: 0; font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #111827; }
     .card p { margin: 0; font-size: 14px; color: #6b7280; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 14px; }
     th { text-align: left; padding: 10px 12px; background: #f3f4f6; font-weight: 600; }
     td { padding: 10px 12px; border-top: 1px solid #e5e7eb; color: #374151; vertical-align: top; }
-    .badge {
-      display: inline-block;
-      background: #ede9fe;
-      color: #4f46e5;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 99px;
-    }
+    .badge { display: inline-block; background: #ede9fe; color: #4f46e5; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; margin-right: 4px; }
+    .warn { background: #fffbeb; border: 1px solid #f59e0b; border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; font-size: 14px; color: #92400e; }
+    .region { background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px; padding: 14px 18px; margin-bottom: 12px; }
+    .region h3 { margin-top: 0; color: #166534; }
+    .region p, .region ul { color: #166534; font-size: 14px; }
+    .toc { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:16px 20px; margin-bottom:32px; }
+    .toc h3 { margin-top:0; margin-bottom:8px; font-size:14px; text-transform:uppercase; letter-spacing:.05em; color:#6b7280; }
+    .toc ol { margin-bottom:0; font-size:14px; }
+    .toc ol li { margin-bottom:3px; }
     footer { margin-top: 60px; padding-top: 24px; border-top: 1px solid #e5e7eb; font-size: 13px; color: #9ca3af; }
   </style>
 </head>
@@ -64,148 +50,337 @@
   <header>
     <a href="/" class="logo">Vector Football</a>
     <h1>Privacy Policy</h1>
-    <p class="meta">Last updated: 21 May 2025 &nbsp;·&nbsp; <span class="badge">GDPR compliant</span></p>
+    <p class="meta">
+      Last updated: 31 May 2025 &nbsp;&middot;&nbsp;
+      <span class="badge">GDPR</span>
+      <span class="badge">UK GDPR</span>
+      <span class="badge">CCPA/CPRA</span>
+      <span class="badge">LGPD</span>
+      <span class="badge">PIPEDA</span>
+      <span class="badge">APPs</span>
+    </p>
   </header>
 
   <p>
-    Vector Football ("<strong>we</strong>", "<strong>us</strong>") is a strength &amp; conditioning app for
-    footballers. This policy explains what personal data we collect, why we collect it, and your rights
-    under UK and EU data protection law (UK GDPR / GDPR).
+    Vector Football ("<strong>we</strong>", "<strong>us</strong>", "<strong>our</strong>") is a strength &amp;
+    conditioning app for footballers. This Privacy Policy explains what personal data we collect, how we use
+    it, who we share it with, and your rights — wherever in the world you are using the app.
   </p>
-
-  <h2>1. Who we are</h2>
   <p>
-    Vector Football is operated as an independent app. If you have any questions about this policy or
-    want to exercise your rights, email us at
-    <a href="mailto:privacy@vectorfootball.co.uk">privacy@vectorfootball.co.uk</a>.
+    By using Vector Football you acknowledge that you have read this policy. If you do not agree, please do
+    not use the app.
   </p>
 
-  <h2>2. What data we collect</h2>
+  <div class="toc">
+    <h3>Contents</h3>
+    <ol>
+      <li><a href="#s1">Who we are &amp; how to contact us</a></li>
+      <li><a href="#s2">Data we collect</a></li>
+      <li><a href="#s3">Special category data (health &amp; fitness)</a></li>
+      <li><a href="#s4">How we use your data &amp; legal bases</a></li>
+      <li><a href="#s5">Automated decisions &amp; programme generation</a></li>
+      <li><a href="#s6">Third-party processors</a></li>
+      <li><a href="#s7">International data transfers</a></li>
+      <li><a href="#s8">Data retention</a></li>
+      <li><a href="#s9">Your rights — global overview</a></li>
+      <li><a href="#s10">Analytics opt-out</a></li>
+      <li><a href="#s11">Children's privacy</a></li>
+      <li><a href="#s12">Security</a></li>
+      <li><a href="#s13">Data breach notification</a></li>
+      <li><a href="#s14">Do Not Sell or Share (CCPA/CPRA)</a></li>
+      <li><a href="#s15">Region-specific supplements</a></li>
+      <li><a href="#s16">Changes to this policy</a></li>
+      <li><a href="#s17">Contact &amp; supervisory authorities</a></li>
+    </ol>
+  </div>
+
+  <h2 id="s1">1. Who we are &amp; how to contact us</h2>
+  <p>
+    Vector Football is operated as an independent software product. For all privacy-related enquiries —
+    including exercising any right under applicable law — please contact:
+  </p>
+  <p>
+    <strong>Email:</strong> <a href="mailto:vectorfootball@gmail.com">vectorfootball@gmail.com</a><br />
+    <strong>Website:</strong> <a href="https://vectorfootball.co.uk">vectorfootball.co.uk</a>
+  </p>
+  <p>
+    We will acknowledge your request within <strong>5 business days</strong> and respond fully within
+    <strong>30 days</strong> (extendable to 90 days for complex requests, with prior notice to you).
+  </p>
+
+  <h2 id="s2">2. Data we collect</h2>
   <table>
-    <tr>
-      <th>Category</th>
-      <th>Examples</th>
-      <th>Why</th>
-    </tr>
-    <tr>
-      <td><strong>Account data</strong></td>
-      <td>Name, email address, hashed password</td>
-      <td>To create and secure your account</td>
-    </tr>
-    <tr>
-      <td><strong>Profile data</strong></td>
-      <td>Playing position, experience level, height, weight</td>
-      <td>To personalise your training programme</td>
-    </tr>
-    <tr>
-      <td><strong>Training data</strong></td>
-      <td>Workout sessions, sets, reps, weights, RPE scores</td>
-      <td>To track progress and adapt your programme</td>
-    </tr>
-    <tr>
-      <td><strong>Health &amp; fitness data</strong></td>
-      <td>Sprint times, jump height, Yo-Yo test results, daily readiness scores, body weight log</td>
-      <td>To generate fitness baselines and show progression</td>
-    </tr>
-    <tr>
-      <td><strong>Match schedule data</strong></td>
-      <td>Match dates, opponent names, session intensity ratings</td>
-      <td>To periodise training load around your fixtures</td>
-    </tr>
-    <tr>
-      <td><strong>Usage data</strong></td>
-      <td>Screens visited, features used, events fired (anonymised)</td>
-      <td>To improve the app (via PostHog analytics)</td>
-    </tr>
-    <tr>
-      <td><strong>Payment data</strong></td>
-      <td>Subscription status, transaction ID</td>
-      <td>To manage your premium subscription</td>
-    </tr>
+    <tr><th style="width:25%">Category</th><th style="width:35%">Examples</th><th>Why we collect it</th></tr>
+    <tr><td><strong>Account data</strong></td><td>Name, email address</td><td>Creating and securing your account</td></tr>
+    <tr><td><strong>Profile data</strong></td><td>Playing position, experience, gym access, gender (optional)</td><td>Personalising your training programme</td></tr>
+    <tr><td><strong>Body metrics</strong> <em>(optional)</em></td><td>Height, weight, date of birth, body weight log</td><td>Training load calculations and progress tracking</td></tr>
+    <tr><td><strong>Training data</strong></td><td>Workout sessions, sets, reps, weights, RIR scores, templates</td><td>Tracking performance and adapting programmes</td></tr>
+    <tr><td><strong>Health &amp; fitness data</strong> <em>(special category)</em></td><td>Sprint times, jump height, Yo-Yo results, readiness scores, injury history, session RPE</td><td>Fitness profiling, injury risk management, periodisation</td></tr>
+    <tr><td><strong>Match &amp; load data</strong></td><td>Match dates, session intensity, minutes played</td><td>Load management around fixtures</td></tr>
+    <tr><td><strong>Usage data</strong></td><td>Screen views, feature events (anonymised, no raw content)</td><td>App improvement via PostHog analytics (opt-out available)</td></tr>
+    <tr><td><strong>Payment data</strong></td><td>Subscription status, plan type, Stripe customer ID, transaction reference</td><td>Managing premium subscriptions and billing</td></tr>
+    <tr><td><strong>Technical data</strong></td><td>Device type, OS, app version, session identifiers</td><td>Bug fixing, compatibility, security</td></tr>
+    <tr><td><strong>Profile photo</strong> <em>(optional)</em></td><td>A photo you choose to upload</td><td>Displayed on your in-app profile — stored locally only, never uploaded to our servers</td></tr>
+    <tr><td><strong>Referral &amp; promo data</strong></td><td>Referral code you generated or used; promo codes redeemed</td><td>Awarding referral bonuses and preventing duplicate redemptions</td></tr>
+    <tr><td><strong>Consent records</strong></td><td>Timestamp of when you accepted the Terms of Use and Privacy Policy; date of birth (for age verification)</td><td>Legal compliance — demonstrating informed consent</td></tr>
+  </table>
+  <p>
+    <strong>Data we do not collect:</strong> We do not collect racial or ethnic origin, political opinions,
+    religious beliefs, trade union membership, biometric identity data, criminal record data, or GPS location.
+    We do not read your contacts, messages, or photos beyond the profile photo you explicitly select.
+  </p>
+
+  <h2 id="s3">3. Special category data (health &amp; fitness)</h2>
+  <div class="warn">
+    <strong>Important:</strong> Under GDPR Article 9 and equivalent laws worldwide, data concerning
+    physical health and fitness — including sprint performance, jump results, injury history, and
+    physiological readiness scores — may constitute <strong>special category personal data</strong>.
+    We process this data under your <strong>explicit consent</strong>, given when you voluntarily enter
+    it into the app to receive personalised training recommendations.
+  </div>
+  <p>
+    You may withdraw consent for health data processing at any time by deleting your account
+    (Profile &rarr; Delete Account &amp; All Data). We will erase all such data from our servers within
+    30 days. Note that deleting health data means we can no longer provide personalised training features.
+  </p>
+
+  <h2 id="s4">4. How we use your data &amp; legal bases</h2>
+  <table>
+    <tr><th style="width:40%">Purpose</th><th style="width:30%">GDPR / UK GDPR legal basis</th><th>Equivalent basis (other laws)</th></tr>
+    <tr><td>Provide the app and its core features</td><td>Performance of contract (Art. 6(1)(b))</td><td>Contract / service delivery</td></tr>
+    <tr><td>Process health &amp; fitness data</td><td>Explicit consent (Art. 9(2)(a))</td><td>Consent (LGPD Art. 11; PIPEDA Principle 3)</td></tr>
+    <tr><td>Anonymous product analytics</td><td>Legitimate interests (Art. 6(1)(f)) — opt-out available</td><td>Legitimate interests / opt-out for CCPA, LGPD etc.</td></tr>
+    <tr><td>Subscription management &amp; payments</td><td>Contract + legal obligation (Art. 6(1)(b),(c))</td><td>Contract / legal obligation</td></tr>
+    <tr><td>Retain billing records</td><td>Legal obligation (Art. 6(1)(c)) — UK HMRC requires 6 years</td><td>Legal obligation worldwide</td></tr>
+    <tr><td>Fraud prevention and security</td><td>Legitimate interests (Art. 6(1)(f))</td><td>Legitimate interests / security exception</td></tr>
+    <tr><td>App improvement and debugging</td><td>Legitimate interests (Art. 6(1)(f))</td><td>Legitimate interests</td></tr>
+    <tr><td>Push notification training reminders</td><td>Consent (Art. 6(1)(a)) — opt-in via Profile settings</td><td>Consent</td></tr>
   </table>
 
-  <h2>3. Legal basis for processing</h2>
-  <ul>
-    <li><strong>Contract</strong> — processing your account and training data to provide the service you signed up for.</li>
-    <li><strong>Legitimate interests</strong> — anonymised usage analytics to improve the app.</li>
-    <li><strong>Legal obligation</strong> — retaining transaction records as required by UK tax law.</li>
-  </ul>
-
-  <h2>4. Third-party services</h2>
-
-  <div class="card">
-    <h3>Supabase</h3>
-    <p>Cloud database and authentication. Your account data and training history are stored on Supabase servers in the EU. <a href="https://supabase.com/privacy" target="_blank">Supabase Privacy Policy →</a></p>
-  </div>
-  <div class="card">
-    <h3>RevenueCat</h3>
-    <p>Subscription and in-app purchase management. RevenueCat processes your subscription status and transaction IDs. <a href="https://www.revenuecat.com/privacy" target="_blank">RevenueCat Privacy Policy →</a></p>
-  </div>
-  <div class="card">
-    <h3>PostHog</h3>
-    <p>Product analytics. We send anonymised event data (no name or email) to PostHog to understand feature usage. You can opt out via the Profile screen. <a href="https://posthog.com/privacy" target="_blank">PostHog Privacy Policy →</a></p>
-  </div>
-  <div class="card">
-    <h3>Stripe</h3>
-    <p>Payment processing for web subscriptions. Stripe handles card details directly — we never see or store your card number. <a href="https://stripe.com/privacy" target="_blank">Stripe Privacy Policy →</a></p>
-  </div>
-
-  <h2>5. Data retention</h2>
+  <h2 id="s5">5. Automated decisions &amp; programme generation</h2>
   <p>
-    We keep your data for as long as your account is active. If you delete your account (Profile → Delete Account &amp; All Data),
-    all personal data is permanently removed from our systems within 30 days.
-    Anonymised, aggregated analytics data may be retained indefinitely.
+    Vector Football uses <strong>automated algorithms</strong> to generate personalised training programmes
+    based on your profile, test results, playing position, and readiness data. Consistent with GDPR
+    Article 22 and equivalent global transparency obligations, we disclose that:
   </p>
-
-  <h2>6. Your rights (UK GDPR / GDPR)</h2>
-  <p>You have the right to:</p>
   <ul>
-    <li><strong>Access</strong> — request a copy of your data (Profile → Export my data gives you a full JSON export instantly)</li>
-    <li><strong>Rectification</strong> — correct inaccurate data via the Profile screen</li>
-    <li><strong>Erasure</strong> — delete your account and all data (Profile → Delete Account &amp; All Data)</li>
-    <li><strong>Portability</strong> — export your data in machine-readable format (JSON export in Profile)</li>
-    <li><strong>Object</strong> — opt out of analytics tracking at any time via the Profile screen</li>
-    <li><strong>Restriction</strong> — request we restrict processing of your data</li>
+    <li>Programme generation is deterministic and rule-based — not opaque AI.</li>
+    <li>You can override, ignore, or customise any recommended session at any time.</li>
+    <li>No profiling data is used to make decisions with legal or similarly significant effects (employment, credit, insurance, housing).</li>
   </ul>
   <p>
-    To exercise any right not covered by in-app features, email
-    <a href="mailto:privacy@vectorfootball.co.uk">privacy@vectorfootball.co.uk</a>.
-    We will respond within 30 days.
-  </p>
-  <p>
-    You also have the right to lodge a complaint with the
-    <a href="https://ico.org.uk" target="_blank">Information Commissioner's Office (ICO)</a> if you are based in the UK.
+    You have the right to request human review of any automated recommendation by emailing
+    <a href="mailto:vectorfootball@gmail.com">vectorfootball@gmail.com</a>.
   </p>
 
-  <h2>7. Children</h2>
-  <p>
-    Vector Football is not directed at children under 13. We do not knowingly collect personal data from
-    children. If you believe a child has provided us with personal data, please contact us and we will
-    delete it promptly.
-  </p>
+  <h2 id="s6">6. Third-party processors</h2>
+  <p>Each processor below is contractually bound to process your data only under our instructions.</p>
 
-  <h2>8. Security</h2>
-  <p>
-    All data is transmitted over HTTPS. Passwords are never stored in plaintext — they are hashed using
-    SHA-256 locally and managed by Supabase Auth. We use industry-standard security practices and review
-    them regularly.
-  </p>
+  <div class="card">
+    <h3>Supabase &mdash; Database, Authentication, Cloud Functions</h3>
+    <p>Your account, training history, and app data are stored in Supabase-managed databases on AWS infrastructure (EU region: eu-west-1 / Ireland). Supabase has executed Standard Contractual Clauses (SCCs) for international transfers. <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase Privacy Policy &rarr;</a></p>
+  </div>
+  <div class="card">
+    <h3>Stripe &mdash; Web Payment Processing</h3>
+    <p>Stripe processes web subscriptions and payments. Stripe handles all card data directly — we never see or store your card number, CVV, or full billing address. Stripe is PCI-DSS Level 1 certified and uses SCCs for international transfers. <a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe Privacy Policy &rarr;</a></p>
+  </div>
+  <div class="card">
+    <h3>Apple / App Store &mdash; iOS In-App Purchases</h3>
+    <p>iOS subscriptions are processed by Apple. Apple handles payment data under their own privacy policy. <a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener">Apple Privacy Policy &rarr;</a></p>
+  </div>
+  <div class="card">
+    <h3>RevenueCat &mdash; Subscription Management (iOS)</h3>
+    <p>RevenueCat receives your app user ID and subscription status to manage iOS entitlements. RevenueCat is SOC 2 Type II certified and operates under SCCs for EU/UK users. <a href="https://www.revenuecat.com/privacy" target="_blank" rel="noopener">RevenueCat Privacy Policy &rarr;</a></p>
+  </div>
+  <div class="card">
+    <h3>PostHog &mdash; Product Analytics</h3>
+    <p>We send anonymised event data to PostHog (e.g. "workout_completed"). We do <strong>not</strong> send your name, email, raw workout content, or health metrics to PostHog. Your user ID is irreversibly hashed before transmission — PostHog never receives your actual account ID. You can opt out at any time via <strong>Profile &rarr; Privacy &rarr; Usage Analytics</strong>. <a href="https://posthog.com/privacy" target="_blank" rel="noopener">PostHog Privacy Policy &rarr;</a></p>
+  </div>
 
-  <h2>9. Changes to this policy</h2>
+  <h2 id="s7">7. International data transfers</h2>
   <p>
-    We may update this policy from time to time. The "Last updated" date at the top will reflect any
-    changes. Significant changes will be notified in-app.
+    We are based in the United Kingdom. Your data may be processed in countries outside the UK and
+    EU/EEA — specifically the United States (Supabase AWS, RevenueCat, PostHog, Stripe). Where
+    transfers occur, we rely on:
   </p>
+  <ul>
+    <li><strong>EU/UK Standard Contractual Clauses (SCCs)</strong> — signed with each sub-processor.</li>
+    <li><strong>Adequacy decisions</strong> — where applicable.</li>
+    <li><strong>Technical measures</strong> — all data encrypted in transit (TLS 1.2+) and at rest (AES-256).</li>
+  </ul>
+  <p>You may request copies of the SCCs by emailing <a href="mailto:vectorfootball@gmail.com">vectorfootball@gmail.com</a>.</p>
 
-  <h2>10. Contact</h2>
+  <h2 id="s8">8. Data retention</h2>
+  <table>
+    <tr><th style="width:40%">Data type</th><th>Retention period</th></tr>
+    <tr><td>Account &amp; training data</td><td>Until account deletion, then within 30 days</td></tr>
+    <tr><td>Billing / transaction records</td><td>7 years from transaction date (UK HMRC legal obligation)</td></tr>
+    <tr><td>Analytics event data (PostHog)</td><td>12 months (anonymised aggregates retained indefinitely)</td></tr>
+    <tr><td>Server access logs</td><td>90 days (Supabase default)</td></tr>
+    <tr><td>Backup data</td><td>Deleted within 30 days of account deletion</td></tr>
+  </table>
+  <p>To delete your account: <strong>Profile &rarr; Delete Account &amp; All Data</strong>. This is permanent and erases all personal data from our systems within 30 days.</p>
+
+  <h2 id="s9">9. Your rights — global overview</h2>
+  <table>
+    <tr><th style="width:25%">Right</th><th>What it means</th><th style="width:30%">How to exercise it</th></tr>
+    <tr><td><strong>Access</strong></td><td>Obtain a copy of data we hold about you</td><td>Profile &rarr; Export my data; or email us</td></tr>
+    <tr><td><strong>Rectification</strong></td><td>Correct inaccurate or incomplete data</td><td>Edit in Profile screen; or email us</td></tr>
+    <tr><td><strong>Erasure</strong></td><td>Have your data permanently deleted</td><td>Profile &rarr; Delete Account; or email us</td></tr>
+    <tr><td><strong>Portability</strong></td><td>Receive data in machine-readable format</td><td>Profile &rarr; Export my data (JSON)</td></tr>
+    <tr><td><strong>Object</strong></td><td>Object to processing on legitimate interests (e.g. analytics)</td><td>Profile &rarr; Privacy; or email us</td></tr>
+    <tr><td><strong>Restrict processing</strong></td><td>Limit how we use your data</td><td>Email us</td></tr>
+    <tr><td><strong>Withdraw consent</strong></td><td>Withdraw consent for health data or analytics</td><td>Profile &rarr; Privacy; or delete account</td></tr>
+    <tr><td><strong>Opt out of sale</strong></td><td>We do not sell data &mdash; see Section 14</td><td>N/A</td></tr>
+  </table>
+  <p>See <a href="#s15">Section 15</a> for rights specific to your country.</p>
+
+  <h2 id="s10">10. Analytics opt-out</h2>
+  <p>You can disable analytics at any time without affecting any other feature:</p>
+  <ol>
+    <li>Open the app and tap <strong>Profile</strong> (bottom navigation).</li>
+    <li>Scroll to the <strong>Privacy</strong> section.</li>
+    <li>Toggle <strong>Usage Analytics</strong> off.</li>
+  </ol>
+  <p>When opted out, no usage events are sent to PostHog. This preference is saved to your account, syncs across devices, and applies immediately.</p>
+
+  <h2 id="s11">11. Children's privacy</h2>
+  <p>Vector Football is not directed at children. Minimum age requirements:</p>
+  <table>
+    <tr><th>Region</th><th>Minimum age</th><th>Legal basis</th></tr>
+    <tr><td>United Kingdom</td><td>13</td><td>UK GDPR / Age Appropriate Design Code</td></tr>
+    <tr><td>European Union / EEA</td><td>16 (or 13&ndash;15 with verified parental consent)</td><td>GDPR Article 8 (varies by member state)</td></tr>
+    <tr><td>United States</td><td>13</td><td>COPPA</td></tr>
+    <tr><td>Brazil</td><td>12 (parental consent required under 18)</td><td>LGPD / ECA</td></tr>
+    <tr><td>Canada</td><td>13</td><td>PIPEDA / CASL</td></tr>
+    <tr><td>Australia</td><td>15 (recommended guidance)</td><td>Privacy Act 1988</td></tr>
+    <tr><td>South Korea</td><td>14</td><td>PIPA</td></tr>
+    <tr><td>All other regions</td><td>13, or local minimum age if higher</td><td>Local law</td></tr>
+  </table>
+  <p>If you believe a child has provided us with personal data, email <a href="mailto:vectorfootball@gmail.com">vectorfootball@gmail.com</a> and we will delete it promptly.</p>
+
+  <h2 id="s12">12. Security</h2>
+  <ul>
+    <li><strong>Encryption in transit:</strong> All network communication uses TLS 1.2 or higher.</li>
+    <li><strong>Encryption at rest:</strong> Database data is encrypted at rest (AES-256 via Supabase/AWS).</li>
+    <li><strong>Authentication:</strong> Account passwords are managed by Supabase Auth (bcrypt). Passwords are never stored or transmitted in plaintext by Vector Football.</li>
+    <li><strong>Access control:</strong> Row-level security (RLS) ensures each user can only access their own data.</li>
+    <li><strong>Payment security:</strong> Card data is handled exclusively by Stripe (PCI-DSS Level 1) or Apple.</li>
+    <li><strong>Least privilege:</strong> The app client uses Supabase's anonymous key only; privileged operations run in server-side functions.</li>
+    <li><strong>Regular audits:</strong> We conduct code security reviews and address vulnerabilities promptly.</li>
+  </ul>
+  <p>To report a vulnerability responsibly: <a href="mailto:vectorfootball@gmail.com">vectorfootball@gmail.com</a></p>
+
+  <h2 id="s13">13. Data breach notification</h2>
+  <p>In the event of a data breach likely to affect your rights and freedoms, we will:</p>
+  <ul>
+    <li>Notify the relevant supervisory authority within <strong>72 hours</strong> (GDPR / UK GDPR Article 33).</li>
+    <li>Notify affected users <strong>without undue delay</strong> if the breach poses high risk to them.</li>
+    <li>For US users: comply with applicable state notification laws, including California (45-day window), New York, Texas, and others.</li>
+    <li>For Australian users: comply with the Notifiable Data Breaches (NDB) scheme under the Privacy Act.</li>
+    <li>For Brazilian users: notify the ANPD and affected data subjects as required by LGPD.</li>
+  </ul>
+
+  <h2 id="s14">14. Do Not Sell or Share my personal information</h2>
   <p>
-    Vector Football<br />
-    <a href="mailto:privacy@vectorfootball.co.uk">privacy@vectorfootball.co.uk</a><br />
-    <a href="https://vectorfootball.co.uk">vectorfootball.co.uk</a>
+    <strong>We do not sell, rent, or share your personal information with third parties for their own
+    marketing or advertising purposes &mdash; ever.</strong>
   </p>
+  <p>Under CCPA / CPRA (California):</p>
+  <ul>
+    <li>We do not "sell" personal information as defined by CCPA &sect; 1798.140(ad).</li>
+    <li>We do not "share" personal information for cross-context behavioural advertising.</li>
+    <li>We do not use sensitive personal information beyond what is necessary to provide the service.</li>
+  </ul>
+  <p>Because we do not sell or share data, no opt-out mechanism for sale/sharing is required. You may still opt out of analytics at any time (Section 10).</p>
+
+  <h2 id="s15">15. Region-specific supplements</h2>
+
+  <div class="region">
+    <h3>&#x1F1FA;&#x1F1F8; United States &mdash; CCPA/CPRA and state privacy laws</h3>
+    <p>California residents have the right to: Know, Access, Delete, Correct, Opt-out of sale (not applicable here), Limit use of sensitive personal information, and Non-discrimination. Virginia (VCDPA), Colorado (CPA), Connecticut (CTDPA), Texas (TDPSA), and other US states with comprehensive privacy laws provide similar rights. All are exercisable via Section 9 mechanisms or by emailing <a href="mailto:vectorfootball@gmail.com">vectorfootball@gmail.com</a>. <strong>COPPA:</strong> We do not knowingly collect personal information from children under 13.</p>
+  </div>
+
+  <div class="region">
+    <h3>&#x1F1EA;&#x1F1FA; European Union / EEA &mdash; GDPR</h3>
+    <p>EU residents have full rights under GDPR Articles 15&ndash;22. You may lodge a complaint with your national DPA. A list of EU DPAs: <a href="https://edpb.europa.eu/about-edpb/about-edpb/members_en" target="_blank" rel="noopener">edpb.europa.eu</a>. Age of digital consent varies by EU member state (13 in some, 16 in others) &mdash; minors between 13 and the applicable national age require verified parental consent.</p>
+  </div>
+
+  <div class="region">
+    <h3>&#x1F1EC;&#x1F1E7; United Kingdom &mdash; UK GDPR / DPA 2018</h3>
+    <p>UK residents have the same rights as EU residents under retained UK GDPR. Minimum age: 13. Complaints: <strong>ICO</strong> &mdash; <a href="https://ico.org.uk/make-a-complaint" target="_blank" rel="noopener">ico.org.uk/make-a-complaint</a> &middot; Tel: 0303 123 1113</p>
+  </div>
+
+  <div class="region">
+    <h3>&#x1F1E7;&#x1F1F7; Brazil &mdash; LGPD</h3>
+    <p>Brazilian users have rights under LGPD Articles 17&ndash;22 including: confirmation, access, correction, anonymisation, deletion, portability, information about sharing, and consent revocation. Complaints: <strong>ANPD</strong> &mdash; <a href="https://www.gov.br/anpd" target="_blank" rel="noopener">gov.br/anpd</a></p>
+  </div>
+
+  <div class="region">
+    <h3>&#x1F1E8;&#x1F1E6; Canada &mdash; PIPEDA / Quebec Law 25</h3>
+    <p>Canadian users have rights to access, correction, and withdrawal of consent under PIPEDA. Quebec residents additionally have portability rights under Law 25. Complaints: <strong>OPC</strong> &mdash; <a href="https://www.priv.gc.ca" target="_blank" rel="noopener">priv.gc.ca</a></p>
+  </div>
+
+  <div class="region">
+    <h3>&#x1F1E6;&#x1F1FA; Australia &mdash; Privacy Act 1988 (APPs)</h3>
+    <p>Australian users have rights to access (APP 12) and correction (APP 13) of personal information. Complaints: <strong>OAIC</strong> &mdash; <a href="https://www.oaic.gov.au" target="_blank" rel="noopener">oaic.gov.au</a></p>
+  </div>
+
+  <div class="region">
+    <h3>&#x1F1FF;&#x1F1E6; South Africa &mdash; POPIA</h3>
+    <p>South African data subjects have rights to know, access, correct, delete, and object to processing. Complaints: <strong>Information Regulator</strong> &mdash; <a href="https://www.justice.gov.za/inforeg" target="_blank" rel="noopener">justice.gov.za/inforeg</a></p>
+  </div>
+
+  <div class="region">
+    <h3>&#x1F1F8;&#x1F1EC; Singapore &mdash; PDPA</h3>
+    <p>Singapore users may request access, correction, and withdrawal of consent. Complaints: <strong>PDPC</strong> &mdash; <a href="https://www.pdpc.gov.sg" target="_blank" rel="noopener">pdpc.gov.sg</a></p>
+  </div>
+
+  <div class="region">
+    <h3>&#x1F1EF;&#x1F1F5; Japan &mdash; APPI</h3>
+    <p>Japanese users have the right to request disclosure, correction, deletion, or cessation of use of their personal information. Contact: <a href="mailto:vectorfootball@gmail.com">vectorfootball@gmail.com</a></p>
+  </div>
+
+  <div class="region">
+    <h3>&#x1F1E8;&#x1F1ED; Switzerland &mdash; revDSG</h3>
+    <p>Swiss residents have GDPR-equivalent rights. Complaints: <strong>FDPIC</strong> &mdash; <a href="https://www.edoeb.admin.ch" target="_blank" rel="noopener">edoeb.admin.ch</a></p>
+  </div>
+
+  <div class="region">
+    <h3>&#x1F30D; All other countries</h3>
+    <p>We honour reasonable data access, correction, and deletion requests from all users worldwide, regardless of jurisdiction. Contact: <a href="mailto:vectorfootball@gmail.com">vectorfootball@gmail.com</a></p>
+  </div>
+
+  <h2 id="s16">16. Changes to this policy</h2>
+  <p>When we update this policy:</p>
+  <ul>
+    <li>The "Last updated" date at the top of this page changes.</li>
+    <li>For <strong>material changes</strong> (reduced rights, new data categories, new processors), we notify you in-app and by email at least <strong>14 days before</strong> the change takes effect.</li>
+    <li>Continued use after the effective date constitutes acceptance.</li>
+    <li>Previous versions are available on request.</li>
+  </ul>
+
+  <h2 id="s17">17. Contact &amp; supervisory authorities</h2>
+  <p><strong>Vector Football</strong><br />
+  <a href="mailto:vectorfootball@gmail.com">vectorfootball@gmail.com</a><br />
+  <a href="https://vectorfootball.co.uk">vectorfootball.co.uk</a></p>
+  <table>
+    <tr><th>Region</th><th>Authority</th><th>Website</th></tr>
+    <tr><td>United Kingdom</td><td>ICO</td><td><a href="https://ico.org.uk" target="_blank" rel="noopener">ico.org.uk</a></td></tr>
+    <tr><td>EU / EEA</td><td>Your national DPA</td><td><a href="https://edpb.europa.eu" target="_blank" rel="noopener">edpb.europa.eu</a></td></tr>
+    <tr><td>United States</td><td>FTC / state AG</td><td><a href="https://www.ftc.gov" target="_blank" rel="noopener">ftc.gov</a></td></tr>
+    <tr><td>Brazil</td><td>ANPD</td><td><a href="https://www.gov.br/anpd" target="_blank" rel="noopener">gov.br/anpd</a></td></tr>
+    <tr><td>Canada</td><td>OPC</td><td><a href="https://www.priv.gc.ca" target="_blank" rel="noopener">priv.gc.ca</a></td></tr>
+    <tr><td>Australia</td><td>OAIC</td><td><a href="https://www.oaic.gov.au" target="_blank" rel="noopener">oaic.gov.au</a></td></tr>
+    <tr><td>South Africa</td><td>Information Regulator</td><td><a href="https://www.justice.gov.za/inforeg" target="_blank" rel="noopener">justice.gov.za/inforeg</a></td></tr>
+    <tr><td>Singapore</td><td>PDPC</td><td><a href="https://www.pdpc.gov.sg" target="_blank" rel="noopener">pdpc.gov.sg</a></td></tr>
+    <tr><td>Japan</td><td>PPC</td><td><a href="https://www.ppc.go.jp/en" target="_blank" rel="noopener">ppc.go.jp</a></td></tr>
+    <tr><td>Switzerland</td><td>FDPIC</td><td><a href="https://www.edoeb.admin.ch" target="_blank" rel="noopener">edoeb.admin.ch</a></td></tr>
+  </table>
 
   <footer>
-    &copy; 2025 Vector Football &nbsp;·&nbsp;
+    &copy; 2025 Vector Football &nbsp;&middot;&nbsp;
+    <a href="/terms">Terms of Use</a> &nbsp;&middot;&nbsp;
     <a href="/">Back to app</a>
   </footer>
 

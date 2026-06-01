@@ -7,6 +7,23 @@ import { supabase } from './supabase';
 const REDEEMED_KEY = 'vf_redeemed_codes';
 const PROMO_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+// Client-side rate limit: max 5 attempts per 30 s.
+// Defence-in-depth only — the real guard is server-side RLS + unique constraints.
+const RATE_WINDOW_MS = 30_000;
+const RATE_MAX = 5;
+const promoAttemptTimestamps: number[] = [];
+
+function isPromoRateLimited(): boolean {
+  const now = Date.now();
+  // Evict timestamps outside the current window
+  while (promoAttemptTimestamps.length > 0 && promoAttemptTimestamps[0] < now - RATE_WINDOW_MS) {
+    promoAttemptTimestamps.shift();
+  }
+  if (promoAttemptTimestamps.length >= RATE_MAX) return true;
+  promoAttemptTimestamps.push(now);
+  return false;
+}
+
 // Cache key is scoped per user so different accounts on the same device
 // don't share "already redeemed" state.
 function getLocalRedeemedCodes(userId: string): string[] {
@@ -31,6 +48,7 @@ export type RedeemResult =
 
 /** Check a promo code and return the expiry timestamp if valid. */
 export async function redeemPromoCode(rawCode: string): Promise<RedeemResult> {
+  if (isPromoRateLimited()) return { success: false, reason: 'error' };
   const code = rawCode.trim().toUpperCase();
   if (!code) return { success: false, reason: 'invalid' };
 

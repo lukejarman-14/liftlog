@@ -1081,7 +1081,7 @@ const TENDON_SSC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
 
 // 1 isometric per session — the single highest-priority tendon stiffness driver.
 // Patellar tendon isometric (split squat hold or wall sit) is chosen every session.
-// Calf isometric and Dead Bug removed to keep total volume low.
+// Calf isometric removed to keep total volume low.
 
 // Alternate patellar-tendon isometric when Bulgarian Split Squat is already in the session.
 // Avoids back-to-back split squat pattern in the same session.
@@ -1144,15 +1144,17 @@ const ECCENTRIC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
 };
 
 // Core block — always last block in every gym session.
-// Two exercises: one anti-extension (Dead Bug), one anti-rotation (Pallof Press).
+// Two exercises: one anti-extension (Ab Wheel Rollout), one anti-rotation (Pallof Press).
 // Anti-extension + anti-rotation covers the primary trunk-stability demands of football:
 // sprinting, shooting, heading (extension) and cutting, turning, striking (rotation).
-// Dead Bug requires no equipment and is safe at any readiness level.
+// Ab Wheel Rollout: far harder than Dead Bug — trains spinal stability under genuine load,
+// exactly replicating the trunk-bracing demand of explosive movements.
+// No ab wheel? A barbell on a smooth floor works identically.
 // Pallof Press uses a cable or resistance band — works at full/basic/none gym levels.
 const CORE_BLOCK: ProgrammeExercise[] = [
-  ex('Dead Bug', '3', '8 each side', '45s',
-    'Flat back on floor. Opposite arm and leg extend slowly — lower back stays pinned to the floor throughout. Anti-extension: TVA and multifidus resist spinal extension under load. Exact demand during sprinting, shooting, and heading. No equipment needed.',
-    { tempo: '1-2-1-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+  ex('Ab Wheel Rollout', '3', '10', '60s',
+    'Kneel on floor. Grip ab wheel (or barbell) with both hands directly under shoulders. Brace hard — neutral spine locked. Roll forward slowly until hips are close to the floor, then pull back. Back must NOT sag. If it does, roll shorter. Anti-extension stability: the rectus abdominis and entire anterior chain resist spinal extension against gravity. Directly replicates the bracing demands of striking, heading, and sprinting. Harder range = shorter rollout, not more reps.',
+    { tempo: '2-1-2-0', methodType: 'isometric', intensityIntent: 'controlled' }),
   ex('Pallof Press', '2', '10 each side', '60s',
     'Cable or resistance band at chest height. Press hands straight out and resist rotation completely. Anti-rotation: trains obliques and deep core to stiffen the trunk against lateral forces of cutting, turning, and striking. Face perpendicular to anchor. Step out to increase band tension.',
     { tempo: '1-1-1-1', methodType: 'isometric', intensityIntent: 'controlled' }),

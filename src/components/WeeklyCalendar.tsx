@@ -27,6 +27,7 @@ interface WeeklyCalendarProps {
   onStartTodayProgrammeSession?: (session: ProgrammeSession) => void;
   onSkipSession?: (weekIdx: number, sessionIdx: number, reason: string) => void;
   onRescheduleSession?: (weekIdx: number, sessionIdx: number, newDate: string) => void;
+  onDeleteSession?: (id: string) => void;
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -42,7 +43,7 @@ const PHASE_COLOURS: Record<string, string> = {
 
 
 export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onSkipSession, onRescheduleSession }: WeeklyCalendarProps) {
-  const { matchEntries } = useStore();
+  const { matchEntries, deleteSession: storeDeleteSession } = useStore();
 
   // Default to the first programme week if the programme hasn't started yet
   const initialOffset = useMemo(() => {
@@ -77,6 +78,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
     availableDates: { label: string; date: string }[];
   } | null>(null);
   const [skipView, setSkipView] = useState<'pick' | 'skip-reason' | 'reschedule'>('pick');
+  const [uncompletePending, setUncompletePending] = useState<{ ids: string[]; name: string } | null>(null);
   const weekDates = getWeekDates(weekOffset);
   const today = new Date();
 
@@ -129,42 +131,48 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
   const progSessionsByDay = new Map<number, import('../types').ProgrammeSession[]>();
   const progSessionsThisWeek: { session: import('../types').ProgrammeSession; effectiveDayIdx: number; effectiveDate: Date }[] = [];
 
-  if (!hasPlan && progWeek && generatedProgramme) {
+  if (!hasPlan && generatedProgramme) {
     const anchorMonday = getProgrammeAnchorMonday(generatedProgramme);
     const overrides = generatedProgramme.sessionOverrides ?? {};
-    progWeek.sessions.forEach((s, si) => {
-      const sessionKey = `${progWeekIdx}-${si}`;
-      const override = overrides[sessionKey];
-      let effectiveDayIdx = -1;
+    const startDateStr = generatedProgramme.programmeStartDate;
+    const startMidnight = startDateStr ? new Date(startDateStr + 'T00:00:00') : null;
 
-      if (override) {
-        const od = new Date(override + 'T12:00:00');
-        effectiveDayIdx = weekDates.findIndex(wd => isSameDay(wd, od));
-      } else {
-        // Absolute date: anchorMonday + week offset + day-of-week offset
-        const dayOffset = DAY_INDEX[s.dayOfWeek] ?? -1;
-        if (dayOffset >= 0) {
-          const sessionDate = new Date(anchorMonday);
-          sessionDate.setDate(anchorMonday.getDate() + progWeekIdx * 7 + dayOffset);
-          effectiveDayIdx = weekDates.findIndex(wd => isSameDay(wd, sessionDate));
-        }
-      }
+    // Scan ALL weeks so cross-week reschedules (e.g. next-week session moved to this week)
+    // still appear in the current calendar view.
+    generatedProgramme.weeks.forEach((week, wi) => {
+      week.sessions.forEach((s, si) => {
+        const sessionKey = `${wi}-${si}`;
+        const override = overrides[sessionKey];
+        let effectiveDayIdx = -1;
 
-      if (effectiveDayIdx >= 0) {
-        const effectiveDate = weekDates[effectiveDayIdx];
-        // Skip sessions that fall before the programme start date — they never existed for this user
-        const startDateStr = generatedProgramme.programmeStartDate;
-        if (startDateStr) {
-          const startMidnight = new Date(startDateStr + 'T00:00:00');
-          const sessionMidnight = new Date(
-            effectiveDate.getFullYear(), effectiveDate.getMonth(), effectiveDate.getDate()
-          );
-          if (sessionMidnight < startMidnight) return;
+        if (override) {
+          const od = new Date(override + 'T12:00:00');
+          effectiveDayIdx = weekDates.findIndex(wd => isSameDay(wd, od));
+        } else {
+          // Only show non-overridden sessions for the week that is currently on screen.
+          if (wi !== progWeekIdx) return;
+          const dayOffset = DAY_INDEX[s.dayOfWeek] ?? -1;
+          if (dayOffset >= 0) {
+            const sessionDate = new Date(anchorMonday);
+            sessionDate.setDate(anchorMonday.getDate() + wi * 7 + dayOffset);
+            effectiveDayIdx = weekDates.findIndex(wd => isSameDay(wd, sessionDate));
+          }
         }
-        progSessionsThisWeek.push({ session: s, effectiveDayIdx, effectiveDate });
-        const existing = progSessionsByDay.get(effectiveDayIdx) ?? [];
-        progSessionsByDay.set(effectiveDayIdx, [...existing, s]);
-      }
+
+        if (effectiveDayIdx >= 0) {
+          const effectiveDate = weekDates[effectiveDayIdx];
+          // Skip sessions that fall before the programme start date
+          if (startMidnight) {
+            const sessionMidnight = new Date(
+              effectiveDate.getFullYear(), effectiveDate.getMonth(), effectiveDate.getDate()
+            );
+            if (sessionMidnight < startMidnight) return;
+          }
+          progSessionsThisWeek.push({ session: s, effectiveDayIdx, effectiveDate });
+          const existing = progSessionsByDay.get(effectiveDayIdx) ?? [];
+          progSessionsByDay.set(effectiveDayIdx, [...existing, s]);
+        }
+      });
     });
   }
   // Sort sessions into Mon→Sun order so cards always appear chronologically
@@ -213,6 +221,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
     });
 
   return (
+    <>
     <section className="mb-6">
       <div className="flex items-center justify-between mb-3">
         {/* Prev / label / next */}
@@ -448,7 +457,30 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                   </div>
                   <div className="ml-3 flex-shrink-0 flex flex-col gap-1.5 items-end">
                     {done ? (
-                      <CheckCircle2 size={22} className="text-green-500" />
+                      <button
+                        onClick={() => {
+                          const condKws = conditioningKeywords;
+                          // Collect IDs of all completed sessions of this type on this date
+                          let toDelete = sessions.filter(s =>
+                            s.date === dateStr &&
+                            s.endTime != null &&
+                            (isCond
+                              ? condKws.some(kw => s.name.toLowerCase().includes(kw))
+                              : !condKws.some(kw => s.name.toLowerCase().includes(kw)))
+                          ).map(s => s.id);
+                          // Fallback: any completed session on this date
+                          if (toDelete.length === 0) {
+                            toDelete = sessions
+                              .filter(s => s.date === dateStr && s.endTime != null)
+                              .map(s => s.id);
+                          }
+                          setUncompletePending({ ids: toDelete, name: session.objective });
+                        }}
+                        title="Tap to uncomplete this session"
+                        className="text-green-500 hover:text-red-400 transition-colors"
+                      >
+                        <CheckCircle2 size={22} />
+                      </button>
                     ) : isSkipped ? (
                       <span className="text-lg">✕</span>
                     ) : isMissed ? (
@@ -697,5 +729,44 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
         />
       )}
     </section>
+
+    {/* Uncomplete session confirmation modal */}
+    {uncompletePending && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+        <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+          <h2 className="font-bold text-gray-900 mb-2">Remove completed session?</h2>
+          <p className="text-sm text-gray-600 mb-3">
+            <span className="font-semibold">{uncompletePending.name}</span> will be permanently removed from your history and the session will reset to incomplete.
+          </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5">
+            <p className="text-xs font-semibold text-amber-700 mb-1">⚠️ This will affect your load data</p>
+            <ul className="text-xs text-amber-600 space-y-0.5">
+              <li>• Your ACWR (acute:chronic load ratio) will be recalculated</li>
+              <li>• Workout volume (sets × reps × weight) from this session will be removed</li>
+              <li>• Any PBs set in this session will be lost</li>
+              <li>• Test results (sprint, CMJ, Yo-Yo) are <span className="font-semibold">kept</span></li>
+            </ul>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setUncompletePending(null)}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                uncompletePending.ids.forEach(id => storeDeleteSession(id));
+                setUncompletePending(null);
+              }}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"
+            >
+              Delete session
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

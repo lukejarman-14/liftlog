@@ -21,33 +21,22 @@
 
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Vector Football" />
     <meta property="og:description" content="Elite football S&amp;C — personalised training programmes and fitness testing." />
     <meta property="og:url" content="https://vectorfootball.co.uk" />
-    <meta property="og:image" content="https://vectorfootball.co.uk/icon.svg" />
+    <meta property="og:image" content="https://vectorfootball.co.uk/icon-512.png" />
 
     <!-- Prevent phone number / address detection on iOS -->
     <meta name="format-detection" content="telephone=no, address=no, email=no" />
   </head>
   <body>
     <div id="root"></div>
-    <!-- Capture Supabase auth redirect before any module script runs.
-         Supabase clears ?code= from the URL during createClient() init (replaceState),
-         so we must snapshot it here — synchronously — before module scripts load.
-         PKCE reset links arrive as ?code=XXXX with no type=recovery in the URL. -->
-    <script>
-      (function () {
-        var s = window.location.search;
-        var h = window.location.hash;
-        if (s.includes('code=') || h.includes('type=recovery') || s.includes('type=recovery')) {
-          sessionStorage.setItem('vf_auth_redirect', '1');
-        }
-      })();
-    </script>
+    <!-- Capture Supabase auth redirect before any module script runs (external for CSP). -->
+    <script src="/auth-detect.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

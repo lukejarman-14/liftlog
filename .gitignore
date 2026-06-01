@@ -2,7 +2,17 @@ node_modules
 dist
 .DS_Store
 **/.DS_Store
+
+# Environment / secrets — never commit any of these
+.env
+.env.*
 *.local
+
+# SSL / private keys
+*.pem
+*.key
+*.cert
+*.p12
 
 # Local Netlify folder
 .netlify

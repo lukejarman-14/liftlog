@@ -130,7 +130,7 @@ function DrumColumn({
       ref.current.scrollTop = idx * ITEM_H;
     }
     const t = setTimeout(() => { isMounting.current = false; }, 100);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); clearTimeout(timer.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -605,12 +605,14 @@ export function WorkoutBuilder({
   const handleSave = () => {
     const templateName = name.trim() || 'My Workout';
     const existingTemplate = editingTemplateId ? templates.find(t => t.id === editingTemplateId) : null;
+    const id = editingTemplateId ?? `template-${Date.now()}`;
     onSaveTemplate({
-      id: editingTemplateId ?? `template-${Date.now()}`,
+      id,
       name: templateName,
       exercises: items,
       createdAt: existingTemplate?.createdAt ?? Date.now(),
     });
+    if (!editingTemplateId) setEditingTemplateId(id);
     savedItemsRef.current = JSON.stringify(items);
   };
 

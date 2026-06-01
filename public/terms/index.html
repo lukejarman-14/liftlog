@@ -14,25 +14,17 @@
       background: #f9fafb;
       padding: 0 16px 80px;
     }
-    .wrap { max-width: 680px; margin: 0 auto; }
-    header {
-      padding: 48px 0 32px;
-      border-bottom: 1px solid #e5e7eb;
-      margin-bottom: 40px;
-    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    header { padding: 48px 0 32px; border-bottom: 1px solid #e5e7eb; margin-bottom: 40px; }
     header a { text-decoration: none; color: inherit; }
     .logo { font-size: 20px; font-weight: 800; color: #4f46e5; letter-spacing: -0.5px; }
     h1 { font-size: 28px; font-weight: 800; margin-top: 12px; letter-spacing: -0.5px; }
     .meta { font-size: 14px; color: #6b7280; margin-top: 6px; }
-    h2 {
-      font-size: 18px;
-      font-weight: 700;
-      margin: 36px 0 12px;
-      color: #111827;
-    }
+    h2 { font-size: 19px; font-weight: 700; margin: 40px 0 12px; color: #111827; padding-top: 8px; border-top: 2px solid #e5e7eb; }
+    h3 { font-size: 15px; font-weight: 700; margin: 18px 0 6px; color: #374151; }
     p { margin-bottom: 14px; color: #374151; }
-    ul { margin: 0 0 14px 20px; color: #374151; }
-    ul li { margin-bottom: 6px; }
+    ul, ol { margin: 0 0 14px 22px; color: #374151; }
+    ul li, ol li { margin-bottom: 6px; }
     a { color: #4f46e5; }
     .highlight {
       background: #ede9fe;
@@ -43,6 +35,19 @@
       font-size: 15px;
       color: #374151;
     }
+    .warn {
+      background: #fef2f2;
+      border-left: 4px solid #ef4444;
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin-bottom: 14px;
+      font-size: 15px;
+      color: #7f1d1d;
+    }
+    .toc { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:16px 20px; margin-bottom:32px; }
+    .toc h3 { margin-top:0; margin-bottom:8px; font-size:14px; text-transform:uppercase; letter-spacing:.05em; color:#6b7280; }
+    .toc ol { margin-bottom:0; font-size:14px; }
+    .toc ol li { margin-bottom:3px; }
     footer { margin-top: 60px; padding-top: 24px; border-top: 1px solid #e5e7eb; font-size: 13px; color: #9ca3af; }
   </style>
 </head>
@@ -52,141 +57,379 @@
   <header>
     <a href="/" class="logo">Vector Football</a>
     <h1>Terms of Use</h1>
-    <p class="meta">Last updated: 26 May 2025</p>
+    <p class="meta">Last updated: 31 May 2025</p>
   </header>
 
   <p>
     Please read these Terms of Use ("<strong>Terms</strong>") carefully before using the Vector Football
-    app ("<strong>App</strong>") or website at vectorfootball.co.uk ("<strong>Site</strong>"). By
-    downloading or using the App you agree to be bound by these Terms.
+    app ("<strong>App</strong>") or website at vectorfootball.co.uk ("<strong>Site</strong>"). By downloading,
+    installing, or using the App you agree to be bound by these Terms.
   </p>
 
-  <h2>1. About the App</h2>
+  <div class="toc">
+    <h3>Contents</h3>
+    <ol>
+      <li><a href="#s1">About the App</a></li>
+      <li><a href="#s2">Eligibility and age requirements</a></li>
+      <li><a href="#s3">Premium subscriptions and payments</a></li>
+      <li><a href="#s4">Free trial</a></li>
+      <li><a href="#s5">Refunds and cancellation</a></li>
+      <li><a href="#s6">Acceptable use</a></li>
+      <li><a href="#s7">Health and fitness disclaimer</a></li>
+      <li><a href="#s8">Intellectual property</a></li>
+      <li><a href="#s9">User content and data</a></li>
+      <li><a href="#s10">Privacy</a></li>
+      <li><a href="#s11">Disclaimer of warranties</a></li>
+      <li><a href="#s12">Limitation of liability</a></li>
+      <li><a href="#s13">Consumer rights &mdash; statutory protections</a></li>
+      <li><a href="#s14">Indemnification</a></li>
+      <li><a href="#s15">Service availability and changes</a></li>
+      <li><a href="#s16">Account suspension and termination</a></li>
+      <li><a href="#s17">Changes to these Terms</a></li>
+      <li><a href="#s18">Governing law and disputes</a></li>
+      <li><a href="#s19">Contact</a></li>
+    </ol>
+  </div>
+
+  <!-- 1 -->
+  <h2 id="s1">1. About the App</h2>
   <p>
-    Vector Football is a strength &amp; conditioning app designed for amateur and semi-professional
-    footballers. It provides training programmes, workout logging, performance testing, and load
-    management tools. The App is operated by Vector Football ("<strong>we</strong>", "<strong>us</strong>").
+    Vector Football is a strength &amp; conditioning app designed for amateur and semi-professional footballers.
+    It provides AI-generated training programmes, workout logging, performance testing, and load management tools.
+    The App is operated by Vector Football ("<strong>we</strong>", "<strong>us</strong>").
   </p>
 
-  <h2>2. Eligibility</h2>
+  <!-- 2 -->
+  <h2 id="s2">2. Eligibility and age requirements</h2>
   <p>
-    You must be at least 13 years old to use the App. By using the App you confirm that you meet
-    this requirement. If you are under 18, you confirm that a parent or guardian has reviewed and
-    agreed to these Terms on your behalf.
+    You must meet the following minimum age requirements to use the App:
+  </p>
+  <ul>
+    <li><strong>United Kingdom &amp; most countries:</strong> 13 years old</li>
+    <li><strong>European Union (some member states):</strong> 16 years old (or 13&ndash;15 with verified parental consent)</li>
+    <li><strong>South Korea:</strong> 14 years old</li>
+  </ul>
+  <p>
+    If you are under the applicable age in your country, you must not use the App without a parent or
+    legal guardian who has read and agreed to these Terms on your behalf. We reserve the right to
+    terminate accounts of users who do not meet the applicable age requirement.
+  </p>
+  <p>
+    By using the App you represent that (a) you meet the applicable age requirement, or (b) a parent
+    or guardian has consented on your behalf and accepts these Terms.
   </p>
 
-  <h2>3. Premium subscription</h2>
+  <!-- 3 -->
+  <h2 id="s3">3. Premium subscriptions and payments</h2>
   <p>
     Certain features of the App require a paid Premium subscription. The following plans are available:
   </p>
   <ul>
-    <li><strong>Monthly</strong> — billed monthly, cancel anytime</li>
-    <li><strong>Annual</strong> — billed once per year at a reduced rate</li>
-    <li><strong>Lifetime</strong> — one-time payment, access forever</li>
+    <li><strong>Monthly</strong> &mdash; billed monthly, cancel anytime</li>
+    <li><strong>Annual</strong> &mdash; billed once per year at a reduced rate</li>
+    <li><strong>Lifetime</strong> &mdash; one-time payment, access for the lifetime of the App</li>
   </ul>
+
+  <h3>iOS (iPhone / iPad)</h3>
   <p>
-    Subscriptions are managed through Apple's App Store and processed by RevenueCat. Payment is
-    charged to your Apple ID at confirmation of purchase. Subscriptions automatically renew unless
-    cancelled at least 24 hours before the end of the current period. You can manage and cancel
-    your subscription in your Apple ID account settings at any time.
-  </p>
-  <div class="highlight">
-    <strong>Free trial:</strong> Where a free trial is offered, access to Premium features is
-    granted for the stated trial period at no charge. You will not be charged until you choose to
-    subscribe. You may cancel at any time during the trial.
-  </div>
-  <p>
-    We do not offer refunds for unused portions of a subscription period except where required by
-    applicable law. For refund requests, please contact Apple Support directly, as payments are
-    processed by Apple.
+    Subscriptions purchased through the iOS App are processed by <strong>Apple</strong> via the App Store
+    and managed through RevenueCat. Payment is charged to your Apple ID at confirmation of purchase.
+    Auto-renewable subscriptions renew automatically unless cancelled at least <strong>24 hours</strong>
+    before the end of the current period. You can manage and cancel your subscription in your
+    <strong>Apple ID account settings</strong> at any time.
   </p>
 
-  <h2>4. Acceptable use</h2>
+  <h3>Web (vectorfootball.co.uk)</h3>
+  <p>
+    Subscriptions purchased on the website are processed by <strong>Stripe, Inc.</strong> Stripe handles
+    all payment card data directly &mdash; we never store your card number. By subscribing via the web
+    you also agree to <a href="https://stripe.com/legal/ssa" target="_blank" rel="noopener">Stripe's Services Agreement</a>.
+    Subscriptions renew automatically each billing period unless cancelled before the renewal date via
+    the <strong>Profile &rarr; Manage Subscription</strong> portal.
+  </p>
+
+  <div class="highlight">
+    <strong>Price changes:</strong> We will give you at least 30 days' notice of any subscription price
+    increase before it takes effect. If you do not cancel before the new price applies, your continued
+    use of the App constitutes acceptance of the new price.
+  </div>
+
+  <!-- 4 -->
+  <h2 id="s4">4. Free trial</h2>
+  <div class="highlight">
+    <strong>Free trial:</strong> Where offered, access to Premium features is granted for a stated trial
+    period at no charge. On iOS, you will not be charged until you actively choose to subscribe after the
+    trial. On web, the trial is a time-limited access period with no payment required up front. You may
+    cancel at any time during the trial without charge. After the trial expires, access to Premium
+    features requires a paid subscription.
+  </div>
+  <p>
+    Free trials are limited to one per Apple ID (iOS) or one per account (web). We reserve the right to
+    revoke trial access if abuse is detected.
+  </p>
+
+  <!-- 5 -->
+  <h2 id="s5">5. Refunds and cancellation</h2>
+  <p>
+    <strong>iOS:</strong> All payments are processed by Apple. Refund requests must be submitted directly
+    to Apple via <a href="https://reportaproblem.apple.com" target="_blank" rel="noopener">reportaproblem.apple.com</a>
+    or through Apple Support. We have no ability to issue refunds for App Store purchases.
+  </p>
+  <p>
+    <strong>Web (Stripe):</strong> Subscriptions cancelled before renewal will retain access until the
+    end of the paid period. We do not offer pro-rated refunds for unused subscription time except where
+    required by applicable law. If you are a consumer in the EU, UK, or another jurisdiction with statutory
+    cooling-off rights, see <a href="#s13">Section 13</a>.
+  </p>
+
+  <!-- 6 -->
+  <h2 id="s6">6. Acceptable use</h2>
   <p>You agree not to:</p>
   <ul>
-    <li>Use the App for any unlawful purpose or in violation of these Terms</li>
-    <li>Reverse-engineer, decompile, or attempt to extract the source code of the App</li>
-    <li>Share, resell, or sublicense your account or Premium access to others</li>
-    <li>Use automated tools to scrape, crawl, or data-mine the App or its content</li>
-    <li>Upload content that is false, misleading, defamatory, or violates any third-party rights</li>
-    <li>Attempt to gain unauthorised access to any part of the App or its infrastructure</li>
+    <li>Use the App for any unlawful purpose or in violation of these Terms.</li>
+    <li>Reverse-engineer, decompile, or attempt to extract the source code of the App.</li>
+    <li>Share, resell, or sublicense your account or Premium access to others.</li>
+    <li>Use automated tools to scrape, crawl, or data-mine the App or its content.</li>
+    <li>Upload content that is false, misleading, defamatory, or violates third-party rights.</li>
+    <li>Attempt to gain unauthorised access to any part of the App or its infrastructure.</li>
+    <li>Circumvent or manipulate subscription checks, payment systems, or premium access controls.</li>
+    <li>Interfere with or disrupt the integrity or performance of the App or servers.</li>
   </ul>
 
-  <h2>5. Health and fitness disclaimer</h2>
-  <div class="highlight">
-    <strong>Important:</strong> Vector Football provides general fitness guidance only. It is not a
-    substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified
-    healthcare professional before starting any new exercise programme, particularly if you have a
-    pre-existing medical condition, injury, or health concern. You use the App and follow its
-    training recommendations entirely at your own risk.
+  <!-- 7 -->
+  <h2 id="s7">7. Health and fitness disclaimer</h2>
+  <div class="warn">
+    <strong>Important &mdash; please read carefully:</strong><br /><br />
+    Vector Football provides general fitness guidance only. It is <strong>not a substitute</strong>
+    for professional medical advice, diagnosis, or treatment. The training programmes and recommendations
+    generated by the App are automated and based on the information you provide — they do not account for
+    all individual health factors.<br /><br />
+    <strong>Always consult a qualified healthcare professional</strong> before starting any new exercise
+    programme, particularly if you have a pre-existing medical condition, injury, chronic illness, or any
+    health concern. This is especially important if you are pregnant, have cardiovascular conditions,
+    orthopaedic injuries, or are recovering from surgery.<br /><br />
+    You use the App and follow its training recommendations <strong>entirely at your own risk</strong>.
+    Vector Football, its operators, and its suppliers accept no liability for any injury, illness,
+    loss, or damage arising from your use of the App's training content.
   </div>
 
-  <h2>6. Intellectual property</h2>
+  <!-- 8 -->
+  <h2 id="s8">8. Intellectual property</h2>
   <p>
-    All content within the App — including training plans, exercise descriptions, programme
-    structures, graphics, and code — is owned by or licensed to Vector Football and protected by
+    All content within the App — including training plans, exercise descriptions, programme structures,
+    coaching cues, graphics, and code — is owned by or licensed to Vector Football and protected by
     copyright and other intellectual property laws. You may not reproduce, distribute, or create
     derivative works from this content without our express written permission.
   </p>
   <p>
-    You retain ownership of any personal data you enter into the App (workout logs, test results,
-    etc.). You grant us a limited licence to store and process this data solely for the purpose of
-    providing the App's features to you.
+    The "Vector Football" name, logo, and associated marks are trademarks. Nothing in these Terms
+    grants you any right to use our trademarks without prior written consent.
   </p>
 
-  <h2>7. Privacy</h2>
+  <!-- 9 -->
+  <h2 id="s9">9. User content and data</h2>
   <p>
-    Your use of the App is also governed by our
+    You retain ownership of the personal data you enter into the App (workout logs, test results, etc.).
+    You grant us a limited, non-exclusive, royalty-free licence to store and process this data solely for
+    the purpose of providing the App's features to you.
+  </p>
+  <p>
+    We do not claim ownership of your data, and we will never use your personal workout or health data
+    for advertising, marketing to third parties, or any purpose beyond providing and improving the service
+    described in this policy and our <a href="https://vectorfootball.co.uk/privacy">Privacy Policy</a>.
+  </p>
+
+  <!-- 10 -->
+  <h2 id="s10">10. Privacy</h2>
+  <p>
+    Your use of the App is governed by our
     <a href="https://vectorfootball.co.uk/privacy">Privacy Policy</a>, which is incorporated into
-    these Terms by reference.
+    these Terms by reference. Please read it carefully — it explains what data we collect, how we
+    use it, and your rights.
   </p>
 
-  <h2>8. Limitation of liability</h2>
+  <!-- 11 -->
+  <h2 id="s11">11. Disclaimer of warranties</h2>
   <p>
-    To the fullest extent permitted by applicable law, Vector Football shall not be liable for any
-    indirect, incidental, special, consequential, or punitive damages arising from your use of (or
-    inability to use) the App, including but not limited to loss of data, personal injury, or
-    property damage.
+    To the maximum extent permitted by applicable law, the App is provided on an
+    "<strong>as is</strong>" and "<strong>as available</strong>" basis, without warranty of any kind,
+    express or implied, including but not limited to:
   </p>
+  <ul>
+    <li>Warranties of merchantability, fitness for a particular purpose, or non-infringement.</li>
+    <li>That the App will be uninterrupted, error-free, or free from viruses or harmful components.</li>
+    <li>That the training recommendations will be accurate, complete, or suitable for your specific circumstances.</li>
+    <li>That any specific fitness result or health outcome will be achieved by following the App's recommendations.</li>
+  </ul>
   <p>
-    Our total liability to you for any claim arising out of or related to these Terms or the App
-    shall not exceed the amount you paid to us in the 12 months preceding the claim, or £10,
-    whichever is greater.
-  </p>
-
-  <h2>9. Termination</h2>
-  <p>
-    We may suspend or terminate your access to the App at any time if you breach these Terms or if
-    we reasonably believe your use is harmful to us or other users. You may stop using the App and
-    delete your account at any time via the Profile screen. Termination does not entitle you to a
-    refund of any subscription fees already paid.
+    <strong>Note for consumers:</strong> Nothing in this section affects statutory rights you may have under
+    consumer protection law in your jurisdiction &mdash; see <a href="#s13">Section 13</a>.
   </p>
 
-  <h2>10. Changes to these Terms</h2>
+  <!-- 12 -->
+  <h2 id="s12">12. Limitation of liability</h2>
   <p>
-    We may update these Terms from time to time. The "Last updated" date at the top will reflect
-    any changes. Continued use of the App after changes are posted constitutes your acceptance of
-    the revised Terms. Where changes are material, we will notify you in-app.
+    To the fullest extent permitted by applicable law, Vector Football and its operators shall not be
+    liable for any:
+  </p>
+  <ul>
+    <li>Indirect, incidental, special, consequential, or punitive damages.</li>
+    <li>Loss of data, profits, revenue, or business opportunity.</li>
+    <li>Personal injury, property damage, or loss resulting from use of the App or its training content.</li>
+    <li>Errors or omissions in automatically generated training programmes.</li>
+  </ul>
+  <p>
+    Our total aggregate liability for any claim arising out of or related to these Terms or the App
+    shall not exceed the greater of: (a) the amount you paid to us in the <strong>12 months</strong>
+    preceding the claim, or (b) <strong>&pound;50 / &euro;50 / $50</strong> (in the currency of your jurisdiction).
+  </p>
+  <p>
+    <strong>Note for consumers:</strong> Nothing in this section excludes or limits liability for death
+    or personal injury caused by negligence, fraud or fraudulent misrepresentation, or any other liability
+    that cannot be excluded under applicable law &mdash; see <a href="#s13">Section 13</a>.
   </p>
 
-  <h2>11. Governing law</h2>
+  <!-- 13 -->
+  <h2 id="s13">13. Consumer rights &mdash; statutory protections</h2>
   <p>
-    These Terms are governed by and construed in accordance with the laws of England and Wales.
-    Any disputes arising under these Terms shall be subject to the exclusive jurisdiction of the
-    courts of England and Wales.
+    <strong>These Terms do not and cannot override your statutory consumer rights.</strong>
+    If you are a consumer (not purchasing as a business), you may benefit from additional protections
+    under local law, including:
   </p>
 
-  <h2>12. Contact</h2>
+  <h3>United Kingdom</h3>
   <p>
-    If you have any questions about these Terms, please contact us:<br /><br />
-    Vector Football<br />
+    Under the Consumer Rights Act 2015, digital content must be of satisfactory quality, fit for purpose,
+    and as described. You may be entitled to a repair, replacement, or partial refund if the App fails to
+    meet these standards. The UK Consumer Contracts Regulations 2013 provide a 14-day cooling-off right for
+    digital services, though you waive this right by starting to use the service before the 14-day period ends.
+  </p>
+
+  <h3>European Union</h3>
+  <p>
+    Under EU Directive 2019/770 (Digital Content Directive), you have rights regarding conformity of
+    digital content, remedies, and modification. Under EU Directive 2011/83/EU, you have a 14-day right
+    of withdrawal from distance contracts, which may apply unless you consent to immediate performance
+    of the service. These rights vary by EU member state implementation.
+  </p>
+
+  <h3>Australia</h3>
+  <p>
+    Under the Australian Consumer Law (ACL, Schedule 2 to the Competition and Consumer Act 2010),
+    consumer guarantees apply to our services regardless of these Terms. You are entitled to a remedy
+    if the App has a major failure.
+  </p>
+
+  <h3>United States &mdash; California</h3>
+  <p>
+    California residents may have additional rights under the California Consumer Legal Remedies Act
+    (CLRA) and other state consumer protection laws.
+  </p>
+
+  <h3>Canada</h3>
+  <p>
+    Canadian consumers are protected by applicable provincial consumer protection legislation, including
+    the Ontario Consumer Protection Act, British Columbia Business Practices and Consumer Protection Act,
+    and Quebec's Consumer Protection Act (CPA).
+  </p>
+
+  <h3>Other jurisdictions</h3>
+  <p>
+    If you are a consumer in any other jurisdiction with mandatory consumer protection laws, those rights
+    apply in addition to these Terms. Nothing here is intended to waive or override any such rights.
+  </p>
+
+  <!-- 14 -->
+  <h2 id="s14">14. Indemnification</h2>
+  <p>
+    You agree to indemnify, defend, and hold harmless Vector Football and its operators from and against
+    any claims, liabilities, damages, losses, and expenses (including reasonable legal fees) arising out
+    of or related to: (a) your use of the App in violation of these Terms; (b) content you submit to the
+    App that infringes the rights of any third party; or (c) your violation of any applicable law.
+  </p>
+
+  <!-- 15 -->
+  <h2 id="s15">15. Service availability and changes</h2>
+  <p>
+    We do not guarantee that the App will be available at all times or uninterrupted. We may:
+  </p>
+  <ul>
+    <li>Take the App offline temporarily for maintenance, updates, or technical issues.</li>
+    <li>Modify, discontinue, or restrict features at any time, with or without notice.</li>
+    <li>Discontinue the App entirely by giving at least <strong>30 days' notice</strong> to active
+    subscribers, with a pro-rated refund for unused paid subscription time.</li>
+  </ul>
+  <p>
+    For Premium subscribers, we will use reasonable efforts to maintain service availability and give
+    advance notice of material changes that affect paid features.
+  </p>
+
+  <!-- 16 -->
+  <h2 id="s16">16. Account suspension and termination</h2>
+  <p>
+    We may suspend or terminate your account if you:
+  </p>
+  <ul>
+    <li>Breach these Terms or our Privacy Policy.</li>
+    <li>Engage in fraudulent activity (e.g. attempting to manipulate subscription status).</li>
+    <li>Use the App in a way that poses a risk to other users or to us.</li>
+  </ul>
+  <p>
+    Where possible, we will give you prior notice and an opportunity to remedy the breach. Termination
+    does not entitle you to a refund of subscription fees already paid, except where required by law.
+    You may delete your account at any time via <strong>Profile &rarr; Delete Account &amp; All Data</strong>.
+  </p>
+
+  <!-- 17 -->
+  <h2 id="s17">17. Changes to these Terms</h2>
+  <p>
+    We may update these Terms from time to time. When we do:
+  </p>
+  <ul>
+    <li>The "Last updated" date at the top will change.</li>
+    <li>For material changes, we will notify you in-app and by email at least <strong>14 days</strong> before they take effect.</li>
+    <li>If you do not accept the revised Terms, you must stop using the App and may delete your account.</li>
+    <li>Continued use after the effective date constitutes acceptance.</li>
+  </ul>
+
+  <!-- 18 -->
+  <h2 id="s18">18. Governing law and disputes</h2>
+  <p>
+    These Terms are governed by and construed in accordance with the laws of <strong>England and Wales</strong>,
+    without regard to conflict-of-laws principles.
+  </p>
+  <p>
+    <strong>Important exception for consumers:</strong> If you are a consumer residing in another country,
+    the mandatory consumer protection laws of your country of residence will apply to you and cannot be
+    overridden by this clause. In particular:
+  </p>
+  <ul>
+    <li><strong>EU consumers</strong> benefit from mandatory EU consumer law protections and may bring proceedings in their country of residence under EU Regulation 1215/2012.</li>
+    <li><strong>UK consumers</strong> have access to UK courts regardless of this clause.</li>
+    <li><strong>Australian consumers</strong> retain rights under the Australian Consumer Law regardless of governing law clauses.</li>
+    <li><strong>US consumers</strong> may have rights to pursue claims in their state.</li>
+  </ul>
+  <p>
+    For disputes, we encourage you to contact us first at
+    <a href="mailto:support@vectorfootball.co.uk">support@vectorfootball.co.uk</a> —
+    most issues can be resolved without legal proceedings.
+  </p>
+  <p>
+    EU consumers may also use the EU Online Dispute Resolution platform:
+    <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">ec.europa.eu/consumers/odr</a>
+  </p>
+
+  <!-- 19 -->
+  <h2 id="s19">19. Contact</h2>
+  <p>
+    <strong>Vector Football</strong><br />
     <a href="mailto:support@vectorfootball.co.uk">support@vectorfootball.co.uk</a><br />
     <a href="https://vectorfootball.co.uk">vectorfootball.co.uk</a>
   </p>
 
   <footer>
-    &copy; 2025 Vector Football &nbsp;·&nbsp;
-    <a href="/privacy">Privacy Policy</a> &nbsp;·&nbsp;
+    &copy; 2025 Vector Football &nbsp;&middot;&nbsp;
+    <a href="/privacy">Privacy Policy</a> &nbsp;&middot;&nbsp;
     <a href="/">Back to app</a>
   </footer>
 

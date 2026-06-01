@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap, FlaskConical, Dumbbell, Share2 } from 'lucide-react';
+import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap, FlaskConical, Dumbbell, Share2, Mail } from 'lucide-react';
 import { Layout } from '../Layout';
 import { trackEvent } from '../../lib/analytics';
 import { ShareStatsCard } from '../ShareStatsCard';
@@ -7,6 +7,7 @@ import { WeeklyCalendar } from '../WeeklyCalendar';
 import { DailyReadinessWidget } from '../DailyReadinessWidget';
 import { WorkoutSession, NavState, ActivePlan, DailyReadiness, GeneratedProgramme, Exercise, WorkoutExercise, ProgrammeSession } from '../../types';
 import { useStore } from '../../hooks/useStore';
+import { cloudResendConfirmation } from '../../lib/cloudSync';
 import { POSITION_PLANS, getCurrentPlanWeek } from '../../data/positionPlans';
 import { getProgrammeWeekIndex, getProgrammeAnchorMonday } from '../../lib/sessionUtils';
 import { localDateStr } from '../../lib/loadManagement';
@@ -27,6 +28,7 @@ interface DashboardProps {
   onOpenStrengthSetup?: () => void;
   onSkipSession?: (weekIdx: number, sessionIdx: number, reason: string) => void;
   onRescheduleSession?: (weekIdx: number, sessionIdx: number, newDate: string) => void;
+  onDeleteSession?: (id: string) => void;
   referralCode?: string;
   cloudUnlinked?: boolean; // Supabase configured but no active session — data not backed up
 }
@@ -101,7 +103,7 @@ function IntensityPrompt({ date, onSave }: {
       </div>
       <div className="flex gap-2">
         <button
-          onClick={() => { if (selected) onSave(selected, minutesStr ? parseInt(minutesStr, 10) : undefined); }}
+          onClick={() => { if (selected) { const m = parseInt(minutesStr, 10); onSave(selected, minutesStr && !isNaN(m) ? m : undefined); } }}
           disabled={!selected}
           className="flex-1 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-brand-600 transition-colors"
         >
@@ -118,14 +120,34 @@ function IntensityPrompt({ date, onSave }: {
   );
 }
 
-export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup, onSkipSession, onRescheduleSession, referralCode, cloudUnlinked = false }: DashboardProps) {
+export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup, onSkipSession, onRescheduleSession, onDeleteSession, referralCode, cloudUnlinked = false }: DashboardProps) {
   const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries, getDaysSinceLastTest } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
   const [showShareCard, setShowShareCard] = useState(false);
 
+  // Email confirmation modal
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const handleResendConfirmation = async () => {
+    if (emailSending || !userProfile?.email) return;
+    setEmailSending(true);
+    setEmailError('');
+    try {
+      await cloudResendConfirmation(userProfile.email);
+      setEmailSent(true);
+      trackEvent('email_confirm_resent');
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : 'Failed to send — please try again.');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   // Retest banner: dismissed for 10 days via localStorage timestamp
   const [retestDismissed, setRetestDismissed] = useState(
-    () => Date.now() < Number(localStorage.getItem('vf_retest_dismissed_until') ?? 0),
+    () => { try { return Date.now() < Number(localStorage.getItem('vf_retest_dismissed_until') ?? 0); } catch { return false; } },
   );
   const dismissRetest = useCallback(() => {
     localStorage.setItem('vf_retest_dismissed_until', String(Date.now() + 10 * 24 * 60 * 60 * 1000));
@@ -240,16 +262,62 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
     >
       {cloudUnlinked && (
         <button
-          onClick={() => onNavigate({ screen: 'profile' })}
+          onClick={() => { setShowEmailModal(true); setEmailSent(false); setEmailError(''); }}
           className="w-full flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 mb-4 text-left hover:bg-red-100 transition-colors"
         >
           <span className="text-red-500 text-base shrink-0">⚠️</span>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-red-700">Confirm your email address</p>
-            <p className="text-xs text-red-500 leading-snug">Your data may be lost if your email is unconfirmed — tap to go to Profile.</p>
+            <p className="text-xs text-red-500 leading-snug">Tap to resend your confirmation email and protect your data.</p>
           </div>
           <ChevronRight size={14} className="text-red-400 shrink-0" />
         </button>
+      )}
+
+      {/* Email confirmation modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowEmailModal(false)}>
+          <div className="w-full max-w-md bg-white rounded-t-3xl p-6 shadow-xl overflow-y-auto max-h-[85vh]" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <Mail size={20} className="text-red-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-base">Confirm your email</h3>
+                <p className="text-xs text-gray-500">{userProfile?.email}</p>
+              </div>
+            </div>
+
+            {emailSent ? (
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-4 text-center">
+                <p className="text-sm font-semibold text-green-700 mb-1">✅ Email sent!</p>
+                <p className="text-xs text-green-600">Check your inbox and click the confirmation link. Once confirmed, log out and back in to sync your data.</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600 mb-5 leading-relaxed">
+                  Your account isn't confirmed yet. We'll send a confirmation link to <span className="font-semibold text-gray-800">{userProfile?.email}</span>. Click it to verify your account and keep your data safe.
+                </p>
+                {emailError && (
+                  <p className="text-xs text-red-500 mb-3">{emailError}</p>
+                )}
+                <button
+                  onClick={handleResendConfirmation}
+                  disabled={emailSending}
+                  className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white font-semibold text-sm disabled:opacity-50 active:scale-95 transition-transform mb-3"
+                >
+                  {emailSending ? 'Sending…' : 'Send confirmation email'}
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => setShowEmailModal(false)}
+              className="w-full py-3 rounded-2xl bg-gray-100 text-gray-600 font-medium text-sm active:scale-95 transition-transform"
+            >
+              {emailSent ? 'Done' : 'Cancel'}
+            </button>
+          </div>
+        </div>
       )}
 
       {sessionStreak > 0 && (() => {
@@ -482,6 +550,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         onStartTodayProgrammeSession={onStartTodayProgrammeSession}
         onSkipSession={onSkipSession}
         onRescheduleSession={onRescheduleSession}
+        onDeleteSession={onDeleteSession}
       />
 
       {/* Daily readiness check-in */}

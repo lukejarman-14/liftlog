@@ -1124,6 +1124,22 @@ export function Profile({
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validate file type — defence against SVG/script injection
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      alert('Please choose a JPEG, PNG, WebP, or GIF image.');
+      e.target.value = '';
+      return;
+    }
+    // Validate file size — localStorage limit; 2 MB covers any reasonable photo
+    const MAX_BYTES = 2 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      alert('Photo must be under 2 MB. Please choose a smaller image.');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result;
@@ -1493,6 +1509,32 @@ export function Profile({
             <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-0'}`} />
           </button>
         </div>
+      </Card>
+
+      {/* Privacy / Analytics opt-out — required by GDPR, CCPA, and other global privacy laws */}
+      <Card className="p-4 mb-4">
+        <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Privacy</h3>
+        <div className="flex items-center justify-between">
+          <div className="flex-1 pr-4">
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Usage Analytics</p>
+            <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+              {settings.analyticsOptOut
+                ? 'Analytics off — no usage events are sent'
+                : 'Anonymous usage data helps improve the app'}
+            </p>
+          </div>
+          <button
+            onClick={() => onUpdateSettings({ analyticsOptOut: !settings.analyticsOptOut })}
+            className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${!settings.analyticsOptOut ? 'bg-brand-500' : 'bg-gray-200'}`}
+            aria-label={settings.analyticsOptOut ? 'Enable analytics' : 'Disable analytics'}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${!settings.analyticsOptOut ? 'translate-x-6' : 'translate-x-0'}`} />
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-3 leading-relaxed">
+          We never sell your data. Turn this off to opt out at any time.{' '}
+          <a href="https://vectorfootball.co.uk/privacy" target="_blank" rel="noopener noreferrer" className="underline text-brand-500">Privacy Policy</a>
+        </p>
       </Card>
 
       {referralCode && (

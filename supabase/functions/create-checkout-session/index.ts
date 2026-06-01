@@ -55,7 +55,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { plan, noTrial, successUrl, cancelUrl } = await req.json();
+    const { plan, noTrial } = await req.json();
+
+    // Redirect URLs are hardcoded server-side — never trusted from the client body.
+    // SITE_URL is set in Supabase Edge Function secrets for each environment.
+    const siteUrl = Deno.env.get('SITE_URL') ?? 'https://vectorfootball.co.uk';
+    const successUrl = `${siteUrl}/?stripe_success=1`;
+    const cancelUrl  = `${siteUrl}/?stripe_cancel=1`;
 
     const priceId = PRICE_IDS[plan];
     if (!priceId) {

@@ -297,7 +297,7 @@ export function Paywall({
                 <input
                   type="text"
                   value={referralCode}
-                  onChange={e => { setReferralCode(e.target.value.toUpperCase()); setReferralError(null); }}
+                  onChange={e => { setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); setReferralError(null); }}
                   placeholder="e.g. VFABC123"
                   style={{ fontSize: '16px' }}
                   className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-400"
@@ -351,7 +351,7 @@ export function Paywall({
                 <input
                   type="text"
                   value={promoCode}
-                  onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoError(null); }}
+                  onChange={e => { setPromoCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); setPromoError(null); }}
                   placeholder="Enter code"
                   style={{ fontSize: '16px' }}
                   className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-400"

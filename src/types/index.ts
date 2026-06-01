@@ -161,6 +161,7 @@ export interface UserSettings {
   reminderEnabled: boolean;      // daily training-session push notification
   reminderHour: number;          // 0-23
   reminderMinute: number;        // 0–59 (UI offers 0, 15, 30, 45)
+  analyticsOptOut: boolean;      // GDPR/CCPA opt-out — when true, no events sent to PostHog
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -169,6 +170,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   reminderEnabled: false,
   reminderHour: 8,
   reminderMinute: 0,
+  analyticsOptOut: false,        // analytics on by default; user can opt out in Profile
 };
 
 
@@ -185,7 +187,8 @@ export interface UserProfile {
   completedAt: number;       // timestamp
   passwordHash?: string;     // SHA-256 hex of password (local auth only)
   // Optional profile details collected during onboarding
-  dateOfBirth?: string;  // ISO date string YYYY-MM-DD — age computed dynamically
+  dateOfBirth?: string;    // ISO date string YYYY-MM-DD — age computed dynamically
+  termsAcceptedAt?: number; // Unix ms timestamp when user accepted T&Cs + privacy policy
   heightCm?: number;
   weightKg?: number;
   gender?: 'male' | 'female' | 'other';

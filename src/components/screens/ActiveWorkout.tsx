@@ -101,6 +101,9 @@ function formatRestTime(secs: number): string {
 // Categories where RIR (reps in reserve) feedback applies
 const RIR_CATEGORIES = new Set(['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body']);
 
+// Categories where Last Time & PB are not meaningful (explosive/reactive work — load is bodyweight, reps vary by intent)
+const HIDE_HISTORY_CATEGORIES = new Set(['Plyometrics', 'Speed']);
+
 interface RestInfo {
   remaining: number;
   progress: number;
@@ -306,6 +309,8 @@ interface SetRowProps {
   measureType?: MeasureType;
   unit?: string;
   targetRir?: number;
+  /** When false, the RIR prompt is suppressed entirely (plyometrics, speed, etc.) */
+  showRir?: boolean;
   isWarmup?: boolean;
   isPerSide?: boolean;
   /** 'L' or 'R' — shown instead of the set number for per-side strength exercises */
@@ -317,7 +322,7 @@ interface SetRowProps {
 
 function SetRow({
   setIndex, completed, defaultWeight, defaultReps,
-  measureType = 'strength', unit, targetRir, isWarmup, isPerSide, sideLabel, onComplete, onEdit, onUncomplete,
+  measureType = 'strength', unit, targetRir, showRir = true, isWarmup, isPerSide, sideLabel, onComplete, onEdit, onUncomplete,
 }: SetRowProps) {
   // Use string state so we can show blank instead of "0"
   const [repsStr, setRepsStr]     = useState(defaultReps  > 0 ? String(defaultReps)  : '');
@@ -446,7 +451,13 @@ function SetRow({
       return;
     }
     if (measureType === 'reps') {
-      setPendingSet({ reps, weight: 0, completedAt: Date.now() });
+      // RIR doesn't apply to plyometrics, speed, or other reps-only exercises — complete directly.
+      // Only gate through pendingSet (and show the RpeSelector) when showRir is explicitly true.
+      if (showRir) {
+        setPendingSet({ reps, weight: 0, completedAt: Date.now() });
+      } else {
+        onComplete({ reps, weight: 0, completedAt: Date.now() });
+      }
     } else if (measureType === 'strength') {
       setPendingSet({ reps, weight, completedAt: Date.now() });
     } else {
@@ -680,7 +691,7 @@ function SetRow({
                   className="px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-bold hover:bg-brand-600"
                 >
                   {isPerSide
-                    ? `Start Left ${formatRestTime(defaultReps)}`
+                    ? `Start ${timerSide === 'right' ? 'Right' : 'Left'} ${formatRestTime(defaultReps)}`
                     : `Start ${formatRestTime(defaultReps)}`}
                 </button>
               )}
@@ -1166,8 +1177,8 @@ function ExerciseSection({
           )}
 
           <div className="px-4 pb-4">
-            {/* Last time & PB — hidden for warm-up exercises */}
-            {!exercise.isWarmup && <div className="flex gap-2 mb-3">
+            {/* Last time & PB — hidden for warm-up and explosive/reactive exercises */}
+            {!exercise.isWarmup && !HIDE_HISTORY_CATEGORIES.has(exercise.category) && <div className="flex gap-2 mb-3">
               <button onClick={() => setShowAllLast(s => !s)} className="flex-1 bg-blue-50 rounded-xl px-3 py-2 text-left">
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <Clock size={11} className="text-blue-500" />
@@ -1289,6 +1300,7 @@ function ExerciseSection({
                         measureType={measureType}
                         unit={unit}
                         targetRir={(showRir && sideLabel !== 'L') ? targetRir : undefined}
+                        showRir={showRir && sideLabel !== 'L'}
                         isWarmup={(exercise.isWarmup ?? false) || exercise.category === 'Conditioning'}
                         isPerSide={sessionExercise.isPerSide && measureType === 'time'}
                         sideLabel={sideLabel}
@@ -1329,6 +1341,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   const { getPB, getExercise, getLastSession, userSettings, updateSettings } = useStore();
   const showRir = userSettings.showRir ?? true;
   const [showFinish, setShowFinish] = useState(false);
+  const [showReset, setShowReset] = useState(false);
   const [showPBModal, setShowPBModal] = useState(false);
   const [pendingSession, setPendingSession] = useState<WorkoutSession | null>(null);
   const [newPBs, setNewPBs] = useState<NewPBEntry[]>([]);
@@ -1361,13 +1374,16 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
 
   // For per-side strength exercises the UI shows targetSets × 2 rows (L + R each),
   // so count those doubles here to keep the progress bar accurate.
-  const totalSets = session.exercises.reduce((a, e) => {
+  // Use the same isPerSideStrength logic for both totals and completed so they always agree.
+  const { totalSets, completedSets } = session.exercises.reduce((acc, e) => {
     const ex = getExercise(e.exerciseId);
-    const isPerSideStrength = !!(e.isPerSide && (ex?.measureType ?? 'strength') !== 'time');
-    return a + (isPerSideStrength ? e.targetSets * 2 : e.targetSets);
-  }, 0);
-  // Priming singles are stored in sets[] but excluded from progress tracking
-  const completedSets = session.exercises.reduce((a, e) => a + e.sets.filter(s => !s.isPriming).length, 0);
+    // Must match ExerciseRow's measureType logic: Isometric category → 'time'
+    const effectiveMT = ex?.category === 'Isometric' ? 'time' : (ex?.measureType ?? 'strength');
+    const isPerSideStrength = !!(e.isPerSide && effectiveMT !== 'time');
+    const target = isPerSideStrength ? e.targetSets * 2 : e.targetSets;
+    const done   = Math.min(e.sets.filter(s => !s.isPriming).length, target);
+    return { totalSets: acc.totalSets + target, completedSets: acc.completedSets + done };
+  }, { totalSets: 0, completedSets: 0 });
   const progressPct   = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
   const elapsedMins   = Math.floor((Date.now() - session.startTime) / 60000);
 
@@ -1550,6 +1566,16 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     onUpdateSession(updated);
   }, [session, onUpdateSession]);
 
+  const handleResetWorkout = useCallback(() => {
+    const updated: WorkoutSession = {
+      ...session,
+      exercises: session.exercises.map(ex => ({ ...ex, sets: [] })),
+      startTime: Date.now(),
+    };
+    onUpdateSession(updated);
+    setShowReset(false);
+  }, [session, onUpdateSession]);
+
   const handleUncompleteSet = useCallback((exerciseIdx: number, setIndex: number) => {
     const updated: WorkoutSession = {
       ...session,
@@ -1598,7 +1624,8 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     // For per-side strength exercises: each physical set = 2 rows (L then R).
     // Rest fires only after the Right row (odd workingIdx). Left row (even) → no rest.
     const exerciseObj      = getExercise(ex.exerciseId);
-    const exMeasureType    = exerciseObj?.measureType ?? 'strength';
+    // Match ExerciseRow: Isometric category → 'time'
+    const exMeasureType    = exerciseObj?.category === 'Isometric' ? 'time' : (exerciseObj?.measureType ?? 'strength');
     const isPerSideStrengthEx = !!(ex.isPerSide && exMeasureType !== 'time');
     const effectiveSets    = isPerSideStrengthEx ? ex.targetSets * 2 : ex.targetSets;
     const isLeftSide       = isPerSideStrengthEx && !isPrimingSet && workingIdx % 2 === 0;
@@ -1678,6 +1705,13 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
                     <span className={`w-2 h-2 rounded-full ${showRir ? 'bg-brand-500' : 'bg-gray-300'}`} />
                     RIR
                   </button>
+                  <button
+                    onClick={() => setShowReset(true)}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium bg-gray-100 border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors"
+                    title="Reset all sets — start this workout from scratch"
+                  >
+                    Reset
+                  </button>
                 </>
               )}
             </div>
@@ -1724,6 +1758,19 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
           </Button>
         </div>
       </Layout>
+
+      {showReset && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+            <h2 className="font-bold text-gray-900 mb-2">Reset Workout?</h2>
+            <p className="text-sm text-gray-500 mb-5">This will clear all completed sets so you can start from scratch. Your session history won't be affected.</p>
+            <div className="flex gap-3">
+              <Button variant="secondary" fullWidth onClick={() => setShowReset(false)}>Cancel</Button>
+              <Button variant="danger" fullWidth onClick={handleResetWorkout}>Reset</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showFinish && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">

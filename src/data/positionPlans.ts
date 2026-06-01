@@ -478,8 +478,3 @@ export function isSameDay(a: Date, b: Date): boolean {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
 }
-
-// Find a template by ID across position templates and built-in templates
-export function findTemplate(id: string): BuiltInTemplate | undefined {
-  return POSITION_TEMPLATES.find(t => t.id === id);
-}

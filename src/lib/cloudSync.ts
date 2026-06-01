@@ -2,9 +2,15 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { STORAGE_KEYS } from './dataSync';
 
 
+// Keys whose values are authoritative on the server only (written by webhooks/RevenueCat).
+// We never upload these from the client — a localStorage edit must never be able to
+// overwrite the server's record.  cloudLoadData restores them correctly on every boot.
+const SERVER_MANAGED_KEYS = new Set<string>(['vf_premium']);
+
 function collectAllData(): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   for (const key of STORAGE_KEYS) {
+    if (SERVER_MANAGED_KEYS.has(key)) continue; // never upload — managed by webhooks
     const raw = localStorage.getItem(key);
     try { data[key] = raw ? JSON.parse(raw) : null; }
     catch { data[key] = null; }
@@ -71,6 +77,13 @@ export async function cloudDeleteAccount(): Promise<void> {
     // Always sign out, even if deletion threw — the local session must not survive.
     await supabase.auth.signOut();
   }
+}
+
+/** Re-send the email confirmation link to the given address. */
+export async function cloudResendConfirmation(email: string): Promise<void> {
+  if (!supabase) throw new Error('not_configured');
+  const { error } = await supabase.auth.resend({ type: 'signup', email });
+  if (error) throw error;
 }
 
 /** Send a password reset email to the user. */

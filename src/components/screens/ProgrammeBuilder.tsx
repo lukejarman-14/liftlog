@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { trackEvent } from '../../lib/analytics';
 import { ChevronLeft, ChevronRight, Zap, Target, Activity, Brain, Check, User, Calendar, Dumbbell } from 'lucide-react';
 import { Layout } from '../Layout';
@@ -554,7 +554,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   const matchDayKey = DAY_KEYS[primaryMatchDayIndex] ?? 'saturday';
   const secondMatchDayKey = hasSecondMatchDay ? secondMatchDay : undefined;
 
-  const matchIndicesSet = () => {
+  const matchIndicesSet = useMemo(() => {
     const s = new Set<number>();
     if (seasonType === 'in-season') {
       s.add(primaryMatchDayIndex);
@@ -564,7 +564,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
       }
     }
     return s;
-  };
+  }, [seasonType, primaryMatchDayIndex, secondMatchDayKey]);
 
   const setPrimaryMatchDay = (i: number) => {
     setPrimaryMatchDayIndex(i);
@@ -573,9 +573,8 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   };
 
   const toggleAvailableDay = (i: number) => {
-    const matchIdx = matchIndicesSet();
     // For in-season, match days are always available (locked)
-    if (matchIdx.has(i)) return;
+    if (matchIndicesSet.has(i)) return;
     setAvailableDays(prev => {
       const next = new Set(prev);
       next.has(i) ? next.delete(i) : next.add(i);
@@ -584,21 +583,20 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   };
 
   // Compute derived schedule from availability
-  const weekSchedule = useCallback((): WeekSchedule => {
+  const weekSchedule = useMemo((): WeekSchedule => {
     if (seasonType === null) return { ...EMPTY_SCHEDULE };
-    const matchIdx = matchIndicesSet();
     // For in-season, match day indices are always in the available pool
-    const pool = Array.from(new Set([...Array.from(availableDays), ...Array.from(matchIdx)])).sort((a,b) => a-b);
+    const pool = Array.from(new Set([...Array.from(availableDays), ...Array.from(matchIndicesSet)])).sort((a,b) => a-b);
     return assignSessions(
       pool,
       offSeason ? gymSessionsPerWeek : inSeasonGymCount,
       offSeason ? Array.from(conditioningTypes) : Array.from(inSeasonCondTypes),
       0,
       offSeason ?? false,
-      matchIdx,
+      matchIndicesSet,
       offSeason ? 0 : matchesPerWeek,
     );
-  }, [seasonType, availableDays, gymSessionsPerWeek, conditioningTypes, inSeasonGymCount, inSeasonCondTypes, matchIndicesSet, matchesPerWeek])();
+  }, [seasonType, availableDays, gymSessionsPerWeek, conditioningTypes, inSeasonGymCount, inSeasonCondTypes, matchIndicesSet, matchesPerWeek]);
 
   const condCount = conditioningTypes.size;
   const inSeasonCondCount = inSeasonCondTypes.size;
@@ -615,9 +613,8 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
     : seasonType === 'in-season'
     ? effectiveInSeasonGym + inSeasonCondCount
     : 0;
-  const matchIdx = matchIndicesSet();
-  const nonMatchAvailable = Array.from(availableDays).filter(i => !matchIdx.has(i)).length;
-  const totalAvailable = nonMatchAvailable + matchIdx.size;
+  const nonMatchAvailable = Array.from(availableDays).filter(i => !matchIndicesSet.has(i)).length;
+  const totalAvailable = nonMatchAvailable + matchIndicesSet.size;
   const scheduleRestCount = Object.values(weekSchedule).filter(v => v === 'rest').length;
 
   const minDaysNeeded = Math.ceil(totalNeeded / 2);
@@ -1052,7 +1049,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
               <AvailabilityPicker
                 availableDays={availableDays}
                 onToggle={toggleAvailableDay}
-                matchIndices={matchIndicesSet()}
+                matchIndices={matchIndicesSet}
                 totalNeeded={effectiveInSeasonGym + inSeasonCondCount}
               />
               {totalAvailable >= Math.ceil((effectiveInSeasonGym + inSeasonCondCount) / 2) && (

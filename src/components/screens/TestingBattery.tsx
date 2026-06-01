@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAudioContext, makeSineBuffer, playAudioBuffer } from '../../lib/audio';
 import { capitalize } from '../../lib/utils';
+import { localDateStr } from '../../lib/loadManagement';
 import {
   ChevronRight, ChevronLeft, Check, Zap, Activity,
   TrendingUp, TrendingDown, Wind, Award, X, AlertTriangle,
@@ -1905,7 +1906,7 @@ export function TestingBattery({ position, previousSession, onComplete, onSkip }
 
     return {
       id: `test-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
+      date: localDateStr(new Date()),
       completedAt: Date.now(),
       sex,
       selectedTests,

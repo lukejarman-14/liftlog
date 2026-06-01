@@ -54,3 +54,18 @@ export function resetAnalyticsUser(): void {
   if (!key) return;
   posthog.reset();
 }
+
+/**
+ * Apply the user's analytics preference (GDPR / CCPA opt-out).
+ * Call on app boot and whenever the setting changes.
+ * PostHog persists the opt-out choice in its own localStorage key,
+ * so trackEvent() is automatically suppressed when opted out.
+ */
+export function applyAnalyticsOptOut(optOut: boolean): void {
+  if (!key) return;
+  if (optOut) {
+    posthog.opt_out_capturing();
+  } else {
+    posthog.opt_in_capturing();
+  }
+}

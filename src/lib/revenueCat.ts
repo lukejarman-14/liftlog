@@ -67,13 +67,13 @@ export async function rcGetOfferings() {
   try {
     const offerings = await Purchases.getOfferings();
     if (!offerings.current) {
-      console.warn('[RC] getOfferings: no current offering returned. Check RevenueCat dashboard → Offerings.');
+      if (import.meta.env.DEV) console.warn('[RC] getOfferings: no current offering returned. Check RevenueCat dashboard → Offerings.');
     } else {
-      console.log('[RC] getOfferings: OK — packages:', offerings.current.availablePackages.map((p: { identifier: string }) => p.identifier));
+      if (import.meta.env.DEV) console.log('[RC] getOfferings: OK — packages:', offerings.current.availablePackages.map((p: { identifier: string }) => p.identifier));
     }
     return offerings.current;
   } catch (err) {
-    console.error('[RC] getOfferings failed:', err);
+    if (import.meta.env.DEV) console.error('[RC] getOfferings failed:', err);
     return null;
   }
 }
@@ -91,7 +91,7 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
   try {
     const offering = await rcGetOfferings();
     if (!offering) {
-      console.error('[RC] rcPurchase: no offering available — cannot purchase.');
+      if (import.meta.env.DEV) console.error('[RC] rcPurchase: no offering available — cannot purchase.');
       return { success: false, cancelled: false, expiresAt: null };
     }
 
@@ -100,14 +100,14 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
       p.identifier === packageId
     );
     if (!pkg) {
-      console.error(`[RC] rcPurchase: package "${packageId}" not found in offering. Available:`, offering.availablePackages.map((p: { identifier: string }) => p.identifier));
+      if (import.meta.env.DEV) console.error(`[RC] rcPurchase: package "${packageId}" not found in offering. Available:`, offering.availablePackages.map((p: { identifier: string }) => p.identifier));
       return { success: false, cancelled: false, expiresAt: null };
     }
 
     const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
     const entitlement = customerInfo.entitlements.active[ENTITLEMENT_ID];
     if (!entitlement) {
-      console.error(`[RC] rcPurchase: entitlement "${ENTITLEMENT_ID}" not active after purchase. Active entitlements:`, Object.keys(customerInfo.entitlements.active));
+      if (import.meta.env.DEV) console.error(`[RC] rcPurchase: entitlement "${ENTITLEMENT_ID}" not active after purchase. Active entitlements:`, Object.keys(customerInfo.entitlements.active));
       return { success: false, cancelled: false, expiresAt: null };
     }
 
@@ -117,7 +117,7 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
     return { success: true, cancelled: false, expiresAt };
   } catch (err: unknown) {
     const isCancel = (err as { userCancelled?: boolean })?.userCancelled === true;
-    if (!isCancel) console.error('[RC] rcPurchase threw:', err);
+    if (!isCancel && import.meta.env.DEV) console.error('[RC] rcPurchase threw:', err);
     return { success: false, cancelled: isCancel, expiresAt: null };
   }
 }

@@ -22,7 +22,7 @@ import {
   getExistingSession,
 } from './lib/cloudSync';
 import { supabase } from './lib/supabase';
-import { identifyUser, resetAnalyticsUser, trackEvent } from './lib/analytics';
+import { identifyUser, resetAnalyticsUser, trackEvent, applyAnalyticsOptOut } from './lib/analytics';
 import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificationPermission, scheduleDailyReminder } from './lib/notifications';
 import { localDateStr } from './lib/loadManagement';
 
@@ -47,6 +47,7 @@ const TestingBattery     = lazy(() => import('./components/screens/TestingBatter
 const LoadCalendar       = lazy(() => import('./components/screens/LoadCalendar').then(m => ({ default: m.LoadCalendar })));
 const ProgrammeBuilder   = lazy(() => import('./components/screens/ProgrammeBuilder').then(m => ({ default: m.ProgrammeBuilder })));
 import { GeneratedProgramme, StrengthSetupModal } from './components/screens/GeneratedProgramme';
+import { TermsGateModal } from './components/TermsGateModal';
 const ProgrammeHub       = lazy(() => import('./components/screens/ProgrammeHub').then(m => ({ default: m.ProgrammeHub })));
 const ResetPassword      = lazy(() => import('./components/screens/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
@@ -108,6 +109,10 @@ export default function App() {
           if (!sessionStorage.getItem('vf_boot_synced')) {
             sessionStorage.setItem('vf_boot_synced', '1');
             await cloudLoadData(userId);
+            // Re-read premium from localStorage now that cloudLoadData has written the
+            // server-authoritative value.  usePremium uses plain useState (not
+            // useLocalStorage), so it won't pick up the vf-cloud-restored event on its own.
+            premium.refresh();
           }
           await rcConfigure(userId).catch(err => {
             if (import.meta.env.DEV) console.warn('[RC] configure failed:', err);
@@ -231,6 +236,11 @@ export default function App() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nav.screen, store.activeProgrammeId, store.generatedProgrammes, showProgrammeComplete]);
+
+  // Apply analytics opt-out on boot and whenever the user changes the preference.
+  useEffect(() => {
+    applyAnalyticsOptOut(store.userSettings.analyticsOptOut ?? false);
+  }, [store.userSettings.analyticsOptOut]);
 
   useEffect(() => {
     const { reminderEnabled, reminderHour, reminderMinute } = store.userSettings;
@@ -585,7 +595,7 @@ export default function App() {
         // pass the userId so Onboarding skips auth and goes straight to profile setup.
         existingUserId={isAuthenticated ? (cloudUserIdRef.current ?? undefined) : undefined}
         onComplete={(profile, planId, userId) => {
-          if (userId) identifyUser(userId, { name: profile.firstName, position: profile.position });
+          if (userId) identifyUser(userId, { position: profile.position }); // no name — PII
           handleOnboardingComplete(profile, planId, userId);
           setIsAuthenticated(true);
         }}
@@ -593,6 +603,9 @@ export default function App() {
           if (userId) {
             cloudUserIdRef.current = userId;
             identifyUser(userId);
+            // Re-sync premium state: cloudLoadData ran in Onboarding before this callback,
+            // so localStorage now has the server-authoritative value — refresh React state.
+            premium.refresh();
             rcConfigure(userId).then(() => premium.syncFromRC()).catch(() => {});
           }
           setIsAuthenticated(true);
@@ -610,6 +623,8 @@ export default function App() {
             if (userId) {
               cloudUserIdRef.current = userId;
               identifyUser(userId);
+              // cloudLoadData ran in Login before this callback — re-sync premium state.
+              premium.refresh();
               rcConfigure(userId).then(() => premium.syncFromRC()).catch(() => {});
             }
             setIsAuthenticated(true);
@@ -624,8 +639,20 @@ export default function App() {
     );
   }
 
+  // Existing users who pre-date the terms update have no termsAcceptedAt.
+  // Block the app until they accept — non-dismissable.
+  if (!store.userProfile.termsAcceptedAt) {
+    return (
+      <TermsGateModal
+        onAccept={() => {
+          store.setUserProfile({ ...store.userProfile!, termsAcceptedAt: Date.now() });
+        }}
+      />
+    );
+  }
+
   const { screen } = nav;
-  const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme', 'paywall'];
+  const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme', 'paywall', 'active-workout'];
   const screenFallback = <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
@@ -680,6 +707,7 @@ export default function App() {
             });
             trackEvent('session_rescheduled', { week: weekIdx + 1, new_date: newDate });
           }}
+          onDeleteSession={(id) => { store.deleteSession(id); }}
           referralCode={myReferralCode}
           cloudUnlinked={isSupabaseConfigured && !cloudUserIdRef.current}
         />

@@ -11,6 +11,7 @@ const REST_NOTIF_ID = 99998;
 const NOTIF_EARLY_S = 1;
 
 export async function scheduleRestEndNotification(secs: number): Promise<void> {
+  if (secs <= NOTIF_EARLY_S) return;
   try {
     const { display } = await LocalNotifications.checkPermissions();
     if (display !== 'granted') return;
@@ -65,7 +66,9 @@ export async function cancelAllTrainingReminders(): Promise<void> {
   try {
     const ids = Array.from({ length: NOTIF_LIMIT }, (_, i) => ({ id: NOTIF_ID_BASE + i }));
     await LocalNotifications.cancel({ notifications: ids });
-  } catch {}
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[notifications] cancelAllTrainingReminders failed:', err);
+  }
 }
 
 
@@ -150,7 +153,8 @@ export async function scheduleTrainingReminders(
       })),
     });
     return entries.length;
-  } catch {
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[notifications] scheduleTrainingReminders failed:', err);
     return 0;
   }
 }

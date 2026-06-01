@@ -30,8 +30,8 @@ function Label({ children }: { children: ReactNode }) {
   );
 }
 
-// Total wizard steps (excluding welcome): steps 1, 2, 3
-const TOTAL_STEPS = 3;
+// Total wizard steps (excluding welcome): steps 1, 2, 3, 4
+const TOTAL_STEPS = 4;
 
 const POSITIONS = [
   { id: 'GK', label: '🧤 Goalkeeper' },
@@ -97,7 +97,14 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [showPassword,    setShowPassword]     = useState(false);
   const [showConfirm,     setShowConfirm]      = useState(false);
 
-  // Step 2 — Body metrics (optional)
+  // Step 2 — Age verification + Terms
+  const [dobDay,         setDobDay]         = useState('');
+  const [dobMonth,       setDobMonth]       = useState('');
+  const [dobYear,        setDobYear]        = useState('');
+  const [agreedToTerms,  setAgreedToTerms]  = useState(false);
+  const [parentalConsent,setParentalConsent]= useState(false);
+
+  // Step 3 — Body metrics (optional)
   const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs' | 'st'>('kg');
   const [heightStr, setHeightStr] = useState('');
@@ -106,13 +113,39 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [weightStoneStr, setWeightStoneStr] = useState(''); // lbs part when st selected
   const [gender,    setGender]    = useState<'male' | 'female' | 'other' | ''>('');
 
-  // Step 3 — Training profile (nothing pre-selected)
+  // Step 4 — Training profile (nothing pre-selected)
   const [position,        setPosition]        = useState<'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST' | ''>('');
   const [secondaryPos,    setSecondaryPos]    = useState<'GK' | 'CB' | 'FB' | 'CM' | 'W' | 'ST' | ''>('');
   const [experienceYears, setExperienceYears] = useState<'<1' | '1-3' | '3-5' | '5+' | ''>('');
   const [gymFrequency,    setGymFrequency]    = useState<'0' | '1-2' | '3-4' | '5+' | ''>('');
   const [gymAccess,       setGymAccess]       = useState<'full' | 'basic' | 'none' | ''>('');
   const canEnterApp = position !== '' && experienceYears !== '' && gymFrequency !== '' && gymAccess !== '';
+
+  // Age computation from DOB inputs
+  const computedAge: number | null = (() => {
+    const d = parseInt(dobDay, 10);
+    const m = parseInt(dobMonth, 10);
+    const y = parseInt(dobYear, 10);
+    if (!d || !m || !y || dobYear.length !== 4) return null;
+    const birth = new Date(y, m - 1, d);
+    // Reject invalid dates (e.g. Feb 30)
+    if (isNaN(birth.getTime()) || birth.getMonth() !== m - 1) return null;
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const md = today.getMonth() - birth.getMonth();
+    if (md < 0 || (md === 0 && today.getDate() < birth.getDate())) age--;
+    return age >= 0 && age <= 120 ? age : null;
+  })();
+  const dobString = (computedAge !== null && dobYear.length === 4)
+    ? `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
+    : undefined;
+  const isUnderThirteen  = computedAge !== null && computedAge < 13;
+  const needsParental    = computedAge !== null && computedAge >= 13 && computedAge < 16;
+  const canProceedFromAgeTerms =
+    computedAge !== null &&
+    !isUnderThirteen &&
+    agreedToTerms &&
+    (!needsParental || parentalConsent);
 
   const heightCm: number | undefined = (() => {
     if (!heightStr) return undefined;
@@ -234,8 +267,12 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     if (submitting) return;
     setSubmitting(true);
     try {
-      // Only hash a password when the user is creating a new account
-      const passwordHash = existingUserId ? undefined : await hashPassword(password, email.trim().toLowerCase());
+      // Only hash a password for the local-auth fallback path (Supabase not configured).
+      // When Supabase is configured it handles authentication server-side — storing a
+      // SHA-256 hash locally would be a weak-hash artefact with no purpose.
+      const passwordHash = (existingUserId || isSupabaseConfigured)
+        ? undefined
+        : await hashPassword(password, email.trim().toLowerCase());
       const profile: UserProfile = {
         firstName:       firstName.trim(),
         lastName:        lastName.trim(),
@@ -251,6 +288,8 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         heightCm,
         weightKg,
         gender:          gender || undefined,
+        dateOfBirth:     dobString,
+        termsAcceptedAt: Date.now(),
       };
 
       // Write profile directly to localStorage NOW so cloudSaveData always finds it,
@@ -476,7 +515,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
         {step === 1 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
-            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 1 of 3</p>
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 1 of 4</p>
             {existingUserId ? (
               <>
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">Set up your profile</h2>
@@ -607,7 +646,104 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
         {step === 2 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
-            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 2 of 3</p>
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 2 of 4</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">Age &amp; Terms</h2>
+            <p className="text-gray-500 text-sm mb-7">We need to verify your age and confirm you agree to our terms before you start.</p>
+
+            {/* Date of birth */}
+            <div className="mb-5">
+              <Label>Date of Birth</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  value={dobDay}
+                  onChange={e => setDobDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  placeholder="DD"
+                  inputMode="numeric"
+                  style={{ fontSize: '16px' }}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
+                />
+                <input
+                  value={dobMonth}
+                  onChange={e => setDobMonth(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  placeholder="MM"
+                  inputMode="numeric"
+                  style={{ fontSize: '16px' }}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
+                />
+                <input
+                  value={dobYear}
+                  onChange={e => setDobYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="YYYY"
+                  inputMode="numeric"
+                  style={{ fontSize: '16px' }}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5 text-center">Day &nbsp;/&nbsp; Month &nbsp;/&nbsp; Year</p>
+            </div>
+
+            {/* Under-13 block */}
+            {isUnderThirteen && (
+              <div className="flex gap-2.5 p-3.5 rounded-xl bg-red-50 border border-red-200 mb-4">
+                <span className="text-red-500 text-base flex-shrink-0">✗</span>
+                <p className="text-sm text-red-700 font-medium leading-snug">
+                  You must be at least 13 years old to use Vector Football. This app is not available for users under 13.
+                </p>
+              </div>
+            )}
+
+            {/* 13–15: parental consent notice */}
+            {needsParental && (
+              <div className="flex gap-2.5 p-3.5 rounded-xl bg-amber-50 border border-amber-200 mb-4">
+                <span className="text-amber-500 text-base flex-shrink-0">ℹ</span>
+                <p className="text-sm text-amber-700 leading-snug">
+                  As you are under 16, a parent or guardian must read and agree to these terms on your behalf before you continue.
+                </p>
+              </div>
+            )}
+
+            {/* Terms checkboxes — only shown once we have a valid non-under-13 age */}
+            {computedAge !== null && !isUnderThirteen && (
+              <div className="flex flex-col gap-3">
+                {needsParental && (
+                  <label className="flex gap-3 items-start cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={parentalConsent}
+                      onChange={e => setParentalConsent(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-brand-500 accent-brand-500 flex-shrink-0"
+                    />
+                    <span className="text-sm text-gray-700 leading-snug">
+                      My parent or guardian has read and agreed to the{' '}
+                      <button type="button" onClick={() => window.open('/terms/', '_blank')} className="text-brand-600 underline font-medium">Terms of Use</button>
+                      {' '}and{' '}
+                      <button type="button" onClick={() => window.open('/privacy/', '_blank')} className="text-brand-600 underline font-medium">Privacy Policy</button>
+                      {' '}on my behalf.
+                    </span>
+                  </label>
+                )}
+                <label className="flex gap-3 items-start cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={e => setAgreedToTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-brand-500 accent-brand-500 flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700 leading-snug">
+                    {needsParental ? 'I confirm the above and ' : 'I '}agree to the{' '}
+                    <button type="button" onClick={() => window.open('/terms/', '_blank')} className="text-brand-600 underline font-medium">Terms of Use</button>
+                    {' '}and{' '}
+                    <button type="button" onClick={() => window.open('/privacy/', '_blank')} className="text-brand-600 underline font-medium">Privacy Policy</button>.
+                  </span>
+                </label>
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="flex-1 flex flex-col py-12 pt-16">
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 3 of 4</p>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">About you</h2>
             <p className="text-gray-500 text-sm mb-7">Used to personalise your programme. All optional — you can add these later in Settings.</p>
 
@@ -751,13 +887,13 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           </div>
         )}
 
-        {step === 3 && (() => {
+        {step === 4 && (() => {
           const btnBase = 'py-2.5 rounded-xl text-sm font-semibold border transition-all text-center';
           const btnActive = 'bg-brand-500 text-white border-brand-500';
           const btnInactive = 'bg-white text-gray-600 border-gray-200 hover:border-brand-300';
           return (
             <div className="flex-1 flex flex-col py-12 pt-16">
-              <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 3 of 3</p>
+              <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 4 of 4</p>
               <h2 className="text-2xl font-bold text-gray-900 mb-1">Your training profile</h2>
               <p className="text-gray-500 text-sm mb-7">Helps us build the right programme for you.</p>
 
@@ -906,7 +1042,12 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
             </button>
             <button
               onClick={() => setStep(3)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all bg-brand-500 text-white hover:bg-brand-600 shadow-sm"
+              disabled={!canProceedFromAgeTerms}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all ${
+                canProceedFromAgeTerms
+                  ? 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
             >
               Continue
               <ChevronRight size={16} />
@@ -918,6 +1059,25 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           <div className="flex gap-3 py-6">
             <button
               onClick={() => setStep(2)}
+              className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
+            >
+              <ChevronLeft size={16} />
+              Back
+            </button>
+            <button
+              onClick={() => setStep(4)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all bg-brand-500 text-white hover:bg-brand-600 shadow-sm"
+            >
+              Continue
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="flex gap-3 py-6">
+            <button
+              onClick={() => setStep(3)}
               className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
             >
               <ChevronLeft size={16} />

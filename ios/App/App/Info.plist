@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Vector Football</string>
+	<string>Vector Football</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -22,8 +22,18 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to set your profile photo.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Vector Football reads your sleep, heart rate variability and resting heart rate to personalise your daily readiness and training load. This data stays on your device and is never shared.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Used to choose a profile photo from your library.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Vector Football sends you training reminders so you never miss a session on your programme.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -47,13 +57,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>Vector Football sends you training reminders so you never miss a session on your programme.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Used to set your profile photo.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Used to choose a profile photo from your library.</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 </dict>
 </plist>

@@ -148,6 +148,8 @@ export const NAME_TO_ID: Record<string, string> = {
   'trap bar deadlift': 'deadlift', 'hex bar deadlift': 'deadlift', 'deadlift': 'deadlift',
   // Dead Bug — explicit to prevent fuzzy match on 'dead-hang' / 'deadlift'
   'dead bug': 'dead-bug',
+  // Ab Wheel Rollout — explicit to prevent fuzzy match
+  'ab wheel rollout': 'ab-wheel',
   'pallof press': 'pallof-press',
   'bench press': 'bench-press', 'db bench press': 'db-bench',
   'pull-up': 'pull-up', 'weighted pull-up': 'pull-up',

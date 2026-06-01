@@ -901,7 +901,7 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
     e.preventDefault();
     // Read sessionKey from dataTransfer — more reliable than React state which may be stale
     const sessionKey = e.dataTransfer.getData('text/plain');
-    if (!sessionKey) return;
+    if (!sessionKey || !/^\d+-\d+$/.test(sessionKey)) return;
     setDropTarget(null);
     setDragKey(null);
     const { risky, reason } = isRiskyDay(toDate, matchEntries);
