@@ -52,6 +52,8 @@ const ProgrammeHub       = lazy(() => import('./components/screens/ProgrammeHub'
 const ResetPassword      = lazy(() => import('./components/screens/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
 const CoachDashboard     = lazy(() => import('./components/screens/CoachDashboard').then(m => ({ default: m.CoachDashboard })));
+// Demo squad/schedule data for the coach dashboard preview (branch-only, remove before launch).
+import { DEMO_SQUAD, DEMO_SCHEDULE } from './components/screens/CoachDashboard';
 
 // check for password reset link on both implicit (#type=recovery) and PKCE (?code=) flows
 function detectRecoveryUrl(): boolean {
@@ -710,7 +712,8 @@ export default function App() {
         <CoachDashboard
           coachName={[store.userProfile.firstName, store.userProfile.lastName].filter(Boolean).join(' ')}
           inviteSeed={cloudUserIdRef.current ?? store.userProfile.email}
-          players={[]}
+          players={DEMO_SQUAD}
+          schedule={DEMO_SCHEDULE}
           maxPlayers={30}
           onOpenProfile={() => navigate({ screen: 'profile' })}
         />
