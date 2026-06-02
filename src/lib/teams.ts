@@ -14,16 +14,26 @@ export function deriveTeamCode(seed: string): string {
   return `VF-${code}`;
 }
 
-/** Coach/Club: ensure this user's squad row exists with the current tier. Idempotent. */
-export async function registerSquad(userId: string, tier: 'free' | 'pro'): Promise<void> {
-  if (!supabase) return;
+/** Coach/Club: ensure this user's squad row exists with the current tier. Idempotent.
+ *  Returns an error message on failure, or null on success. */
+export async function registerSquad(userId: string, tier: 'free' | 'pro'): Promise<string | null> {
+  if (!supabase) return 'not_configured';
   const team_code = deriveTeamCode(userId);
   try {
-    await supabase.from('coach_squads').upsert(
+    const { error } = await supabase.from('coach_squads').upsert(
       { coach_id: userId, team_code, tier, updated_at: new Date().toISOString() },
       { onConflict: 'coach_id' },
     );
-  } catch { /* non-fatal — squad will register on next boot */ }
+    if (error) {
+      if (import.meta.env.DEV) console.warn('[teams] registerSquad failed:', error.message, error);
+      return error.message;
+    }
+    if (import.meta.env.DEV) console.log('[teams] registerSquad OK', { team_code, tier });
+    return null;
+  } catch (e) {
+    if (import.meta.env.DEV) console.warn('[teams] registerSquad threw:', e);
+    return 'exception';
+  }
 }
 
 export type JoinResult =
@@ -37,6 +47,7 @@ export async function joinSquad(code: string): Promise<JoinResult> {
     const { data, error } = await supabase.rpc('join_squad', { p_code: code.trim().toUpperCase() });
     if (error) {
       const m = error.message || '';
+      if (import.meta.env.DEV) console.warn('[teams] joinSquad error:', m, error);
       if (m.includes('invalid_code')) return { success: false, reason: 'invalid' };
       if (m.includes('self_join')) return { success: false, reason: 'self' };
       return { success: false, reason: 'error' };

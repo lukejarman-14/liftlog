@@ -263,6 +263,17 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Robustly keep a coach/club squad registered with the right tier whenever the
+  // user is authenticated — re-runs when their premium status changes (trial/sub).
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const acct = store.userProfile?.accountType;
+    const uid = cloudUserIdRef.current;
+    if (uid && (acct === 'coach' || acct === 'club')) {
+      void registerSquad(uid, premium.hasAccess ? 'pro' : 'free');
+    }
+  }, [isAuthenticated, store.userProfile?.accountType, premium.hasAccess]);
+
   useEffect(() => {
     if (!isAuthenticated || !isSupabaseConfigured) return;
     // Save immediately on first auth so any data present before the timer fires is persisted
