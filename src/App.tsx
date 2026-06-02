@@ -554,6 +554,9 @@ export default function App() {
       if (res.tier === 'pro') {
         localStorage.setItem('vf_premium', JSON.stringify({ isPremium: true, plan: 'monthly', purchasedAt: Date.now(), squadGranted: true }));
         premium.refresh();
+        setPendingEmailConfirm(false);
+        // Player already has Premium via their coach — skip the paywall entirely.
+        navigate({ screen: 'dashboard' });
       }
       setSquadJoinToast(res.tier);
     } else if (res.reason === 'invalid' || res.reason === 'self') {
