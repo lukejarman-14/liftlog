@@ -993,6 +993,9 @@ export default function App() {
           featureLabel={paywallFeatureLabel}
           pendingEmailConfirm={pendingEmailConfirm}
           accountType={store.userProfile?.accountType ?? 'personal'}
+          onChangeAccountType={(type) => {
+            if (store.userProfile) store.setUserProfile({ ...store.userProfile, accountType: type });
+          }}
           trialDaysLeft={premium.trialDaysLeft}
           isTrialExpired={premium.isTrialExpired}
           purchasing={premium.purchasing || stripeCheckoutPending}

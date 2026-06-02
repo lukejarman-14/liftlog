@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Zap, Check, Shield, Lock, RotateCcw, Tag, Mail } from 'lucide-react';
+import { X, Zap, Check, Shield, Lock, RotateCcw, Tag, Mail, ChevronLeft, UserPlus, Dumbbell, Building2 } from 'lucide-react';
 import { RCPlan } from '../../hooks/usePremium';
 import { trackEvent } from '../../lib/analytics';
 
@@ -8,6 +8,8 @@ interface PaywallProps {
   pendingEmailConfirm?: boolean;
   /** Which paywall to show. Coach/Club show squad pricing + features. Defaults to personal. */
   accountType?: 'personal' | 'coach' | 'club';
+  /** When provided, a back button lets the user change their account type from the paywall. */
+  onChangeAccountType?: (type: 'personal' | 'coach' | 'club') => void;
   trialDaysLeft: number | null;
   isTrialExpired: boolean;
   purchasing: boolean;
@@ -71,6 +73,7 @@ export function Paywall({
   featureLabel,
   pendingEmailConfirm,
   accountType = 'personal',
+  onChangeAccountType,
   trialDaysLeft,
   isTrialExpired,
   purchasing,
@@ -90,6 +93,7 @@ export function Paywall({
   const PLANS = isClub ? CLUB_PLANS : isCoach ? COACH_PLANS : PERSONAL_PLANS;
   const FEATURES = isClub ? CLUB_FEATURES : isCoach ? COACH_FEATURES : PERSONAL_FEATURES;
   const [selected, setSelected] = useState<RCPlan>('yearly');
+  const [choosing, setChoosing] = useState(false);
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [promoError, setPromoError] = useState<string | null>(null);
@@ -131,6 +135,55 @@ export function Paywall({
     onSelectPlan(plan, noTrial);
   };
 
+  // Account-type chooser — reached via the paywall back button
+  if (choosing && onChangeAccountType) {
+    const options: { id: 'personal' | 'coach' | 'club'; label: string; desc: string; icon: typeof UserPlus }[] = [
+      { id: 'personal', label: 'Personal', desc: 'Your own personalised training — just for you.', icon: UserPlus },
+      { id: 'coach', label: 'Coach', desc: 'Manage up to 30 players on one account.', icon: Dumbbell },
+      { id: 'club', label: 'Club / Academy', desc: 'Multiple coaches and teams under one licence.', icon: Building2 },
+    ];
+    return (
+      <div className="fixed inset-0 z-[200] flex flex-col bg-gray-50 overflow-y-auto">
+        <div
+          className="relative flex items-center pb-6 px-5 bg-gradient-to-b from-brand-600 to-brand-500 text-white"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}
+        >
+          <button onClick={() => setChoosing(false)} aria-label="Back" className="flex items-center gap-1 text-white/90 text-sm font-medium">
+            <ChevronLeft size={18} /> Back
+          </button>
+        </div>
+        <div className="flex-1 px-5 py-6 max-w-sm mx-auto w-full">
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">Choose your account</h2>
+          <p className="text-gray-500 text-sm mb-6">Pick the plan that fits — your pricing updates to match.</p>
+          <div className="flex flex-col gap-4">
+            {options.map(opt => {
+              const Icon = opt.icon;
+              const active = accountType === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  onClick={() => { onChangeAccountType(opt.id); setChoosing(false); }}
+                  className={`text-left p-5 rounded-2xl border-2 transition-all ${active ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-gray-200 bg-white hover:border-brand-300'}`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Icon size={20} className="text-brand-500" />
+                      <span className="text-lg font-bold text-gray-900">{opt.label}</span>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${active ? 'border-brand-500 bg-brand-500' : 'border-gray-300'}`}>
+                      {active && <Check size={12} className="text-white" />}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed">{opt.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-white overflow-y-auto">
       {/* Header */}
@@ -138,6 +191,17 @@ export function Paywall({
         className="relative flex items-center justify-center pb-6 px-6 bg-gradient-to-b from-brand-600 to-brand-500 text-white"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}
       >
+        {onChangeAccountType && (
+          <button
+            onClick={() => setChoosing(true)}
+            disabled={busy}
+            aria-label="Change account type"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)' }}
+            className="absolute left-5 h-8 px-2.5 flex items-center gap-1 rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-40 text-sm font-medium"
+          >
+            <ChevronLeft size={16} /> Back
+          </button>
+        )}
         <button
           onClick={onDismiss}
           disabled={busy}
