@@ -244,7 +244,7 @@ function UpgradeCard({ title, body, onUpgrade }: { title: string; body: string; 
       <h3 className="font-bold text-gray-900 mb-1">{title}</h3>
       <p className="text-sm text-gray-500 leading-relaxed mb-4 max-w-xs mx-auto">{body}</p>
       <button onClick={onUpgrade} className="w-full max-w-xs py-3 rounded-2xl bg-brand-500 text-white font-bold text-sm hover:bg-brand-600 transition-colors">
-        Upgrade to Coach
+        Upgrade to Pro
       </button>
     </div>
   );
@@ -503,7 +503,7 @@ export function CoachDashboard({
               <div className="mb-5">
                 <UpgradeCard
                   title="Unlock squad analytics"
-                  body="Readiness heatmap, compliance, most-improved and testing dashboards are part of the Coach plan — which also gives all your players free Premium and raises your cap to 30."
+                  body="Readiness heatmap, compliance, most-improved and testing dashboards are part of the Pro plan — which also gives all your players free Premium and raises your cap to 30."
                   onUpgrade={onUpgrade}
                 />
               </div>
@@ -542,7 +542,7 @@ export function CoachDashboard({
               <p className="text-xs text-gray-400 mt-2 leading-relaxed">
                 {isPaid
                   ? 'Players enter this code at sign-up to join your squad and get full Premium — at no cost to them.'
-                  : 'Players can join with this code, but they only get free Premium once you upgrade to the Coach plan.'}
+                  : 'Players can join with this code, but they only get free Premium once you upgrade to Pro.'}
               </p>
             </div>
 
@@ -585,7 +585,7 @@ export function CoachDashboard({
         {tab === 'schedule' && !isPaid && (
           <UpgradeCard
             title="Unlock the squad schedule"
-            body="Set your fixtures and training days so players' programmes auto-periodise around match day. Part of the Coach plan."
+            body="Set your fixtures and training days so players' programmes auto-periodise around match day. Part of the Pro plan."
             onUpgrade={onUpgrade}
           />
         )}
@@ -637,7 +637,7 @@ export function CoachDashboard({
         {tab === 'history' && !isPaid && (
           <UpgradeCard
             title="Unlock squad history"
-            body="See attendance, compliance and every player's logged sessions across the squad. Part of the Coach plan."
+            body="See attendance, compliance and every player's logged sessions across the squad. Part of the Pro plan."
             onUpgrade={onUpgrade}
           />
         )}
@@ -679,7 +679,7 @@ export function CoachDashboard({
         {tab === 'tests' && !isPaid && (
           <UpgradeCard
             title="Unlock squad testing"
-            body="Leaderboards, every player's test results and improvements, plus CSV export. Part of the Coach plan."
+            body="Leaderboards, every player's test results and improvements, plus CSV export. Part of the Pro plan."
             onUpgrade={onUpgrade}
           />
         )}
