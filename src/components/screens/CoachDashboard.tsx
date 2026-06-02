@@ -297,7 +297,7 @@ export function CoachDashboard({
         </div>
       </div>
 
-      <div className="max-w-md mx-auto w-full px-5 -mt-4">
+      <div className={`max-w-md mx-auto w-full px-5 ${tab === 'home' ? '-mt-4' : 'pt-5'}`}>
         {/* ---------- HOME ---------- */}
         {tab === 'home' && (
           <>
@@ -351,6 +351,31 @@ export function CoachDashboard({
                     <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Recent activity preview */}
+            {squadActivity.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Recent activity</p>
+                  <button onClick={() => setTab('history')} className="text-xs font-semibold text-brand-600">
+                    See all
+                  </button>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {squadActivity.slice(0, 4).map((a, i) => (
+                    <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{a.player}</p>
+                        <p className="text-xs text-gray-400">{a.label} · {a.date}</p>
+                      </div>
+                      {a.rpe != null && (
+                        <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">RPE {a.rpe}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </>
