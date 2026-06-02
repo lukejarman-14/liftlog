@@ -23,6 +23,7 @@ import {
 } from './lib/cloudSync';
 import { supabase } from './lib/supabase';
 import { registerSquad, joinSquad } from './lib/teams';
+import type { SquadPlayer } from './components/screens/CoachDashboard';
 import { identifyUser, resetAnalyticsUser, trackEvent, applyAnalyticsOptOut } from './lib/analytics';
 import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificationPermission, scheduleDailyReminder } from './lib/notifications';
 import { localDateStr } from './lib/loadManagement';
@@ -54,8 +55,8 @@ const ProgrammeHub       = lazy(() => import('./components/screens/ProgrammeHub'
 const ResetPassword      = lazy(() => import('./components/screens/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
 const CoachDashboard     = lazy(() => import('./components/screens/CoachDashboard').then(m => ({ default: m.CoachDashboard })));
-// Demo squad/schedule data for the coach dashboard preview (branch-only, remove before launch).
-import { DEMO_SQUAD, DEMO_WEEKS, DEMO_TEAMS, DEMO_ANNOUNCEMENTS } from './components/screens/CoachDashboard';
+// Demo schedule/announcement data for the coach dashboard preview (branch-only, remove before launch).
+import { DEMO_WEEKS, DEMO_TEAMS, DEMO_ANNOUNCEMENTS } from './components/screens/CoachDashboard';
 
 // check for password reset link on both implicit (#type=recovery) and PKCE (?code=) flows
 function detectRecoveryUrl(): boolean {
@@ -125,6 +126,8 @@ export default function App() {
   });
   // Squad-join feedback toast: 'pro' (got Premium), 'free' (joined, no Premium), or an error reason.
   const [squadJoinToast, setSquadJoinToast] = useState<null | 'pro' | 'free' | 'invalid'>(null);
+  // Live squad members fetched from Supabase for the coach dashboard
+  const [liveSquadPlayers, setLiveSquadPlayers] = useState<SquadPlayer[]>([]);
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
@@ -566,6 +569,45 @@ export default function App() {
     // 'error' (network/RLS) → keep the code and retry on next authenticated boot
   };
 
+  /** Fetch live squad members from Supabase and populate the coach dashboard. */
+  const fetchSquadMembers = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase.rpc('get_squad_members', { p_coach_id: userId });
+      if (error) {
+        if (import.meta.env.DEV) console.warn('[squad] fetchSquadMembers error:', error.message);
+        return;
+      }
+      if (!Array.isArray(data)) return;
+      const players: SquadPlayer[] = data.map((row: { player_id: string; joined_at: string; email: string; full_name: string }) => ({
+        id: row.player_id,
+        name: row.full_name || row.email.split('@')[0],
+        position: 'Player',
+        group: 'Midfield' as const,
+        readiness: 'moderate' as const,
+        available: true,
+        improvementScore: 0,
+        programmeName: '—',
+        sessionsThisWeek: 0,
+        sessionsTarget: 0,
+        testing: [],
+        recentActivity: [],
+      }));
+      setLiveSquadPlayers(players);
+      if (import.meta.env.DEV) console.log('[squad] live players:', players.length);
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[squad] fetchSquadMembers threw:', e);
+    }
+  }, []);
+
+  // Fetch live squad members whenever the coach dashboard is active
+  useEffect(() => {
+    const acct = store.userProfile?.accountType;
+    if ((acct === 'coach' || acct === 'club') && isAuthenticated && cloudUserIdRef.current) {
+      void fetchSquadMembers(cloudUserIdRef.current);
+    }
+  }, [isAuthenticated, store.userProfile?.accountType, fetchSquadMembers]);
+
   const doGenerateProgramme = (resolvedInputs: ProgrammeInputs) => {
     const programme = generateProgramme(resolvedInputs);
     const todayStr = localDateStr(new Date());
@@ -772,7 +814,7 @@ export default function App() {
         <CoachDashboard
           coachName={[store.userProfile.firstName, store.userProfile.lastName].filter(Boolean).join(' ')}
           inviteSeed={cloudUserIdRef.current ?? store.userProfile.email}
-          players={DEMO_SQUAD}
+          players={liveSquadPlayers}
           weeks={DEMO_WEEKS}
           teams={DEMO_TEAMS}
           announcements={DEMO_ANNOUNCEMENTS}
