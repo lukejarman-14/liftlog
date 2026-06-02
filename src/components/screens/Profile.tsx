@@ -1102,6 +1102,9 @@ export function Profile({
   onSaveWeight, onDeleteWeight, onLogout, onBack,
   settings, onUpdateSettings, onManageSubscription,
 }: ProfileProps) {
+  // Coach / Club accounts don't train themselves — hide player-only sections
+  // (training profile, fitness testing, body metrics except age, weight log).
+  const isCoachOrClub = userProfile.accountType === 'coach' || userProfile.accountType === 'club';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showChangePw,         setShowChangePw]         = useState(false);
   const [showEditMetrics,      setShowEditMetrics]      = useState(false);
@@ -1218,6 +1221,7 @@ export function Profile({
         programmesCompleted={programmesCompleted}
       />
 
+      {!isCoachOrClub && (
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Training Profile</h3>
@@ -1267,8 +1271,9 @@ export function Profile({
           </div>
         </div>
       </Card>
+      )}
 
-      {userProfile.goals.length > 0 && (
+      {userProfile.goals.length > 0 && !isCoachOrClub && (
         <Card className="p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Target size={14} className="text-brand-500" />
@@ -1284,6 +1289,7 @@ export function Profile({
         </Card>
       )}
 
+      {!isCoachOrClub && (
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -1429,16 +1435,19 @@ export function Profile({
           })()}
         </div>
       </Card>
+      )}
 
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Body Metrics</h3>
+          {!isCoachOrClub && (
           <button
             onClick={() => setShowEditMetrics(true)}
             className="text-xs font-semibold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-full hover:bg-brand-100 transition-colors"
           >
             Edit
           </button>
+          )}
         </div>
         {(() => {
           const age = userProfile.dateOfBirth
@@ -1453,6 +1462,7 @@ export function Profile({
             : null;
           return (
             <div className="flex gap-3">
+              {!isCoachOrClub && (
               <div className="flex items-center gap-2 flex-1">
                 <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
                   <Ruler size={14} className="text-blue-600" />
@@ -1464,6 +1474,8 @@ export function Profile({
                   </div>
                 </div>
               </div>
+              )}
+              {!isCoachOrClub && (
               <div className="flex items-center gap-2 flex-1">
                 <div className="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                   <Weight size={14} className="text-green-600" />
@@ -1475,6 +1487,7 @@ export function Profile({
                   </div>
                 </div>
               </div>
+              )}
               <div className="flex items-center gap-2 flex-1">
                 <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
                   <span className="text-purple-600 text-xs font-bold">Age</span>
@@ -1491,7 +1504,9 @@ export function Profile({
         })()}
       </Card>
 
-      <WeightTracker log={weightLog} onSave={onSaveWeight} onDelete={onDeleteWeight} />
+      {!isCoachOrClub && (
+        <WeightTracker log={weightLog} onSave={onSaveWeight} onDelete={onDeleteWeight} />
+      )}
 
       <TrainingReminders settings={settings} onUpdate={onUpdateSettings} />
 
