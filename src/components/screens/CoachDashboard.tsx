@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { deriveTeamCode } from '../../lib/teams';
 import {
   Users, Copy, Check, Calendar, ChevronRight, ChevronLeft,
   TrendingUp, TrendingDown, Activity, Dumbbell, ClipboardCheck, LayoutDashboard,
@@ -67,14 +68,6 @@ interface CoachDashboardProps {
   onOpenProfile?: () => void;
 }
 
-function deriveInviteCode(seed: string): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '', n = hash;
-  for (let i = 0; i < 5; i++) { code += alphabet[n % alphabet.length]; n = Math.floor(n / alphabet.length); }
-  return `VF-${code}`;
-}
 function initials(name: string): string {
   return name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
 }
@@ -273,7 +266,7 @@ export function CoachDashboard({
   const [weekIdx, setWeekIdx] = useState(0);
   const [noteDraft, setNoteDraft] = useState('');
 
-  const inviteCode = deriveInviteCode(inviteSeed);
+  const inviteCode = deriveTeamCode(inviteSeed);
   const selected = players.find(p => p.id === selectedId) ?? null;
 
   const copyCode = async () => {

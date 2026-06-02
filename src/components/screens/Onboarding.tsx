@@ -145,6 +145,8 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
   // Step 3 — Account type (Personal / Coach / Club). Defaults to personal.
   const [accountType, setAccountType] = useState<'personal' | 'coach' | 'club'>('personal');
+  // Optional squad invite code (personal players joining a coach/club).
+  const [teamCode, setTeamCode] = useState('');
 
   // Age computation from DOB inputs
   const computedAge: number | null = (() => {
@@ -321,6 +323,12 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
       // Write profile directly to localStorage NOW so cloudSaveData always finds it,
       // regardless of whether React's useEffect has committed yet.
       localStorage.setItem('vf_user_profile', JSON.stringify(profile));
+
+      // Stash a pending squad code so App can join once the player is authenticated
+      // (handles the email-confirmation delay — join happens on first real session).
+      if (accountType === 'personal' && teamCode.trim()) {
+        localStorage.setItem('vf_pending_team_code', teamCode.trim().toUpperCase());
+      }
 
       let userId: string | undefined = existingUserId;
       let needsConfirmation = false;
@@ -1230,6 +1238,24 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                 ? "You'll add your coaches and teams after creating your account."
                 : 'Choose Coach or Club if you train a team and want everyone on one subscription.'}
             </p>
+
+            {/* Optional squad invite code — players joining a coach/club */}
+            {accountType === 'personal' && (
+              <div className="mt-6">
+                <Label>Team code <span className="text-gray-400 normal-case font-normal">(optional)</span></Label>
+                <input
+                  type="text"
+                  value={teamCode}
+                  onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
+                  placeholder="e.g. VF-K7M2P"
+                  style={{ fontSize: '16px' }}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-400"
+                />
+                <p className="mt-1.5 text-xs text-gray-400">
+                  Got a code from your coach? Enter it to join their squad. If they're on the Pro plan, you'll get full Premium free.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

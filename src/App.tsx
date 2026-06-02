@@ -22,6 +22,7 @@ import {
   getExistingSession,
 } from './lib/cloudSync';
 import { supabase } from './lib/supabase';
+import { registerSquad, joinSquad } from './lib/teams';
 import { identifyUser, resetAnalyticsUser, trackEvent, applyAnalyticsOptOut } from './lib/analytics';
 import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificationPermission, scheduleDailyReminder } from './lib/notifications';
 import { localDateStr } from './lib/loadManagement';
@@ -122,6 +123,8 @@ export default function App() {
   const [showSquadEnded, setShowSquadEnded] = useState(() => {
     try { return localStorage.getItem('vf_squad_ended') === '1'; } catch { return false; }
   });
+  // Squad-join feedback toast: 'pro' (got Premium), 'free' (joined, no Premium), or an error reason.
+  const [squadJoinToast, setSquadJoinToast] = useState<null | 'pro' | 'free' | 'invalid'>(null);
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
@@ -152,6 +155,8 @@ export default function App() {
           // Unblock the UI immediately — the spinner disappears as soon as we know
           // the auth state. All background syncs (cloud, RC) continue after this.
           setSessionChecking(false);
+          // Register coach/club squad or finish a pending player join.
+          void syncSquad(userId);
           if (!sessionStorage.getItem('vf_boot_synced')) {
             sessionStorage.setItem('vf_boot_synced', '1');
             await cloudLoadData(userId);
@@ -251,6 +256,7 @@ export default function App() {
           identifyUser(userId);
           cloudLoadData(userId).catch(() => {});
           rcConfigure(userId).catch(() => {});
+          void syncSquad(userId);
         }
       }
     });
@@ -511,9 +517,39 @@ export default function App() {
     premium.resetForNewUser();
     // If we have a userId but no Supabase session yet, email confirmation is pending
     if (userId) setPendingEmailConfirm(true);
+    // Register the squad (coach/club) or join one (player with a team code) now that
+    // we're authenticated. No-op if there's no session yet — retried on next boot.
+    if (userId) void syncSquad(userId);
     // Show paywall immediately for new users — if they dismiss it, drop to dashboard with welcome prompt
     setPaywallFeatureLabel(undefined);
     navigate({ screen: 'paywall' });
+  };
+
+  // Register a coach/club squad, or join a squad as a player (granting Premium if the
+  // coach is on Pro). Safe to call repeatedly — registers are upserts, joins clear the
+  // pending code on success. Requires an authenticated session.
+  const syncSquad = async (userId: string) => {
+    let acct: string | undefined;
+    try { acct = JSON.parse(localStorage.getItem('vf_user_profile') || '{}').accountType; } catch { /* ignore */ }
+    if (acct === 'coach' || acct === 'club') {
+      await registerSquad(userId, premium.hasAccess ? 'pro' : 'free');
+      return;
+    }
+    const code = localStorage.getItem('vf_pending_team_code');
+    if (!code) return;
+    const res = await joinSquad(code);
+    if (res.success) {
+      localStorage.removeItem('vf_pending_team_code');
+      if (res.tier === 'pro') {
+        localStorage.setItem('vf_premium', JSON.stringify({ isPremium: true, plan: 'monthly', purchasedAt: Date.now(), squadGranted: true }));
+        premium.refresh();
+      }
+      setSquadJoinToast(res.tier);
+    } else if (res.reason === 'invalid' || res.reason === 'self') {
+      localStorage.removeItem('vf_pending_team_code'); // bad code — don't retry forever
+      setSquadJoinToast('invalid');
+    }
+    // 'error' (network/RLS) → keep the code and retry on next authenticated boot
   };
 
   const doGenerateProgramme = (resolvedInputs: ProgrammeInputs) => {
@@ -663,6 +699,7 @@ export default function App() {
             // so localStorage now has the server-authoritative value — refresh React state.
             premium.refresh();
             rcConfigure(userId).then(() => premium.syncFromRC()).catch(() => {});
+            void syncSquad(userId);
           }
           setIsAuthenticated(true);
         }}
@@ -1009,10 +1046,14 @@ export default function App() {
             if (Capacitor.isNativePlatform()) {
               // iOS: trial must go through StoreKit via RevenueCat
               const ok = await premium.purchase(plan);
-              if (ok) navigate({ screen: dest });
+              if (ok) {
+                if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current, 'pro');
+                navigate({ screen: dest });
+              }
             } else {
               // Web: local 14-day trial clock, no payment required up front
               premium.startTrial();
+              if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current, 'pro');
               navigate({ screen: dest });
             }
           }}
@@ -1031,7 +1072,10 @@ export default function App() {
               return;
             }
             const ok = await premium.purchase(plan);
-            if (ok) navigate({ screen: isCoach ? 'dashboard' : 'programme-builder' });
+            if (ok) {
+              if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current, 'pro');
+              navigate({ screen: isCoach ? 'dashboard' : 'programme-builder' });
+            }
           }}
           onRestore={async () => {
             const ok = await premium.restore();
@@ -1113,6 +1157,25 @@ export default function App() {
 
       {!fullScreens.includes(screen) && !isCoach && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
+      )}
+
+      {squadJoinToast && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[210] px-4 w-full max-w-sm" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5rem)' }}>
+          <div
+            className={`rounded-2xl px-4 py-3 shadow-lg text-sm font-medium flex items-center justify-between gap-3 ${
+              squadJoinToast === 'pro' ? 'bg-green-600 text-white'
+                : squadJoinToast === 'free' ? 'bg-gray-800 text-white'
+                : 'bg-red-500 text-white'
+            }`}
+          >
+            <span>
+              {squadJoinToast === 'pro' ? "You've joined the squad — Premium unlocked, free!"
+                : squadJoinToast === 'free' ? "You've joined the squad. Ask your coach to upgrade for free Premium."
+                : "That team code wasn't valid — you can add one later in settings."}
+            </span>
+            <button onClick={() => setSquadJoinToast(null)} className="text-white/80 hover:text-white flex-shrink-0">✕</button>
+          </div>
+        </div>
       )}
 
       {showSquadEnded && !isCoach && (
