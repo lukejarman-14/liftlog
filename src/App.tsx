@@ -48,6 +48,7 @@ const LoadCalendar       = lazy(() => import('./components/screens/LoadCalendar'
 const ProgrammeBuilder   = lazy(() => import('./components/screens/ProgrammeBuilder').then(m => ({ default: m.ProgrammeBuilder })));
 import { GeneratedProgramme, StrengthSetupModal } from './components/screens/GeneratedProgramme';
 import { TermsGateModal } from './components/TermsGateModal';
+import { SquadEndedModal } from './components/SquadEndedModal';
 const ProgrammeHub       = lazy(() => import('./components/screens/ProgrammeHub').then(m => ({ default: m.ProgrammeHub })));
 const ResetPassword      = lazy(() => import('./components/screens/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
@@ -115,6 +116,12 @@ export default function App() {
   useEffect(() => () => { appMountedRef.current = false; }, []);
   const [showProgrammePrompt, setShowProgrammePrompt] = useState(false);
   const [pendingEmailConfirm, setPendingEmailConfirm] = useState(false);
+  // Shown to a personal player whose squad (coach) access has ended — prompts them to keep Premium.
+  // In production this flag is set when the player's coach link is revoked. For preview, set
+  // localStorage 'vf_squad_ended' = '1' and reload.
+  const [showSquadEnded, setShowSquadEnded] = useState(() => {
+    try { return localStorage.getItem('vf_squad_ended') === '1'; } catch { return false; }
+  });
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
@@ -701,7 +708,9 @@ export default function App() {
   }
 
   const { screen } = nav;
-  const isCoach = store.userProfile?.accountType === 'coach';
+  // Coach and Club accounts both use the squad dashboard (player-style nav hidden).
+  const isClub = store.userProfile?.accountType === 'club';
+  const isCoach = store.userProfile?.accountType === 'coach' || isClub;
   const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme', 'paywall', 'active-workout'];
   const screenFallback = <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>;
 
@@ -716,7 +725,7 @@ export default function App() {
           weeks={DEMO_WEEKS}
           teams={DEMO_TEAMS}
           announcements={DEMO_ANNOUNCEMENTS}
-          maxPlayers={30}
+          maxPlayers={isClub ? 200 : 30}
           onOpenProfile={() => navigate({ screen: 'profile' })}
         />
       )}
@@ -1099,6 +1108,20 @@ export default function App() {
 
       {!fullScreens.includes(screen) && !isCoach && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
+      )}
+
+      {showSquadEnded && !isCoach && (
+        <SquadEndedModal
+          onKeepPremium={() => {
+            try { localStorage.removeItem('vf_squad_ended'); } catch { /* ignore */ }
+            setShowSquadEnded(false);
+            navigate({ screen: 'paywall' });
+          }}
+          onDismiss={() => {
+            try { localStorage.removeItem('vf_squad_ended'); } catch { /* ignore */ }
+            setShowSquadEnded(false);
+          }}
+        />
       )}
 
       {pendingReTestSession && (

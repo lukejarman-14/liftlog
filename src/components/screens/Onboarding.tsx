@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus, Mail } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus, Mail, Building2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoadData, cloudSignOut, cloudResetPassword, cloudResendConfirmation } from '../../lib/cloudSync';
@@ -143,8 +143,8 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [gymAccess,       setGymAccess]       = useState<'full' | 'basic' | 'none' | ''>('');
   const canEnterApp = position !== '' && experienceYears !== '' && gymFrequency !== '' && gymAccess !== '';
 
-  // Step 5 — Account type (Personal vs Coach). Defaults to personal.
-  const [accountType, setAccountType] = useState<'personal' | 'coach'>('personal');
+  // Step 3 — Account type (Personal / Coach / Club). Defaults to personal.
+  const [accountType, setAccountType] = useState<'personal' | 'coach' | 'club'>('personal');
 
   // Age computation from DOB inputs
   const computedAge: number | null = (() => {
@@ -362,8 +362,8 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     }
   };
 
-  // Coaches finish at step 3 (no body metrics / training profile), so the bar fills over 3 steps.
-  const effectiveTotal = accountType === 'coach' ? 3 : TOTAL_STEPS;
+  // Coach/Club finish at step 3 (no body metrics / training profile), so the bar fills over 3 steps.
+  const effectiveTotal = accountType !== 'personal' ? 3 : TOTAL_STEPS;
   const progressPct = step <= 0 ? 0 : (step / effectiveTotal) * 100;
 
   // Blocking email confirmation screen — shown after sign-up until user confirms their email
@@ -1133,7 +1133,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
         {step === 3 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
-            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 3 of {accountType === 'coach' ? '3' : '5'}</p>
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 3 of {accountType !== 'personal' ? '3' : '5'}</p>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">Choose your account</h2>
             <p className="text-gray-500 text-sm mb-7">You can change this later in settings.</p>
 
@@ -1192,12 +1192,43 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                   <span>Your players get full premium access included — they don't pay a penny.</span>
                 </div>
               </button>
+
+              {/* Club */}
+              <button
+                type="button"
+                onClick={() => setAccountType('club')}
+                className={`text-left p-5 rounded-2xl border-2 transition-all ${
+                  accountType === 'club'
+                    ? 'border-brand-500 bg-brand-50 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-brand-300'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={20} className="text-brand-500" />
+                    <span className="text-lg font-bold text-gray-900">Club / Academy</span>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    accountType === 'club' ? 'border-brand-500 bg-brand-500' : 'border-gray-300'
+                  }`}>
+                    {accountType === 'club' && <Check size={12} className="text-white" />}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed mb-3">
+                  One licence for your whole club. Multiple <span className="font-semibold text-gray-800">coaches and teams</span> under a single account — every player included.
+                </p>
+                <div className="flex items-center gap-2 text-xs text-brand-600 font-medium bg-brand-100/60 rounded-lg px-3 py-2">
+                  <span>Best for academies — add coaches, manage age groups, one simple bill.</span>
+                </div>
+              </button>
             </div>
 
             <p className="mt-6 text-xs text-gray-400 text-center">
               {accountType === 'coach'
                 ? "You'll set up your squad and invite players after creating your account."
-                : 'Choose Coach if you train a team and want everyone on one subscription.'}
+                : accountType === 'club'
+                ? "You'll add your coaches and teams after creating your account."
+                : 'Choose Coach or Club if you train a team and want everyone on one subscription.'}
             </p>
           </div>
         )}
@@ -1263,7 +1294,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               Back
             </button>
             <button
-              onClick={() => { if (accountType === 'coach') handleEnterApp(); else setStep(4); }}
+              onClick={() => { if (accountType !== 'personal') handleEnterApp(); else setStep(4); }}
               disabled={submitting}
               className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all ${
                 submitting
@@ -1271,7 +1302,11 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                   : 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
               }`}
             >
-              {submitting ? 'Creating…' : (accountType === 'coach' ? 'Continue as Coach' : 'Continue')}
+              {submitting
+                ? 'Creating…'
+                : accountType === 'coach' ? 'Continue as Coach'
+                : accountType === 'club' ? 'Continue as Club'
+                : 'Continue'}
               {!submitting && <ChevronRight size={16} />}
             </button>
           </div>

@@ -6,8 +6,8 @@ import { trackEvent } from '../../lib/analytics';
 interface PaywallProps {
   featureLabel?: string;
   pendingEmailConfirm?: boolean;
-  /** Which paywall to show. Coach shows squad pricing + features. Defaults to personal. */
-  accountType?: 'personal' | 'coach';
+  /** Which paywall to show. Coach/Club show squad pricing + features. Defaults to personal. */
+  accountType?: 'personal' | 'coach' | 'club';
   trialDaysLeft: number | null;
   isTrialExpired: boolean;
   purchasing: boolean;
@@ -53,6 +53,20 @@ const COACH_PLANS: PlanCard[] = [
   { id: 'monthly', label: 'Coach Monthly', price: '£34.99',  sub: 'Up to 30 players · cancel anytime' },
 ];
 
+const CLUB_FEATURES = [
+  'One licence for your entire club or academy',
+  'Add multiple coaches, each managing their own teams',
+  'Unlimited players across all age groups',
+  'Club-wide readiness, testing & compliance overview',
+  'Every player gets full Premium — included',
+  'Priority support & onboarding for your staff',
+];
+
+const CLUB_PLANS: PlanCard[] = [
+  { id: 'yearly',  label: 'Club Annual',  price: '£899.00', sub: 'Just £74.92/mo · billed once a year', badge: 'BEST VALUE', saving: 'Save ~£300/yr vs monthly' },
+  { id: 'monthly', label: 'Club Monthly', price: '£99.99',  sub: 'Unlimited coaches & players · cancel anytime' },
+];
+
 export function Paywall({
   featureLabel,
   pendingEmailConfirm,
@@ -70,9 +84,11 @@ export function Paywall({
   onDismiss,
   onContinueFree,
 }: PaywallProps) {
+  const isClub = accountType === 'club';
   const isCoach = accountType === 'coach';
-  const PLANS = isCoach ? COACH_PLANS : PERSONAL_PLANS;
-  const FEATURES = isCoach ? COACH_FEATURES : PERSONAL_FEATURES;
+  const isSquad = isCoach || isClub;
+  const PLANS = isClub ? CLUB_PLANS : isCoach ? COACH_PLANS : PERSONAL_PLANS;
+  const FEATURES = isClub ? CLUB_FEATURES : isCoach ? COACH_FEATURES : PERSONAL_FEATURES;
   const [selected, setSelected] = useState<RCPlan>('yearly');
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [promoCode, setPromoCode] = useState('');
@@ -135,9 +151,9 @@ export function Paywall({
           <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mx-auto mb-3">
             <Zap size={28} className="text-yellow-300" />
           </div>
-          <h1 className="text-2xl font-extrabold mb-1">{isCoach ? 'Vector Football Coach' : 'Vector Football Premium'}</h1>
-          {isCoach && (
-            <p className="text-sm text-white/80">One subscription · up to 30 players</p>
+          <h1 className="text-2xl font-extrabold mb-1">{isClub ? 'Vector Football Club' : isCoach ? 'Vector Football Coach' : 'Vector Football Premium'}</h1>
+          {isSquad && (
+            <p className="text-sm text-white/80">{isClub ? 'One licence · unlimited coaches & players' : 'One subscription · up to 30 players'}</p>
           )}
           {featureLabel && (
             <p className="text-sm text-white/80">

@@ -97,6 +97,16 @@ const SCHEDULE_BADGE: Record<ScheduleDay['type'], string> = {
 };
 const READINESS_SCORE: Record<Readiness, number> = { ready: 3, moderate: 2, low: 1, unknown: 0 };
 
+// All player-mode tests. lowerIsBetter drives leaderboard sort direction.
+const TEST_METRICS: { label: string; lowerIsBetter: boolean }[] = [
+  { label: '10m Sprint', lowerIsBetter: true },
+  { label: '30m Sprint', lowerIsBetter: true },
+  { label: 'CMJ', lowerIsBetter: false },
+  { label: 'Standing Long Jump', lowerIsBetter: false },
+  { label: 'RSA (6×30m)', lowerIsBetter: true },
+  { label: 'Yo-Yo IR1', lowerIsBetter: false },
+];
+
 // ---------------- Demo data ----------------
 export const DEMO_TEAMS = ['First Team', 'U18s', 'U16s'];
 
@@ -151,7 +161,10 @@ export const DEMO_SQUAD: SquadPlayer[] = [
     programmeName: 'Speed & Power · Wk 3', sessionsThisWeek: 3, sessionsTarget: 3, lastSessionLabel: 'Lower Body Power',
     testing: [
       { label: '10m Sprint', value: '1.78s', change: '-0.05s', improved: true },
+      { label: '30m Sprint', value: '4.05s', change: '-0.06s', improved: true },
       { label: 'CMJ', value: '44cm', change: '+3cm', improved: true },
+      { label: 'Standing Long Jump', value: '255cm', change: '+6cm', improved: true },
+      { label: 'RSA (6×30m)', value: '4.30s', change: '-0.05s', improved: true },
       { label: 'Yo-Yo IR1', value: '18.4', change: '+0.6', improved: true },
     ],
     recentActivity: [
@@ -166,7 +179,10 @@ export const DEMO_SQUAD: SquadPlayer[] = [
     programmeName: 'Strength Base · Wk 2', sessionsThisWeek: 2, sessionsTarget: 3, lastSessionLabel: 'Upper Body Strength',
     testing: [
       { label: '10m Sprint', value: '1.91s', change: '-0.02s', improved: true },
+      { label: '30m Sprint', value: '4.38s', change: '-0.03s', improved: true },
       { label: 'CMJ', value: '38cm', change: '+1cm', improved: true },
+      { label: 'Standing Long Jump', value: '238cm', change: '+2cm', improved: true },
+      { label: 'RSA (6×30m)', value: '4.55s', change: '+0.04s', improved: false },
       { label: 'Yo-Yo IR1', value: '17.1', change: '-0.2', improved: false },
     ],
     recentActivity: [
@@ -180,7 +196,10 @@ export const DEMO_SQUAD: SquadPlayer[] = [
     programmeName: 'Power & Conditioning · Wk 4', sessionsThisWeek: 1, sessionsTarget: 3, lastSessionLabel: 'Conditioning',
     testing: [
       { label: '10m Sprint', value: '1.74s', change: '-0.01s', improved: true },
-      { label: 'CMJ', value: '47cm', change: '+0cm', improved: true },
+      { label: '30m Sprint', value: '3.98s', change: '-0.02s', improved: true },
+      { label: 'CMJ', value: '47cm', change: '+1cm', improved: true },
+      { label: 'Standing Long Jump', value: '262cm', change: '+4cm', improved: true },
+      { label: 'RSA (6×30m)', value: '4.25s', change: '-0.03s', improved: true },
       { label: 'Yo-Yo IR1', value: '19.0', change: '+0.4', improved: true },
     ],
     recentActivity: [{ date: 'Mon 26 May', label: 'Conditioning', rpe: 9 }],
@@ -191,7 +210,10 @@ export const DEMO_SQUAD: SquadPlayer[] = [
     programmeName: 'Speed & Power · Wk 3', sessionsThisWeek: 3, sessionsTarget: 3, lastSessionLabel: 'Speed & Acceleration',
     testing: [
       { label: '10m Sprint', value: '1.83s', change: '-0.03s', improved: true },
+      { label: '30m Sprint', value: '4.20s', change: '-0.04s', improved: true },
       { label: 'CMJ', value: '41cm', change: '+2cm', improved: true },
+      { label: 'Standing Long Jump', value: '248cm', change: '+5cm', improved: true },
+      { label: 'RSA (6×30m)', value: '4.40s', change: '-0.06s', improved: true },
       { label: 'Yo-Yo IR1', value: '18.8', change: '+0.8', improved: true },
     ],
     recentActivity: [
@@ -253,25 +275,29 @@ export function CoachDashboard({
 
   const filteredPlayers = groupFilter === 'All' ? players : players.filter(p => p.group === groupFilter);
 
-  // Leaderboards
-  const sprintBoard = [...players].sort((a, b) =>
-    numFromValue(a.testing.find(t => t.label === '10m Sprint')?.value ?? '99') -
-    numFromValue(b.testing.find(t => t.label === '10m Sprint')?.value ?? '99')).slice(0, 3);
-  const cmjBoard = [...players].sort((a, b) =>
-    numFromValue(b.testing.find(t => t.label === 'CMJ')?.value ?? '0') -
-    numFromValue(a.testing.find(t => t.label === 'CMJ')?.value ?? '0')).slice(0, 3);
+  // Leaderboards — top 3 per test, sorted by each test's direction
+  const leaderboards = TEST_METRICS.map(metric => {
+    const ranked = [...players]
+      .filter(p => p.testing.some(t => t.label === metric.label))
+      .sort((a, b) => {
+        const av = numFromValue(a.testing.find(t => t.label === metric.label)?.value ?? '0');
+        const bv = numFromValue(b.testing.find(t => t.label === metric.label)?.value ?? '0');
+        return metric.lowerIsBetter ? av - bv : bv - av;
+      })
+      .slice(0, 3);
+    return { metric, ranked };
+  });
 
   const squadActivity = players
     .flatMap(p => p.recentActivity.map(a => ({ ...a, player: p.name })))
     .sort((a, b) => b.date.localeCompare(a.date));
 
   const exportReport = () => {
-    const rows = [['Name', 'Position', 'Readiness', 'Sessions', '10m', 'CMJ', 'Yo-Yo']];
+    const header = ['Name', 'Position', 'Readiness', 'Sessions', ...TEST_METRICS.map(m => m.label)];
+    const rows = [header];
     players.forEach(p => rows.push([
       p.name, p.position, p.readiness, `${p.sessionsThisWeek}/${p.sessionsTarget}`,
-      p.testing.find(t => t.label === '10m Sprint')?.value ?? '',
-      p.testing.find(t => t.label === 'CMJ')?.value ?? '',
-      p.testing.find(t => t.label === 'Yo-Yo IR1')?.value ?? '',
+      ...TEST_METRICS.map(m => p.testing.find(t => t.label === m.label)?.value ?? ''),
     ]));
     const csv = rows.map(r => r.join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
@@ -603,26 +629,23 @@ export function CoachDashboard({
         {/* ---------- TESTS ---------- */}
         {tab === 'tests' && (
           <>
-            {/* Leaderboards */}
+            {/* Leaderboards — one per test */}
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 px-1">Leaderboards</p>
             <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                <div className="flex items-center gap-1.5 mb-2"><Trophy size={14} className="text-amber-500" /><p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Fastest 10m</p></div>
-                {sprintBoard.map((p, i) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm py-0.5">
-                    <span className="text-gray-700"><span className="text-gray-400 mr-1">{i + 1}.</span>{p.name.split(' ')[0]}</span>
-                    <span className="font-bold text-gray-900">{p.testing.find(t => t.label === '10m Sprint')?.value}</span>
+              {leaderboards.map(({ metric, ranked }) => (
+                <div key={metric.label} className="bg-white rounded-2xl border border-gray-100 p-4">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Trophy size={14} className="text-amber-500" />
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide leading-tight">{metric.label}</p>
                   </div>
-                ))}
-              </div>
-              <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                <div className="flex items-center gap-1.5 mb-2"><Trophy size={14} className="text-amber-500" /><p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Highest CMJ</p></div>
-                {cmjBoard.map((p, i) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm py-0.5">
-                    <span className="text-gray-700"><span className="text-gray-400 mr-1">{i + 1}.</span>{p.name.split(' ')[0]}</span>
-                    <span className="font-bold text-gray-900">{p.testing.find(t => t.label === 'CMJ')?.value}</span>
-                  </div>
-                ))}
-              </div>
+                  {ranked.map((p, i) => (
+                    <div key={p.id} className="flex items-center justify-between text-sm py-0.5">
+                      <span className="text-gray-700 truncate"><span className="text-gray-400 mr-1">{i + 1}.</span>{p.name.split(' ')[0]}</span>
+                      <span className="font-bold text-gray-900 flex-shrink-0">{p.testing.find(t => t.label === metric.label)?.value}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
 
             <div className="flex items-center justify-between mb-3 px-1">

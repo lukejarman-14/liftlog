@@ -195,7 +195,8 @@ export interface UserProfile {
   // Account type chosen during onboarding.
   // 'personal' = standard single-user account (default).
   // 'coach' = manages up to 30 linked players on one subscription.
-  accountType?: 'personal' | 'coach';
+  // 'club' = academy/club licence — multiple coaches + teams under one account.
+  accountType?: 'personal' | 'coach' | 'club';
 }
 
 
