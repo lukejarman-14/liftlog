@@ -967,6 +967,7 @@ export default function App() {
         <Paywall
           featureLabel={paywallFeatureLabel}
           pendingEmailConfirm={pendingEmailConfirm}
+          accountType={store.userProfile?.accountType ?? 'personal'}
           trialDaysLeft={premium.trialDaysLeft}
           isTrialExpired={premium.isTrialExpired}
           purchasing={premium.purchasing || stripeCheckoutPending}

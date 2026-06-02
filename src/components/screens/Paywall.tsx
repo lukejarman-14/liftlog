@@ -6,6 +6,8 @@ import { trackEvent } from '../../lib/analytics';
 interface PaywallProps {
   featureLabel?: string;
   pendingEmailConfirm?: boolean;
+  /** Which paywall to show. Coach shows squad pricing + features. Defaults to personal. */
+  accountType?: 'personal' | 'coach';
   trialDaysLeft: number | null;
   isTrialExpired: boolean;
   purchasing: boolean;
@@ -20,7 +22,9 @@ interface PaywallProps {
   onContinueFree?: () => void;
 }
 
-const FEATURES = [
+type PlanCard = { id: RCPlan; label: string; price: string; sub: string; badge?: string; saving?: string };
+
+const PERSONAL_FEATURES = [
   'Smart programme builder — position-specific, match-day periodised',
   'Progressive overload — exact weight targets every session',
   'Play-style differentiation — sessions built for how you play',
@@ -29,15 +33,30 @@ const FEATURES = [
   'Training load chart — weekly volume & ACWR injury risk monitoring',
 ];
 
-const PLANS: { id: RCPlan; label: string; price: string; sub: string; badge?: string; saving?: string }[] = [
+const COACH_FEATURES = [
+  'Manage up to 30 players on one account',
+  'Share an invite code — players join your squad instantly',
+  'Assign programmes to one player or your whole squad',
+  'Squad readiness dashboard — see everyone at a glance',
+  'Track every player’s testing results & progress',
+  'Your players get full Premium access included — they pay nothing',
+];
+
+const PERSONAL_PLANS: PlanCard[] = [
   { id: 'yearly',   label: 'Annual',   price: '£79.99', sub: 'Just £6.67/mo · billed once a year', badge: 'BEST VALUE', saving: 'Save £1.32/mo vs monthly' },
   { id: 'monthly',  label: 'Monthly',  price: '£7.99',  sub: 'Billed monthly · cancel anytime' },
   { id: 'lifetime', label: 'Lifetime', price: '£150.00', sub: 'One-time payment — yours forever' },
 ];
 
+const COACH_PLANS: PlanCard[] = [
+  { id: 'yearly',  label: 'Coach Annual',  price: '£299.00', sub: 'Just £24.92/mo · billed once a year', badge: 'BEST VALUE', saving: 'Save ~£120/yr vs monthly' },
+  { id: 'monthly', label: 'Coach Monthly', price: '£34.99',  sub: 'Up to 30 players · cancel anytime' },
+];
+
 export function Paywall({
   featureLabel,
   pendingEmailConfirm,
+  accountType = 'personal',
   trialDaysLeft,
   isTrialExpired,
   purchasing,
@@ -51,6 +70,9 @@ export function Paywall({
   onDismiss,
   onContinueFree,
 }: PaywallProps) {
+  const isCoach = accountType === 'coach';
+  const PLANS = isCoach ? COACH_PLANS : PERSONAL_PLANS;
+  const FEATURES = isCoach ? COACH_FEATURES : PERSONAL_FEATURES;
   const [selected, setSelected] = useState<RCPlan>('yearly');
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [promoCode, setPromoCode] = useState('');
@@ -113,7 +135,10 @@ export function Paywall({
           <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mx-auto mb-3">
             <Zap size={28} className="text-yellow-300" />
           </div>
-          <h1 className="text-2xl font-extrabold mb-1">Vector Football Premium</h1>
+          <h1 className="text-2xl font-extrabold mb-1">{isCoach ? 'Vector Football Coach' : 'Vector Football Premium'}</h1>
+          {isCoach && (
+            <p className="text-sm text-white/80">One subscription · up to 30 players</p>
+          )}
           {featureLabel && (
             <p className="text-sm text-white/80">
               <Lock size={12} className="inline mr-1 mb-0.5" />
