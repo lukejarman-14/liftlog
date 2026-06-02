@@ -32,8 +32,8 @@ function Label({ children }: { children: ReactNode }) {
   );
 }
 
-// Total wizard steps (excluding welcome): steps 1, 2, 3, 4
-const TOTAL_STEPS = 4;
+// Total wizard steps (excluding welcome): steps 1, 2, 3, 4, 5
+const TOTAL_STEPS = 5;
 
 const POSITIONS = [
   { id: 'GK', label: '🧤 Goalkeeper' },
@@ -142,6 +142,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [gymFrequency,    setGymFrequency]    = useState<'0' | '1-2' | '3-4' | '5+' | ''>('');
   const [gymAccess,       setGymAccess]       = useState<'full' | 'basic' | 'none' | ''>('');
   const canEnterApp = position !== '' && experienceYears !== '' && gymFrequency !== '' && gymAccess !== '';
+
+  // Step 5 — Account type (Personal vs Coach). Defaults to personal.
+  const [accountType, setAccountType] = useState<'personal' | 'coach'>('personal');
 
   // Age computation from DOB inputs
   const computedAge: number | null = (() => {
@@ -312,6 +315,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         gender:          gender || undefined,
         dateOfBirth:     dobString,
         termsAcceptedAt: Date.now(),
+        accountType,
       };
 
       // Write profile directly to localStorage NOW so cloudSaveData always finds it,
@@ -635,7 +639,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
         {step === 1 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
-            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 1 of 4</p>
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 1 of 5</p>
             {existingUserId ? (
               <>
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">Set up your profile</h2>
@@ -766,7 +770,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
         {step === 2 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
-            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 2 of 4</p>
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 2 of 5</p>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">Age &amp; Terms</h2>
             <p className="text-gray-500 text-sm mb-7">We need to verify your age and confirm you agree to our terms before you start.</p>
 
@@ -863,7 +867,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
         {step === 3 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
-            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 3 of 4</p>
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 3 of 5</p>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">About you</h2>
             <p className="text-gray-500 text-sm mb-7">Used to personalise your programme. All optional — you can add these later in Settings.</p>
 
@@ -1013,7 +1017,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           const btnInactive = 'bg-white text-gray-600 border-gray-200 hover:border-brand-300';
           return (
             <div className="flex-1 flex flex-col py-12 pt-16">
-              <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 4 of 4</p>
+              <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 4 of 5</p>
               <h2 className="text-2xl font-bold text-gray-900 mb-1">Your training profile</h2>
               <p className="text-gray-500 text-sm mb-7">Helps us build the right programme for you.</p>
 
@@ -1125,6 +1129,77 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           );
         })()}
 
+        {step === 5 && (
+          <div className="flex-1 flex flex-col py-12 pt-16">
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 5 of 5</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">Choose your account</h2>
+            <p className="text-gray-500 text-sm mb-7">You can change this later in settings.</p>
+
+            <div className="flex flex-col gap-4">
+              {/* Personal */}
+              <button
+                type="button"
+                onClick={() => setAccountType('personal')}
+                className={`text-left p-5 rounded-2xl border-2 transition-all ${
+                  accountType === 'personal'
+                    ? 'border-brand-500 bg-brand-50 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-brand-300'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <UserPlus size={20} className="text-brand-500" />
+                    <span className="text-lg font-bold text-gray-900">Personal</span>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    accountType === 'personal' ? 'border-brand-500 bg-brand-500' : 'border-gray-300'
+                  }`}>
+                    {accountType === 'personal' && <Check size={12} className="text-white" />}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Your own personalised training. Build programmes around your position, schedule and readiness — just for you.
+                </p>
+              </button>
+
+              {/* Coach */}
+              <button
+                type="button"
+                onClick={() => setAccountType('coach')}
+                className={`text-left p-5 rounded-2xl border-2 transition-all ${
+                  accountType === 'coach'
+                    ? 'border-brand-500 bg-brand-50 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-brand-300'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Dumbbell size={20} className="text-brand-500" />
+                    <span className="text-lg font-bold text-gray-900">Coach</span>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    accountType === 'coach' ? 'border-brand-500 bg-brand-500' : 'border-gray-300'
+                  }`}>
+                    {accountType === 'coach' && <Check size={12} className="text-white" />}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed mb-3">
+                  Manage up to <span className="font-semibold text-gray-800">30 players</span> on one account. Share an invite code, assign programmes, and track your whole squad's readiness and progress.
+                </p>
+                <div className="flex items-center gap-2 text-xs text-brand-600 font-medium bg-brand-100/60 rounded-lg px-3 py-2">
+                  <span>Your players get full premium access included — they don't pay a penny.</span>
+                </div>
+              </button>
+            </div>
+
+            <p className="mt-6 text-xs text-gray-400 text-center">
+              {accountType === 'coach'
+                ? "You'll set up your squad and invite players after creating your account."
+                : 'Choose Coach if you train a team and want everyone on one subscription.'}
+            </p>
+          </div>
+        )}
+
         {step === 1 && (
           <div className="flex gap-3 py-6">
             {!existingUserId && (
@@ -1204,15 +1279,39 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               Back
             </button>
             <button
-              onClick={handleEnterApp}
-              disabled={submitting || !canEnterApp}
+              onClick={() => setStep(5)}
+              disabled={!canEnterApp}
               className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all ${
-                submitting || !canEnterApp
+                !canEnterApp
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
               }`}
             >
-              {submitting ? 'Creating…' : 'Start Training'}
+              Continue
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+
+        {step === 5 && (
+          <div className="flex gap-3 py-6">
+            <button
+              onClick={() => setStep(4)}
+              className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
+            >
+              <ChevronLeft size={16} />
+              Back
+            </button>
+            <button
+              onClick={handleEnterApp}
+              disabled={submitting}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all ${
+                submitting
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
+              }`}
+            >
+              {submitting ? 'Creating…' : (accountType === 'coach' ? 'Continue as Coach' : 'Start Training')}
               {!submitting && <ChevronRight size={16} />}
             </button>
           </div>

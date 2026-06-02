@@ -192,6 +192,10 @@ export interface UserProfile {
   heightCm?: number;
   weightKg?: number;
   gender?: 'male' | 'female' | 'other';
+  // Account type chosen during onboarding.
+  // 'personal' = standard single-user account (default).
+  // 'coach' = manages up to 30 linked players on one subscription.
+  accountType?: 'personal' | 'coach';
 }
 
 
