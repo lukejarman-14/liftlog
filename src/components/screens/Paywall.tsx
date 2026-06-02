@@ -263,7 +263,8 @@ export function Paywall({
           </div>
         </div>
 
-        {/* Plan selector */}
+        {/* Plan selector — hidden for the sales-led Club tier */}
+        {!isClub && (
         <div className="mb-5">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Choose a plan</p>
           <div className="flex flex-col gap-3">
@@ -308,6 +309,7 @@ export function Paywall({
             })}
           </div>
         </div>
+        )}
 
         {/* Error */}
         {purchaseError && (
@@ -318,7 +320,19 @@ export function Paywall({
 
         {/* CTA */}
         <div className="flex flex-col gap-3">
-          {noTrialYet ? (
+          {isClub ? (
+            <>
+              <a
+                href="mailto:clubs@vectorfootball.co.uk?subject=Vector%20Football%20Club%20enquiry"
+                className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors text-center"
+              >
+                Book a demo
+              </a>
+              <p className="text-center text-xs text-gray-400 leading-snug">
+                Club &amp; academy licences are set up with our team — we'll tailor pricing to your number of coaches and teams.
+              </p>
+            </>
+          ) : noTrialYet ? (
             <>
               <button
                 onClick={handleStartTrial}
@@ -366,6 +380,7 @@ export function Paywall({
             </>
           )}
 
+          {!isClub && (
           <button
             onClick={onRestore}
             disabled={busy}
@@ -380,6 +395,7 @@ export function Paywall({
               </>
             )}
           </button>
+          )}
 
           {onContinueFree && (
             <button
@@ -392,6 +408,8 @@ export function Paywall({
           )}
         </div>
 
+        {/* Referral & promo codes — not shown for the sales-led Club tier */}
+        {!isClub && (<>
         {/* Referral code */}
         <div className="mt-4">
           {!showReferralInput ? (
@@ -499,6 +517,7 @@ export function Paywall({
             </div>
           )}
         </div>
+        </>)}
 
         {/* Trust signals */}
         <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">

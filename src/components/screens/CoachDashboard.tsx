@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Users, Copy, Check, Calendar, ChevronRight, ChevronLeft,
   TrendingUp, TrendingDown, Activity, Dumbbell, ClipboardCheck, LayoutDashboard,
-  History as HistoryIcon, Megaphone, Trophy, Download, AlertTriangle, Award, ChevronDown,
+  History as HistoryIcon, Megaphone, Trophy, Download, AlertTriangle, Award, ChevronDown, Lock,
 } from 'lucide-react';
 
 export type Readiness = 'ready' | 'moderate' | 'low' | 'unknown';
@@ -61,6 +61,9 @@ interface CoachDashboardProps {
   teams?: string[];
   announcements?: Announcement[];
   maxPlayers?: number;
+  /** Free coaches (false) have analytics, schedule and testing locked + a 5-player cap. */
+  isPaid?: boolean;
+  onUpgrade?: () => void;
   onOpenProfile?: () => void;
 }
 
@@ -232,6 +235,21 @@ function TestChange({ t }: { t: TestResult }) {
   );
 }
 
+function UpgradeCard({ title, body, onUpgrade }: { title: string; body: string; onUpgrade?: () => void }) {
+  return (
+    <div className="bg-white rounded-2xl border-2 border-dashed border-brand-200 p-6 text-center">
+      <div className="w-12 h-12 rounded-2xl bg-brand-100 flex items-center justify-center mx-auto mb-3">
+        <Lock size={22} className="text-brand-500" />
+      </div>
+      <h3 className="font-bold text-gray-900 mb-1">{title}</h3>
+      <p className="text-sm text-gray-500 leading-relaxed mb-4 max-w-xs mx-auto">{body}</p>
+      <button onClick={onUpgrade} className="w-full max-w-xs py-3 rounded-2xl bg-brand-500 text-white font-bold text-sm hover:bg-brand-600 transition-colors">
+        Upgrade to Coach
+      </button>
+    </div>
+  );
+}
+
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="flex-1 bg-white rounded-2xl border border-gray-100 p-3 text-center">
@@ -244,7 +262,7 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 
 export function CoachDashboard({
   inviteSeed, players = [], weeks = [], teams = [], announcements = [],
-  maxPlayers = 30, onOpenProfile,
+  maxPlayers = 30, isPaid = true, onUpgrade, onOpenProfile,
 }: CoachDashboardProps) {
   const [copied, setCopied] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -439,44 +457,57 @@ export function CoachDashboard({
         {/* ---------- HOME ---------- */}
         {tab === 'home' && (
           <>
-            {/* Squad summary stats */}
-            <div className="flex gap-2 mb-5">
-              <StatCard label="Avg readiness" value={avgReadinessLabel} />
-              <StatCard label="Compliance" value={`${compliancePct}%`} sub="sessions done" />
-              <StatCard label="Available" value={`${availableCount}/${players.length}`} />
-            </div>
+            {/* Squad analytics — paid only */}
+            {isPaid ? (
+              <>
+                {/* Squad summary stats */}
+                <div className="flex gap-2 mb-5">
+                  <StatCard label="Avg readiness" value={avgReadinessLabel} />
+                  <StatCard label="Compliance" value={`${compliancePct}%`} sub="sessions done" />
+                  <StatCard label="Available" value={`${availableCount}/${players.length}`} />
+                </div>
 
-            {/* Most improved */}
-            {mostImproved && (
-              <div className="bg-gradient-to-r from-amber-50 to-white rounded-2xl border border-amber-200 p-4 mb-5 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
-                  <Award size={20} className="text-white" />
+                {/* Most improved */}
+                {mostImproved && (
+                  <div className="bg-gradient-to-r from-amber-50 to-white rounded-2xl border border-amber-200 p-4 mb-5 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
+                      <Award size={20} className="text-white" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">Most improved</p>
+                      <p className="font-bold text-gray-900">{mostImproved.name}</p>
+                      <p className="text-xs text-gray-500">{mostImproved.position} · biggest gains this block</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Readiness heatmap */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Readiness heatmap</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {players.map(p => (
+                      <button key={p.id} onClick={() => setSelectedId(p.id)}
+                        className={`aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-bold ${HEAT_BG[p.readiness]}`}>
+                        {initials(p.name)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3 mt-3 text-[10px] text-gray-400">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" />Ready</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />Moderate</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />Low</span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">Most improved</p>
-                  <p className="font-bold text-gray-900">{mostImproved.name}</p>
-                  <p className="text-xs text-gray-500">{mostImproved.position} · biggest gains this block</p>
-                </div>
+              </>
+            ) : (
+              <div className="mb-5">
+                <UpgradeCard
+                  title="Unlock squad analytics"
+                  body="Readiness heatmap, compliance, most-improved and testing dashboards are part of the Coach plan — which also gives all your players free Premium and raises your cap to 30."
+                  onUpgrade={onUpgrade}
+                />
               </div>
             )}
-
-            {/* Readiness heatmap */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Readiness heatmap</p>
-              <div className="grid grid-cols-5 gap-2">
-                {players.map(p => (
-                  <button key={p.id} onClick={() => setSelectedId(p.id)}
-                    className={`aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-bold ${HEAT_BG[p.readiness]}`}>
-                    {initials(p.name)}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-3 mt-3 text-[10px] text-gray-400">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" />Ready</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />Moderate</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />Low</span>
-              </div>
-            </div>
 
             {/* Announcements */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
@@ -508,7 +539,11 @@ export function CoachDashboard({
                   {copied ? <Check size={18} /> : <Copy size={18} />}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-2 leading-relaxed">Players enter this code at sign-up to join your squad and get full Premium — at no cost to them.</p>
+              <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+                {isPaid
+                  ? 'Players enter this code at sign-up to join your squad and get full Premium — at no cost to them.'
+                  : 'Players can join with this code, but they only get free Premium once you upgrade to the Coach plan.'}
+              </p>
             </div>
 
             {/* Players + group filter */}
@@ -547,7 +582,14 @@ export function CoachDashboard({
         )}
 
         {/* ---------- SCHEDULE ---------- */}
-        {tab === 'schedule' && currentWeek && (
+        {tab === 'schedule' && !isPaid && (
+          <UpgradeCard
+            title="Unlock the squad schedule"
+            body="Set your fixtures and training days so players' programmes auto-periodise around match day. Part of the Coach plan."
+            onUpgrade={onUpgrade}
+          />
+        )}
+        {tab === 'schedule' && isPaid && currentWeek && (
           <>
             {/* Phase + week selector */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
@@ -592,7 +634,14 @@ export function CoachDashboard({
         )}
 
         {/* ---------- HISTORY ---------- */}
-        {tab === 'history' && (
+        {tab === 'history' && !isPaid && (
+          <UpgradeCard
+            title="Unlock squad history"
+            body="See attendance, compliance and every player's logged sessions across the squad. Part of the Coach plan."
+            onUpgrade={onUpgrade}
+          />
+        )}
+        {tab === 'history' && isPaid && (
           <>
             {/* Attendance & compliance */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
@@ -627,7 +676,14 @@ export function CoachDashboard({
         )}
 
         {/* ---------- TESTS ---------- */}
-        {tab === 'tests' && (
+        {tab === 'tests' && !isPaid && (
+          <UpgradeCard
+            title="Unlock squad testing"
+            body="Leaderboards, every player's test results and improvements, plus CSV export. Part of the Coach plan."
+            onUpgrade={onUpgrade}
+          />
+        )}
+        {tab === 'tests' && isPaid && (
           <>
             {/* Leaderboards — one per test */}
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 px-1">Leaderboards</p>

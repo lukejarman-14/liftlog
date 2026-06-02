@@ -725,7 +725,9 @@ export default function App() {
           weeks={DEMO_WEEKS}
           teams={DEMO_TEAMS}
           announcements={DEMO_ANNOUNCEMENTS}
-          maxPlayers={isClub ? 200 : 30}
+          maxPlayers={isClub ? 200 : (premium.hasAccess ? 30 : 5)}
+          isPaid={isClub || premium.hasAccess}
+          onUpgrade={() => navigate({ screen: 'paywall' })}
           onOpenProfile={() => navigate({ screen: 'profile' })}
         />
       )}
