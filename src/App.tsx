@@ -51,6 +51,7 @@ import { TermsGateModal } from './components/TermsGateModal';
 const ProgrammeHub       = lazy(() => import('./components/screens/ProgrammeHub').then(m => ({ default: m.ProgrammeHub })));
 const ResetPassword      = lazy(() => import('./components/screens/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
+const CoachDashboard     = lazy(() => import('./components/screens/CoachDashboard').then(m => ({ default: m.CoachDashboard })));
 
 // check for password reset link on both implicit (#type=recovery) and PKCE (?code=) flows
 function detectRecoveryUrl(): boolean {
@@ -698,13 +699,23 @@ export default function App() {
   }
 
   const { screen } = nav;
+  const isCoach = store.userProfile?.accountType === 'coach';
   const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme', 'paywall', 'active-workout'];
   const screenFallback = <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
       <Suspense fallback={screenFallback}>
-      {screen === 'dashboard' && (
+      {screen === 'dashboard' && isCoach && (
+        <CoachDashboard
+          coachName={[store.userProfile.firstName, store.userProfile.lastName].filter(Boolean).join(' ')}
+          inviteSeed={cloudUserIdRef.current ?? store.userProfile.email}
+          players={[]}
+          maxPlayers={30}
+          onOpenProfile={() => navigate({ screen: 'profile' })}
+        />
+      )}
+      {screen === 'dashboard' && !isCoach && (
         <Dashboard
           sessions={store.sessions}
           activePlan={store.activePlan}
@@ -974,14 +985,16 @@ export default function App() {
           restoring={premium.restoring}
           purchaseError={premium.purchaseError}
           onStartTrial={async (plan) => {
+            // Coaches land on their squad dashboard; players go to the programme builder.
+            const dest = isCoach ? 'dashboard' : 'programme-builder';
             if (Capacitor.isNativePlatform()) {
               // iOS: trial must go through StoreKit via RevenueCat
               const ok = await premium.purchase(plan);
-              if (ok) navigate({ screen: 'programme-builder' });
+              if (ok) navigate({ screen: dest });
             } else {
               // Web: local 14-day trial clock, no payment required up front
               premium.startTrial();
-              navigate({ screen: 'programme-builder' });
+              navigate({ screen: dest });
             }
           }}
           onSelectPlan={async (plan, noTrial) => {
@@ -999,7 +1012,7 @@ export default function App() {
               return;
             }
             const ok = await premium.purchase(plan);
-            if (ok) navigate({ screen: 'programme-builder' });
+            if (ok) navigate({ screen: isCoach ? 'dashboard' : 'programme-builder' });
           }}
           onRestore={async () => {
             const ok = await premium.restore();
@@ -1019,6 +1032,11 @@ export default function App() {
             return err;
           }}
           onDismiss={() => {
+            // Coaches always return to their squad dashboard.
+            if (isCoach) {
+              navigate({ screen: 'dashboard' });
+              return;
+            }
             // If new user (no sessions yet) coming from onboarding, go to dashboard + show welcome
             if (!store.sessions.length && !store.generatedProgrammes.length) {
               navigate({ screen: 'dashboard' });
@@ -1074,7 +1092,7 @@ export default function App() {
         );
       })()}
 
-      {!fullScreens.includes(screen) && (
+      {!fullScreens.includes(screen) && !isCoach && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
       )}
 

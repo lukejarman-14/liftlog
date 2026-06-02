@@ -362,7 +362,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     }
   };
 
-  const progressPct = step <= 0 ? 0 : (step / TOTAL_STEPS) * 100;
+  // Coaches finish at step 3 (no body metrics / training profile), so the bar fills over 3 steps.
+  const effectiveTotal = accountType === 'coach' ? 3 : TOTAL_STEPS;
+  const progressPct = step <= 0 ? 0 : (step / effectiveTotal) * 100;
 
   // Blocking email confirmation screen — shown after sign-up until user confirms their email
   if (awaitingEmailConfirm) {
@@ -865,9 +867,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
-            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 3 of 5</p>
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 4 of 5</p>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">About you</h2>
             <p className="text-gray-500 text-sm mb-7">Used to personalise your programme. All optional — you can add these later in Settings.</p>
 
@@ -1011,13 +1013,13 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           </div>
         )}
 
-        {step === 4 && (() => {
+        {step === 5 && (() => {
           const btnBase = 'py-2.5 rounded-xl text-sm font-semibold border transition-all text-center';
           const btnActive = 'bg-brand-500 text-white border-brand-500';
           const btnInactive = 'bg-white text-gray-600 border-gray-200 hover:border-brand-300';
           return (
             <div className="flex-1 flex flex-col py-12 pt-16">
-              <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 4 of 5</p>
+              <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 5 of 5</p>
               <h2 className="text-2xl font-bold text-gray-900 mb-1">Your training profile</h2>
               <p className="text-gray-500 text-sm mb-7">Helps us build the right programme for you.</p>
 
@@ -1129,9 +1131,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           );
         })()}
 
-        {step === 5 && (
+        {step === 3 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
-            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 5 of 5</p>
+            <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 3 of {accountType === 'coach' ? '3' : '5'}</p>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">Choose your account</h2>
             <p className="text-gray-500 text-sm mb-7">You can change this later in settings.</p>
 
@@ -1250,6 +1252,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           </div>
         )}
 
+        {/* Step 3 — Account type. Personal continues to body metrics; Coach finishes here. */}
         {step === 3 && (
           <div className="flex gap-3 py-6">
             <button
@@ -1260,15 +1263,21 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               Back
             </button>
             <button
-              onClick={() => setStep(4)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all bg-brand-500 text-white hover:bg-brand-600 shadow-sm"
+              onClick={() => { if (accountType === 'coach') handleEnterApp(); else setStep(4); }}
+              disabled={submitting}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all ${
+                submitting
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
+              }`}
             >
-              Continue
-              <ChevronRight size={16} />
+              {submitting ? 'Creating…' : (accountType === 'coach' ? 'Continue as Coach' : 'Continue')}
+              {!submitting && <ChevronRight size={16} />}
             </button>
           </div>
         )}
 
+        {/* Step 4 — Body metrics (personal only) */}
         {step === 4 && (
           <div className="flex gap-3 py-6">
             <button
@@ -1280,12 +1289,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
             </button>
             <button
               onClick={() => setStep(5)}
-              disabled={!canEnterApp}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all ${
-                !canEnterApp
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
-              }`}
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all bg-brand-500 text-white hover:bg-brand-600 shadow-sm"
             >
               Continue
               <ChevronRight size={16} />
@@ -1293,6 +1297,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           </div>
         )}
 
+        {/* Step 5 — Training profile (personal only) */}
         {step === 5 && (
           <div className="flex gap-3 py-6">
             <button
@@ -1304,14 +1309,14 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
             </button>
             <button
               onClick={handleEnterApp}
-              disabled={submitting}
+              disabled={submitting || !canEnterApp}
               className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all ${
-                submitting
+                submitting || !canEnterApp
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
               }`}
             >
-              {submitting ? 'Creating…' : (accountType === 'coach' ? 'Continue as Coach' : 'Start Training')}
+              {submitting ? 'Creating…' : 'Start Training'}
               {!submitting && <ChevronRight size={16} />}
             </button>
           </div>
