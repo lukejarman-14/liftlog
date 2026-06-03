@@ -48,6 +48,7 @@ export interface ScheduleWeek {
   days: ScheduleDay[];
 }
 export interface Announcement {
+  id?: string;
   date: string;
   text: string;
 }
@@ -66,6 +67,8 @@ interface CoachDashboardProps {
   isPaid?: boolean;
   onUpgrade?: () => void;
   onOpenProfile?: () => void;
+  onPostAnnouncement?: (text: string) => Promise<void>;
+  onDeleteAnnouncement?: (id: string) => Promise<void>;
 }
 
 function initials(name: string): string {
@@ -256,9 +259,13 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 export function CoachDashboard({
   inviteSeed, players = [], weeks = [], teams = [], announcements = [],
   maxPlayers = 30, isPaid = true, onUpgrade, onOpenProfile,
+  onPostAnnouncement, onDeleteAnnouncement,
 }: CoachDashboardProps) {
   const [copied, setCopied] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showNewAnnouncement, setShowNewAnnouncement] = useState(false);
+  const [announcementDraft, setAnnouncementDraft] = useState('');
+  const [announcementPosting, setAnnouncementPosting] = useState(false);
   const [tab, setTab] = useState<CoachTab>('home');
   const [team, setTeam] = useState(teams[0] ?? 'First Team');
   const [teamOpen, setTeamOpen] = useState(false);
@@ -509,13 +516,60 @@ export function CoachDashboard({
                   <Megaphone size={16} className="text-brand-500" />
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Announcements</p>
                 </div>
-                <button className="text-xs font-semibold text-brand-600">+ New</button>
+                <button
+                  onClick={() => { setShowNewAnnouncement(true); setAnnouncementDraft(''); }}
+                  className="text-xs font-semibold text-brand-600"
+                >+ New</button>
               </div>
+
+              {/* New announcement composer */}
+              {showNewAnnouncement && (
+                <div className="mb-4 bg-brand-50 rounded-xl p-3 border border-brand-100">
+                  <textarea
+                    className="w-full text-sm bg-transparent outline-none resize-none text-gray-800 placeholder-gray-400 min-h-[72px]"
+                    placeholder="Type your announcement to the squad…"
+                    value={announcementDraft}
+                    onChange={e => setAnnouncementDraft(e.target.value)}
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button
+                      onClick={() => setShowNewAnnouncement(false)}
+                      className="text-xs text-gray-500 px-3 py-1.5 rounded-lg"
+                    >Cancel</button>
+                    <button
+                      disabled={!announcementDraft.trim() || announcementPosting}
+                      onClick={async () => {
+                        if (!announcementDraft.trim() || !onPostAnnouncement) return;
+                        setAnnouncementPosting(true);
+                        await onPostAnnouncement(announcementDraft.trim());
+                        setAnnouncementPosting(false);
+                        setShowNewAnnouncement(false);
+                        setAnnouncementDraft('');
+                      }}
+                      className="text-xs font-semibold bg-brand-500 text-white px-4 py-1.5 rounded-lg disabled:opacity-40"
+                    >{announcementPosting ? 'Sending…' : 'Post'}</button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-2.5">
+                {announcements.length === 0 && !showNewAnnouncement && (
+                  <p className="text-sm text-gray-400 text-center py-2">No announcements yet. Tap + New to post one.</p>
+                )}
                 {announcements.map((a, i) => (
-                  <div key={i} className="text-sm">
-                    <p className="text-gray-800">{a.text}</p>
-                    <p className="text-[11px] text-gray-400">{a.date}</p>
+                  <div key={a.id ?? i} className="text-sm flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-gray-800">{a.text}</p>
+                      <p className="text-[11px] text-gray-400">{a.date}</p>
+                    </div>
+                    {onDeleteAnnouncement && a.id && (
+                      <button
+                        onClick={() => onDeleteAnnouncement(a.id!)}
+                        className="text-gray-300 hover:text-red-400 text-xs flex-shrink-0 mt-0.5"
+                        aria-label="Delete"
+                      >✕</button>
+                    )}
                   </div>
                 ))}
               </div>

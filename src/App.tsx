@@ -56,7 +56,7 @@ const ResetPassword      = lazy(() => import('./components/screens/ResetPassword
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
 const CoachDashboard     = lazy(() => import('./components/screens/CoachDashboard').then(m => ({ default: m.CoachDashboard })));
 // Demo schedule/announcement data for the coach dashboard preview (branch-only, remove before launch).
-import { DEMO_WEEKS, DEMO_TEAMS, DEMO_ANNOUNCEMENTS } from './components/screens/CoachDashboard';
+import { DEMO_WEEKS, DEMO_TEAMS } from './components/screens/CoachDashboard';
 
 // check for password reset link on both implicit (#type=recovery) and PKCE (?code=) flows
 function detectRecoveryUrl(): boolean {
@@ -128,6 +128,10 @@ export default function App() {
   const [squadJoinToast, setSquadJoinToast] = useState<null | 'pro' | 'free' | 'invalid'>(null);
   // Live squad members fetched from Supabase for the coach dashboard
   const [liveSquadPlayers, setLiveSquadPlayers] = useState<SquadPlayer[]>([]);
+  // Live announcements for the coach dashboard
+  const [liveAnnouncements, setLiveAnnouncements] = useState<{ id: string; date: string; text: string }[]>([]);
+  // Announcements from the player's coach (shown on player dashboard)
+  const [playerCoachAnnouncements, setPlayerCoachAnnouncements] = useState<{ id: string; date: string; text: string }[]>([]);
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
@@ -605,8 +609,81 @@ export default function App() {
     const acct = store.userProfile?.accountType;
     if ((acct === 'coach' || acct === 'club') && isAuthenticated && cloudUserIdRef.current) {
       void fetchSquadMembers(cloudUserIdRef.current);
+      void fetchAnnouncements(cloudUserIdRef.current);
     }
   }, [isAuthenticated, store.userProfile?.accountType, fetchSquadMembers]);
+
+  /** Fetch live announcements for the coach dashboard. */
+  const fetchAnnouncements = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('coach_announcements')
+        .select('id, text, created_at')
+        .eq('coach_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) { if (import.meta.env.DEV) console.warn('[announcements] fetch error:', error.message); return; }
+      const fmt = (iso: string) => {
+        const d = new Date(iso);
+        const today = new Date();
+        if (d.toDateString() === today.toDateString()) return 'Today';
+        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+        if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      };
+      setLiveAnnouncements((data ?? []).map((r: { id: string; text: string; created_at: string }) => ({
+        id: r.id, text: r.text, date: fmt(r.created_at),
+      })));
+    } catch (e) { if (import.meta.env.DEV) console.warn('[announcements] fetch threw:', e); }
+  }, []);
+
+  /** Post a new announcement to Supabase. */
+  const handlePostAnnouncement = useCallback(async (text: string) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const { error } = await supabase
+      .from('coach_announcements')
+      .insert({ coach_id: cloudUserIdRef.current, text });
+    if (error) { if (import.meta.env.DEV) console.warn('[announcements] post error:', error.message); return; }
+    await fetchAnnouncements(cloudUserIdRef.current);
+  }, [fetchAnnouncements]);
+
+  /** Delete an announcement. */
+  const handleDeleteAnnouncement = useCallback(async (id: string) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const { error } = await supabase.from('coach_announcements').delete().eq('id', id);
+    if (error) { if (import.meta.env.DEV) console.warn('[announcements] delete error:', error.message); return; }
+    setLiveAnnouncements(prev => prev.filter(a => a.id !== id));
+  }, []);
+
+  /** Fetch announcements from the player's coach (for the player dashboard). */
+  const fetchPlayerCoachAnnouncements = useCallback(async () => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('coach_announcements')
+        .select('id, text, created_at')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) { if (import.meta.env.DEV) console.warn('[announcements] player fetch error:', error.message); return; }
+      const fmt = (iso: string) => {
+        const d = new Date(iso); const today = new Date();
+        if (d.toDateString() === today.toDateString()) return 'Today';
+        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+        if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      };
+      setPlayerCoachAnnouncements((data ?? []).map((r: { id: string; text: string; created_at: string }) => ({
+        id: r.id, text: r.text, date: fmt(r.created_at),
+      })));
+    } catch (e) { if (import.meta.env.DEV) console.warn('[announcements] player fetch threw:', e); }
+  }, []);
+
+  // Fetch coach announcements for player when authenticated as a personal account
+  useEffect(() => {
+    const acct = store.userProfile?.accountType;
+    if (acct === 'personal' && isAuthenticated) void fetchPlayerCoachAnnouncements();
+  }, [isAuthenticated, store.userProfile?.accountType, fetchPlayerCoachAnnouncements]);
 
   const doGenerateProgramme = (resolvedInputs: ProgrammeInputs) => {
     const programme = generateProgramme(resolvedInputs);
@@ -817,11 +894,13 @@ export default function App() {
           players={liveSquadPlayers}
           weeks={DEMO_WEEKS}
           teams={DEMO_TEAMS}
-          announcements={DEMO_ANNOUNCEMENTS}
+          announcements={liveAnnouncements}
           maxPlayers={isClub ? 200 : (premium.hasAccess ? 30 : 5)}
           isPaid={isClub || premium.hasAccess}
           onUpgrade={() => navigate({ screen: 'paywall' })}
           onOpenProfile={() => navigate({ screen: 'profile' })}
+          onPostAnnouncement={handlePostAnnouncement}
+          onDeleteAnnouncement={handleDeleteAnnouncement}
         />
       )}
       {screen === 'dashboard' && !isCoach && (
@@ -876,6 +955,7 @@ export default function App() {
           onDeleteSession={(id) => { store.deleteSession(id); }}
           referralCode={myReferralCode}
           cloudUnlinked={isSupabaseConfigured && !cloudUserIdRef.current}
+          coachAnnouncements={playerCoachAnnouncements}
         />
       )}
 
