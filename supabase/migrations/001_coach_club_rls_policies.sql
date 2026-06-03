@@ -244,3 +244,42 @@ CREATE INDEX IF NOT EXISTS idx_session_attendance_date_coach
 --    - Verify Coach B cannot select rows with coach_id = user_a_id
 
 -- ============================================================================
+-- DOWN (rollback) — run this to undo the migration if needed
+-- ============================================================================
+-- ALTER TABLE coach_squads DISABLE ROW LEVEL SECURITY;
+-- DROP POLICY IF EXISTS "coach_squads_select_own" ON coach_squads;
+-- DROP POLICY IF EXISTS "coach_squads_insert_own" ON coach_squads;
+-- DROP POLICY IF EXISTS "coach_squads_update_own" ON coach_squads;
+-- DROP POLICY IF EXISTS "coach_squads_delete_own" ON coach_squads;
+-- ALTER TABLE squad_members DISABLE ROW LEVEL SECURITY;
+-- DROP POLICY IF EXISTS "squad_members_select_own" ON squad_members;
+-- DROP POLICY IF EXISTS "squad_members_insert_own" ON squad_members;
+-- DROP POLICY IF EXISTS "squad_members_update_own" ON squad_members;
+-- DROP POLICY IF EXISTS "squad_members_delete_own" ON squad_members;
+-- ALTER TABLE coach_announcements DISABLE ROW LEVEL SECURITY;
+-- DROP POLICY IF EXISTS "coach_announcements_select_own" ON coach_announcements;
+-- DROP POLICY IF EXISTS "coach_announcements_insert_own" ON coach_announcements;
+-- DROP POLICY IF EXISTS "coach_announcements_update_own" ON coach_announcements;
+-- DROP POLICY IF EXISTS "coach_announcements_delete_own" ON coach_announcements;
+-- DROP POLICY IF EXISTS "coach_announcements_select_as_player" ON coach_announcements;
+-- ALTER TABLE coach_schedule DISABLE ROW LEVEL SECURITY;
+-- DROP POLICY IF EXISTS "coach_schedule_select_own" ON coach_schedule;
+-- DROP POLICY IF EXISTS "coach_schedule_insert_own" ON coach_schedule;
+-- DROP POLICY IF EXISTS "coach_schedule_update_own" ON coach_schedule;
+-- DROP POLICY IF EXISTS "coach_schedule_delete_own" ON coach_schedule;
+-- ALTER TABLE session_attendance DISABLE ROW LEVEL SECURITY;
+-- DROP POLICY IF EXISTS "session_attendance_select_own" ON session_attendance;
+-- DROP POLICY IF EXISTS "session_attendance_insert_own" ON session_attendance;
+-- DROP POLICY IF EXISTS "session_attendance_update_own" ON session_attendance;
+-- DROP POLICY IF EXISTS "session_attendance_delete_own" ON session_attendance;
+-- ALTER TABLE match_results DISABLE ROW LEVEL SECURITY;
+-- DROP POLICY IF EXISTS "match_results_select_own" ON match_results;
+-- DROP POLICY IF EXISTS "match_results_insert_own" ON match_results;
+-- DROP POLICY IF EXISTS "match_results_update_own" ON match_results;
+-- DROP POLICY IF EXISTS "match_results_delete_own" ON match_results;
+-- ALTER TABLE match_squads DISABLE ROW LEVEL SECURITY;
+-- DROP POLICY IF EXISTS "match_squads_select_own" ON match_squads;
+-- DROP POLICY IF EXISTS "match_squads_insert_own" ON match_squads;
+-- DROP POLICY IF EXISTS "match_squads_update_own" ON match_squads;
+-- DROP POLICY IF EXISTS "match_squads_delete_own" ON match_squads;
+-- ============================================================================

@@ -492,6 +492,7 @@ export function CoachDashboard({
               onChange={e => setNoteDraft(e.target.value)}
               placeholder="Add a private note about this player…"
               rows={3}
+              maxLength={500}
               className="w-full text-sm rounded-xl border border-gray-200 p-3 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
             />
             <p className="text-[11px] text-gray-400 mt-1">Only you can see this — never shown to the player.{noteDraft ? ' (unsaved)' : ''}</p>
@@ -636,8 +637,10 @@ export function CoachDashboard({
                     placeholder="Type your announcement to the squad…"
                     value={announcementDraft}
                     onChange={e => setAnnouncementDraft(e.target.value)}
+                    maxLength={500}
                     autoFocus
                   />
+                  <p className="text-[11px] text-gray-400 text-right">{announcementDraft.length}/500</p>
                   <div className="flex justify-end gap-2 mt-2">
                     <button
                       onClick={() => setShowNewAnnouncement(false)}
@@ -822,6 +825,7 @@ export function CoachDashboard({
                     placeholder={editType === 'match' ? 'e.g. vs Eastside FC (H)' : editType === 'training' ? 'e.g. Team training' : 'Rest day'}
                     value={editLabel}
                     onChange={e => setEditLabel(e.target.value)}
+                    maxLength={100}
                   />
 
                   {/* Description */}
@@ -833,6 +837,7 @@ export function CoachDashboard({
                         placeholder={editType === 'match' ? 'e.g. Kick-off 3pm · Riverside Ground, Manchester · Bring both kits' : 'e.g. Focus on set pieces · Meet at the main entrance at 6:45pm'}
                         value={editDescription}
                         onChange={e => setEditDescription(e.target.value)}
+                        maxLength={300}
                       />
                     </>
                   )}
@@ -1022,7 +1027,7 @@ export function CoachDashboard({
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Date</p>
             <input type="date" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-3" value={matchDate} onChange={e => setMatchDate(e.target.value)} />
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Opponent</p>
-            <input className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-3" placeholder="e.g. Eastside FC" value={matchOpponent} onChange={e => setMatchOpponent(e.target.value)} />
+            <input className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-3" placeholder="e.g. Eastside FC" value={matchOpponent} onChange={e => setMatchOpponent(e.target.value)} maxLength={100} />
             <div className="grid grid-cols-2 gap-2 mb-3">
               {(['home', 'away'] as const).map(v => (
                 <button key={v} onClick={() => setMatchVenue(v)} className={`py-3 rounded-xl text-sm font-bold capitalize ${matchVenue === v ? 'bg-brand-500 text-white' : 'bg-gray-50 text-gray-400'}`}>{v}</button>
@@ -1039,7 +1044,7 @@ export function CoachDashboard({
               </div>
             </div>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Notes <span className="font-normal text-gray-400">(optional)</span></p>
-            <textarea className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 resize-none min-h-[60px] mb-4" placeholder="e.g. Great performance, set pieces need work" value={matchNotes} onChange={e => setMatchNotes(e.target.value)} />
+            <textarea className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 resize-none min-h-[60px] mb-4" placeholder="e.g. Great performance, set pieces need work" value={matchNotes} onChange={e => setMatchNotes(e.target.value)} maxLength={1000} />
             {editingResultId && onDeleteMatchResult && (
               <button
                 onClick={async () => {

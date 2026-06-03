@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, lazy, Suspense, startTransition } from 'react';
 import { Battery, Zap, X } from 'lucide-react';
+import { captureError, setSentryUser } from './lib/sentry';
 import { useStore } from './hooks/useStore';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/screens/Dashboard';
@@ -329,9 +330,10 @@ export default function App() {
           // This prevents a flash of the personal-account paywall for coach accounts.
           cloudSaveData(userId)
             .then(() => cloudLoadData(userId))
-            .catch(() => {})
+            .catch((err) => { captureError(err, { context: 'SIGNED_IN cloud sync', userId }); })
             .finally(() => {
               premium.refresh();
+              setSentryUser(userId);
               setIsAuthenticated(true);
             });
           rcConfigure(userId).catch(() => {});
@@ -976,7 +978,8 @@ export default function App() {
     if (!supabase || !cloudUserIdRef.current) return;
     const coachId = cloudUserIdRef.current;
     const rows = squad.map(s => ({ coach_id: coachId, match_date: matchDate, player_id: s.playerId, role: s.role, position: s.position, formation_data: formationData || null }));
-    await supabase.from('match_squads').upsert(rows, { onConflict: 'coach_id,match_date,player_id' });
+    const { error } = await supabase.from('match_squads').upsert(rows, { onConflict: 'coach_id,match_date,player_id' });
+    if (error) captureError(error, { context: 'handleSaveMatchSquad', matchDate });
   }, []);
 
   /** Fetch saved formation for a specific match. */
@@ -1100,9 +1103,11 @@ export default function App() {
         await cloudSaveData(cloudUserIdRef.current);
         await cloudSignOut();
       }
-    } catch {
+    } catch (err) {
+      captureError(err, { context: 'logout' });
       // logout proceeds regardless of cloud errors
     } finally {
+      setSentryUser(null);
       // Clear the boot-sync guard so the next login re-fetches cloud data fresh.
       sessionStorage.removeItem('vf_boot_synced');
       resetAnalyticsUser();
@@ -1148,7 +1153,7 @@ export default function App() {
         // pass the userId so Onboarding skips auth and goes straight to profile setup.
         existingUserId={isAuthenticated ? (cloudUserIdRef.current ?? undefined) : undefined}
         onComplete={(profile, planId, userId) => {
-          if (userId) identifyUser(userId, { position: profile.position }); // no name — PII
+          if (userId) { identifyUser(userId, { position: profile.position }); setSentryUser(userId); }
           handleOnboardingComplete(profile, planId, userId);
           setIsAuthenticated(true);
         }}
@@ -1156,6 +1161,7 @@ export default function App() {
           if (userId) {
             cloudUserIdRef.current = userId;
             identifyUser(userId);
+            setSentryUser(userId);
             // Re-sync premium state: cloudLoadData ran in Onboarding before this callback,
             // so localStorage now has the server-authoritative value — refresh React state.
             premium.refresh();
