@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vector Football — AI Football Training &amp; S&amp;C App</title>
+  <meta name="description" content="Vector Football builds your strength and conditioning programme around your actual match schedule. Periodised training for footballers — gym, park, or no equipment." />
+  <meta name="keywords" content="football training app, football S&C, footballer strength and conditioning, football gym programme, pre-season football training" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Vector Football" />
+  <meta property="og:title" content="Vector Football — Your training should know when you play." />
+  <meta property="og:description" content="S&C programmes built around your match schedule, your gym access, and your fitness numbers. Not a generic plan." />
+  <meta property="og:url" content="https://vectorfootball.co.uk/landing" />
+  <meta property="og:image" content="https://vectorfootball.co.uk/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Vector Football — AI Football Training App" />
+  <meta name="twitter:description" content="S&C programmes built around your match schedule. Free 30-day trial." />
+  <meta name="twitter:image" content="https://vectorfootball.co.uk/icon-512.png" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange: #f97316;
+      --orange-dark: #ea6c0a;
+      --bg: #0c0c0c;
+      --surface: #161616;
+      --border: #242424;
+      --text: #f0f0f0;
+      --muted: #888;
+      --max: 680px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-logo img {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 0.9rem;
+    }
+
+    .nav-links a { color: var(--muted); transition: color 0.15s; }
+    .nav-links a:hover { color: var(--text); }
+
+    .btn-nav {
+      padding: 8px 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.875rem;
+      color: var(--text) !important;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .btn-nav:hover { background: var(--surface); border-color: #444; }
+
+    /* ── Hero ── */
+    .hero {
+      max-width: var(--max);
+      margin: 60px auto 0;
+      padding: 0 24px;
+      text-align: center;
+    }
+
+    .hero-label {
+      display: inline-block;
+      background: rgba(249, 115, 22, 0.12);
+      color: var(--orange);
+      border: 1px solid rgba(249, 115, 22, 0.25);
+      border-radius: 100px;
+      padding: 4px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 6vw, 3rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+
+    h1 span { color: var(--orange); }
+
+    .hero-sub {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+    }
+
+    .hero-cta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--orange);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 14px 28px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.1s;
+      letter-spacing: -0.01em;
+    }
+    .btn-primary:hover { background: var(--orange-dark); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+
+    .hero-note {
+      font-size: 0.8rem;
+      color: #555;
+    }
+
+    /* ── App preview mockup ── */
+    .mockup-wrap {
+      max-width: 320px;
+      margin: 52px auto 0;
+      padding: 0 24px;
+      position: relative;
+    }
+
+    .mockup-phone {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 32px;
+      overflow: hidden;
+      padding: 20px 16px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    }
+
+    .mockup-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .mockup-greeting { font-size: 0.75rem; color: var(--muted); }
+    .mockup-title { font-size: 1rem; font-weight: 700; }
+
+    .mockup-week {
+      background: var(--bg);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .mockup-week-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .mockup-days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .mockup-day {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .mockup-day-label {
+      font-size: 0.55rem;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .mockup-day-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      font-size: 0.6rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      background: var(--surface);
+    }
+    .mockup-day-dot.gym { background: rgba(249,115,22,0.15); color: var(--orange); font-weight: 700; }
+    .mockup-day-dot.match { background: rgba(34,197,94,0.15); color: #22c55e; font-weight: 700; }
+    .mockup-day-dot.rest { color: #333; }
+
+    .mockup-card {
+      background: var(--bg);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mockup-card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(249,115,22,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .mockup-card-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 2px; }
+    .mockup-card-sub { font-size: 0.68rem; color: var(--muted); }
+
+    /* ── Divider ── */
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      max-width: 900px;
+      margin: 72px auto;
+    }
+
+    /* ── Features ── */
+    .features {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .section-heading {
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .section-body {
+      color: var(--muted);
+      font-size: 1rem;
+      max-width: 480px;
+      line-height: 1.7;
+      margin-bottom: 52px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      transition: border-color 0.15s;
+    }
+    .feature-card:hover { border-color: #333; }
+
+    .feature-icon {
+      font-size: 1.5rem;
+      margin-bottom: 16px;
+    }
+
+    .feature-title {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-desc {
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── How it works ── */
+    .how {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+    }
+
+    .steps::before {
+      content: '';
+      position: absolute;
+      left: 19px;
+      top: 20px;
+      bottom: 20px;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .step {
+      display: flex;
+      gap: 20px;
+      padding: 24px 0;
+      position: relative;
+    }
+
+    .step-num {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--orange);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-content { padding-top: 6px; }
+    .step-title { font-weight: 700; font-size: 1rem; margin-bottom: 6px; }
+    .step-desc { font-size: 0.875rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── Pricing ── */
+    .pricing {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 0 24px;
+      text-align: center;
+    }
+
+    .pricing-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 36px 0 24px;
+    }
+
+    @media (max-width: 400px) {
+      .pricing-cards { grid-template-columns: 1fr; }
+    }
+
+    .pricing-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 20px;
+      text-align: left;
+      position: relative;
+    }
+
+    .pricing-card.featured {
+      border-color: var(--orange);
+      background: rgba(249, 115, 22, 0.06);
+    }
+
+    .pricing-badge {
+      position: absolute;
+      top: -10px;
+      left: 16px;
+      background: var(--orange);
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 100px;
+      letter-spacing: 0.03em;
+    }
+
+    .pricing-period { font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .pricing-amount { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.03em; }
+    .pricing-amount span { font-size: 1rem; font-weight: 400; color: var(--muted); }
+    .pricing-note { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+
+    .pricing-trial {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+    .pricing-trial strong { color: var(--text); }
+
+    /* ── Bottom CTA ── */
+    .bottom-cta {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 24px;
+      text-align: center;
+    }
+
+    .bottom-cta h2 {
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 14px;
+    }
+
+    .bottom-cta p {
+      color: var(--muted);
+      margin-bottom: 32px;
+      font-size: 1rem;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      max-width: 900px;
+      margin: 80px auto 0;
+      padding: 32px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .footer-brand img { width: 24px; height: 24px; border-radius: 6px; }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .footer-links a:hover { color: var(--text); }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      h1 { font-size: 2rem; }
+      .pricing-cards { grid-template-columns: 1fr; }
+      footer { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <a href="/landing" class="nav-logo">
+    <img src="/icon-192.png" alt="Vector Football" />
+    Vector Football
+  </a>
+  <div class="nav-links">
+    <a href="/privacy">Privacy</a>
+    <a href="/" class="btn-nav">Open app</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-label">Beta — free for 30 days</div>
+
+  <h1>Your training should know<br /><span>when you play.</span></h1>
+
+  <p class="hero-sub">
+    Vector Football builds your S&amp;C programme around your actual match schedule.
+    Not a generic template — a periodised plan that shifts every week based on your fixtures, your gym access, and your fitness numbers.
+  </p>
+
+  <div class="hero-cta">
+    <a href="/" class="btn-primary">
+      Start free trial &rarr;
+    </a>
+  </div>
+  <p class="hero-note" style="margin-top: 14px;">30 days free. No card needed to start.</p>
+</section>
+
+<!-- App mockup -->
+<div class="mockup-wrap">
+  <div class="mockup-phone">
+    <div class="mockup-bar">
+      <div>
+        <div class="mockup-greeting">Thursday · 3 days to match</div>
+        <div class="mockup-title">This week</div>
+      </div>
+      <div style="width:28px;height:28px;background:rgba(249,115,22,0.12);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;">⚡</div>
+    </div>
+
+    <div class="mockup-week">
+      <div class="mockup-week-label">Match week</div>
+      <div class="mockup-days">
+        <div class="mockup-day">
+          <div class="mockup-day-label">Mon</div>
+          <div class="mockup-day-dot gym">G</div>
+        </div>
+        <div class="mockup-day">
+          <div class="mockup-day-label">Tue</div>
+          <div class="mockup-day-dot gym">S</div>
+        </div>
+        <div class="mockup-day">
+          <div class="mockup-day-label">Wed</div>
+          <div class="mockup-day-dot rest">–</div>
+        </div>
+        <div class="mockup-day">
+          <div class="mockup-day-label">Thu</div>
+          <div class="mockup-day-dot gym" style="background:rgba(249,115,22,0.3);">A</div>
+        </div>
+        <div class="mockup-day">
+          <div class="mockup-day-label">Fri</div>
+          <div class="mockup-day-dot rest">–</div>
+        </div>
+        <div class="mockup-day">
+          <div class="mockup-day-label">Sat</div>
+          <div class="mockup-day-dot match">M</div>
+        </div>
+        <div class="mockup-day">
+          <div class="mockup-day-label">Sun</div>
+          <div class="mockup-day-dot rest">–</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mockup-card">
+      <div class="mockup-card-icon">🏋️</div>
+      <div>
+        <div class="mockup-card-title">Gym — Lower Power</div>
+        <div class="mockup-card-sub">Trap bar · BSS · Nordic · Copenhagen</div>
+      </div>
+    </div>
+    <div class="mockup-card">
+      <div class="mockup-card-icon">⚡</div>
+      <div>
+        <div class="mockup-card-title">Speed — Acceleration</div>
+        <div class="mockup-card-sub">4 × 20m · 3 min recovery</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="section-divider" />
+
+<!-- Features -->
+<section class="features">
+  <p class="section-label">What it does</p>
+  <h2 class="section-heading">Built for footballers,<br />not gym-goers.</h2>
+  <p class="section-body">
+    Most training apps treat football as an afterthought. Vector was designed the other way around — the match schedule is the foundation, and everything else fits around it.
+  </p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📅</div>
+      <div class="feature-title">Periodised to your fixture list</div>
+      <p class="feature-desc">
+        Sessions shift based on how many days you are from a match. Heavy gym work happens early in the week. Lighter activation closer to matchday. It adjusts when your schedule changes.
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">Test yourself. Train to your numbers.</div>
+      <p class="feature-desc">
+        10m, 30m, CMJ, RSA, Yo-Yo — run the testing battery and Vector uses your actual scores to set loads. Not a percentage of some average player's numbers.
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">🏟️</div>
+      <div class="feature-title">Works with what you've got</div>
+      <p class="feature-desc">
+        Full gym, basic gym, or just a park. Tell it your access and the programme adapts. Change it any time — your plan updates for the new situation.
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">🔄</div>
+      <div class="feature-title">Progressive overload, done for you</div>
+      <p class="feature-desc">
+        Sets, reps, intensity, and rest periods progress across the weeks automatically. You don't need to plan it — you just need to show up and do the session.
+      </p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- How it works -->
+<section class="how">
+  <p class="section-label">How it works</p>
+  <h2 class="section-heading" style="margin-bottom: 8px;">Set up in five minutes.</h2>
+  <p style="color: var(--muted); font-size: 1rem; margin-bottom: 36px;">Three things, then you're training.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Tell it your situation</div>
+        <p class="step-desc">Position, play style, training days, match day, gym access. Takes about two minutes. The more accurate you are, the better the programme.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Run the fitness tests (optional)</div>
+        <p class="step-desc">Sprint times, jump height, aerobic fitness. Optional but it makes the programme significantly more accurate for your current level.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Follow the plan</div>
+        <p class="step-desc">Your full programme is generated instantly. Log sessions in the app, track progress, and update your schedule whenever fixtures change.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- Pricing -->
+<section class="pricing">
+  <p class="section-label">Pricing</p>
+  <h2 class="section-heading">Try it free for 30 days.</h2>
+  <p class="pricing-trial">No card needed to start. <strong>Cancel any time.</strong></p>
+
+  <div class="pricing-cards">
+    <div class="pricing-card">
+      <div class="pricing-period">Monthly</div>
+      <div class="pricing-amount">£7.99<span>/mo</span></div>
+      <p class="pricing-note">Billed monthly</p>
+    </div>
+    <div class="pricing-card featured">
+      <div class="pricing-badge">Best value</div>
+      <div class="pricing-period">Annual</div>
+      <div class="pricing-amount">£49.99<span>/yr</span></div>
+      <p class="pricing-note">£4.17/month — save 48%</p>
+    </div>
+  </div>
+
+  <a href="/" class="btn-primary" style="width: 100%; justify-content: center; font-size: 1rem; padding: 16px;">
+    Start your free 30-day trial &rarr;
+  </a>
+</section>
+
+<hr class="section-divider" />
+
+<!-- Bottom CTA -->
+<section class="bottom-cta" style="padding-bottom: 20px;">
+  <h2>Pre-season starts<br />whether you're ready or not.</h2>
+  <p>30 days free. Build your programme today.</p>
+  <a href="/" class="btn-primary" style="font-size: 1rem; padding: 16px 36px;">
+    Get started — it's free &rarr;
+  </a>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-brand">
+    <img src="/icon-192.png" alt="" />
+    Vector Football
+  </div>
+  <div class="footer-links">
+    <a href="/privacy">Privacy policy</a>
+    <a href="/terms">Terms of use</a>
+    <a href="/">Open app</a>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -5,6 +5,13 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Marketing landing page — must be served before the SPA catch-all
+[[redirects]]
+  from = "/landing"
+  to = "/landing.html"
+  status = 200
+  force = true
+
 # Static files that must NOT be caught by the SPA fallback
 [[redirects]]
   from = "/robots.txt"

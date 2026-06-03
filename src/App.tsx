@@ -6,6 +6,7 @@ import { ToastContainer } from './components/Toast';
 import { useStore } from './hooks/useStore';
 import { Navigation } from './components/Navigation';
 import { AppBootSkeleton, DashboardSkeleton, LoginSkeleton } from './components/SkeletonScreens';
+import { CookieBanner } from './components/CookieBanner';
 import { Dashboard } from './components/screens/Dashboard';
 import type { FormationData } from './components/screens/FormationBuilder';
 import { NavState, WorkoutExercise, WorkoutSession, UserProfile, TestSession, ProgrammeSession } from './types';
@@ -1267,6 +1268,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
+      <CookieBanner />
       <Suspense fallback={screenFallback}>
       {screen === 'dashboard' && isCoach && (
         <CoachDashboard
