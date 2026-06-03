@@ -40,8 +40,24 @@ export type SignUpResult = {
   needsEmailConfirmation: boolean;
 };
 
+/** Shared auth rate-limit guard — 5 attempts per 15 minutes per email.
+ *  Throws 'too_many_attempts' if the limit is exceeded so callers can
+ *  surface a friendly message without reaching Supabase's GoTrue. */
+async function guardAuthRateLimit(email: string): Promise<void> {
+  if (!supabase) return;
+  const { data: allowed } = await supabase.rpc('check_auth_rate_limit', {
+    p_identifier: email.toLowerCase().trim(),
+    p_max_attempts: 5,
+    p_window_minutes: 15,
+  });
+  if (allowed === false) {
+    throw new Error('too_many_attempts');
+  }
+}
+
 export async function cloudSignUp(email: string, password: string): Promise<SignUpResult> {
   if (!supabase) throw new Error('not_configured');
+  await guardAuthRateLimit(email);
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
   // If email confirmation is disabled, Supabase returns a session immediately.
@@ -58,6 +74,7 @@ export async function cloudSignUp(email: string, password: string): Promise<Sign
 /** Sign in with Supabase. Returns the user ID on success. */
 export async function cloudSignIn(email: string, password: string): Promise<string> {
   if (!supabase) throw new Error('not_configured');
+  await guardAuthRateLimit(email);
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
   return data.user.id;
@@ -98,6 +115,7 @@ export async function cloudResendConfirmation(email: string): Promise<void> {
 /** Send a password reset email to the user. */
 export async function cloudResetPassword(email: string): Promise<void> {
   if (!supabase) throw new Error('not_configured');
+  await guardAuthRateLimit(email);
   const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/`,

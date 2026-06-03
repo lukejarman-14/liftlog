@@ -82,7 +82,29 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { plan, accountType: rawAccountType, noTrial } = await req.json();
+    // Reject oversized payloads before parsing — protects against memory exhaustion.
+    const contentLength = req.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > 2048) {
+      return new Response(JSON.stringify({ error: 'Request too large' }), {
+        status: 413, headers: { ...cors(req), 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body = await req.json();
+
+    // Explicit type guards — never trust client-supplied field types.
+    const VALID_PLANS = new Set(['monthly', 'yearly', 'lifetime']);
+    const rawPlan         = typeof body.plan === 'string'          ? body.plan          : '';
+    const rawAccountType  = typeof body.accountType === 'string'   ? body.accountType   : '';
+    const noTrial         = body.noTrial === true; // must be exactly true, not truthy
+
+    if (!VALID_PLANS.has(rawPlan)) {
+      return new Response(JSON.stringify({ error: 'Invalid plan' }), {
+        status: 400, headers: { ...cors(req), 'Content-Type': 'application/json' },
+      });
+    }
+
+    const plan = rawPlan;
 
     // Default to 'personal' for backwards compatibility with older clients
     const accountType = VALID_ACCOUNT_TYPES.has(rawAccountType) ? rawAccountType : 'personal';

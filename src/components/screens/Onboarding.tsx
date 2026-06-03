@@ -221,7 +221,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           userId = await cloudSignIn(loginEmail.trim().toLowerCase(), loginPassword);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : '';
-          if (msg.includes('Invalid login credentials') || msg.includes('invalid')) {
+          if (msg.includes('too_many_attempts')) {
+            setLoginError('Too many attempts. Please wait 15 minutes before trying again.');
+          } else if (msg.includes('Invalid login credentials') || msg.includes('invalid')) {
             setLoginError('Email or password is incorrect.');
           } else {
             setLoginError('Sign in failed. Check your connection and try again.');
