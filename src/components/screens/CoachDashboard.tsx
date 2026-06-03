@@ -93,6 +93,7 @@ interface CoachDashboardProps {
   onFetchSavedFormation?: (matchDate: string) => Promise<FormationData | null>;
   onFetchPreviousFormation?: () => Promise<FormationData | null>;
   onNotifySquad?: (message: string) => Promise<void>;
+  onSavePlayerNote?: (playerId: string, notes: string) => Promise<void>;
 }
 
 /** Returns ISO date string for a named weekday within a given week (weekStart = Monday). */
@@ -293,7 +294,7 @@ export function CoachDashboard({
   inviteSeed, players = [], weeks = [], teams = [], announcements = [],
   maxPlayers = 30, isPaid = true, onUpgrade, onOpenProfile,
   onPostAnnouncement, onDeleteAnnouncement, onUpdateScheduleDay,
-  matchResults = [], onSaveMatchResult, onUpdateMatchResult, onDeleteMatchResult, savedAttendance = [], onSaveAttendance, onSaveMatchSquad, onFetchSavedFormation, onFetchPreviousFormation, onNotifySquad,
+  matchResults = [], onSaveMatchResult, onUpdateMatchResult, onDeleteMatchResult, savedAttendance = [], onSaveAttendance, onSaveMatchSquad, onFetchSavedFormation, onFetchPreviousFormation, onNotifySquad, onSavePlayerNote,
 }: CoachDashboardProps) {
   const [copied, setCopied] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -336,6 +337,13 @@ export function CoachDashboard({
 
   const inviteCode = deriveTeamCode(inviteSeed);
   const selected = players.find(p => p.id === selectedId) ?? null;
+
+  // Save player notes when modal closes or player changes
+  useEffect(() => {
+    if (!selectedId && selected && noteDraft !== '' && onSavePlayerNote) {
+      void onSavePlayerNote(selected.id, noteDraft);
+    }
+  }, [selectedId, selected, noteDraft, onSavePlayerNote]);
 
   // Load saved formation for the current match when FormationBuilder opens
   useEffect(() => {

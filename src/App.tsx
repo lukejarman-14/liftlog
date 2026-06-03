@@ -815,6 +815,21 @@ export default function App() {
     setSquadProfile({ displayName, position, jerseyNumber });
   }, []);
 
+  /** Save a coach's notes about a player. */
+  const handleSavePlayerNote = useCallback(async (playerId: string, notes: string) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const { error } = await supabase
+      .from('player_profiles')
+      .update({ coach_notes: notes || null, updated_at: new Date().toISOString() })
+      .eq('player_id', playerId);
+    if (error) {
+      toast.error('Failed to save notes. Please try again.');
+      captureError(error, { context: 'handleSavePlayerNote', playerId });
+      return;
+    }
+    toast.success('Notes saved!', 2000);
+  }, [toast]);
+
   useEffect(() => {
     const acct = store.userProfile?.accountType;
     if (acct === 'personal' && isAuthenticated && cloudUserIdRef.current) void fetchSquadProfile(cloudUserIdRef.current);
@@ -1280,6 +1295,7 @@ export default function App() {
           onUpdateMatchResult={handleUpdateMatchResult}
           onDeleteMatchResult={handleDeleteMatchResult}
           onNotifySquad={handleNotifySquad}
+          onSavePlayerNote={handleSavePlayerNote}
         />
       )}
       {screen === 'dashboard' && !isCoach && (
