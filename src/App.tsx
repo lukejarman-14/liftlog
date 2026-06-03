@@ -56,7 +56,7 @@ const ResetPassword      = lazy(() => import('./components/screens/ResetPassword
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
 const CoachDashboard     = lazy(() => import('./components/screens/CoachDashboard').then(m => ({ default: m.CoachDashboard })));
 // Demo schedule/announcement data for the coach dashboard preview (branch-only, remove before launch).
-import { DEMO_TEAMS } from './components/screens/CoachDashboard';
+import { DEMO_TEAMS, type MatchResult } from './components/screens/CoachDashboard';
 
 // check for password reset link on both implicit (#type=recovery) and PKCE (?code=) flows
 function detectRecoveryUrl(): boolean {
@@ -134,6 +134,10 @@ export default function App() {
   const [playerCoachAnnouncements, setPlayerCoachAnnouncements] = useState<{ id: string; date: string; text: string }[]>([]);
   // Live schedule weeks for the coach dashboard
   const [liveScheduleWeeks, setLiveScheduleWeeks] = useState<import('./components/screens/CoachDashboard').ScheduleWeek[]>([]);
+  // Player's squad profile (display name, position, jersey)
+  const [squadProfile, setSquadProfile] = useState<{ displayName: string; position: string; jerseyNumber: number | null } | undefined>();
+  // Coach: match results
+  const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
@@ -585,10 +589,20 @@ export default function App() {
         return;
       }
       if (!Array.isArray(data)) return;
-      const players: SquadPlayer[] = data.map((row: { player_id: string; joined_at: string; email: string; full_name: string }) => ({
+      // Also fetch player_profiles for real names/positions
+      const playerIds = data.map((r: { player_id: string }) => r.player_id);
+      const { data: profiles } = playerIds.length > 0
+        ? await supabase.from('player_profiles').select('player_id, display_name, position, jersey_number').in('player_id', playerIds)
+        : { data: [] };
+      const profileMap: Record<string, { display_name: string; position: string; jersey_number: number | null }> = {};
+      for (const p of (profiles ?? [])) profileMap[p.player_id] = p;
+
+      const players: SquadPlayer[] = data.map((row: { player_id: string; joined_at: string; email: string; full_name: string }) => {
+        const prof = profileMap[row.player_id];
+        return {
         id: row.player_id,
-        name: row.full_name || row.email.split('@')[0],
-        position: 'Player',
+        name: prof?.display_name || row.full_name || row.email.split('@')[0],
+        position: prof?.position || 'Player',
         group: 'Midfield' as const,
         readiness: 'moderate' as const,
         available: true,
@@ -598,7 +612,8 @@ export default function App() {
         sessionsTarget: 0,
         testing: [],
         recentActivity: [],
-      }));
+        };
+      });
       setLiveSquadPlayers(players);
       if (import.meta.env.DEV) console.log('[squad] live players:', players.length);
     } catch (e) {
@@ -687,6 +702,28 @@ export default function App() {
     if (acct === 'personal' && isAuthenticated) void fetchPlayerCoachAnnouncements();
   }, [isAuthenticated, store.userProfile?.accountType, fetchPlayerCoachAnnouncements]);
 
+  // ---- Squad profile ----
+  const fetchSquadProfile = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    const { data } = await supabase.from('player_profiles').select('display_name, position, jersey_number').eq('player_id', userId).single();
+    if (data) setSquadProfile({ displayName: data.display_name, position: data.position, jerseyNumber: data.jersey_number });
+    else setSquadProfile({ displayName: '', position: '', jerseyNumber: null });
+  }, []);
+
+  const handleSaveSquadProfile = useCallback(async (displayName: string, position: string, jerseyNumber: number | null) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    await supabase.from('player_profiles').upsert(
+      { player_id: cloudUserIdRef.current, display_name: displayName, position, jersey_number: jerseyNumber, updated_at: new Date().toISOString() },
+      { onConflict: 'player_id' }
+    );
+    setSquadProfile({ displayName, position, jerseyNumber });
+  }, []);
+
+  useEffect(() => {
+    const acct = store.userProfile?.accountType;
+    if (acct === 'personal' && isAuthenticated && cloudUserIdRef.current) void fetchSquadProfile(cloudUserIdRef.current);
+  }, [isAuthenticated, store.userProfile?.accountType, fetchSquadProfile]);
+
   // ---- Schedule helpers ----
   const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
@@ -774,8 +811,44 @@ export default function App() {
     const acct = store.userProfile?.accountType;
     if ((acct === 'coach' || acct === 'club') && isAuthenticated && cloudUserIdRef.current) {
       void fetchSchedule(cloudUserIdRef.current);
+      void fetchMatchResults(cloudUserIdRef.current);
     }
   }, [isAuthenticated, store.userProfile?.accountType, fetchSchedule]);
+
+  // ---- Match results ----
+  const fetchMatchResults = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    const { data } = await supabase.from('match_results').select('id, match_date, opponent, venue, goals_for, goals_against, notes').eq('coach_id', userId).order('match_date', { ascending: false });
+    setMatchResults((data ?? []).map((r: { id: string; match_date: string; opponent: string; venue: string; goals_for: number; goals_against: number; notes: string }) => ({
+      id: r.id, matchDate: r.match_date, opponent: r.opponent, venue: r.venue as 'home' | 'away',
+      goalsFor: r.goals_for, goalsAgainst: r.goals_against, notes: r.notes,
+    })));
+  }, []);
+
+  const handleSaveMatchResult = useCallback(async (result: Omit<MatchResult, 'id'>) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const { data } = await supabase.from('match_results').insert({
+      coach_id: cloudUserIdRef.current, match_date: result.matchDate, opponent: result.opponent,
+      venue: result.venue, goals_for: result.goalsFor, goals_against: result.goalsAgainst, notes: result.notes,
+    }).select('id').single();
+    if (data) setMatchResults(prev => [{ ...result, id: data.id }, ...prev]);
+  }, []);
+
+  const handleSaveAttendance = useCallback(async (sessionDate: string, sessionTitle: string, attendance: Record<string, boolean>) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const coachId = cloudUserIdRef.current;
+    const rows = Object.entries(attendance).map(([playerId, attended]) => ({
+      coach_id: coachId, session_date: sessionDate, session_title: sessionTitle, player_id: playerId, attended,
+    }));
+    await supabase.from('session_attendance').upsert(rows, { onConflict: 'coach_id,session_date,player_id' });
+  }, []);
+
+  const handleSaveMatchSquad = useCallback(async (matchDate: string, squad: { playerId: string; role: 'starter' | 'sub' | 'unavailable'; position: string }[]) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const coachId = cloudUserIdRef.current;
+    const rows = squad.map(s => ({ coach_id: coachId, match_date: matchDate, player_id: s.playerId, role: s.role, position: s.position }));
+    await supabase.from('match_squads').upsert(rows, { onConflict: 'coach_id,match_date,player_id' });
+  }, []);
 
   const doGenerateProgramme = (resolvedInputs: ProgrammeInputs) => {
     const programme = generateProgramme(resolvedInputs);
@@ -994,6 +1067,10 @@ export default function App() {
           onPostAnnouncement={handlePostAnnouncement}
           onDeleteAnnouncement={handleDeleteAnnouncement}
           onUpdateScheduleDay={handleUpdateScheduleDay}
+          matchResults={matchResults}
+          onSaveMatchResult={handleSaveMatchResult}
+          onSaveAttendance={handleSaveAttendance}
+          onSaveMatchSquad={handleSaveMatchSquad}
         />
       )}
       {screen === 'dashboard' && !isCoach && (
@@ -1219,6 +1296,8 @@ export default function App() {
               }
             }
           } : undefined}
+          squadProfile={store.userProfile?.accountType === 'personal' ? squadProfile : undefined}
+          onSaveSquadProfile={store.userProfile?.accountType === 'personal' ? handleSaveSquadProfile : undefined}
         />
       )}
 

@@ -54,6 +54,15 @@ export interface Announcement {
   date: string;
   text: string;
 }
+export interface MatchResult {
+  id?: string;
+  matchDate: string;
+  opponent: string;
+  venue: 'home' | 'away';
+  goalsFor: number;
+  goalsAgainst: number;
+  notes: string;
+}
 
 type CoachTab = 'home' | 'schedule' | 'history' | 'tests';
 
@@ -72,6 +81,10 @@ interface CoachDashboardProps {
   onPostAnnouncement?: (text: string) => Promise<void>;
   onDeleteAnnouncement?: (id: string) => Promise<void>;
   onUpdateScheduleDay?: (weekStart: string, day: string, type: ScheduleDay['type'], label: string, description: string) => Promise<void>;
+  matchResults?: MatchResult[];
+  onSaveMatchResult?: (result: Omit<MatchResult, 'id'>) => Promise<void>;
+  onSaveAttendance?: (sessionDate: string, sessionTitle: string, attendance: Record<string, boolean>) => Promise<void>;
+  onSaveMatchSquad?: (matchDate: string, squad: { playerId: string; role: 'starter' | 'sub' | 'unavailable'; position: string }[]) => Promise<void>;
 }
 
 function initials(name: string): string {
@@ -263,6 +276,7 @@ export function CoachDashboard({
   inviteSeed, players = [], weeks = [], teams = [], announcements = [],
   maxPlayers = 30, isPaid = true, onUpgrade, onOpenProfile,
   onPostAnnouncement, onDeleteAnnouncement, onUpdateScheduleDay,
+  matchResults = [], onSaveMatchResult, onSaveAttendance, onSaveMatchSquad,
 }: CoachDashboardProps) {
   const [copied, setCopied] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -271,6 +285,25 @@ export function CoachDashboard({
   const [announcementPosting, setAnnouncementPosting] = useState(false);
   // Day editor state
   const [editingDay, setEditingDay] = useState<{ weekStart: string; day: ScheduleDay } | null>(null);
+  // Match result modal
+  const [showMatchModal, setShowMatchModal] = useState(false);
+  const [matchOpponent, setMatchOpponent] = useState('');
+  const [matchVenue, setMatchVenue] = useState<'home' | 'away'>('home');
+  const [matchGoalsFor, setMatchGoalsFor] = useState('');
+  const [matchGoalsAgainst, setMatchGoalsAgainst] = useState('');
+  const [matchNotes, setMatchNotes] = useState('');
+  const [matchSaving, setMatchSaving] = useState(false);
+  const [matchDate, setMatchDate] = useState('');
+  // Attendance modal
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [attendanceSession, setAttendanceSession] = useState<{ date: string; title: string } | null>(null);
+  const [attendanceMap, setAttendanceMap] = useState<Record<string, boolean>>({});
+  const [attendanceSaving, setAttendanceSaving] = useState(false);
+  // Match squad modal
+  const [showSquadModal, setShowSquadModal] = useState(false);
+  const [squadModalDate, setSquadModalDate] = useState('');
+  const [squadRoles, setSquadRoles] = useState<Record<string, { role: 'starter' | 'sub' | 'unavailable'; position: string }>>({});
+  const [squadSaving, setSquadSaving] = useState(false);
   const [editType, setEditType] = useState<ScheduleDay['type']>('rest');
   const [editLabel, setEditLabel] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -315,9 +348,11 @@ export function CoachDashboard({
     return { metric, ranked };
   });
 
-  const squadActivity = players
+  // squadActivity kept for future use
+  const _squadActivity = players
     .flatMap(p => p.recentActivity.map(a => ({ ...a, player: p.name })))
     .sort((a, b) => b.date.localeCompare(a.date));
+  void _squadActivity;
 
   const exportReport = () => {
     const header = ['Name', 'Position', 'Readiness', 'Sessions', ...TEST_METRICS.map(m => m.label)];
@@ -669,18 +704,32 @@ export function CoachDashboard({
 
             <div className="flex flex-col gap-2">
               {currentWeek.days.map(d => (
-                <button
-                  key={d.day}
-                  onClick={() => { setEditingDay({ weekStart: currentWeek.weekStart ?? '', day: d }); setEditType(d.type); setEditLabel(d.label); setEditDescription(d.description ?? ''); }}
-                  className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 w-full text-left hover:border-brand-200 transition-colors"
-                >
-                  <div className="w-12 text-center"><p className="text-sm font-bold text-gray-900">{d.day}</p></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-900">{d.label || <span className="text-gray-300">Tap to set</span>}</p>
-                    {d.description && <p className="text-xs text-gray-400 mt-0.5">{d.description}</p>}
-                  </div>
-                  <span className={`text-[11px] font-bold px-2 py-1 rounded-full capitalize ${SCHEDULE_BADGE[d.type]}`}>{d.type}</span>
-                </button>
+                <div key={d.day} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                  <button
+                    onClick={() => { setEditingDay({ weekStart: currentWeek.weekStart ?? '', day: d }); setEditType(d.type); setEditLabel(d.label); setEditDescription(d.description ?? ''); }}
+                    className="p-4 flex items-center gap-3 w-full text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="w-12 text-center"><p className="text-sm font-bold text-gray-900">{d.day}</p></div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900">{d.label || <span className="text-gray-300">Tap to set</span>}</p>
+                      {d.description && <p className="text-xs text-gray-400 mt-0.5">{d.description}</p>}
+                    </div>
+                    <span className={`text-[11px] font-bold px-2 py-1 rounded-full capitalize ${SCHEDULE_BADGE[d.type]}`}>{d.type}</span>
+                  </button>
+                  {d.type !== 'rest' && (
+                    <div className="border-t border-gray-50 px-4 py-2 flex gap-3">
+                      <button onClick={() => { setAttendanceSession({ date: `${currentWeek.weekStart}`, title: d.label }); setAttendanceMap(Object.fromEntries(players.map(p => [p.id, false]))); setShowAttendanceModal(true); }} className="text-xs font-semibold text-brand-600 flex items-center gap-1">✓ Attendance</button>
+                      {d.type === 'match' && (
+                        <>
+                          <span className="text-gray-200">|</span>
+                          <button onClick={() => { setMatchDate(`${currentWeek.weekStart}`); setMatchOpponent(d.label.replace(/^vs /, '')); setMatchVenue('home'); setMatchGoalsFor(''); setMatchGoalsAgainst(''); setMatchNotes(''); setShowMatchModal(true); }} className="text-xs font-semibold text-brand-600">⚽ Log result</button>
+                          <span className="text-gray-200">|</span>
+                          <button onClick={() => { setSquadModalDate(`${currentWeek.weekStart}`); setSquadRoles(Object.fromEntries(players.map(p => [p.id, { role: 'starter' as const, position: p.position }]))); setShowSquadModal(true); }} className="text-xs font-semibold text-brand-600">👕 Squad</button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
 
@@ -754,35 +803,44 @@ export function CoachDashboard({
         )}
         {tab === 'history' && isPaid && (
           <>
-            {/* Attendance & compliance */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Attendance & compliance</p>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-600">Squad sessions completed</span>
-                <span className="font-bold text-gray-900">{totalDone}/{totalTarget} ({compliancePct}%)</span>
-              </div>
-              <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div className="h-full bg-brand-500" style={{ width: `${compliancePct}%` }} />
-              </div>
-              <div className="mt-3 flex flex-col gap-1.5">
-                {players.map(p => (
-                  <div key={p.id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">{p.name}</span>
-                    <span className={`font-semibold ${p.sessionsThisWeek >= p.sessionsTarget ? 'text-green-600' : 'text-amber-500'}`}>{p.sessionsThisWeek}/{p.sessionsTarget}</span>
-                  </div>
-                ))}
-              </div>
+            {/* Match results */}
+            <div className="flex items-center justify-between mb-3 px-1">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Match Results</p>
+              <button onClick={() => { setMatchOpponent(''); setMatchVenue('home'); setMatchGoalsFor(''); setMatchGoalsAgainst(''); setMatchNotes(''); setMatchDate(new Date().toISOString().slice(0,10)); setShowMatchModal(true); }} className="text-xs font-semibold text-brand-600">+ Add Result</button>
             </div>
+            {matchResults.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-5 text-center text-sm text-gray-400">No match results yet — tap + Add Result</div>
+            ) : (
+              <div className="flex flex-col gap-2 mb-5">
+                {matchResults.map((m, i) => {
+                  const won = m.goalsFor > m.goalsAgainst;
+                  const drew = m.goalsFor === m.goalsAgainst;
+                  return (
+                    <div key={m.id ?? i} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white flex-shrink-0 ${won ? 'bg-green-500' : drew ? 'bg-amber-400' : 'bg-red-500'}`}>{won ? 'W' : drew ? 'D' : 'L'}</div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-900">vs {m.opponent} <span className="text-gray-400 font-normal">({m.venue})</span></p>
+                        <p className="text-xs text-gray-400">{m.matchDate}</p>
+                      </div>
+                      <p className="text-lg font-black text-gray-900">{m.goalsFor}–{m.goalsAgainst}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 px-1">Recent squad activity</p>
-            <div className="flex flex-col gap-2">
-              {squadActivity.map((a, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between">
-                  <div><p className="text-sm font-semibold text-gray-900">{a.player}</p><p className="text-xs text-gray-400">{a.label} · {a.date}</p></div>
-                  {a.rpe != null && <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">RPE {a.rpe}</span>}
-                </div>
-              ))}
+            {/* Attendance */}
+            <div className="flex items-center justify-between mb-3 px-1">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Attendance</p>
+              <button onClick={() => { setAttendanceSession({ date: new Date().toISOString().slice(0,10), title: 'Training' }); setAttendanceMap(Object.fromEntries(players.map(p => [p.id, false]))); setShowAttendanceModal(true); }} className="text-xs font-semibold text-brand-600">+ Log Session</button>
             </div>
+            {players.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center text-sm text-gray-400">No players in squad yet</div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-gray-100 p-4">
+                <p className="text-sm text-gray-500">Tap "+ Log Session" after training or a match to mark who attended.</p>
+              </div>
+            )}
           </>
         )}
 
@@ -840,6 +898,96 @@ export function CoachDashboard({
           </>
         )}
       </div>
+
+      {/* ---- Match Result Modal ---- */}
+      {showMatchModal && (
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowMatchModal(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-12 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <p className="font-bold text-gray-900 text-base mb-4">Log Match Result</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Date</p>
+            <input type="date" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-3" value={matchDate} onChange={e => setMatchDate(e.target.value)} />
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Opponent</p>
+            <input className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-3" placeholder="e.g. Eastside FC" value={matchOpponent} onChange={e => setMatchOpponent(e.target.value)} />
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {(['home', 'away'] as const).map(v => (
+                <button key={v} onClick={() => setMatchVenue(v)} className={`py-3 rounded-xl text-sm font-bold capitalize ${matchVenue === v ? 'bg-brand-500 text-white' : 'bg-gray-50 text-gray-400'}`}>{v}</button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-1.5">Goals for</p>
+                <input type="number" inputMode="numeric" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400" value={matchGoalsFor} onChange={e => setMatchGoalsFor(e.target.value)} placeholder="0" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-1.5">Goals against</p>
+                <input type="number" inputMode="numeric" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400" value={matchGoalsAgainst} onChange={e => setMatchGoalsAgainst(e.target.value)} placeholder="0" />
+              </div>
+            </div>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Notes <span className="font-normal text-gray-400">(optional)</span></p>
+            <textarea className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 resize-none min-h-[60px] mb-4" placeholder="e.g. Great performance, set pieces need work" value={matchNotes} onChange={e => setMatchNotes(e.target.value)} />
+            <button disabled={matchSaving || !matchOpponent.trim()} onClick={async () => { if (!onSaveMatchResult) return; setMatchSaving(true); await onSaveMatchResult({ matchDate, opponent: matchOpponent.trim(), venue: matchVenue, goalsFor: parseInt(matchGoalsFor) || 0, goalsAgainst: parseInt(matchGoalsAgainst) || 0, notes: matchNotes }); setMatchSaving(false); setShowMatchModal(false); }} className="w-full bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40">{matchSaving ? 'Saving…' : 'Save Result'}</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Attendance Modal ---- */}
+      {showAttendanceModal && attendanceSession && (
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowAttendanceModal(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-12 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <p className="font-bold text-gray-900 text-base mb-1">Attendance</p>
+            <p className="text-xs text-gray-400 mb-4">{attendanceSession.title} · {attendanceSession.date}</p>
+            {players.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No players in squad yet</p>}
+            <div className="flex flex-col gap-2 mb-4">
+              {players.map(p => (
+                <button key={p.id} onClick={() => setAttendanceMap(prev => ({ ...prev, [p.id]: !prev[p.id] }))} className={`flex items-center justify-between p-3.5 rounded-xl border transition-colors ${attendanceMap[p.id] ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-white'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${attendanceMap[p.id] ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'}`}>{initials(p.name)}</div>
+                    <div className="text-left"><p className="text-sm font-semibold text-gray-900">{p.name}</p><p className="text-xs text-gray-400">{p.position}</p></div>
+                  </div>
+                  <span className={`text-xs font-bold ${attendanceMap[p.id] ? 'text-green-600' : 'text-gray-300'}`}>{attendanceMap[p.id] ? '✓ Present' : 'Absent'}</span>
+                </button>
+              ))}
+            </div>
+            <button disabled={attendanceSaving} onClick={async () => { if (!onSaveAttendance) return; setAttendanceSaving(true); await onSaveAttendance(attendanceSession.date, attendanceSession.title, attendanceMap); setAttendanceSaving(false); setShowAttendanceModal(false); }} className="w-full bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40">{attendanceSaving ? 'Saving…' : 'Save Attendance'}</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Match Squad Modal ---- */}
+      {showSquadModal && (
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowSquadModal(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-12 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <p className="font-bold text-gray-900 text-base mb-1">Match Day Squad</p>
+            <p className="text-xs text-gray-400 mb-4">{squadModalDate}</p>
+            <div className="flex flex-col gap-2 mb-4">
+              {players.map(p => {
+                const r = squadRoles[p.id] ?? { role: 'starter', position: p.position };
+                return (
+                  <div key={p.id} className="bg-white border border-gray-100 rounded-xl p-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-xs font-bold text-brand-600">{initials(p.name)}</div>
+                      <p className="text-sm font-semibold text-gray-900 flex-1">{p.name}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 mb-2">
+                      {(['starter', 'sub', 'unavailable'] as const).map(role => (
+                        <button key={role} onClick={() => setSquadRoles(prev => ({ ...prev, [p.id]: { ...r, role } }))} className={`py-1.5 rounded-lg text-xs font-bold capitalize transition-colors ${r.role === role ? (role === 'starter' ? 'bg-brand-500 text-white' : role === 'sub' ? 'bg-amber-400 text-white' : 'bg-gray-200 text-gray-500') : 'bg-gray-50 text-gray-400'}`}>{role}</button>
+                      ))}
+                    </div>
+                    <input className="w-full border border-gray-100 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-brand-300" placeholder="Position (e.g. CM)" value={r.position} onChange={e => setSquadRoles(prev => ({ ...prev, [p.id]: { ...r, position: e.target.value } }))} />
+                  </div>
+                );
+              })}
+            </div>
+            <button disabled={squadSaving} onClick={async () => { if (!onSaveMatchSquad) return; setSquadSaving(true); await onSaveMatchSquad(squadModalDate, players.map(p => ({ playerId: p.id, role: squadRoles[p.id]?.role ?? 'starter', position: squadRoles[p.id]?.position ?? p.position }))); setSquadSaving(false); setShowSquadModal(false); }} className="w-full bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40">{squadSaving ? 'Saving…' : 'Save Squad'}</button>
+          </div>
+        </div>
+      )}
 
       {/* Bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 safe-area-pb z-50">
