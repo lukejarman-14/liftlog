@@ -16,3 +16,7 @@ dist
 
 # Local Netlify folder
 .netlify
+
+# Supabase CLI temp files — contain project ref and connection metadata.
+# Not secrets, but no reason to track them in git.
+supabase/.temp/
