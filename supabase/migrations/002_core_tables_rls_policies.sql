@@ -13,6 +13,7 @@
 -- ============================================================================
 ALTER TABLE user_data ENABLE ROW LEVEL SECURITY;
 
+-- user_data.id is uuid — compare directly with auth.uid()
 CREATE POLICY "user_data_select_own"
   ON user_data FOR SELECT
   USING (id = auth.uid());
@@ -77,43 +78,41 @@ CREATE POLICY "referral_codes_select_public"
   ON referral_codes FOR SELECT
   USING (true);
 
--- Only the owner can insert/update their own referral code
+-- referral_codes.user_id is text — cast auth.uid() to text
 CREATE POLICY "referral_codes_insert_own"
   ON referral_codes FOR INSERT
-  WITH CHECK (user_id = auth.uid());
+  WITH CHECK (user_id = auth.uid()::text);
 
 CREATE POLICY "referral_codes_update_own"
   ON referral_codes FOR UPDATE
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+  USING (user_id = auth.uid()::text)
+  WITH CHECK (user_id = auth.uid()::text);
 
 CREATE POLICY "referral_codes_delete_own"
   ON referral_codes FOR DELETE
-  USING (user_id = auth.uid());
+  USING (user_id = auth.uid()::text);
 
 -- ============================================================================
 -- 4. REFERRALS — users can read referrals they are part of; insert on redemption
 -- ============================================================================
 ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
 
--- Referred user and referrer can both see their own referral rows
+-- referrals.referred_user_id + referrer_user_id are text — cast auth.uid() to text
 CREATE POLICY "referrals_select_own"
   ON referrals FOR SELECT
   USING (
-    referred_user_id = auth.uid() OR
-    referrer_user_id = auth.uid()
+    referred_user_id = auth.uid()::text OR
+    referrer_user_id = auth.uid()::text
   );
 
--- Any authenticated user can insert a referral when redeeming a code
 CREATE POLICY "referrals_insert_own"
   ON referrals FOR INSERT
-  WITH CHECK (referred_user_id = auth.uid());
+  WITH CHECK (referred_user_id = auth.uid()::text);
 
--- Only the referrer can update (to mark reward_applied = true)
 CREATE POLICY "referrals_update_referrer"
   ON referrals FOR UPDATE
-  USING (referrer_user_id = auth.uid())
-  WITH CHECK (referrer_user_id = auth.uid());
+  USING (referrer_user_id = auth.uid()::text)
+  WITH CHECK (referrer_user_id = auth.uid()::text);
 
 -- ============================================================================
 -- INDEXES
