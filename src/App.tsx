@@ -23,7 +23,6 @@ import {
 } from './lib/cloudSync';
 import { supabase } from './lib/supabase';
 import { registerSquad, joinSquad } from './lib/teams';
-import type { SquadPlayer } from './components/screens/CoachDashboard';
 import { identifyUser, resetAnalyticsUser, trackEvent, applyAnalyticsOptOut } from './lib/analytics';
 import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificationPermission, scheduleDailyReminder } from './lib/notifications';
 import { localDateStr } from './lib/loadManagement';
@@ -55,8 +54,26 @@ const ProgrammeHub       = lazy(() => import('./components/screens/ProgrammeHub'
 const ResetPassword      = lazy(() => import('./components/screens/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
 const CoachDashboard     = lazy(() => import('./components/screens/CoachDashboard').then(m => ({ default: m.CoachDashboard })));
-// Demo schedule/announcement data for the coach dashboard preview (branch-only, remove before launch).
-import { DEMO_TEAMS, type MatchResult } from './components/screens/CoachDashboard';
+// Demo data for the coach dashboard preview (branch-only, remove before launch).
+import { DEMO_TEAMS, type MatchResult, type SquadPlayer } from './components/screens/CoachDashboard';
+
+const DEMO_PLAYERS: SquadPlayer[] = [
+  { id: 'demo-1', name: 'James Thornton', position: 'Goalkeeper', group: 'Defence', readiness: 'ready', available: true, improvementScore: 65, programmeName: 'GK Programme', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-2', name: 'Marcus Webb', position: 'Centre-Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 72, programmeName: 'Defender S&C', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-3', name: 'Tyler Shaw', position: 'Centre-Back', group: 'Defence', readiness: 'moderate', available: true, improvementScore: 58, programmeName: 'Defender S&C', sessionsThisWeek: 2, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-4', name: 'Liam Carter', position: 'Right Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 80, programmeName: 'Full-Back Power', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-5', name: 'Noah Barnes', position: 'Left Back', group: 'Defence', readiness: 'low', available: false, injury: 'Hamstring', improvementScore: 40, programmeName: 'Full-Back Power', sessionsThisWeek: 1, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-6', name: 'Ethan Clarke', position: 'Defensive Mid', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 88, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-7', name: 'Ryan Patel', position: 'Central Mid', group: 'Midfield', readiness: 'moderate', available: true, improvementScore: 70, programmeName: 'Midfielder S&C', sessionsThisWeek: 2, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-8', name: 'Jordan Ellis', position: 'Central Mid', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 75, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-9', name: 'Sam Hughes', position: 'Right Wing', group: 'Attack', readiness: 'ready', available: true, improvementScore: 91, programmeName: 'Winger Speed', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-10', name: 'Leo Marsh', position: 'Left Wing', group: 'Attack', readiness: 'moderate', available: true, improvementScore: 62, programmeName: 'Winger Speed', sessionsThisWeek: 2, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-11', name: 'Kai Foster', position: 'Striker', group: 'Attack', readiness: 'ready', available: true, improvementScore: 85, programmeName: 'Striker Power', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-12', name: 'Finn Murphy', position: 'Striker', group: 'Attack', readiness: 'ready', available: true, improvementScore: 77, programmeName: 'Striker Power', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-13', name: 'Oscar Reid', position: 'Winger', group: 'Attack', readiness: 'moderate', available: true, improvementScore: 55, programmeName: 'Winger Speed', sessionsThisWeek: 2, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-14', name: 'Callum Price', position: 'Centre-Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 68, programmeName: 'Defender S&C', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-15', name: 'Harvey Stone', position: 'Midfielder', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 73, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+];
 
 // check for password reset link on both implicit (#type=recovery) and PKCE (?code=) flows
 function detectRecoveryUrl(): boolean {
@@ -827,6 +844,12 @@ export default function App() {
 
   const handleSaveMatchResult = useCallback(async (result: Omit<MatchResult, 'id'>) => {
     if (!supabase || !cloudUserIdRef.current) return;
+    // Prevent duplicate results for the same date
+    const exists = matchResults.some(r => r.matchDate === result.matchDate);
+    if (exists) {
+      alert(`A result for ${result.matchDate} already exists. Delete it first if you want to re-enter it.`);
+      return;
+    }
     const { data } = await supabase.from('match_results').insert({
       coach_id: cloudUserIdRef.current, match_date: result.matchDate, opponent: result.opponent,
       venue: result.venue, goals_for: result.goalsFor, goals_against: result.goalsAgainst, notes: result.notes,
@@ -1056,7 +1079,7 @@ export default function App() {
         <CoachDashboard
           coachName={[store.userProfile.firstName, store.userProfile.lastName].filter(Boolean).join(' ')}
           inviteSeed={cloudUserIdRef.current ?? store.userProfile.email}
-          players={liveSquadPlayers}
+          players={liveSquadPlayers.length > 0 ? liveSquadPlayers : DEMO_PLAYERS}
           weeks={liveScheduleWeeks}
           teams={DEMO_TEAMS}
           announcements={liveAnnouncements}

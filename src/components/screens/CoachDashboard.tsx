@@ -500,6 +500,21 @@ export function CoachDashboard({
         {/* ---------- HOME ---------- */}
         {tab === 'home' && (
           <>
+            {/* Invite code — always at top */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-brand-50 border-2 border-dashed border-brand-200 rounded-xl py-2.5 text-center">
+                  <span className="text-lg font-extrabold text-brand-600 tracking-widest font-mono">{inviteCode}</span>
+                </div>
+                <button onClick={copyCode} className="w-11 h-11 rounded-xl bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition-colors flex-shrink-0" aria-label="Copy code">
+                  {copied ? <Check size={17} /> : <Copy size={17} />}
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed">
+                {isPaid ? 'Players enter this code at sign-up — they get full Premium free.' : 'Players can join with this code. Upgrade to Pro to give them Premium.'}
+              </p>
+            </div>
+
             {/* Squad analytics — paid only */}
             {isPaid ? (
               <>
@@ -618,23 +633,6 @@ export function CoachDashboard({
               </div>
             </div>
 
-            {/* Invite code */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Your invite code</p>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 bg-brand-50 border-2 border-dashed border-brand-200 rounded-xl py-3 text-center">
-                  <span className="text-xl font-extrabold text-brand-600 tracking-widest font-mono">{inviteCode}</span>
-                </div>
-                <button onClick={copyCode} className="w-12 h-12 rounded-xl bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition-colors flex-shrink-0" aria-label="Copy code">
-                  {copied ? <Check size={18} /> : <Copy size={18} />}
-                </button>
-              </div>
-              <p className="text-xs text-gray-400 mt-2 leading-relaxed">
-                {isPaid
-                  ? 'Players enter this code at sign-up to join your squad and get full Premium — at no cost to them.'
-                  : 'Players can join with this code, but they only get free Premium once you upgrade to Pro.'}
-              </p>
-            </div>
 
             {/* Players + group filter */}
             <div className="flex items-center justify-between mb-3 px-1">
