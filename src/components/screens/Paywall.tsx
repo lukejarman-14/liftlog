@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { X, Zap, Check, Shield, Lock, RotateCcw, Tag, Mail } from 'lucide-react';
+import { X, Zap, Check, Shield, Lock, RotateCcw, Tag, Mail, ChevronLeft, UserPlus, Dumbbell, Building2 } from 'lucide-react';
 import { RCPlan } from '../../hooks/usePremium';
 import { trackEvent } from '../../lib/analytics';
 
 interface PaywallProps {
   featureLabel?: string;
   pendingEmailConfirm?: boolean;
+  /** Which paywall to show. Coach/Club show squad pricing + features. Defaults to personal. */
+  accountType?: 'personal' | 'coach' | 'club';
+  /** When provided, a back button lets the user change their account type from the paywall. */
+  onChangeAccountType?: (type: 'personal' | 'coach' | 'club') => void;
   trialDaysLeft: number | null;
   isTrialExpired: boolean;
   purchasing: boolean;
@@ -20,7 +24,9 @@ interface PaywallProps {
   onContinueFree?: () => void;
 }
 
-const FEATURES = [
+type PlanCard = { id: RCPlan; label: string; price: string; sub: string; badge?: string; saving?: string };
+
+const PERSONAL_FEATURES = [
   'Smart programme builder — position-specific, match-day periodised',
   'Progressive overload — exact weight targets every session',
   'Play-style differentiation — sessions built for how you play',
@@ -29,15 +35,45 @@ const FEATURES = [
   'Training load chart — weekly volume & ACWR injury risk monitoring',
 ];
 
-const PLANS: { id: RCPlan; label: string; price: string; sub: string; badge?: string; saving?: string }[] = [
+const COACH_FEATURES = [
+  'Manage up to 30 players on one account',
+  'Share an invite code — players join your squad instantly',
+  'Assign programmes to one player or your whole squad',
+  'Squad readiness dashboard — see everyone at a glance',
+  'Track every player’s testing results & progress',
+  'Your players get full Premium access included — they pay nothing',
+];
+
+const PERSONAL_PLANS: PlanCard[] = [
   { id: 'yearly',   label: 'Annual',   price: '£79.99', sub: 'Just £6.67/mo · billed once a year', badge: 'BEST VALUE', saving: 'Save £1.32/mo vs monthly' },
   { id: 'monthly',  label: 'Monthly',  price: '£7.99',  sub: 'Billed monthly · cancel anytime' },
   { id: 'lifetime', label: 'Lifetime', price: '£150.00', sub: 'One-time payment — yours forever' },
 ];
 
+const COACH_PLANS: PlanCard[] = [
+  { id: 'yearly',  label: 'Coach Annual',  price: '£299.00', sub: 'Just £24.92/mo · billed once a year', badge: 'BEST VALUE', saving: 'Save ~£120/yr vs monthly' },
+  { id: 'monthly', label: 'Coach Monthly', price: '£34.99',  sub: 'Up to 30 players · cancel anytime' },
+];
+
+const CLUB_FEATURES = [
+  'One licence for your entire club or academy',
+  'Add multiple coaches, each managing their own teams',
+  'Unlimited players across all age groups',
+  'Club-wide readiness, testing & compliance overview',
+  'Every player gets full Premium — included',
+  'Priority support & onboarding for your staff',
+];
+
+const CLUB_PLANS: PlanCard[] = [
+  { id: 'yearly',  label: 'Club Annual',  price: '£899.00', sub: 'Just £74.92/mo · billed once a year', badge: 'BEST VALUE', saving: 'Save ~£300/yr vs monthly' },
+  { id: 'monthly', label: 'Club Monthly', price: '£99.99',  sub: 'Unlimited coaches & players · cancel anytime' },
+];
+
 export function Paywall({
   featureLabel,
   pendingEmailConfirm,
+  accountType = 'personal',
+  onChangeAccountType,
   trialDaysLeft,
   isTrialExpired,
   purchasing,
@@ -51,7 +87,13 @@ export function Paywall({
   onDismiss,
   onContinueFree,
 }: PaywallProps) {
+  const isClub = accountType === 'club';
+  const isCoach = accountType === 'coach';
+  const isSquad = isCoach || isClub;
+  const PLANS = isClub ? CLUB_PLANS : isCoach ? COACH_PLANS : PERSONAL_PLANS;
+  const FEATURES = isClub ? CLUB_FEATURES : isCoach ? COACH_FEATURES : PERSONAL_FEATURES;
   const [selected, setSelected] = useState<RCPlan>('yearly');
+  const [choosing, setChoosing] = useState(false);
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [promoError, setPromoError] = useState<string | null>(null);
@@ -93,6 +135,55 @@ export function Paywall({
     onSelectPlan(plan, noTrial);
   };
 
+  // Account-type chooser — reached via the paywall back button
+  if (choosing && onChangeAccountType) {
+    const options: { id: 'personal' | 'coach' | 'club'; label: string; desc: string; icon: typeof UserPlus }[] = [
+      { id: 'personal', label: 'Personal', desc: 'Your own personalised training — just for you.', icon: UserPlus },
+      { id: 'coach', label: 'Coach', desc: 'Manage up to 30 players on one account.', icon: Dumbbell },
+      { id: 'club', label: 'Club / Academy', desc: 'Multiple coaches and teams under one licence.', icon: Building2 },
+    ];
+    return (
+      <div className="fixed inset-0 z-[200] flex flex-col bg-gray-50 overflow-y-auto">
+        <div
+          className="relative flex items-center pb-6 px-5 bg-gradient-to-b from-brand-600 to-brand-500 text-white"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}
+        >
+          <button onClick={() => setChoosing(false)} aria-label="Back" className="flex items-center gap-1 text-white/90 text-sm font-medium">
+            <ChevronLeft size={18} /> Back
+          </button>
+        </div>
+        <div className="flex-1 px-5 py-6 max-w-sm mx-auto w-full">
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">Choose your account</h2>
+          <p className="text-gray-500 text-sm mb-6">Pick the plan that fits — your pricing updates to match.</p>
+          <div className="flex flex-col gap-4">
+            {options.map(opt => {
+              const Icon = opt.icon;
+              const active = accountType === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  onClick={() => { onChangeAccountType(opt.id); setChoosing(false); }}
+                  className={`text-left p-5 rounded-2xl border-2 transition-all ${active ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-gray-200 bg-white hover:border-brand-300'}`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Icon size={20} className="text-brand-500" />
+                      <span className="text-lg font-bold text-gray-900">{opt.label}</span>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${active ? 'border-brand-500 bg-brand-500' : 'border-gray-300'}`}>
+                      {active && <Check size={12} className="text-white" />}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed">{opt.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-white overflow-y-auto">
       {/* Header */}
@@ -100,6 +191,17 @@ export function Paywall({
         className="relative flex items-center justify-center pb-6 px-6 bg-gradient-to-b from-brand-600 to-brand-500 text-white"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}
       >
+        {onChangeAccountType && (
+          <button
+            onClick={() => setChoosing(true)}
+            disabled={busy}
+            aria-label="Change account type"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)' }}
+            className="absolute left-5 h-8 px-2.5 flex items-center gap-1 rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-40 text-sm font-medium"
+          >
+            <ChevronLeft size={16} /> Back
+          </button>
+        )}
         <button
           onClick={onDismiss}
           disabled={busy}
@@ -113,7 +215,10 @@ export function Paywall({
           <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mx-auto mb-3">
             <Zap size={28} className="text-yellow-300" />
           </div>
-          <h1 className="text-2xl font-extrabold mb-1">Vector Football Premium</h1>
+          <h1 className="text-2xl font-extrabold mb-1">{isClub ? 'Vector Football Club' : isCoach ? 'Vector Football Coach' : 'Vector Football Premium'}</h1>
+          {isSquad && (
+            <p className="text-sm text-white/80">{isClub ? 'One licence · unlimited coaches & players' : 'One subscription · up to 30 players'}</p>
+          )}
           {featureLabel && (
             <p className="text-sm text-white/80">
               <Lock size={12} className="inline mr-1 mb-0.5" />
@@ -158,7 +263,8 @@ export function Paywall({
           </div>
         </div>
 
-        {/* Plan selector */}
+        {/* Plan selector — hidden for the sales-led Club tier */}
+        {!isClub && (
         <div className="mb-5">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Choose a plan</p>
           <div className="flex flex-col gap-3">
@@ -203,6 +309,7 @@ export function Paywall({
             })}
           </div>
         </div>
+        )}
 
         {/* Error */}
         {purchaseError && (
@@ -213,7 +320,19 @@ export function Paywall({
 
         {/* CTA */}
         <div className="flex flex-col gap-3">
-          {noTrialYet ? (
+          {isClub ? (
+            <>
+              <a
+                href="mailto:clubs@vectorfootball.co.uk?subject=Vector%20Football%20Club%20enquiry"
+                className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors text-center"
+              >
+                Book a demo
+              </a>
+              <p className="text-center text-xs text-gray-400 leading-snug">
+                Club &amp; academy licences are set up with our team — we'll tailor pricing to your number of coaches and teams.
+              </p>
+            </>
+          ) : noTrialYet ? (
             <>
               <button
                 onClick={handleStartTrial}
@@ -261,6 +380,7 @@ export function Paywall({
             </>
           )}
 
+          {!isClub && (
           <button
             onClick={onRestore}
             disabled={busy}
@@ -275,6 +395,7 @@ export function Paywall({
               </>
             )}
           </button>
+          )}
 
           {onContinueFree && (
             <button
@@ -287,6 +408,8 @@ export function Paywall({
           )}
         </div>
 
+        {/* Referral & promo codes — not shown for the sales-led Club tier */}
+        {!isClub && (<>
         {/* Referral code */}
         <div className="mt-4">
           {!showReferralInput ? (
@@ -394,6 +517,7 @@ export function Paywall({
             </div>
           )}
         </div>
+        </>)}
 
         {/* Trust signals */}
         <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">

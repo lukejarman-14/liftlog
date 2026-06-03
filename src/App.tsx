@@ -1,8 +1,12 @@
 import { useState, useCallback, useEffect, useRef, lazy, Suspense, startTransition } from 'react';
 import { Battery, Zap, X } from 'lucide-react';
+import { captureError, setSentryUser } from './lib/sentry';
+import { useToast } from './hooks/useToast';
+import { ToastContainer } from './components/Toast';
 import { useStore } from './hooks/useStore';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/screens/Dashboard';
+import type { FormationData } from './components/screens/FormationBuilder';
 import { NavState, WorkoutExercise, WorkoutSession, UserProfile, TestSession, ProgrammeSession } from './types';
 import { POSITION_TEMPLATES } from './data/positionPlans';
 import { sessionToLegacyTest, calcBaselineResults } from './data/testingBattery';
@@ -22,6 +26,7 @@ import {
   getExistingSession,
 } from './lib/cloudSync';
 import { supabase } from './lib/supabase';
+import { registerSquad, joinSquad } from './lib/teams';
 import { identifyUser, resetAnalyticsUser, trackEvent, applyAnalyticsOptOut } from './lib/analytics';
 import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificationPermission, scheduleDailyReminder } from './lib/notifications';
 import { localDateStr } from './lib/loadManagement';
@@ -48,9 +53,61 @@ const LoadCalendar       = lazy(() => import('./components/screens/LoadCalendar'
 const ProgrammeBuilder   = lazy(() => import('./components/screens/ProgrammeBuilder').then(m => ({ default: m.ProgrammeBuilder })));
 import { GeneratedProgramme, StrengthSetupModal } from './components/screens/GeneratedProgramme';
 import { TermsGateModal } from './components/TermsGateModal';
+import { SquadEndedModal } from './components/SquadEndedModal';
 const ProgrammeHub       = lazy(() => import('./components/screens/ProgrammeHub').then(m => ({ default: m.ProgrammeHub })));
 const ResetPassword      = lazy(() => import('./components/screens/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
+const CoachDashboard     = lazy(() => import('./components/screens/CoachDashboard').then(m => ({ default: m.CoachDashboard })));
+// Demo data for the coach dashboard preview (branch-only, remove before launch).
+import { DEMO_TEAMS, type MatchResult, type SquadPlayer, type SquadGroup } from './components/screens/CoachDashboard';
+
+const DEMO_PLAYERS: SquadPlayer[] = [
+  { id: 'demo-1', name: 'James Thornton', position: 'Goalkeeper', group: 'Defence', readiness: 'ready', available: true, improvementScore: 65, programmeName: 'GK Programme', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.92s', change: '-0.03s', improved: true }, { label: '30m Sprint', value: '4.45s', change: '-0.04s', improved: true }, { label: 'CMJ', value: '36cm', change: '+2cm', improved: true }, { label: 'Standing Long Jump', value: '230cm', change: '+4cm', improved: true }, { label: 'RSA (6×30m)', value: '4.72s', change: '-0.02s', improved: true }, { label: 'Yo-Yo IR1', value: '16.8', change: '+0.4', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'GK Shot-stopping', rpe: 7 }, { date: 'Wed 28 May', label: 'Distribution & Footwork', rpe: 6 }] },
+  { id: 'demo-2', name: 'Marcus Webb', position: 'Centre-Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 72, programmeName: 'Defender S&C', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.88s', change: '-0.04s', improved: true }, { label: '30m Sprint', value: '4.32s', change: '-0.05s', improved: true }, { label: 'CMJ', value: '39cm', change: '+2cm', improved: true }, { label: 'Standing Long Jump', value: '242cm', change: '+5cm', improved: true }, { label: 'RSA (6×30m)', value: '4.58s', change: '-0.03s', improved: true }, { label: 'Yo-Yo IR1', value: '17.4', change: '+0.3', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Strength & Power', rpe: 8 }, { date: 'Wed 28 May', label: 'Speed Endurance', rpe: 7 }] },
+  { id: 'demo-3', name: 'Tyler Shaw', position: 'Centre-Back', group: 'Defence', readiness: 'moderate', available: true, improvementScore: 58, programmeName: 'Defender S&C', sessionsThisWeek: 2, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.95s', change: '+0.01s', improved: false }, { label: '30m Sprint', value: '4.51s', change: '+0.02s', improved: false }, { label: 'CMJ', value: '35cm', change: '-1cm', improved: false }, { label: 'Standing Long Jump', value: '228cm', change: '-2cm', improved: false }, { label: 'RSA (6×30m)', value: '4.80s', change: '+0.06s', improved: false }, { label: 'Yo-Yo IR1', value: '16.2', change: '-0.3', improved: false }],
+    recentActivity: [{ date: 'Thu 29 May', label: 'Recovery Run', rpe: 4 }, { date: 'Mon 26 May', label: 'Strength Base', rpe: 7 }] },
+  { id: 'demo-4', name: 'Liam Carter', position: 'Right Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 80, programmeName: 'Full-Back Power', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.80s', change: '-0.06s', improved: true }, { label: '30m Sprint', value: '4.18s', change: '-0.07s', improved: true }, { label: 'CMJ', value: '43cm', change: '+3cm', improved: true }, { label: 'Standing Long Jump', value: '254cm', change: '+6cm', improved: true }, { label: 'RSA (6×30m)', value: '4.38s', change: '-0.05s', improved: true }, { label: 'Yo-Yo IR1', value: '18.2', change: '+0.6', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Speed & Acceleration', rpe: 8 }, { date: 'Wed 28 May', label: 'Plyometrics', rpe: 7 }, { date: 'Mon 26 May', label: 'Lower Body Power', rpe: 8 }] },
+  { id: 'demo-5', name: 'Noah Barnes', position: 'Left Back', group: 'Defence', readiness: 'low', available: false, injury: 'Hamstring', improvementScore: 40, programmeName: 'Full-Back Power', sessionsThisWeek: 1, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.86s', change: '+0.03s', improved: false }, { label: '30m Sprint', value: '4.28s', change: '+0.04s', improved: false }, { label: 'CMJ', value: '40cm', change: '-2cm', improved: false }, { label: 'Standing Long Jump', value: '247cm', change: '-3cm', improved: false }, { label: 'RSA (6×30m)', value: '4.52s', change: '+0.08s', improved: false }, { label: 'Yo-Yo IR1', value: '17.6', change: '-0.4', improved: false }],
+    recentActivity: [{ date: 'Mon 26 May', label: 'Rehab Session', rpe: 3 }] },
+  { id: 'demo-6', name: 'Ethan Clarke', position: 'Defensive Mid', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 88, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.82s', change: '-0.05s', improved: true }, { label: '30m Sprint', value: '4.22s', change: '-0.06s', improved: true }, { label: 'CMJ', value: '42cm', change: '+3cm', improved: true }, { label: 'Standing Long Jump', value: '251cm', change: '+7cm', improved: true }, { label: 'RSA (6×30m)', value: '4.42s', change: '-0.06s', improved: true }, { label: 'Yo-Yo IR1', value: '18.6', change: '+0.8', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Speed & Power', rpe: 8 }, { date: 'Wed 28 May', label: 'Strength Block', rpe: 8 }, { date: 'Mon 26 May', label: 'Conditioning', rpe: 7 }] },
+  { id: 'demo-7', name: 'Ryan Patel', position: 'Central Mid', group: 'Midfield', readiness: 'moderate', available: true, improvementScore: 70, programmeName: 'Midfielder S&C', sessionsThisWeek: 2, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.85s', change: '-0.02s', improved: true }, { label: '30m Sprint', value: '4.28s', change: '-0.02s', improved: true }, { label: 'CMJ', value: '40cm', change: '+1cm', improved: true }, { label: 'Standing Long Jump', value: '245cm', change: '+2cm', improved: true }, { label: 'RSA (6×30m)', value: '4.55s', change: '-0.02s', improved: true }, { label: 'Yo-Yo IR1', value: '17.9', change: '+0.2', improved: true }],
+    recentActivity: [{ date: 'Thu 29 May', label: 'Strength Base', rpe: 7 }, { date: 'Tue 27 May', label: 'Speed Work', rpe: 6 }] },
+  { id: 'demo-8', name: 'Jordan Ellis', position: 'Central Mid', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 75, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.84s', change: '-0.03s', improved: true }, { label: '30m Sprint', value: '4.25s', change: '-0.04s', improved: true }, { label: 'CMJ', value: '41cm', change: '+2cm', improved: true }, { label: 'Standing Long Jump', value: '249cm', change: '+4cm', improved: true }, { label: 'RSA (6×30m)', value: '4.48s', change: '-0.04s', improved: true }, { label: 'Yo-Yo IR1', value: '18.1', change: '+0.5', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Power & Speed', rpe: 7 }, { date: 'Wed 28 May', label: 'Lower Body Strength', rpe: 8 }, { date: 'Mon 26 May', label: 'Conditioning', rpe: 7 }] },
+  { id: 'demo-9', name: 'Sam Hughes', position: 'Right Wing', group: 'Attack', readiness: 'ready', available: true, improvementScore: 91, programmeName: 'Winger Speed', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.72s', change: '-0.07s', improved: true }, { label: '30m Sprint', value: '3.95s', change: '-0.08s', improved: true }, { label: 'CMJ', value: '48cm', change: '+4cm', improved: true }, { label: 'Standing Long Jump', value: '265cm', change: '+8cm', improved: true }, { label: 'RSA (6×30m)', value: '4.22s', change: '-0.07s', improved: true }, { label: 'Yo-Yo IR1', value: '19.2', change: '+1.0', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Sprint Development', rpe: 8 }, { date: 'Wed 28 May', label: 'Plyometrics', rpe: 8 }, { date: 'Mon 26 May', label: 'Speed Endurance', rpe: 7 }] },
+  { id: 'demo-10', name: 'Leo Marsh', position: 'Left Wing', group: 'Attack', readiness: 'moderate', available: true, improvementScore: 62, programmeName: 'Winger Speed', sessionsThisWeek: 2, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.78s', change: '-0.03s', improved: true }, { label: '30m Sprint', value: '4.08s', change: '-0.03s', improved: true }, { label: 'CMJ', value: '44cm', change: '+1cm', improved: true }, { label: 'Standing Long Jump', value: '257cm', change: '+3cm', improved: true }, { label: 'RSA (6×30m)', value: '4.32s', change: '-0.03s', improved: true }, { label: 'Yo-Yo IR1', value: '18.5', change: '+0.4', improved: true }],
+    recentActivity: [{ date: 'Thu 29 May', label: 'Speed Work', rpe: 7 }, { date: 'Tue 27 May', label: 'Power Training', rpe: 7 }] },
+  { id: 'demo-11', name: 'Kai Foster', position: 'Striker', group: 'Attack', readiness: 'ready', available: true, improvementScore: 85, programmeName: 'Striker Power', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.75s', change: '-0.05s', improved: true }, { label: '30m Sprint', value: '4.02s', change: '-0.06s', improved: true }, { label: 'CMJ', value: '46cm', change: '+3cm', improved: true }, { label: 'Standing Long Jump', value: '260cm', change: '+6cm', improved: true }, { label: 'RSA (6×30m)', value: '4.28s', change: '-0.05s', improved: true }, { label: 'Yo-Yo IR1', value: '18.9', change: '+0.7', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Lower Body Power', rpe: 9 }, { date: 'Wed 28 May', label: 'Sprint Mechanics', rpe: 8 }, { date: 'Mon 26 May', label: 'Strength Block', rpe: 8 }] },
+  { id: 'demo-12', name: 'Finn Murphy', position: 'Striker', group: 'Attack', readiness: 'ready', available: true, improvementScore: 77, programmeName: 'Striker Power', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.77s', change: '-0.04s', improved: true }, { label: '30m Sprint', value: '4.05s', change: '-0.05s', improved: true }, { label: 'CMJ', value: '45cm', change: '+2cm', improved: true }, { label: 'Standing Long Jump', value: '258cm', change: '+5cm', improved: true }, { label: 'RSA (6×30m)', value: '4.30s', change: '-0.04s', improved: true }, { label: 'Yo-Yo IR1', value: '18.7', change: '+0.5', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Power Development', rpe: 8 }, { date: 'Wed 28 May', label: 'Speed & Agility', rpe: 7 }, { date: 'Mon 26 May', label: 'Conditioning', rpe: 8 }] },
+  { id: 'demo-13', name: 'Oscar Reid', position: 'Winger', group: 'Attack', readiness: 'moderate', available: true, improvementScore: 55, programmeName: 'Winger Speed', sessionsThisWeek: 2, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.81s', change: '-0.01s', improved: true }, { label: '30m Sprint', value: '4.15s', change: '-0.01s', improved: true }, { label: 'CMJ', value: '42cm', change: '0cm', improved: false }, { label: 'Standing Long Jump', value: '250cm', change: '+1cm', improved: true }, { label: 'RSA (6×30m)', value: '4.45s', change: '+0.01s', improved: false }, { label: 'Yo-Yo IR1', value: '17.8', change: '+0.1', improved: true }],
+    recentActivity: [{ date: 'Thu 29 May', label: 'Speed Endurance', rpe: 6 }, { date: 'Tue 27 May', label: 'Plyometrics', rpe: 7 }] },
+  { id: 'demo-14', name: 'Callum Price', position: 'Centre-Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 68, programmeName: 'Defender S&C', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.90s', change: '-0.02s', improved: true }, { label: '30m Sprint', value: '4.38s', change: '-0.03s', improved: true }, { label: 'CMJ', value: '37cm', change: '+1cm', improved: true }, { label: 'Standing Long Jump', value: '235cm', change: '+3cm', improved: true }, { label: 'RSA (6×30m)', value: '4.65s', change: '-0.03s', improved: true }, { label: 'Yo-Yo IR1', value: '17.0', change: '+0.2', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Strength & Conditioning', rpe: 7 }, { date: 'Wed 28 May', label: 'Speed Work', rpe: 6 }, { date: 'Mon 26 May', label: 'Lower Body Strength', rpe: 8 }] },
+  { id: 'demo-15', name: 'Harvey Stone', position: 'Midfielder', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 73, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.83s', change: '-0.04s', improved: true }, { label: '30m Sprint', value: '4.23s', change: '-0.04s', improved: true }, { label: 'CMJ', value: '41cm', change: '+2cm', improved: true }, { label: 'Standing Long Jump', value: '248cm', change: '+4cm', improved: true }, { label: 'RSA (6×30m)', value: '4.48s', change: '-0.03s', improved: true }, { label: 'Yo-Yo IR1', value: '18.0', change: '+0.4', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Conditioning Block', rpe: 7 }, { date: 'Wed 28 May', label: 'Speed & Power', rpe: 7 }, { date: 'Mon 26 May', label: 'Strength Base', rpe: 8 }] },
+];
 
 // check for password reset link on both implicit (#type=recovery) and PKCE (?code=) flows
 function detectRecoveryUrl(): boolean {
@@ -96,6 +153,7 @@ function EmailConfirmedLanding() {
 
 export default function App() {
   const store = useStore();
+  const toast = useToast();
   const [nav, setNav] = useState<NavState>({ screen: 'dashboard' });
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [currentProgramme, setCurrentProgramme] = useState<GPType | null>(null);
@@ -112,6 +170,28 @@ export default function App() {
   useEffect(() => () => { appMountedRef.current = false; }, []);
   const [showProgrammePrompt, setShowProgrammePrompt] = useState(false);
   const [pendingEmailConfirm, setPendingEmailConfirm] = useState(false);
+  // Shown to a personal player whose squad (coach) access has ended — prompts them to keep Premium.
+  // In production this flag is set when the player's coach link is revoked. For preview, set
+  // localStorage 'vf_squad_ended' = '1' and reload.
+  const [showSquadEnded, setShowSquadEnded] = useState(() => {
+    try { return localStorage.getItem('vf_squad_ended') === '1'; } catch { return false; }
+  });
+  // Squad-join feedback toast: 'pro' (got Premium), 'free' (joined, no Premium), or an error reason.
+  const [squadJoinToast, setSquadJoinToast] = useState<null | 'pro' | 'free' | 'invalid'>(null);
+  // Live squad members fetched from Supabase for the coach dashboard
+  const [liveSquadPlayers, setLiveSquadPlayers] = useState<SquadPlayer[]>([]);
+  // Live announcements for the coach dashboard
+  const [liveAnnouncements, setLiveAnnouncements] = useState<{ id: string; date: string; text: string }[]>([]);
+  // Announcements from the player's coach (shown on player dashboard)
+  const [playerCoachAnnouncements, setPlayerCoachAnnouncements] = useState<{ id: string; date: string; text: string }[]>([]);
+  // Live schedule weeks for the coach dashboard
+  const [liveScheduleWeeks, setLiveScheduleWeeks] = useState<import('./components/screens/CoachDashboard').ScheduleWeek[]>([]);
+  // Player's squad profile (display name, position, jersey)
+  const [squadProfile, setSquadProfile] = useState<{ displayName: string; position: string; jerseyNumber: number | null } | undefined>();
+  // Coach: match results
+  const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
+  // Coach: saved attendance records
+  const [savedAttendance, setSavedAttendance] = useState<Array<{ session_date: string; session_title: string; attendance: Record<string, boolean> }>>([]);
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
@@ -142,9 +222,18 @@ export default function App() {
           // Unblock the UI immediately — the spinner disappears as soon as we know
           // the auth state. All background syncs (cloud, RC) continue after this.
           setSessionChecking(false);
+          // Register coach/club squad or finish a pending player join.
+          void syncSquad(userId);
           if (!sessionStorage.getItem('vf_boot_synced')) {
             sessionStorage.setItem('vf_boot_synced', '1');
-            await cloudLoadData(userId);
+            const hadCloudData = await cloudLoadData(userId);
+            // New account: cloudSaveData at signup may have failed because the session
+            // didn't exist yet (email confirmation pending, RLS blocked the write).
+            // If there's no cloud row for this user, push whatever is in localStorage
+            // so future refreshes load the correct profile + accountType.
+            if (!hadCloudData) {
+              await cloudSaveData(userId).catch(() => {});
+            }
             // Re-read premium from localStorage now that cloudLoadData has written the
             // server-authoritative value.  usePremium uses plain useState (not
             // useLocalStorage), so it won't pick up the vf-cloud-restored event on its own.
@@ -236,16 +325,38 @@ export default function App() {
         // normal sign-in flows that are handled by the Login screen directly).
         if (!cloudUserIdRef.current) {
           cloudUserIdRef.current = userId;
-          setIsAuthenticated(true);
           setSessionChecking(false);
           identifyUser(userId);
-          cloudLoadData(userId).catch(() => {});
+          // Email confirmation just completed — session now exists so RLS allows writes.
+          // Save first (cloudSaveData failed at signup time — no session = 400 from RLS),
+          // then load so the store has the correct accountType BEFORE we set isAuthenticated.
+          // This prevents a flash of the personal-account paywall for coach accounts.
+          cloudSaveData(userId)
+            .then(() => cloudLoadData(userId))
+            .catch((err) => { captureError(err, { context: 'SIGNED_IN cloud sync', userId }); })
+            .finally(() => {
+              premium.refresh();
+              setSentryUser(userId);
+              setIsAuthenticated(true);
+            });
           rcConfigure(userId).catch(() => {});
+          void syncSquad(userId);
         }
       }
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Robustly keep a coach/club squad registered with the right tier whenever the
+  // user is authenticated — re-runs when their premium status changes (trial/sub).
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const acct = store.userProfile?.accountType;
+    const uid = cloudUserIdRef.current;
+    if (uid && (acct === 'coach' || acct === 'club')) {
+      void registerSquad(uid, premium.hasAccess ? 'pro' : 'free');
+    }
+  }, [isAuthenticated, store.userProfile?.accountType, premium.hasAccess]);
 
   useEffect(() => {
     if (!isAuthenticated || !isSupabaseConfigured) return;
@@ -501,10 +612,458 @@ export default function App() {
     premium.resetForNewUser();
     // If we have a userId but no Supabase session yet, email confirmation is pending
     if (userId) setPendingEmailConfirm(true);
+    // Register the squad (coach/club) or join one (player with a team code) now that
+    // we're authenticated. No-op if there's no session yet — retried on next boot.
+    if (userId) void syncSquad(userId);
     // Show paywall immediately for new users — if they dismiss it, drop to dashboard with welcome prompt
     setPaywallFeatureLabel(undefined);
     navigate({ screen: 'paywall' });
   };
+
+  // Register a coach/club squad, or join a squad as a player (granting Premium if the
+  // coach is on Pro). Safe to call repeatedly — registers are upserts, joins clear the
+  // pending code on success. Requires an authenticated session.
+  const syncSquad = async (userId: string) => {
+    let acct: string | undefined;
+    try { acct = JSON.parse(localStorage.getItem('vf_user_profile') || '{}').accountType; } catch { /* ignore */ }
+    if (acct === 'coach' || acct === 'club') {
+      await registerSquad(userId, premium.hasAccess ? 'pro' : 'free');
+      return;
+    }
+    const code = localStorage.getItem('vf_pending_team_code');
+    if (!code) return;
+    const res = await joinSquad(code);
+    if (res.success) {
+      localStorage.removeItem('vf_pending_team_code');
+      if (res.tier === 'pro') {
+        localStorage.setItem('vf_premium', JSON.stringify({ isPremium: true, plan: 'monthly', purchasedAt: Date.now(), squadGranted: true }));
+        premium.refresh();
+        setPendingEmailConfirm(false);
+        // Player already has Premium via their coach — skip the paywall entirely.
+        navigate({ screen: 'dashboard' });
+      }
+      setSquadJoinToast(res.tier);
+    } else if (res.reason === 'invalid' || res.reason === 'self') {
+      localStorage.removeItem('vf_pending_team_code'); // bad code — don't retry forever
+      setSquadJoinToast('invalid');
+    }
+    // 'error' (network/RLS) → keep the code and retry on next authenticated boot
+  };
+
+  /** Map position code to group (e.g. 'FB' → 'Defence'). */
+  const getPositionGroup = (posCode: string): SquadGroup => {
+    if (!posCode) return 'Midfield';
+    const code = posCode.toUpperCase();
+    if (['GK', 'CB', 'FB', 'LB', 'RB'].includes(code)) return 'Defence';
+    if (['CM', 'DM', 'AM'].includes(code)) return 'Midfield';
+    if (['W', 'LW', 'RW', 'ST'].includes(code)) return 'Attack';
+    return 'Midfield';
+  };
+
+  /** Fetch live squad members from Supabase and populate the coach dashboard. */
+  const fetchSquadMembers = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase.rpc('get_squad_members', { p_coach_id: userId });
+      if (error) {
+        if (import.meta.env.DEV) console.warn('[squad] fetchSquadMembers error:', error.message);
+        return;
+      }
+      if (!Array.isArray(data)) return;
+      // Also fetch player_profiles for real names/positions
+      const playerIds = data.map((r: { player_id: string }) => r.player_id);
+      const { data: profiles } = playerIds.length > 0
+        ? await supabase.from('player_profiles').select('player_id, display_name, position, jersey_number').in('player_id', playerIds)
+        : { data: [] };
+      const profileMap: Record<string, { display_name: string; position: string; jersey_number: number | null }> = {};
+      for (const p of (profiles ?? [])) profileMap[p.player_id] = p;
+
+      const players: SquadPlayer[] = data.map((row: { player_id: string; joined_at: string; email: string; full_name: string }) => {
+        const prof = profileMap[row.player_id];
+        const posCode = prof?.position || '';
+        return {
+        id: row.player_id,
+        name: prof?.display_name || row.full_name || row.email.split('@')[0],
+        position: posCode || 'Player',
+        group: getPositionGroup(posCode),
+        readiness: 'moderate' as const,
+        available: true,
+        improvementScore: 0,
+        programmeName: '—',
+        sessionsThisWeek: 0,
+        sessionsTarget: 0,
+        testing: [],
+        recentActivity: [],
+        };
+      });
+      setLiveSquadPlayers(players);
+      if (import.meta.env.DEV) console.log('[squad] live players:', players.length);
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[squad] fetchSquadMembers threw:', e);
+    }
+  }, []);
+
+  // Fetch live squad members whenever the coach dashboard is active
+  useEffect(() => {
+    const acct = store.userProfile?.accountType;
+    if ((acct === 'coach' || acct === 'club') && isAuthenticated && cloudUserIdRef.current) {
+      void fetchSquadMembers(cloudUserIdRef.current);
+      void fetchAnnouncements(cloudUserIdRef.current);
+    }
+  }, [isAuthenticated, store.userProfile?.accountType, fetchSquadMembers]);
+
+  /** Fetch live announcements for the coach dashboard. */
+  const fetchAnnouncements = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('coach_announcements')
+        .select('id, text, created_at')
+        .eq('coach_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) { if (import.meta.env.DEV) console.warn('[announcements] fetch error:', error.message); return; }
+      const fmt = (iso: string) => {
+        const d = new Date(iso);
+        const today = new Date();
+        if (d.toDateString() === today.toDateString()) return 'Today';
+        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+        if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      };
+      setLiveAnnouncements((data ?? []).map((r: { id: string; text: string; created_at: string }) => ({
+        id: r.id, text: r.text, date: fmt(r.created_at),
+      })));
+    } catch (e) { if (import.meta.env.DEV) console.warn('[announcements] fetch threw:', e); }
+  }, []);
+
+  /** Post a new announcement to Supabase. */
+  const handlePostAnnouncement = useCallback(async (text: string) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const { error } = await supabase
+      .from('coach_announcements')
+      .insert({ coach_id: cloudUserIdRef.current, text });
+    if (error) {
+      if (error.message.includes('Rate limit exceeded')) {
+        toast.error('You\'ve reached the announcement limit (20 per hour). Please try again later.');
+      } else {
+        toast.error('Failed to post announcement. Please try again.');
+        if (import.meta.env.DEV) console.warn('[announcements] post error:', error.message);
+      }
+      captureError(error, { context: 'handlePostAnnouncement' });
+      return;
+    }
+    toast.success('Announcement posted!', 2000);
+    await fetchAnnouncements(cloudUserIdRef.current);
+  }, [fetchAnnouncements]);
+
+  /** Delete an announcement. */
+  const handleDeleteAnnouncement = useCallback(async (id: string) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const { error } = await supabase.from('coach_announcements').delete().eq('id', id);
+    if (error) { if (import.meta.env.DEV) console.warn('[announcements] delete error:', error.message); return; }
+    setLiveAnnouncements(prev => prev.filter(a => a.id !== id));
+  }, []);
+
+  /** Fetch announcements from the player's coach (for the player dashboard).
+   * REQUIRES RLS POLICY: coach_announcements must be scoped to the player's coach_id via squad membership.
+   * See Supabase migrations for RLS setup.
+   */
+  const fetchPlayerCoachAnnouncements = useCallback(async () => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('coach_announcements')
+        .select('id, text, created_at')
+        // Note: coach_id filter is enforced via RLS policy, not here
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) { if (import.meta.env.DEV) console.warn('[announcements] player fetch error:', error.message); return; }
+      const fmt = (iso: string) => {
+        const d = new Date(iso); const today = new Date();
+        if (d.toDateString() === today.toDateString()) return 'Today';
+        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+        if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      };
+      setPlayerCoachAnnouncements((data ?? []).map((r: { id: string; text: string; created_at: string }) => ({
+        id: r.id, text: r.text, date: fmt(r.created_at),
+      })));
+    } catch (e) { if (import.meta.env.DEV) console.warn('[announcements] player fetch threw:', e); }
+  }, []);
+
+  // Fetch coach announcements for player when authenticated as a personal account
+  useEffect(() => {
+    const acct = store.userProfile?.accountType;
+    if (acct === 'personal' && isAuthenticated) void fetchPlayerCoachAnnouncements();
+  }, [isAuthenticated, store.userProfile?.accountType, fetchPlayerCoachAnnouncements]);
+
+  // ---- Squad profile ----
+  const fetchSquadProfile = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    const { data } = await supabase.from('player_profiles').select('display_name, position, jersey_number').eq('player_id', userId).single();
+    if (data) setSquadProfile({ displayName: data.display_name, position: data.position, jerseyNumber: data.jersey_number });
+    else setSquadProfile({ displayName: '', position: '', jerseyNumber: null });
+  }, []);
+
+  const handleSaveSquadProfile = useCallback(async (displayName: string, position: string, jerseyNumber: number | null) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    await supabase.from('player_profiles').upsert(
+      { player_id: cloudUserIdRef.current, display_name: displayName, position, jersey_number: jerseyNumber, updated_at: new Date().toISOString() },
+      { onConflict: 'player_id' }
+    );
+    setSquadProfile({ displayName, position, jerseyNumber });
+  }, []);
+
+  /** Save a coach's notes about a player. */
+  const handleSavePlayerNote = useCallback(async (playerId: string, notes: string) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const { error } = await supabase
+      .from('player_profiles')
+      .update({ coach_notes: notes || null, updated_at: new Date().toISOString() })
+      .eq('player_id', playerId);
+    if (error) {
+      toast.error('Failed to save notes. Please try again.');
+      captureError(error, { context: 'handleSavePlayerNote', playerId });
+      return;
+    }
+    toast.success('Notes saved!', 2000);
+  }, [toast]);
+
+  useEffect(() => {
+    const acct = store.userProfile?.accountType;
+    if (acct === 'personal' && isAuthenticated && cloudUserIdRef.current) void fetchSquadProfile(cloudUserIdRef.current);
+  }, [isAuthenticated, store.userProfile?.accountType, fetchSquadProfile]);
+
+  // ---- Schedule helpers ----
+  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+  /** Get the ISO date string (YYYY-MM-DD) for the Monday of the week containing `date`. */
+  function getMondayOf(date: Date): string {
+    const d = new Date(date);
+    const day = d.getDay(); // 0=Sun
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }
+
+  /** Build an array of N week-start strings starting from this week's Monday. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  function buildWeekStarts(n = 8): string[] {
+    const base = new Date(getMondayOf(new Date()));
+    return Array.from({ length: n }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i * 7);
+      return d.toISOString().slice(0, 10);
+    });
+  }
+
+  /** Format a week-start date into a human label like "2 – 8 Jun". */
+  function formatWeekLabel(iso: string): string {
+    const start = new Date(iso + 'T12:00:00');
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+    if (start.getMonth() === end.getMonth()) {
+      return `${start.getDate()} – ${end.toLocaleDateString('en-GB', opts)}`;
+    }
+    return `${start.toLocaleDateString('en-GB', opts)} – ${end.toLocaleDateString('en-GB', opts)}`;
+  }
+
+  /** Fetch the schedule rows for a coach and build ScheduleWeek objects. */
+  const fetchSchedule = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    const weekStarts = buildWeekStarts(8);
+    try {
+      const { data, error } = await supabase
+        .from('coach_schedule')
+        .select('week_start, day_of_week, type, label, description')
+        .eq('coach_id', userId)
+        .in('week_start', weekStarts);
+      if (error) { if (import.meta.env.DEV) console.warn('[schedule] fetch error:', error.message); }
+      // Build a lookup: weekStart → dayOfWeek → { type, label }
+      const lookup: Record<string, Record<string, { type: string; label: string; description: string }>> = {};
+      for (const row of (data ?? [])) {
+        if (!lookup[row.week_start]) lookup[row.week_start] = {};
+        lookup[row.week_start][row.day_of_week] = { type: row.type, label: row.label, description: row.description ?? '' };
+      }
+      const weeks = weekStarts.map((ws, i) => ({
+        weekStart: ws,
+        label: i === 0 ? 'This week' : i === 1 ? 'Next week' : formatWeekLabel(ws),
+        phase: 'In-Season',
+        days: DAYS.map(day => ({
+          day,
+          type: (lookup[ws]?.[day]?.type ?? 'rest') as 'rest' | 'training' | 'match',
+          label: lookup[ws]?.[day]?.label ?? 'Rest',
+          description: lookup[ws]?.[day]?.description ?? '',
+        })),
+      }));
+      setLiveScheduleWeeks(weeks);
+    } catch (e) { if (import.meta.env.DEV) console.warn('[schedule] fetch threw:', e); }
+  }, []);
+
+  /** Upsert a single day in the coach schedule. */
+  const handleUpdateScheduleDay = useCallback(async (weekStart: string, day: string, type: 'rest' | 'training' | 'match', label: string, description: string) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const { error } = await supabase.from('coach_schedule').upsert(
+      { coach_id: cloudUserIdRef.current, week_start: weekStart, day_of_week: day, type, label, description, updated_at: new Date().toISOString() },
+      { onConflict: 'coach_id,week_start,day_of_week' }
+    );
+    if (error) { if (import.meta.env.DEV) console.warn('[schedule] upsert error:', error.message); return; }
+    // Update local state immediately
+    setLiveScheduleWeeks(prev => prev.map(w =>
+      w.weekStart === weekStart
+        ? { ...w, days: w.days.map(d => d.day === day ? { ...d, type, label, description } : d) }
+        : w
+    ));
+  }, []);
+
+  /** Fetch saved attendance records from Supabase. */
+  const fetchAttendance = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    try {
+      const { data } = await supabase.from('session_attendance').select('session_date, session_title, player_id, attended').eq('coach_id', userId).order('session_date', { ascending: false });
+      if (!Array.isArray(data)) return;
+      // Group by (session_date, session_title)
+      const grouped: Record<string, { session_date: string; session_title: string; attendance: Record<string, boolean> }> = {};
+      for (const row of data) {
+        const key = `${row.session_date}|${row.session_title}`;
+        if (!grouped[key]) {
+          grouped[key] = { session_date: row.session_date, session_title: row.session_title, attendance: {} };
+        }
+        grouped[key].attendance[row.player_id] = row.attended;
+      }
+      setSavedAttendance(Object.values(grouped));
+    } catch (e) { if (import.meta.env.DEV) console.warn('[attendance] fetch error:', e); }
+  }, []);
+
+  // Fetch schedule, match results, and attendance when coach is authenticated
+  useEffect(() => {
+    const acct = store.userProfile?.accountType;
+    if ((acct === 'coach' || acct === 'club') && isAuthenticated && cloudUserIdRef.current) {
+      void fetchSchedule(cloudUserIdRef.current);
+      void fetchMatchResults(cloudUserIdRef.current);
+      void fetchAttendance(cloudUserIdRef.current);
+    }
+  }, [isAuthenticated, store.userProfile?.accountType, fetchSchedule, fetchAttendance]);
+
+  // ---- Match results ----
+  const fetchMatchResults = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    const { data } = await supabase.from('match_results').select('id, match_date, opponent, venue, goals_for, goals_against, notes').eq('coach_id', userId).order('match_date', { ascending: false });
+    setMatchResults((data ?? []).map((r: { id: string; match_date: string; opponent: string; venue: string; goals_for: number; goals_against: number; notes: string }) => ({
+      id: r.id, matchDate: r.match_date, opponent: r.opponent, venue: r.venue as 'home' | 'away',
+      goalsFor: r.goals_for, goalsAgainst: r.goals_against, notes: r.notes,
+    })));
+  }, []);
+
+  const handleSaveMatchResult = useCallback(async (result: Omit<MatchResult, 'id'>) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    // Prevent duplicate results for the same date
+    const exists = matchResults.some(r => r.matchDate === result.matchDate);
+    if (exists) {
+      alert(`A result for ${result.matchDate} already exists. Use the Edit button to update it.`);
+      return;
+    }
+    const { data, error } = await supabase.from('match_results').insert({
+      coach_id: cloudUserIdRef.current, match_date: result.matchDate, opponent: result.opponent,
+      venue: result.venue, goals_for: result.goalsFor, goals_against: result.goalsAgainst, notes: result.notes,
+    }).select('id').single();
+    if (error) {
+      if (error.message.includes('Rate limit exceeded')) {
+        toast.error('You\'ve reached the match result limit (50 per day). Please try again tomorrow.');
+      } else {
+        toast.error('Failed to save match result. Please try again.');
+        if (import.meta.env.DEV) console.warn('[match results] save error:', error.message);
+      }
+      captureError(error, { context: 'handleSaveMatchResult' });
+      return;
+    }
+    toast.success('Match result saved!', 2000);
+    if (data) setMatchResults(prev => [{ ...result, id: data.id }, ...prev]);
+  }, [matchResults]);
+
+  const handleUpdateMatchResult = useCallback(async (result: MatchResult) => {
+    if (!supabase || !result.id) return;
+    const { error } = await supabase.from('match_results').update({
+      match_date: result.matchDate, opponent: result.opponent, venue: result.venue,
+      goals_for: result.goalsFor, goals_against: result.goalsAgainst, notes: result.notes,
+    }).eq('id', result.id);
+    if (!error) {
+      setMatchResults(prev => prev.map(r => r.id === result.id ? result : r));
+    }
+  }, []);
+
+  const handleDeleteMatchResult = useCallback(async (id: string) => {
+    if (!supabase) return;
+    const { error } = await supabase.from('match_results').delete().eq('id', id);
+    if (!error) setMatchResults(prev => prev.filter(r => r.id !== id));
+  }, []);
+
+  const handleSaveAttendance = useCallback(async (sessionDate: string, sessionTitle: string, attendance: Record<string, boolean>) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const coachId = cloudUserIdRef.current;
+    const rows = Object.entries(attendance).map(([playerId, attended]) => ({
+      coach_id: coachId, session_date: sessionDate, session_title: sessionTitle, player_id: playerId, attended,
+    }));
+    const { error: upsertError } = await supabase.from('session_attendance').upsert(rows, { onConflict: 'coach_id,session_date,player_id' });
+    if (upsertError) {
+      if (upsertError.message.includes('Rate limit exceeded')) {
+        toast.error('You\'ve reached the attendance record limit (100 per day). Please try again tomorrow.');
+      } else {
+        toast.error('Failed to save attendance. Please try again.');
+        if (import.meta.env.DEV) console.error('[attendance] save error:', upsertError);
+      }
+      captureError(upsertError, { context: 'handleSaveAttendance' });
+      return;
+    }
+    toast.success('Attendance saved!', 2000);
+    // Refresh the list
+    try {
+      await fetchAttendance(coachId);
+    } catch (err) { if (import.meta.env.DEV) console.error('[attendance] refresh error:', err); }
+  }, [fetchAttendance]);
+
+  const handleSaveMatchSquad = useCallback(async (matchDate: string, squad: { playerId: string; role: 'starter' | 'sub' | 'unavailable'; position: string }[], formationData?: FormationData) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const coachId = cloudUserIdRef.current;
+    const rows = squad.map(s => ({ coach_id: coachId, match_date: matchDate, player_id: s.playerId, role: s.role, position: s.position, formation_data: formationData || null }));
+    const { error } = await supabase.from('match_squads').upsert(rows, { onConflict: 'coach_id,match_date,player_id' });
+    if (error) captureError(error, { context: 'handleSaveMatchSquad', matchDate });
+  }, []);
+
+  /** Fetch saved formation for a specific match. */
+  const fetchSavedFormation = useCallback(async (matchDate: string) => {
+    if (!supabase || !cloudUserIdRef.current) return null;
+    const { data, error } = await supabase
+      .from('match_squads')
+      .select('formation_data')
+      .eq('coach_id', cloudUserIdRef.current)
+      .eq('match_date', matchDate)
+      .limit(1)
+      .single();
+    if (error || !data?.formation_data) return null;
+    return data.formation_data;
+  }, []);
+
+  /** Fetch the most recent saved formation from any previous match. */
+  const fetchPreviousMatchFormation = useCallback(async () => {
+    if (!supabase || !cloudUserIdRef.current) return null;
+    const { data, error } = await supabase
+      .from('match_squads')
+      .select('formation_data')
+      .eq('coach_id', cloudUserIdRef.current)
+      .not('formation_data', 'is', null)
+      .order('match_date', { ascending: false })
+      .limit(1)
+      .single();
+    if (error || !data?.formation_data) return null;
+    return data.formation_data;
+  }, []);
+
+  /** Post a squad notification as an announcement to all squad players. */
+  const handleNotifySquad = useCallback(async (message: string) => {
+    await handlePostAnnouncement(message);
+  }, [handlePostAnnouncement]);
 
   const doGenerateProgramme = (resolvedInputs: ProgrammeInputs) => {
     const programme = generateProgramme(resolvedInputs);
@@ -593,9 +1152,11 @@ export default function App() {
         await cloudSaveData(cloudUserIdRef.current);
         await cloudSignOut();
       }
-    } catch {
+    } catch (err) {
+      captureError(err, { context: 'logout' });
       // logout proceeds regardless of cloud errors
     } finally {
+      setSentryUser(null);
       // Clear the boot-sync guard so the next login re-fetches cloud data fresh.
       sessionStorage.removeItem('vf_boot_synced');
       resetAnalyticsUser();
@@ -641,7 +1202,7 @@ export default function App() {
         // pass the userId so Onboarding skips auth and goes straight to profile setup.
         existingUserId={isAuthenticated ? (cloudUserIdRef.current ?? undefined) : undefined}
         onComplete={(profile, planId, userId) => {
-          if (userId) identifyUser(userId, { position: profile.position }); // no name — PII
+          if (userId) { identifyUser(userId, { position: profile.position }); setSentryUser(userId); }
           handleOnboardingComplete(profile, planId, userId);
           setIsAuthenticated(true);
         }}
@@ -649,10 +1210,12 @@ export default function App() {
           if (userId) {
             cloudUserIdRef.current = userId;
             identifyUser(userId);
+            setSentryUser(userId);
             // Re-sync premium state: cloudLoadData ran in Onboarding before this callback,
             // so localStorage now has the server-authoritative value — refresh React state.
             premium.refresh();
             rcConfigure(userId).then(() => premium.syncFromRC()).catch(() => {});
+            void syncSquad(userId);
           }
           setIsAuthenticated(true);
         }}
@@ -698,13 +1261,44 @@ export default function App() {
   }
 
   const { screen } = nav;
+  // Coach and Club accounts both use the squad dashboard (player-style nav hidden).
+  const isClub = store.userProfile?.accountType === 'club';
+  const isCoach = store.userProfile?.accountType === 'coach' || isClub;
   const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme', 'paywall', 'active-workout'];
   const screenFallback = <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
       <Suspense fallback={screenFallback}>
-      {screen === 'dashboard' && (
+      {screen === 'dashboard' && isCoach && (
+        <CoachDashboard
+          coachName={[store.userProfile.firstName, store.userProfile.lastName].filter(Boolean).join(' ')}
+          inviteSeed={cloudUserIdRef.current ?? store.userProfile.email}
+          players={[...liveSquadPlayers, ...DEMO_PLAYERS]}
+          weeks={liveScheduleWeeks}
+          teams={DEMO_TEAMS}
+          announcements={liveAnnouncements}
+          maxPlayers={isClub ? 200 : (premium.hasAccess ? 30 : 5)}
+          isPaid={isClub || premium.hasAccess}
+          onUpgrade={() => navigate({ screen: 'paywall' })}
+          onOpenProfile={() => navigate({ screen: 'profile' })}
+          onPostAnnouncement={handlePostAnnouncement}
+          onDeleteAnnouncement={handleDeleteAnnouncement}
+          onUpdateScheduleDay={handleUpdateScheduleDay}
+          matchResults={matchResults}
+          onSaveMatchResult={handleSaveMatchResult}
+          savedAttendance={savedAttendance}
+          onSaveAttendance={handleSaveAttendance}
+          onSaveMatchSquad={handleSaveMatchSquad}
+          onFetchSavedFormation={fetchSavedFormation}
+          onFetchPreviousFormation={fetchPreviousMatchFormation}
+          onUpdateMatchResult={handleUpdateMatchResult}
+          onDeleteMatchResult={handleDeleteMatchResult}
+          onNotifySquad={handleNotifySquad}
+          onSavePlayerNote={handleSavePlayerNote}
+        />
+      )}
+      {screen === 'dashboard' && !isCoach && (
         <Dashboard
           sessions={store.sessions}
           activePlan={store.activePlan}
@@ -756,6 +1350,7 @@ export default function App() {
           onDeleteSession={(id) => { store.deleteSession(id); }}
           referralCode={myReferralCode}
           cloudUnlinked={isSupabaseConfigured && !cloudUserIdRef.current}
+          coachAnnouncements={playerCoachAnnouncements}
         />
       )}
 
@@ -926,6 +1521,8 @@ export default function App() {
               }
             }
           } : undefined}
+          squadProfile={store.userProfile?.accountType === 'personal' ? squadProfile : undefined}
+          onSaveSquadProfile={store.userProfile?.accountType === 'personal' ? handleSaveSquadProfile : undefined}
         />
       )}
 
@@ -967,20 +1564,30 @@ export default function App() {
         <Paywall
           featureLabel={paywallFeatureLabel}
           pendingEmailConfirm={pendingEmailConfirm}
+          accountType={store.userProfile?.accountType ?? 'personal'}
+          onChangeAccountType={(type) => {
+            if (store.userProfile) store.setUserProfile({ ...store.userProfile, accountType: type });
+          }}
           trialDaysLeft={premium.trialDaysLeft}
           isTrialExpired={premium.isTrialExpired}
           purchasing={premium.purchasing || stripeCheckoutPending}
           restoring={premium.restoring}
           purchaseError={premium.purchaseError}
           onStartTrial={async (plan) => {
+            // Coaches land on their squad dashboard; players go to the programme builder.
+            const dest = isCoach ? 'dashboard' : 'programme-builder';
             if (Capacitor.isNativePlatform()) {
               // iOS: trial must go through StoreKit via RevenueCat
               const ok = await premium.purchase(plan);
-              if (ok) navigate({ screen: 'programme-builder' });
+              if (ok) {
+                if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current, 'pro');
+                navigate({ screen: dest });
+              }
             } else {
               // Web: local 14-day trial clock, no payment required up front
               premium.startTrial();
-              navigate({ screen: 'programme-builder' });
+              if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current, 'pro');
+              navigate({ screen: dest });
             }
           }}
           onSelectPlan={async (plan, noTrial) => {
@@ -998,7 +1605,10 @@ export default function App() {
               return;
             }
             const ok = await premium.purchase(plan);
-            if (ok) navigate({ screen: 'programme-builder' });
+            if (ok) {
+              if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current, 'pro');
+              navigate({ screen: isCoach ? 'dashboard' : 'programme-builder' });
+            }
           }}
           onRestore={async () => {
             const ok = await premium.restore();
@@ -1018,6 +1628,11 @@ export default function App() {
             return err;
           }}
           onDismiss={() => {
+            // Coaches always return to their squad dashboard.
+            if (isCoach) {
+              navigate({ screen: 'dashboard' });
+              return;
+            }
             // If new user (no sessions yet) coming from onboarding, go to dashboard + show welcome
             if (!store.sessions.length && !store.generatedProgrammes.length) {
               navigate({ screen: 'dashboard' });
@@ -1073,8 +1688,41 @@ export default function App() {
         );
       })()}
 
-      {!fullScreens.includes(screen) && (
+      {!fullScreens.includes(screen) && !isCoach && (
         <Navigation current={screen} onNavigate={s => navigate({ screen: s })} />
+      )}
+
+      {squadJoinToast && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[210] px-4 w-full max-w-sm" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5rem)' }}>
+          <div
+            className={`rounded-2xl px-4 py-3 shadow-lg text-sm font-medium flex items-center justify-between gap-3 ${
+              squadJoinToast === 'pro' ? 'bg-green-600 text-white'
+                : squadJoinToast === 'free' ? 'bg-gray-800 text-white'
+                : 'bg-red-500 text-white'
+            }`}
+          >
+            <span>
+              {squadJoinToast === 'pro' ? "You've joined the squad — Premium unlocked, free!"
+                : squadJoinToast === 'free' ? "You've joined the squad. Ask your coach to upgrade for free Premium."
+                : "That team code wasn't valid — you can add one later in settings."}
+            </span>
+            <button onClick={() => setSquadJoinToast(null)} className="text-white/80 hover:text-white flex-shrink-0">✕</button>
+          </div>
+        </div>
+      )}
+
+      {showSquadEnded && !isCoach && (
+        <SquadEndedModal
+          onKeepPremium={() => {
+            try { localStorage.removeItem('vf_squad_ended'); } catch { /* ignore */ }
+            setShowSquadEnded(false);
+            navigate({ screen: 'paywall' });
+          }}
+          onDismiss={() => {
+            try { localStorage.removeItem('vf_squad_ended'); } catch { /* ignore */ }
+            setShowSquadEnded(false);
+          }}
+        />
       )}
 
       {pendingReTestSession && (
@@ -1558,6 +2206,9 @@ export default function App() {
         </div>
       )}
       </Suspense>
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={store.toasts} onDismiss={store.removeToast} />
     </div>
   );
 }

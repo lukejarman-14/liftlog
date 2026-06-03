@@ -495,6 +495,8 @@ interface ProfileProps {
   onLogout: () => void;
   onBack: () => void;
   onManageSubscription?: () => void;
+  squadProfile?: { displayName: string; position: string; jerseyNumber: number | null };
+  onSaveSquadProfile?: (displayName: string, position: string, jerseyNumber: number | null) => Promise<void>;
 }
 
 function ChangePasswordModal({
@@ -1101,10 +1103,19 @@ export function Profile({
   onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onSaveTrainingProfile,
   onSaveWeight, onDeleteWeight, onLogout, onBack,
   settings, onUpdateSettings, onManageSubscription,
+  squadProfile, onSaveSquadProfile,
 }: ProfileProps) {
+  // Coach / Club accounts don't train themselves — hide player-only sections
+  // (training profile, fitness testing, body metrics except age, weight log).
+  const isCoachOrClub = userProfile.accountType === 'coach' || userProfile.accountType === 'club';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showChangePw,         setShowChangePw]         = useState(false);
   const [showEditMetrics,      setShowEditMetrics]      = useState(false);
+  const [showEditSquadProfile, setShowEditSquadProfile] = useState(false);
+  const [squadDisplayName,     setSquadDisplayName]     = useState(squadProfile?.displayName ?? '');
+  const [squadPosition,        setSquadPosition]        = useState(squadProfile?.position ?? '');
+  const [squadJersey,          setSquadJersey]          = useState<string>(squadProfile?.jerseyNumber?.toString() ?? '');
+  const [squadSaving,          setSquadSaving]          = useState(false);
   const [expandedMetric,       setExpandedMetric]       = useState<string | null>(null);
   const [showEditTraining,     setShowEditTraining]     = useState(false);
   const [showDeleteConfirm,    setShowDeleteConfirm]    = useState(false);
@@ -1218,6 +1229,7 @@ export function Profile({
         programmesCompleted={programmesCompleted}
       />
 
+      {!isCoachOrClub && (
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Training Profile</h3>
@@ -1267,8 +1279,9 @@ export function Profile({
           </div>
         </div>
       </Card>
+      )}
 
-      {userProfile.goals.length > 0 && (
+      {userProfile.goals.length > 0 && !isCoachOrClub && (
         <Card className="p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Target size={14} className="text-brand-500" />
@@ -1284,6 +1297,7 @@ export function Profile({
         </Card>
       )}
 
+      {!isCoachOrClub && (
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -1429,16 +1443,77 @@ export function Profile({
           })()}
         </div>
       </Card>
+      )}
+
+      {/* Squad Profile — only shown for personal players */}
+      {!isCoachOrClub && onSaveSquadProfile && (
+        <Card className="p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Squad Profile</h3>
+            <button
+              onClick={() => { setSquadDisplayName(squadProfile?.displayName ?? ''); setSquadPosition(squadProfile?.position ?? ''); setSquadJersey(squadProfile?.jerseyNumber?.toString() ?? ''); setShowEditSquadProfile(true); }}
+              className="text-xs font-semibold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-full hover:bg-brand-100 transition-colors"
+            >Edit</button>
+          </div>
+          {squadProfile?.displayName ? (
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <p className="text-xs text-gray-400 mb-0.5">Display name</p>
+                <p className="text-sm font-semibold text-gray-900">{squadProfile.displayName}</p>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-gray-400 mb-0.5">Position</p>
+                <p className="text-sm font-semibold text-gray-900">{squadProfile.position || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">No.</p>
+                <p className="text-sm font-semibold text-gray-900">{squadProfile.jerseyNumber ?? '—'}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Set your name and position so your coach can identify you in the squad.</p>
+          )}
+        </Card>
+      )}
+
+      {/* Squad profile editor bottom sheet */}
+      {showEditSquadProfile && (
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowEditSquadProfile(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-12" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <p className="font-bold text-gray-900 text-base mb-4">Squad Profile</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Display name</p>
+            <input className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-3" placeholder="e.g. Luke Jarman" value={squadDisplayName} onChange={e => setSquadDisplayName(e.target.value)} />
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Position</p>
+            <input className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-3" placeholder="e.g. Centre Midfielder" value={squadPosition} onChange={e => setSquadPosition(e.target.value)} />
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Jersey number <span className="font-normal text-gray-400">(optional)</span></p>
+            <input className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-4" placeholder="e.g. 8" type="number" inputMode="numeric" value={squadJersey} onChange={e => setSquadJersey(e.target.value)} />
+            <button
+              disabled={squadSaving || !squadDisplayName.trim()}
+              onClick={async () => {
+                setSquadSaving(true);
+                await onSaveSquadProfile!(squadDisplayName.trim(), squadPosition.trim(), squadJersey ? parseInt(squadJersey) : null);
+                setSquadSaving(false);
+                setShowEditSquadProfile(false);
+              }}
+              className="w-full bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40"
+            >{squadSaving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </div>
+      )}
 
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Body Metrics</h3>
+          {!isCoachOrClub && (
           <button
             onClick={() => setShowEditMetrics(true)}
             className="text-xs font-semibold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-full hover:bg-brand-100 transition-colors"
           >
             Edit
           </button>
+          )}
         </div>
         {(() => {
           const age = userProfile.dateOfBirth
@@ -1453,6 +1528,7 @@ export function Profile({
             : null;
           return (
             <div className="flex gap-3">
+              {!isCoachOrClub && (
               <div className="flex items-center gap-2 flex-1">
                 <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
                   <Ruler size={14} className="text-blue-600" />
@@ -1464,6 +1540,8 @@ export function Profile({
                   </div>
                 </div>
               </div>
+              )}
+              {!isCoachOrClub && (
               <div className="flex items-center gap-2 flex-1">
                 <div className="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                   <Weight size={14} className="text-green-600" />
@@ -1475,6 +1553,7 @@ export function Profile({
                   </div>
                 </div>
               </div>
+              )}
               <div className="flex items-center gap-2 flex-1">
                 <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
                   <span className="text-purple-600 text-xs font-bold">Age</span>
@@ -1491,7 +1570,9 @@ export function Profile({
         })()}
       </Card>
 
-      <WeightTracker log={weightLog} onSave={onSaveWeight} onDelete={onDeleteWeight} />
+      {!isCoachOrClub && (
+        <WeightTracker log={weightLog} onSave={onSaveWeight} onDelete={onDeleteWeight} />
+      )}
 
       <TrainingReminders settings={settings} onUpdate={onUpdateSettings} />
 

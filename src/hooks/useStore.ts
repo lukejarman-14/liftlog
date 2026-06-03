@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import {
   Exercise, WorkoutTemplate, WorkoutSession, ActivePlan,
@@ -7,6 +7,7 @@ import {
   MatchEntry, TestSession, GeneratedProgramme, DailyReadiness, ScheduledWorkout,
   WeightEntry, MeasureType,
 } from '../types';
+import type { ToastMessage } from '../components/Toast';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
 export interface BaselineData {
@@ -32,6 +33,17 @@ export function useStore() {
   const [footballIntensityLog, setFootballIntensityLog] = useLocalStorage<Record<string, number>>('vf_football_intensity', {});
   const [scheduledWorkouts, setScheduledWorkouts] = useLocalStorage<ScheduledWorkout[]>('vf_scheduled_workouts', []);
   const [weightLog, setWeightLog] = useLocalStorage<WeightEntry[]>('vf_weight_log', []);
+
+  // Toast notifications
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (toast: ToastMessage) => {
+    setToasts(prev => [...prev, toast]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));
@@ -68,13 +80,12 @@ export function useStore() {
     });
 
   const saveGeneratedProgramme = (programme: GeneratedProgramme) => {
-    // Capture `next` from inside the updater so the eviction check uses the
-    // authoritative prev value, not the potentially-stale closed-over state.
-    let computedNext: GeneratedProgramme[] = [];
-    setGeneratedProgrammes(prev => {
-      computedNext = [programme, ...prev.filter(p => p.id !== programme.id)].slice(0, 20);
-      return computedNext;
-    });
+    // Compute next synchronously from the closed-over state value. The updater
+    // pattern is wrong here: React queues updaters and runs them lazily, so
+    // computedNext would always be [] at the eviction-check line, causing
+    // setActiveProgrammeId(null) to fire on every save and wipe the active plan.
+    const computedNext = [programme, ...generatedProgrammes.filter(p => p.id !== programme.id)].slice(0, 20);
+    setGeneratedProgrammes(computedNext);
     if (activeProgrammeId && !computedNext.some(p => p.id === activeProgrammeId)) {
       setActiveProgrammeId(null);
     }
@@ -281,6 +292,9 @@ export function useStore() {
     deleteWeightEntry,
     getConsecutiveLowReadinessDays,
     getDaysSinceLastTest,
+    toasts,
+    addToast,
+    removeToast,
     clearAll: () => {
       // Remove localStorage keys first so useLocalStorage hooks re-init to defaults
       const VF_KEYS = [

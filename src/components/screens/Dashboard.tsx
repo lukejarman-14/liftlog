@@ -31,6 +31,7 @@ interface DashboardProps {
   onDeleteSession?: (id: string) => void;
   referralCode?: string;
   cloudUnlinked?: boolean; // Supabase configured but no active session — data not backed up
+  coachAnnouncements?: { id: string; date: string; text: string }[];
 }
 
 
@@ -120,7 +121,7 @@ function IntensityPrompt({ date, onSave }: {
   );
 }
 
-export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup, onSkipSession, onRescheduleSession, onDeleteSession, referralCode, cloudUnlinked = false }: DashboardProps) {
+export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup, onSkipSession, onRescheduleSession, onDeleteSession, referralCode, cloudUnlinked = false, coachAnnouncements = [] }: DashboardProps) {
   const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries, getDaysSinceLastTest } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
   const [showShareCard, setShowShareCard] = useState(false);
@@ -552,6 +553,24 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         onRescheduleSession={onRescheduleSession}
         onDeleteSession={onDeleteSession}
       />
+
+      {/* Coach announcements — shown when the player is in a squad */}
+      {coachAnnouncements.length > 0 && (
+        <div className="mb-4 bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">📣</span>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">From your coach</p>
+          </div>
+          <div className="flex flex-col gap-2.5">
+            {coachAnnouncements.map(a => (
+              <div key={a.id} className="text-sm">
+                <p className="text-gray-800">{a.text}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">{a.date}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Daily readiness check-in */}
       <DailyReadinessWidget existing={todayReadiness} onSave={onSaveReadiness} />
