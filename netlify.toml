@@ -5,7 +5,20 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# SPA fallback — all routes serve index.html
+# Static files that must NOT be caught by the SPA fallback
+[[redirects]]
+  from = "/robots.txt"
+  to = "/robots.txt"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/sitemap.xml"
+  status = 200
+  force = true
+
+# SPA fallback — all other routes serve index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
