@@ -1033,8 +1033,8 @@ function ExerciseSection({
   const pb          = getPB(sessionExercise.exerciseId, measureType);
   // Use programme-defined RIR if set, otherwise fall back to exercise suggested RIR
   const targetRir   = sessionExercise.targetRir ?? exercise.suggestedRir;
-  // RIR only applies to strength and eccentric work — not plyometrics, isometrics, speed, warmup etc.
-  const showRir = globalShowRir && !exercise.isWarmup && RIR_CATEGORIES.has(exercise.category);
+  // RIR applies to strength work only — never to eccentrics, plyometrics, isometrics, speed, warmup etc.
+  const showRir = globalShowRir && !exercise.isWarmup && RIR_CATEGORIES.has(exercise.category) && sessionExercise.methodType !== 'eccentric';
 
   // Priming sets are stored at the start of sessionExercise.sets with isPriming:true.
   // Working sets follow immediately after. We separate them for all display/logic.

@@ -62,6 +62,7 @@ export interface WorkoutExercise {
   coachingCue?: string;  // programme-specific coaching cue (shown in tutorial panel)
   hasPrimingSingles?: boolean; // inject 2 ascending neural priming singles before working sets (85%, 97%)
   isPerSide?: boolean;   // true for exercises with "each side/leg" — shows sequential L+R timers
+  methodType?: MethodType; // carried from ProgrammeExercise — used to suppress RIR for eccentrics
 }
 
 export interface WorkoutTemplate {
@@ -92,6 +93,7 @@ export interface SessionExercise {
   coachingCue?: string;  // carried from WorkoutExercise
   hasPrimingSingles?: boolean; // carried from WorkoutExercise
   isPerSide?: boolean;   // carried from WorkoutExercise
+  methodType?: MethodType; // carried from WorkoutExercise — suppresses RIR for eccentrics
   sets: CompletedSet[];
 }
 

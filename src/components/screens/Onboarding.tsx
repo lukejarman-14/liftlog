@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus, Mail, Building2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { UserProfile } from '../../types';
@@ -126,6 +126,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [dobDay,         setDobDay]         = useState('');
   const [dobMonth,       setDobMonth]       = useState('');
   const [dobYear,        setDobYear]        = useState('');
+  const dobDayRef   = useRef<HTMLInputElement>(null);
+  const dobMonthRef = useRef<HTMLInputElement>(null);
+  const dobYearRef  = useRef<HTMLInputElement>(null);
   const [agreedToTerms,  setAgreedToTerms]  = useState(false);
   const [parentalConsent,setParentalConsent]= useState(false);
 
@@ -800,22 +803,33 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               <Label>Date of Birth</Label>
               <div className="grid grid-cols-3 gap-2">
                 <input
+                  ref={dobDayRef}
                   value={dobDay}
-                  onChange={e => setDobDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                    setDobDay(val);
+                    if (val.length === 2) dobMonthRef.current?.focus();
+                  }}
                   placeholder="DD"
                   inputMode="numeric"
                   style={{ fontSize: '16px' }}
                   className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
                 />
                 <input
+                  ref={dobMonthRef}
                   value={dobMonth}
-                  onChange={e => setDobMonth(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                    setDobMonth(val);
+                    if (val.length === 2) dobYearRef.current?.focus();
+                  }}
                   placeholder="MM"
                   inputMode="numeric"
                   style={{ fontSize: '16px' }}
                   className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
                 />
                 <input
+                  ref={dobYearRef}
                   value={dobYear}
                   onChange={e => setDobYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder="YYYY"

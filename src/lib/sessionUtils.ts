@@ -554,6 +554,7 @@ export function sessionToWorkoutExercises(
           coachingCue: pe.cue || undefined,
           hasPrimingSingles: !isCond && isPrimingEligible(exercise),
           isPerSide: isPerSide || undefined,
+          methodType: pe.methodType || undefined,
         });
         isFirstInBlock = false;
       }

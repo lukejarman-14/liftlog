@@ -465,6 +465,7 @@ export default function App() {
         coachingCue: item.coachingCue,
         hasPrimingSingles: item.hasPrimingSingles,
         isPerSide: item.isPerSide,
+        methodType: item.methodType,
         sets: [],
       })),
       startTime: Date.now(),

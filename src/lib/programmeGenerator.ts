@@ -847,13 +847,14 @@ const TRAP_BAR_PLAY_STYLES = new Set(['box-to-box', 'press-heavy', 'counter-atta
  *   - Player prefers Back Squat (plateau on single-leg / psychology) AND off-season AND no injury overrides
  */
 function useBackSquat(inputs: ProgrammeInputs): boolean {
-  if (inputs.gymAccess === 'none') return false; // no barbell = no back squat
-  // BSS hard overrides:
-  if (inputs.primaryGoal === 'speed') return false;
-  if (!inputs.offSeason) return false; // in-season → always BSS
+  if (inputs.gymAccess === 'none') return false; // no barbell = impossible
+  // Injury override always wins — structural safety:
   if (inputs.injuryHistory.some(a => a === 'back' || a === 'hamstring')) return false;
-  // Back Squat eligible:
-  if (inputs.preferBackSquat) return true; // player preference / plateau signal
+  // Explicit player opt-in overrides season type and goal:
+  if (inputs.preferBackSquat) return true;
+  // Default: Back Squat only in off/pre-season Foundation, not speed-focused:
+  if (inputs.primaryGoal === 'speed') return false;
+  if (!inputs.offSeason) return false; // in-season → BSS by default
   return false;
 }
 
@@ -865,8 +866,9 @@ function selectVerticalSquat(
   loadScheme: LoadKey,
   strengthEx: ProgrammeExercise[],
 ): ProgrammeExercise {
-  // Trap Bar replaces the squat for acceleration / horizontal-force play styles
-  if (TRAP_BAR_PLAY_STYLES.has(inputs.playStyle) && gymKey === 'full') {
+  // Trap Bar replaces the squat for acceleration / horizontal-force play styles,
+  // but never overrides an explicit player opt-in for Back Squat.
+  if (TRAP_BAR_PLAY_STYLES.has(inputs.playStyle) && gymKey === 'full' && !inputs.preferBackSquat) {
     const tbPhase = TRAP_BAR_LIBRARY[phase] ?? TRAP_BAR_LIBRARY.Build;
     const tbGym = tbPhase[gymKey] ?? tbPhase.basic;
     return (tbGym[loadScheme] ?? tbGym.moderate) as ProgrammeExercise;
