@@ -46,6 +46,7 @@ export interface ScheduleWeek {
   label: string;
   phase: string;
   days: ScheduleDay[];
+  weekStart?: string; // ISO date string for the Monday of this week
 }
 export interface Announcement {
   id?: string;
@@ -69,6 +70,7 @@ interface CoachDashboardProps {
   onOpenProfile?: () => void;
   onPostAnnouncement?: (text: string) => Promise<void>;
   onDeleteAnnouncement?: (id: string) => Promise<void>;
+  onUpdateScheduleDay?: (weekStart: string, day: string, type: ScheduleDay['type'], label: string) => Promise<void>;
 }
 
 function initials(name: string): string {
@@ -259,13 +261,18 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 export function CoachDashboard({
   inviteSeed, players = [], weeks = [], teams = [], announcements = [],
   maxPlayers = 30, isPaid = true, onUpgrade, onOpenProfile,
-  onPostAnnouncement, onDeleteAnnouncement,
+  onPostAnnouncement, onDeleteAnnouncement, onUpdateScheduleDay,
 }: CoachDashboardProps) {
   const [copied, setCopied] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNewAnnouncement, setShowNewAnnouncement] = useState(false);
   const [announcementDraft, setAnnouncementDraft] = useState('');
   const [announcementPosting, setAnnouncementPosting] = useState(false);
+  // Day editor state
+  const [editingDay, setEditingDay] = useState<{ weekStart: string; day: ScheduleDay } | null>(null);
+  const [editType, setEditType] = useState<ScheduleDay['type']>('rest');
+  const [editLabel, setEditLabel] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
   const [tab, setTab] = useState<CoachTab>('home');
   const [team, setTeam] = useState(teams[0] ?? 'First Team');
   const [teamOpen, setTeamOpen] = useState(false);
@@ -660,23 +667,61 @@ export function CoachDashboard({
 
             <div className="flex flex-col gap-2">
               {currentWeek.days.map(d => (
-                <div key={d.day} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3">
+                <button
+                  key={d.day}
+                  onClick={() => { setEditingDay({ weekStart: currentWeek.weekStart ?? '', day: d }); setEditType(d.type); setEditLabel(d.label); }}
+                  className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 w-full text-left hover:border-brand-200 transition-colors"
+                >
                   <div className="w-12 text-center"><p className="text-sm font-bold text-gray-900">{d.day}</p></div>
-                  <div className="flex-1"><p className="text-sm font-semibold text-gray-900">{d.label}</p></div>
+                  <div className="flex-1"><p className="text-sm font-semibold text-gray-900">{d.label || <span className="text-gray-300">Tap to set</span>}</p></div>
                   <span className={`text-[11px] font-bold px-2 py-1 rounded-full capitalize ${SCHEDULE_BADGE[d.type]}`}>{d.type}</span>
-                </div>
+                </button>
               ))}
             </div>
 
-            {/* Match-day readiness check */}
-            <div className="mt-5 bg-brand-50 border border-brand-200 rounded-2xl p-4 flex items-start gap-3">
-              <ClipboardCheck size={18} className="text-brand-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-bold text-gray-900">Match-day readiness check</p>
-                <p className="text-xs text-gray-500 mt-0.5">On match morning, players get a quick readiness prompt so you can see who's fit to start before kick-off.</p>
+            <p className="text-xs text-gray-400 mt-4 leading-relaxed px-1">Tap any day to edit. Players' programmes auto-periodise around match days.</p>
+
+            {/* Day editor bottom sheet */}
+            {editingDay && (
+              <div className="fixed inset-0 z-50 flex items-end" onClick={() => setEditingDay(null)}>
+                <div className="absolute inset-0 bg-black/40" />
+                <div className="relative w-full bg-white rounded-t-3xl p-6 pb-10" onClick={e => e.stopPropagation()}>
+                  <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+                  <p className="font-bold text-gray-900 text-base mb-4">{editingDay.day.day} — Edit session</p>
+
+                  {/* Type picker */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {(['rest', 'training', 'match'] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => { setEditType(t); if (t === 'rest') setEditLabel('Rest'); }}
+                        className={`py-3 rounded-xl text-sm font-bold capitalize transition-colors ${editType === t ? (t === 'match' ? 'bg-brand-500 text-white' : t === 'training' ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-500') : 'bg-gray-50 text-gray-400'}`}
+                      >{t}</button>
+                    ))}
+                  </div>
+
+                  {/* Label input */}
+                  <input
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-4"
+                    placeholder={editType === 'match' ? 'e.g. vs Eastside FC (H)' : editType === 'training' ? 'e.g. Team training' : 'Rest day'}
+                    value={editLabel}
+                    onChange={e => setEditLabel(e.target.value)}
+                  />
+
+                  <button
+                    disabled={editSaving}
+                    onClick={async () => {
+                      if (!onUpdateScheduleDay || !editingDay.weekStart) return;
+                      setEditSaving(true);
+                      await onUpdateScheduleDay(editingDay.weekStart, editingDay.day.day, editType, editLabel || (editType === 'rest' ? 'Rest' : editType === 'training' ? 'Training' : 'Match'));
+                      setEditSaving(false);
+                      setEditingDay(null);
+                    }}
+                    className="w-full bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40"
+                  >{editSaving ? 'Saving…' : 'Save'}</button>
+                </div>
               </div>
-            </div>
-            <p className="text-xs text-gray-400 mt-4 leading-relaxed px-1">Players build their own programme around this schedule — sessions auto-periodise around match day and the current training phase.</p>
+            )}
           </>
         )}
 

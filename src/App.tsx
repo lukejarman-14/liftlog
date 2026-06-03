@@ -56,7 +56,7 @@ const ResetPassword      = lazy(() => import('./components/screens/ResetPassword
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
 const CoachDashboard     = lazy(() => import('./components/screens/CoachDashboard').then(m => ({ default: m.CoachDashboard })));
 // Demo schedule/announcement data for the coach dashboard preview (branch-only, remove before launch).
-import { DEMO_WEEKS, DEMO_TEAMS } from './components/screens/CoachDashboard';
+import { DEMO_TEAMS } from './components/screens/CoachDashboard';
 
 // check for password reset link on both implicit (#type=recovery) and PKCE (?code=) flows
 function detectRecoveryUrl(): boolean {
@@ -132,6 +132,8 @@ export default function App() {
   const [liveAnnouncements, setLiveAnnouncements] = useState<{ id: string; date: string; text: string }[]>([]);
   // Announcements from the player's coach (shown on player dashboard)
   const [playerCoachAnnouncements, setPlayerCoachAnnouncements] = useState<{ id: string; date: string; text: string }[]>([]);
+  // Live schedule weeks for the coach dashboard
+  const [liveScheduleWeeks, setLiveScheduleWeeks] = useState<import('./components/screens/CoachDashboard').ScheduleWeek[]>([]);
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
@@ -685,6 +687,94 @@ export default function App() {
     if (acct === 'personal' && isAuthenticated) void fetchPlayerCoachAnnouncements();
   }, [isAuthenticated, store.userProfile?.accountType, fetchPlayerCoachAnnouncements]);
 
+  // ---- Schedule helpers ----
+  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+  /** Get the ISO date string (YYYY-MM-DD) for the Monday of the week containing `date`. */
+  function getMondayOf(date: Date): string {
+    const d = new Date(date);
+    const day = d.getDay(); // 0=Sun
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }
+
+  /** Build an array of N week-start strings starting from this week's Monday. */
+  function buildWeekStarts(n = 8): string[] {
+    const base = new Date(getMondayOf(new Date()));
+    return Array.from({ length: n }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i * 7);
+      return d.toISOString().slice(0, 10);
+    });
+  }
+
+  /** Format a week-start date into a human label like "2 – 8 Jun". */
+  function formatWeekLabel(iso: string): string {
+    const start = new Date(iso + 'T12:00:00');
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+    if (start.getMonth() === end.getMonth()) {
+      return `${start.getDate()} – ${end.toLocaleDateString('en-GB', opts)}`;
+    }
+    return `${start.toLocaleDateString('en-GB', opts)} – ${end.toLocaleDateString('en-GB', opts)}`;
+  }
+
+  /** Fetch the schedule rows for a coach and build ScheduleWeek objects. */
+  const fetchSchedule = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    const weekStarts = buildWeekStarts(8);
+    try {
+      const { data, error } = await supabase
+        .from('coach_schedule')
+        .select('week_start, day_of_week, type, label')
+        .eq('coach_id', userId)
+        .in('week_start', weekStarts);
+      if (error) { if (import.meta.env.DEV) console.warn('[schedule] fetch error:', error.message); }
+      // Build a lookup: weekStart → dayOfWeek → { type, label }
+      const lookup: Record<string, Record<string, { type: string; label: string }>> = {};
+      for (const row of (data ?? [])) {
+        if (!lookup[row.week_start]) lookup[row.week_start] = {};
+        lookup[row.week_start][row.day_of_week] = { type: row.type, label: row.label };
+      }
+      const weeks = weekStarts.map((ws, i) => ({
+        weekStart: ws,
+        label: i === 0 ? 'This week' : i === 1 ? 'Next week' : formatWeekLabel(ws),
+        phase: 'In-Season',
+        days: DAYS.map(day => ({
+          day,
+          type: (lookup[ws]?.[day]?.type ?? 'rest') as 'rest' | 'training' | 'match',
+          label: lookup[ws]?.[day]?.label ?? (day === 'Sat' ? 'Match day' : day === 'Sun' ? 'Rest' : 'Rest'),
+        })),
+      }));
+      setLiveScheduleWeeks(weeks);
+    } catch (e) { if (import.meta.env.DEV) console.warn('[schedule] fetch threw:', e); }
+  }, []);
+
+  /** Upsert a single day in the coach schedule. */
+  const handleUpdateScheduleDay = useCallback(async (weekStart: string, day: string, type: 'rest' | 'training' | 'match', label: string) => {
+    if (!supabase || !cloudUserIdRef.current) return;
+    const { error } = await supabase.from('coach_schedule').upsert(
+      { coach_id: cloudUserIdRef.current, week_start: weekStart, day_of_week: day, type, label, updated_at: new Date().toISOString() },
+      { onConflict: 'coach_id,week_start,day_of_week' }
+    );
+    if (error) { if (import.meta.env.DEV) console.warn('[schedule] upsert error:', error.message); return; }
+    // Update local state immediately
+    setLiveScheduleWeeks(prev => prev.map(w =>
+      w.weekStart === weekStart
+        ? { ...w, days: w.days.map(d => d.day === day ? { ...d, type, label } : d) }
+        : w
+    ));
+  }, []);
+
+  // Fetch schedule when coach is authenticated
+  useEffect(() => {
+    const acct = store.userProfile?.accountType;
+    if ((acct === 'coach' || acct === 'club') && isAuthenticated && cloudUserIdRef.current) {
+      void fetchSchedule(cloudUserIdRef.current);
+    }
+  }, [isAuthenticated, store.userProfile?.accountType, fetchSchedule]);
+
   const doGenerateProgramme = (resolvedInputs: ProgrammeInputs) => {
     const programme = generateProgramme(resolvedInputs);
     const todayStr = localDateStr(new Date());
@@ -892,7 +982,7 @@ export default function App() {
           coachName={[store.userProfile.firstName, store.userProfile.lastName].filter(Boolean).join(' ')}
           inviteSeed={cloudUserIdRef.current ?? store.userProfile.email}
           players={liveSquadPlayers}
-          weeks={DEMO_WEEKS}
+          weeks={liveScheduleWeeks}
           teams={DEMO_TEAMS}
           announcements={liveAnnouncements}
           maxPlayers={isClub ? 200 : (premium.hasAccess ? 30 : 5)}
@@ -901,6 +991,7 @@ export default function App() {
           onOpenProfile={() => navigate({ screen: 'profile' })}
           onPostAnnouncement={handlePostAnnouncement}
           onDeleteAnnouncement={handleDeleteAnnouncement}
+          onUpdateScheduleDay={handleUpdateScheduleDay}
         />
       )}
       {screen === 'dashboard' && !isCoach && (
