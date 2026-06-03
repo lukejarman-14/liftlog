@@ -12,12 +12,11 @@ import { PremiumStatus } from '../types';
 import { rcPurchase, rcRestore, rcCheckEntitlement, RCPlan } from '../lib/revenueCat';
 import { redeemPromoCode } from '../lib/promoCodes';
 import { redeemReferralCode, claimReferralRewards, registerReferralCode } from '../lib/referrals';
+import { computeHasAccess, computeTrialDaysLeft, TRIAL_DAYS, MS_PER_DAY } from '../lib/premiumUtils';
 
 export type { RCPlan };
 
 const KEY = 'vf_premium';
-const TRIAL_DAYS = 30; // Pre-season trial — expires ~August 1 for users signing up from June 20
-const MS_PER_DAY = 86_400_000;
 
 
 function load(): PremiumStatus {
@@ -45,25 +44,10 @@ export function usePremium() {
   }, []);
 
   /** True if user currently has access (paid OR active trial). */
-  const hasAccess = useMemo(() => {
-    if (status.isPremium) {
-      if (status.expiresAt && status.expiresAt < Date.now()) return false;
-      return true;
-    }
-    // Check expiresAt BEFORE trialStartedAt so referral rewards grant access
-    // even to users who have never started a trial (trialStartedAt is null).
-    if (status.expiresAt) return status.expiresAt > Date.now();
-    if (!status.trialStartedAt) return false;
-    return Date.now() - status.trialStartedAt < TRIAL_DAYS * MS_PER_DAY;
-  }, [status]);
+  const hasAccess = useMemo(() => computeHasAccess(status), [status]);
 
   /** Days remaining in trial (null if not in trial or already premium). */
-  const trialDaysLeft = useMemo(() => {
-    if (status.isPremium || !status.trialStartedAt) return null;
-    const expiryTs = status.expiresAt ?? (status.trialStartedAt + TRIAL_DAYS * MS_PER_DAY);
-    const remaining = Math.ceil((expiryTs - Date.now()) / MS_PER_DAY);
-    return remaining > 0 ? remaining : 0;
-  }, [status]);
+  const trialDaysLeft = useMemo(() => computeTrialDaysLeft(status), [status]);
 
   const isTrialActive = trialDaysLeft !== null && trialDaysLeft > 0;
   const isTrialExpired = status.trialStartedAt != null && !status.isPremium && !isTrialActive;
