@@ -5,6 +5,7 @@ import { useToast } from './hooks/useToast';
 import { ToastContainer } from './components/Toast';
 import { useStore } from './hooks/useStore';
 import { Navigation } from './components/Navigation';
+import { AppBootSkeleton, DashboardSkeleton, LoginSkeleton } from './components/SkeletonScreens';
 import { Dashboard } from './components/screens/Dashboard';
 import type { FormationData } from './components/screens/FormationBuilder';
 import { NavState, WorkoutExercise, WorkoutSession, UserProfile, TestSession, ProgrammeSession } from './types';
@@ -1187,13 +1188,9 @@ export default function App() {
     );
   }
 
-  // While checking for Supabase session, show a minimal loading state
+  // While checking for Supabase session, show a skeleton that matches the splash layout
   if (sessionChecking) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-4 border-brand-200 border-t-brand-500 animate-spin" />
-      </div>
-    );
+    return <AppBootSkeleton />;
   }
 
   if (!store.userProfile) {
@@ -1226,7 +1223,7 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>}>
+      <Suspense fallback={<LoginSkeleton />}>
         <Login
           profile={store.userProfile}
           onLogin={(userId) => {
@@ -1266,7 +1263,7 @@ export default function App() {
   const isClub = store.userProfile?.accountType === 'club';
   const isCoach = store.userProfile?.accountType === 'coach' || isClub;
   const fullScreens = ['testing-battery', 'programme-builder', 'generated-programme', 'paywall', 'active-workout'];
-  const screenFallback = <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>;
+  const screenFallback = <DashboardSkeleton />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
