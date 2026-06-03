@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import {
   Exercise, WorkoutTemplate, WorkoutSession, ActivePlan,
@@ -7,6 +7,7 @@ import {
   MatchEntry, TestSession, GeneratedProgramme, DailyReadiness, ScheduledWorkout,
   WeightEntry, MeasureType,
 } from '../types';
+import type { ToastMessage } from '../components/Toast';
 import { DEFAULT_EXERCISES } from '../data/exercises';
 
 export interface BaselineData {
@@ -32,6 +33,17 @@ export function useStore() {
   const [footballIntensityLog, setFootballIntensityLog] = useLocalStorage<Record<string, number>>('vf_football_intensity', {});
   const [scheduledWorkouts, setScheduledWorkouts] = useLocalStorage<ScheduledWorkout[]>('vf_scheduled_workouts', []);
   const [weightLog, setWeightLog] = useLocalStorage<WeightEntry[]>('vf_weight_log', []);
+
+  // Toast notifications
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (toast: ToastMessage) => {
+    setToasts(prev => [...prev, toast]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   const updateSettings = (partial: Partial<UserSettings>) =>
     setUserSettings(prev => ({ ...prev, ...partial }));
@@ -281,6 +293,9 @@ export function useStore() {
     deleteWeightEntry,
     getConsecutiveLowReadinessDays,
     getDaysSinceLastTest,
+    toasts,
+    addToast,
+    removeToast,
     clearAll: () => {
       // Remove localStorage keys first so useLocalStorage hooks re-init to defaults
       const VF_KEYS = [

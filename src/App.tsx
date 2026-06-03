@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef, lazy, Suspense, startTransition } from 'react';
 import { Battery, Zap, X } from 'lucide-react';
 import { captureError, setSentryUser } from './lib/sentry';
+import { useToast } from './hooks/useToast';
+import { ToastContainer } from './components/Toast';
 import { useStore } from './hooks/useStore';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/screens/Dashboard';
@@ -151,6 +153,7 @@ function EmailConfirmedLanding() {
 
 export default function App() {
   const store = useStore();
+  const toast = useToast();
   const [nav, setNav] = useState<NavState>({ screen: 'dashboard' });
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [currentProgramme, setCurrentProgramme] = useState<GPType | null>(null);
@@ -742,13 +745,15 @@ export default function App() {
       .insert({ coach_id: cloudUserIdRef.current, text });
     if (error) {
       if (error.message.includes('Rate limit exceeded')) {
-        alert('You\'ve reached the announcement limit (20 per hour). Please try again later.');
+        toast.error('You\'ve reached the announcement limit (20 per hour). Please try again later.');
       } else {
+        toast.error('Failed to post announcement. Please try again.');
         if (import.meta.env.DEV) console.warn('[announcements] post error:', error.message);
       }
       captureError(error, { context: 'handlePostAnnouncement' });
       return;
     }
+    toast.success('Announcement posted!', 2000);
     await fetchAnnouncements(cloudUserIdRef.current);
   }, [fetchAnnouncements]);
 
@@ -950,13 +955,15 @@ export default function App() {
     }).select('id').single();
     if (error) {
       if (error.message.includes('Rate limit exceeded')) {
-        alert('You\'ve reached the match result limit (50 per day). Please try again tomorrow.');
+        toast.error('You\'ve reached the match result limit (50 per day). Please try again tomorrow.');
       } else {
+        toast.error('Failed to save match result. Please try again.');
         if (import.meta.env.DEV) console.warn('[match results] save error:', error.message);
       }
       captureError(error, { context: 'handleSaveMatchResult' });
       return;
     }
+    toast.success('Match result saved!', 2000);
     if (data) setMatchResults(prev => [{ ...result, id: data.id }, ...prev]);
   }, [matchResults]);
 
@@ -986,13 +993,15 @@ export default function App() {
     const { error: upsertError } = await supabase.from('session_attendance').upsert(rows, { onConflict: 'coach_id,session_date,player_id' });
     if (upsertError) {
       if (upsertError.message.includes('Rate limit exceeded')) {
-        alert('You\'ve reached the attendance record limit (100 per day). Please try again tomorrow.');
+        toast.error('You\'ve reached the attendance record limit (100 per day). Please try again tomorrow.');
       } else {
+        toast.error('Failed to save attendance. Please try again.');
         if (import.meta.env.DEV) console.error('[attendance] save error:', upsertError);
       }
       captureError(upsertError, { context: 'handleSaveAttendance' });
       return;
     }
+    toast.success('Attendance saved!', 2000);
     // Refresh the list
     try {
       await fetchAttendance(coachId);
@@ -2181,6 +2190,9 @@ export default function App() {
         </div>
       )}
       </Suspense>
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={store.toasts} onDismiss={store.removeToast} />
     </div>
   );
 }
