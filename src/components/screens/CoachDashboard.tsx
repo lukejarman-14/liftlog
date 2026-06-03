@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
+const FormationBuilder = lazy(() => import('./FormationBuilder').then(m => ({ default: m.FormationBuilder })));
 import { deriveTeamCode } from '../../lib/teams';
 import {
   Users, Copy, Check, Calendar, ChevronRight, ChevronLeft,
@@ -299,11 +300,9 @@ export function CoachDashboard({
   const [attendanceSession, setAttendanceSession] = useState<{ date: string; title: string } | null>(null);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, boolean>>({});
   const [attendanceSaving, setAttendanceSaving] = useState(false);
-  // Match squad modal
-  const [showSquadModal, setShowSquadModal] = useState(false);
-  const [squadModalDate, setSquadModalDate] = useState('');
-  const [squadRoles, setSquadRoles] = useState<Record<string, { role: 'starter' | 'sub' | 'unavailable'; position: string }>>({});
-  const [squadSaving, setSquadSaving] = useState(false);
+  // Formation builder
+  const [showFormationBuilder, setShowFormationBuilder] = useState(false);
+  const [formationMatchDate, setFormationMatchDate] = useState('');
   const [editType, setEditType] = useState<ScheduleDay['type']>('rest');
   const [editLabel, setEditLabel] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -714,7 +713,19 @@ export function CoachDashboard({
                       <p className="text-sm font-semibold text-gray-900">{d.label || <span className="text-gray-300">Tap to set</span>}</p>
                       {d.description && <p className="text-xs text-gray-400 mt-0.5">{d.description}</p>}
                     </div>
-                    <span className={`text-[11px] font-bold px-2 py-1 rounded-full capitalize ${SCHEDULE_BADGE[d.type]}`}>{d.type}</span>
+                    {/* Show match result score if logged */}
+                    {d.type === 'match' && (() => {
+                      const result = matchResults.find(r => r.matchDate === currentWeek.weekStart);
+                      if (!result) return <span className={`text-[11px] font-bold px-2 py-1 rounded-full capitalize ${SCHEDULE_BADGE[d.type]}`}>{d.type}</span>;
+                      const won = result.goalsFor > result.goalsAgainst;
+                      const drew = result.goalsFor === result.goalsAgainst;
+                      return (
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-xs font-black px-2 py-1 rounded-full text-white ${won ? 'bg-green-500' : drew ? 'bg-amber-400' : 'bg-red-500'}`}>{result.goalsFor}–{result.goalsAgainst}</span>
+                        </div>
+                      );
+                    })()}
+                    {d.type !== 'match' && <span className={`text-[11px] font-bold px-2 py-1 rounded-full capitalize ${SCHEDULE_BADGE[d.type]}`}>{d.type}</span>}
                   </button>
                   {d.type !== 'rest' && (
                     <div className="border-t border-gray-50 px-4 py-2 flex gap-3">
@@ -724,7 +735,7 @@ export function CoachDashboard({
                           <span className="text-gray-200">|</span>
                           <button onClick={() => { setMatchDate(`${currentWeek.weekStart}`); setMatchOpponent(d.label.replace(/^vs /, '')); setMatchVenue('home'); setMatchGoalsFor(''); setMatchGoalsAgainst(''); setMatchNotes(''); setShowMatchModal(true); }} className="text-xs font-semibold text-brand-600">⚽ Log result</button>
                           <span className="text-gray-200">|</span>
-                          <button onClick={() => { setSquadModalDate(`${currentWeek.weekStart}`); setSquadRoles(Object.fromEntries(players.map(p => [p.id, { role: 'starter' as const, position: p.position }]))); setShowSquadModal(true); }} className="text-xs font-semibold text-brand-600">👕 Squad</button>
+                          <button onClick={() => { setFormationMatchDate(currentWeek.weekStart ?? ''); setShowFormationBuilder(true); }} className="text-xs font-semibold text-brand-600">👕 Squad</button>
                         </>
                       )}
                     </div>
@@ -903,7 +914,7 @@ export function CoachDashboard({
       {showMatchModal && (
         <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowMatchModal(false)}>
           <div className="absolute inset-0 bg-black/40" />
-          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-12 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-28 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
             <p className="font-bold text-gray-900 text-base mb-4">Log Match Result</p>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Date</p>
@@ -936,7 +947,7 @@ export function CoachDashboard({
       {showAttendanceModal && attendanceSession && (
         <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowAttendanceModal(false)}>
           <div className="absolute inset-0 bg-black/40" />
-          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-12 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-28 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
             <p className="font-bold text-gray-900 text-base mb-1">Attendance</p>
             <p className="text-xs text-gray-400 mb-4">{attendanceSession.title} · {attendanceSession.date}</p>
@@ -957,36 +968,20 @@ export function CoachDashboard({
         </div>
       )}
 
-      {/* ---- Match Squad Modal ---- */}
-      {showSquadModal && (
-        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowSquadModal(false)}>
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-12 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
-            <p className="font-bold text-gray-900 text-base mb-1">Match Day Squad</p>
-            <p className="text-xs text-gray-400 mb-4">{squadModalDate}</p>
-            <div className="flex flex-col gap-2 mb-4">
-              {players.map(p => {
-                const r = squadRoles[p.id] ?? { role: 'starter', position: p.position };
-                return (
-                  <div key={p.id} className="bg-white border border-gray-100 rounded-xl p-3">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-xs font-bold text-brand-600">{initials(p.name)}</div>
-                      <p className="text-sm font-semibold text-gray-900 flex-1">{p.name}</p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5 mb-2">
-                      {(['starter', 'sub', 'unavailable'] as const).map(role => (
-                        <button key={role} onClick={() => setSquadRoles(prev => ({ ...prev, [p.id]: { ...r, role } }))} className={`py-1.5 rounded-lg text-xs font-bold capitalize transition-colors ${r.role === role ? (role === 'starter' ? 'bg-brand-500 text-white' : role === 'sub' ? 'bg-amber-400 text-white' : 'bg-gray-200 text-gray-500') : 'bg-gray-50 text-gray-400'}`}>{role}</button>
-                      ))}
-                    </div>
-                    <input className="w-full border border-gray-100 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-brand-300" placeholder="Position (e.g. CM)" value={r.position} onChange={e => setSquadRoles(prev => ({ ...prev, [p.id]: { ...r, position: e.target.value } }))} />
-                  </div>
-                );
-              })}
-            </div>
-            <button disabled={squadSaving} onClick={async () => { if (!onSaveMatchSquad) return; setSquadSaving(true); await onSaveMatchSquad(squadModalDate, players.map(p => ({ playerId: p.id, role: squadRoles[p.id]?.role ?? 'starter', position: squadRoles[p.id]?.position ?? p.position }))); setSquadSaving(false); setShowSquadModal(false); }} className="w-full bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40">{squadSaving ? 'Saving…' : 'Save Squad'}</button>
-          </div>
-        </div>
+      {/* ---- Formation Builder ---- */}
+      {showFormationBuilder && (
+        <Suspense fallback={null}>
+          <FormationBuilder
+            players={players}
+            matchDate={formationMatchDate}
+            onSave={async (data) => {
+              if (onSaveMatchSquad) {
+                await onSaveMatchSquad(formationMatchDate, Object.entries(data.assignments).map(([posId, playerId]) => ({ playerId, role: 'starter' as const, position: posId })));
+              }
+            }}
+            onClose={() => setShowFormationBuilder(false)}
+          />
+        </Suspense>
       )}
 
       {/* Bottom navigation */}
