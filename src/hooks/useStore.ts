@@ -80,13 +80,12 @@ export function useStore() {
     });
 
   const saveGeneratedProgramme = (programme: GeneratedProgramme) => {
-    // Capture `next` from inside the updater so the eviction check uses the
-    // authoritative prev value, not the potentially-stale closed-over state.
-    let computedNext: GeneratedProgramme[] = [];
-    setGeneratedProgrammes(prev => {
-      computedNext = [programme, ...prev.filter(p => p.id !== programme.id)].slice(0, 20);
-      return computedNext;
-    });
+    // Compute next synchronously from the closed-over state value. The updater
+    // pattern is wrong here: React queues updaters and runs them lazily, so
+    // computedNext would always be [] at the eviction-check line, causing
+    // setActiveProgrammeId(null) to fire on every save and wipe the active plan.
+    const computedNext = [programme, ...generatedProgrammes.filter(p => p.id !== programme.id)].slice(0, 20);
+    setGeneratedProgrammes(computedNext);
     if (activeProgrammeId && !computedNext.some(p => p.id === activeProgrammeId)) {
       setActiveProgrammeId(null);
     }

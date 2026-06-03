@@ -129,7 +129,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
   // Compute effective day for each session using absolute dates from the anchor Monday.
   // This prevents sessions mapping to past dates when the programme starts next week.
   const progSessionsByDay = new Map<number, import('../types').ProgrammeSession[]>();
-  const progSessionsThisWeek: { session: import('../types').ProgrammeSession; effectiveDayIdx: number; effectiveDate: Date }[] = [];
+  const progSessionsThisWeek: { session: import('../types').ProgrammeSession; effectiveDayIdx: number; effectiveDate: Date; sessionKey: string; weekIdx: number; sessionIdx: number }[] = [];
 
   if (!hasPlan && generatedProgramme) {
     const anchorMonday = getProgrammeAnchorMonday(generatedProgramme);
@@ -168,7 +168,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
             );
             if (sessionMidnight < startMidnight) return;
           }
-          progSessionsThisWeek.push({ session: s, effectiveDayIdx, effectiveDate });
+          progSessionsThisWeek.push({ session: s, effectiveDayIdx, effectiveDate, sessionKey, weekIdx: wi, sessionIdx: si });
           const existing = progSessionsByDay.get(effectiveDayIdx) ?? [];
           progSessionsByDay.set(effectiveDayIdx, [...existing, s]);
         }
@@ -389,7 +389,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
         const skipped = generatedProgramme.skippedSessions ?? {};
         return (
           <div className="flex flex-col gap-2 mb-2">
-            {progSessionsThisWeek.map(({ session, effectiveDayIdx, effectiveDate }, i) => {
+            {progSessionsThisWeek.map(({ session, effectiveDayIdx, effectiveDate, sessionKey, weekIdx, sessionIdx }) => {
               const date = effectiveDate;
               const dateStr = localDateStr(date);
               const isCond = isConditioningSession(session);
@@ -398,7 +398,6 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
               const isToday = isSameDay(date, today);
               const isPast = date < today && !isToday;
               const isMissed = isPast && !done;
-              const sessionKey = `${progWeekIdx}-${i}`;
               const isSkipped = !!skipped[sessionKey];
               const mdDisplay = isCond ? 'Conditioning' : session.mdDay.replace('MD-', 'MD');
               const matchOnDay = matchByDay.get(effectiveDayIdx);
@@ -414,7 +413,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                 }));
 
               return (
-                <div key={i} className={`rounded-2xl border p-3.5 flex items-center justify-between transition-all ${
+                <div key={sessionKey} className={`rounded-2xl border p-3.5 flex items-center justify-between transition-all ${
                   done       ? 'bg-green-50 border-green-200' :
                   isSkipped  ? 'bg-gray-50 border-gray-200 opacity-70' :
                   isMissed   ? 'bg-red-50 border-red-200' :
@@ -485,7 +484,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                       <span className="text-lg">✕</span>
                     ) : isMissed ? (
                       <button
-                        onClick={() => { setSkipView('pick'); setSkipSheet({ weekIdx: progWeekIdx, sessionIdx: i, session, availableDates }); }}
+                        onClick={() => { setSkipView('pick'); setSkipSheet({ weekIdx, sessionIdx, session, availableDates }); }}
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
                       >
                         <X size={11} /> Missed
@@ -493,12 +492,12 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                     ) : isToday && onStartProgrammeSession ? (
                       <button
                         onClick={() => {
-                          const wk = progWeekIdx >= 0 ? progWeekIdx + 1 : 1;
+                          const wk = weekIdx >= 0 ? weekIdx + 1 : 1;
                           setPreviewWeekNumber(wk);
                           setPreviewOnStart(() => () => {
                             const items = sessionToWorkoutExercises(session, exercises, {
                               strengthSetup: generatedProgramme?.strengthSetup,
-                              weekNumber: progWeekIdx >= 0 ? progWeekIdx + 1 : 1,
+                              weekNumber: weekIdx >= 0 ? weekIdx + 1 : 1,
                               totalWeeks: generatedProgramme?.durationWeeks,
                             });
                             onStartProgrammeSession(`${mdDisplay} · ${session.dayOfWeek}`, items);
