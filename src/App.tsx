@@ -700,6 +700,7 @@ export default function App() {
   }
 
   /** Build an array of N week-start strings starting from this week's Monday. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function buildWeekStarts(n = 8): string[] {
     const base = new Date(getMondayOf(new Date()));
     return Array.from({ length: n }, (_, i) => {
@@ -727,15 +728,15 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from('coach_schedule')
-        .select('week_start, day_of_week, type, label')
+        .select('week_start, day_of_week, type, label, description')
         .eq('coach_id', userId)
         .in('week_start', weekStarts);
       if (error) { if (import.meta.env.DEV) console.warn('[schedule] fetch error:', error.message); }
       // Build a lookup: weekStart → dayOfWeek → { type, label }
-      const lookup: Record<string, Record<string, { type: string; label: string }>> = {};
+      const lookup: Record<string, Record<string, { type: string; label: string; description: string }>> = {};
       for (const row of (data ?? [])) {
         if (!lookup[row.week_start]) lookup[row.week_start] = {};
-        lookup[row.week_start][row.day_of_week] = { type: row.type, label: row.label };
+        lookup[row.week_start][row.day_of_week] = { type: row.type, label: row.label, description: row.description ?? '' };
       }
       const weeks = weekStarts.map((ws, i) => ({
         weekStart: ws,
@@ -744,7 +745,8 @@ export default function App() {
         days: DAYS.map(day => ({
           day,
           type: (lookup[ws]?.[day]?.type ?? 'rest') as 'rest' | 'training' | 'match',
-          label: lookup[ws]?.[day]?.label ?? (day === 'Sat' ? 'Match day' : day === 'Sun' ? 'Rest' : 'Rest'),
+          label: lookup[ws]?.[day]?.label ?? 'Rest',
+          description: lookup[ws]?.[day]?.description ?? '',
         })),
       }));
       setLiveScheduleWeeks(weeks);
@@ -752,17 +754,17 @@ export default function App() {
   }, []);
 
   /** Upsert a single day in the coach schedule. */
-  const handleUpdateScheduleDay = useCallback(async (weekStart: string, day: string, type: 'rest' | 'training' | 'match', label: string) => {
+  const handleUpdateScheduleDay = useCallback(async (weekStart: string, day: string, type: 'rest' | 'training' | 'match', label: string, description: string) => {
     if (!supabase || !cloudUserIdRef.current) return;
     const { error } = await supabase.from('coach_schedule').upsert(
-      { coach_id: cloudUserIdRef.current, week_start: weekStart, day_of_week: day, type, label, updated_at: new Date().toISOString() },
+      { coach_id: cloudUserIdRef.current, week_start: weekStart, day_of_week: day, type, label, description, updated_at: new Date().toISOString() },
       { onConflict: 'coach_id,week_start,day_of_week' }
     );
     if (error) { if (import.meta.env.DEV) console.warn('[schedule] upsert error:', error.message); return; }
     // Update local state immediately
     setLiveScheduleWeeks(prev => prev.map(w =>
       w.weekStart === weekStart
-        ? { ...w, days: w.days.map(d => d.day === day ? { ...d, type, label } : d) }
+        ? { ...w, days: w.days.map(d => d.day === day ? { ...d, type, label, description } : d) }
         : w
     ));
   }, []);

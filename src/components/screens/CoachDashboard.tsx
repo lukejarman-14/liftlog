@@ -41,6 +41,7 @@ export interface ScheduleDay {
   day: string;
   type: 'match' | 'training' | 'rest';
   label: string;
+  description?: string;
 }
 export interface ScheduleWeek {
   label: string;
@@ -70,7 +71,7 @@ interface CoachDashboardProps {
   onOpenProfile?: () => void;
   onPostAnnouncement?: (text: string) => Promise<void>;
   onDeleteAnnouncement?: (id: string) => Promise<void>;
-  onUpdateScheduleDay?: (weekStart: string, day: string, type: ScheduleDay['type'], label: string) => Promise<void>;
+  onUpdateScheduleDay?: (weekStart: string, day: string, type: ScheduleDay['type'], label: string, description: string) => Promise<void>;
 }
 
 function initials(name: string): string {
@@ -272,6 +273,7 @@ export function CoachDashboard({
   const [editingDay, setEditingDay] = useState<{ weekStart: string; day: ScheduleDay } | null>(null);
   const [editType, setEditType] = useState<ScheduleDay['type']>('rest');
   const [editLabel, setEditLabel] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [tab, setTab] = useState<CoachTab>('home');
   const [team, setTeam] = useState(teams[0] ?? 'First Team');
@@ -669,11 +671,14 @@ export function CoachDashboard({
               {currentWeek.days.map(d => (
                 <button
                   key={d.day}
-                  onClick={() => { setEditingDay({ weekStart: currentWeek.weekStart ?? '', day: d }); setEditType(d.type); setEditLabel(d.label); }}
+                  onClick={() => { setEditingDay({ weekStart: currentWeek.weekStart ?? '', day: d }); setEditType(d.type); setEditLabel(d.label); setEditDescription(d.description ?? ''); }}
                   className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 w-full text-left hover:border-brand-200 transition-colors"
                 >
                   <div className="w-12 text-center"><p className="text-sm font-bold text-gray-900">{d.day}</p></div>
-                  <div className="flex-1"><p className="text-sm font-semibold text-gray-900">{d.label || <span className="text-gray-300">Tap to set</span>}</p></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">{d.label || <span className="text-gray-300">Tap to set</span>}</p>
+                    {d.description && <p className="text-xs text-gray-400 mt-0.5">{d.description}</p>}
+                  </div>
                   <span className={`text-[11px] font-bold px-2 py-1 rounded-full capitalize ${SCHEDULE_BADGE[d.type]}`}>{d.type}</span>
                 </button>
               ))}
@@ -685,7 +690,7 @@ export function CoachDashboard({
             {editingDay && (
               <div className="fixed inset-0 z-50 flex items-end" onClick={() => setEditingDay(null)}>
                 <div className="absolute inset-0 bg-black/40" />
-                <div className="relative w-full bg-white rounded-t-3xl p-6 pb-10" onClick={e => e.stopPropagation()}>
+                <div className="relative w-full bg-white rounded-t-3xl p-6 pb-24" onClick={e => e.stopPropagation()}>
                   <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
                   <p className="font-bold text-gray-900 text-base mb-4">{editingDay.day.day} — Edit session</p>
 
@@ -694,26 +699,40 @@ export function CoachDashboard({
                     {(['rest', 'training', 'match'] as const).map(t => (
                       <button
                         key={t}
-                        onClick={() => { setEditType(t); if (t === 'rest') setEditLabel('Rest'); }}
+                        onClick={() => { setEditType(t); if (t === 'rest') { setEditLabel('Rest'); setEditDescription(''); } }}
                         className={`py-3 rounded-xl text-sm font-bold capitalize transition-colors ${editType === t ? (t === 'match' ? 'bg-brand-500 text-white' : t === 'training' ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-500') : 'bg-gray-50 text-gray-400'}`}
                       >{t}</button>
                     ))}
                   </div>
 
-                  {/* Label input */}
+                  {/* Title */}
+                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Title</p>
                   <input
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-4"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-3"
                     placeholder={editType === 'match' ? 'e.g. vs Eastside FC (H)' : editType === 'training' ? 'e.g. Team training' : 'Rest day'}
                     value={editLabel}
                     onChange={e => setEditLabel(e.target.value)}
                   />
+
+                  {/* Description */}
+                  {editType !== 'rest' && (
+                    <>
+                      <p className="text-xs font-semibold text-gray-500 mb-1.5">Details <span className="font-normal text-gray-400">(optional)</span></p>
+                      <textarea
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 resize-none min-h-[80px] mb-3"
+                        placeholder={editType === 'match' ? 'e.g. Kick-off 3pm · Riverside Ground, Manchester · Bring both kits' : 'e.g. Focus on set pieces · Meet at the main entrance at 6:45pm'}
+                        value={editDescription}
+                        onChange={e => setEditDescription(e.target.value)}
+                      />
+                    </>
+                  )}
 
                   <button
                     disabled={editSaving}
                     onClick={async () => {
                       if (!onUpdateScheduleDay || !editingDay.weekStart) return;
                       setEditSaving(true);
-                      await onUpdateScheduleDay(editingDay.weekStart, editingDay.day.day, editType, editLabel || (editType === 'rest' ? 'Rest' : editType === 'training' ? 'Training' : 'Match'));
+                      await onUpdateScheduleDay(editingDay.weekStart, editingDay.day.day, editType, editLabel || (editType === 'rest' ? 'Rest' : editType === 'training' ? 'Training' : 'Match'), editDescription);
                       setEditSaving(false);
                       setEditingDay(null);
                     }}
