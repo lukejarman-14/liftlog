@@ -740,7 +740,15 @@ export default function App() {
     const { error } = await supabase
       .from('coach_announcements')
       .insert({ coach_id: cloudUserIdRef.current, text });
-    if (error) { if (import.meta.env.DEV) console.warn('[announcements] post error:', error.message); return; }
+    if (error) {
+      if (error.message.includes('Rate limit exceeded')) {
+        alert('You\'ve reached the announcement limit (20 per hour). Please try again later.');
+      } else {
+        if (import.meta.env.DEV) console.warn('[announcements] post error:', error.message);
+      }
+      captureError(error, { context: 'handlePostAnnouncement' });
+      return;
+    }
     await fetchAnnouncements(cloudUserIdRef.current);
   }, [fetchAnnouncements]);
 
@@ -936,10 +944,19 @@ export default function App() {
       alert(`A result for ${result.matchDate} already exists. Use the Edit button to update it.`);
       return;
     }
-    const { data } = await supabase.from('match_results').insert({
+    const { data, error } = await supabase.from('match_results').insert({
       coach_id: cloudUserIdRef.current, match_date: result.matchDate, opponent: result.opponent,
       venue: result.venue, goals_for: result.goalsFor, goals_against: result.goalsAgainst, notes: result.notes,
     }).select('id').single();
+    if (error) {
+      if (error.message.includes('Rate limit exceeded')) {
+        alert('You\'ve reached the match result limit (50 per day). Please try again tomorrow.');
+      } else {
+        if (import.meta.env.DEV) console.warn('[match results] save error:', error.message);
+      }
+      captureError(error, { context: 'handleSaveMatchResult' });
+      return;
+    }
     if (data) setMatchResults(prev => [{ ...result, id: data.id }, ...prev]);
   }, [matchResults]);
 
@@ -967,7 +984,15 @@ export default function App() {
       coach_id: coachId, session_date: sessionDate, session_title: sessionTitle, player_id: playerId, attended,
     }));
     const { error: upsertError } = await supabase.from('session_attendance').upsert(rows, { onConflict: 'coach_id,session_date,player_id' });
-    if (upsertError) { if (import.meta.env.DEV) console.error('[attendance] save error:', upsertError); return; }
+    if (upsertError) {
+      if (upsertError.message.includes('Rate limit exceeded')) {
+        alert('You\'ve reached the attendance record limit (100 per day). Please try again tomorrow.');
+      } else {
+        if (import.meta.env.DEV) console.error('[attendance] save error:', upsertError);
+      }
+      captureError(upsertError, { context: 'handleSaveAttendance' });
+      return;
+    }
     // Refresh the list
     try {
       await fetchAttendance(coachId);
