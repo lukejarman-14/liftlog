@@ -95,7 +95,8 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+    console.error('[stripe-webhook] unhandled error:', (err as Error).message);
+    return new Response(JSON.stringify({ error: 'An unexpected error occurred.' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

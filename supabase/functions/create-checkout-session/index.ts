@@ -68,6 +68,19 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Rate limiting: 10 checkout attempts per hour per user
+  const { data: allowed, error: rlError } = await supabase.rpc('check_edge_rate_limit', {
+    p_user_id: user.id,
+    p_endpoint: 'create-checkout-session',
+    p_max_requests: 10,
+    p_window_minutes: 60,
+  });
+  if (rlError || !allowed) {
+    return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
+      status: 429, headers: { ...cors(req), 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const { plan, accountType: rawAccountType, noTrial } = await req.json();
 
@@ -147,7 +160,8 @@ Deno.serve(async (req) => {
       headers: { ...cors(req), 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+    console.error('[create-checkout-session] unhandled error:', (err as Error).message);
+    return new Response(JSON.stringify({ error: 'An unexpected error occurred. Please try again.' }), {
       status: 500, headers: { ...cors(req), 'Content-Type': 'application/json' },
     });
   }

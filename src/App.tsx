@@ -922,7 +922,7 @@ export default function App() {
   const fetchAttendance = useCallback(async (userId: string) => {
     if (!supabase) return;
     try {
-      const { data } = await supabase.from('session_attendance').select('session_date, session_title, player_id, attended').eq('coach_id', userId).order('session_date', { ascending: false });
+      const { data } = await supabase.from('session_attendance').select('session_date, session_title, player_id, attended').eq('coach_id', userId).order('session_date', { ascending: false }).limit(1000);
       if (!Array.isArray(data)) return;
       // Group by (session_date, session_title)
       const grouped: Record<string, { session_date: string; session_title: string; attendance: Record<string, boolean> }> = {};
@@ -950,7 +950,7 @@ export default function App() {
   // ---- Match results ----
   const fetchMatchResults = useCallback(async (userId: string) => {
     if (!supabase) return;
-    const { data } = await supabase.from('match_results').select('id, match_date, opponent, venue, goals_for, goals_against, notes').eq('coach_id', userId).order('match_date', { ascending: false });
+    const { data } = await supabase.from('match_results').select('id, match_date, opponent, venue, goals_for, goals_against, notes').eq('coach_id', userId).order('match_date', { ascending: false }).limit(200);
     setMatchResults((data ?? []).map((r: { id: string; match_date: string; opponent: string; venue: string; goals_for: number; goals_against: number; notes: string }) => ({
       id: r.id, matchDate: r.match_date, opponent: r.opponent, venue: r.venue as 'home' | 'away',
       goalsFor: r.goals_for, goalsAgainst: r.goals_against, notes: r.notes,
