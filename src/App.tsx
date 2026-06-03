@@ -3,6 +3,7 @@ import { Battery, Zap, X } from 'lucide-react';
 import { useStore } from './hooks/useStore';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/screens/Dashboard';
+import type { FormationData } from './components/screens/FormationBuilder';
 import { NavState, WorkoutExercise, WorkoutSession, UserProfile, TestSession, ProgrammeSession } from './types';
 import { POSITION_TEMPLATES } from './data/positionPlans';
 import { sessionToLegacyTest, calcBaselineResults } from './data/testingBattery';
@@ -55,24 +56,54 @@ const ResetPassword      = lazy(() => import('./components/screens/ResetPassword
 const Paywall            = lazy(() => import('./components/screens/Paywall').then(m => ({ default: m.Paywall })));
 const CoachDashboard     = lazy(() => import('./components/screens/CoachDashboard').then(m => ({ default: m.CoachDashboard })));
 // Demo data for the coach dashboard preview (branch-only, remove before launch).
-import { DEMO_TEAMS, type MatchResult, type SquadPlayer } from './components/screens/CoachDashboard';
+import { DEMO_TEAMS, type MatchResult, type SquadPlayer, type SquadGroup } from './components/screens/CoachDashboard';
 
 const DEMO_PLAYERS: SquadPlayer[] = [
-  { id: 'demo-1', name: 'James Thornton', position: 'Goalkeeper', group: 'Defence', readiness: 'ready', available: true, improvementScore: 65, programmeName: 'GK Programme', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-2', name: 'Marcus Webb', position: 'Centre-Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 72, programmeName: 'Defender S&C', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-3', name: 'Tyler Shaw', position: 'Centre-Back', group: 'Defence', readiness: 'moderate', available: true, improvementScore: 58, programmeName: 'Defender S&C', sessionsThisWeek: 2, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-4', name: 'Liam Carter', position: 'Right Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 80, programmeName: 'Full-Back Power', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-5', name: 'Noah Barnes', position: 'Left Back', group: 'Defence', readiness: 'low', available: false, injury: 'Hamstring', improvementScore: 40, programmeName: 'Full-Back Power', sessionsThisWeek: 1, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-6', name: 'Ethan Clarke', position: 'Defensive Mid', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 88, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-7', name: 'Ryan Patel', position: 'Central Mid', group: 'Midfield', readiness: 'moderate', available: true, improvementScore: 70, programmeName: 'Midfielder S&C', sessionsThisWeek: 2, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-8', name: 'Jordan Ellis', position: 'Central Mid', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 75, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-9', name: 'Sam Hughes', position: 'Right Wing', group: 'Attack', readiness: 'ready', available: true, improvementScore: 91, programmeName: 'Winger Speed', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-10', name: 'Leo Marsh', position: 'Left Wing', group: 'Attack', readiness: 'moderate', available: true, improvementScore: 62, programmeName: 'Winger Speed', sessionsThisWeek: 2, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-11', name: 'Kai Foster', position: 'Striker', group: 'Attack', readiness: 'ready', available: true, improvementScore: 85, programmeName: 'Striker Power', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-12', name: 'Finn Murphy', position: 'Striker', group: 'Attack', readiness: 'ready', available: true, improvementScore: 77, programmeName: 'Striker Power', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-13', name: 'Oscar Reid', position: 'Winger', group: 'Attack', readiness: 'moderate', available: true, improvementScore: 55, programmeName: 'Winger Speed', sessionsThisWeek: 2, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-14', name: 'Callum Price', position: 'Centre-Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 68, programmeName: 'Defender S&C', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
-  { id: 'demo-15', name: 'Harvey Stone', position: 'Midfielder', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 73, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3, testing: [], recentActivity: [] },
+  { id: 'demo-1', name: 'James Thornton', position: 'Goalkeeper', group: 'Defence', readiness: 'ready', available: true, improvementScore: 65, programmeName: 'GK Programme', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.92s', change: '-0.03s', improved: true }, { label: '30m Sprint', value: '4.45s', change: '-0.04s', improved: true }, { label: 'CMJ', value: '36cm', change: '+2cm', improved: true }, { label: 'Standing Long Jump', value: '230cm', change: '+4cm', improved: true }, { label: 'RSA (6×30m)', value: '4.72s', change: '-0.02s', improved: true }, { label: 'Yo-Yo IR1', value: '16.8', change: '+0.4', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'GK Shot-stopping', rpe: 7 }, { date: 'Wed 28 May', label: 'Distribution & Footwork', rpe: 6 }] },
+  { id: 'demo-2', name: 'Marcus Webb', position: 'Centre-Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 72, programmeName: 'Defender S&C', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.88s', change: '-0.04s', improved: true }, { label: '30m Sprint', value: '4.32s', change: '-0.05s', improved: true }, { label: 'CMJ', value: '39cm', change: '+2cm', improved: true }, { label: 'Standing Long Jump', value: '242cm', change: '+5cm', improved: true }, { label: 'RSA (6×30m)', value: '4.58s', change: '-0.03s', improved: true }, { label: 'Yo-Yo IR1', value: '17.4', change: '+0.3', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Strength & Power', rpe: 8 }, { date: 'Wed 28 May', label: 'Speed Endurance', rpe: 7 }] },
+  { id: 'demo-3', name: 'Tyler Shaw', position: 'Centre-Back', group: 'Defence', readiness: 'moderate', available: true, improvementScore: 58, programmeName: 'Defender S&C', sessionsThisWeek: 2, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.95s', change: '+0.01s', improved: false }, { label: '30m Sprint', value: '4.51s', change: '+0.02s', improved: false }, { label: 'CMJ', value: '35cm', change: '-1cm', improved: false }, { label: 'Standing Long Jump', value: '228cm', change: '-2cm', improved: false }, { label: 'RSA (6×30m)', value: '4.80s', change: '+0.06s', improved: false }, { label: 'Yo-Yo IR1', value: '16.2', change: '-0.3', improved: false }],
+    recentActivity: [{ date: 'Thu 29 May', label: 'Recovery Run', rpe: 4 }, { date: 'Mon 26 May', label: 'Strength Base', rpe: 7 }] },
+  { id: 'demo-4', name: 'Liam Carter', position: 'Right Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 80, programmeName: 'Full-Back Power', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.80s', change: '-0.06s', improved: true }, { label: '30m Sprint', value: '4.18s', change: '-0.07s', improved: true }, { label: 'CMJ', value: '43cm', change: '+3cm', improved: true }, { label: 'Standing Long Jump', value: '254cm', change: '+6cm', improved: true }, { label: 'RSA (6×30m)', value: '4.38s', change: '-0.05s', improved: true }, { label: 'Yo-Yo IR1', value: '18.2', change: '+0.6', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Speed & Acceleration', rpe: 8 }, { date: 'Wed 28 May', label: 'Plyometrics', rpe: 7 }, { date: 'Mon 26 May', label: 'Lower Body Power', rpe: 8 }] },
+  { id: 'demo-5', name: 'Noah Barnes', position: 'Left Back', group: 'Defence', readiness: 'low', available: false, injury: 'Hamstring', improvementScore: 40, programmeName: 'Full-Back Power', sessionsThisWeek: 1, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.86s', change: '+0.03s', improved: false }, { label: '30m Sprint', value: '4.28s', change: '+0.04s', improved: false }, { label: 'CMJ', value: '40cm', change: '-2cm', improved: false }, { label: 'Standing Long Jump', value: '247cm', change: '-3cm', improved: false }, { label: 'RSA (6×30m)', value: '4.52s', change: '+0.08s', improved: false }, { label: 'Yo-Yo IR1', value: '17.6', change: '-0.4', improved: false }],
+    recentActivity: [{ date: 'Mon 26 May', label: 'Rehab Session', rpe: 3 }] },
+  { id: 'demo-6', name: 'Ethan Clarke', position: 'Defensive Mid', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 88, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.82s', change: '-0.05s', improved: true }, { label: '30m Sprint', value: '4.22s', change: '-0.06s', improved: true }, { label: 'CMJ', value: '42cm', change: '+3cm', improved: true }, { label: 'Standing Long Jump', value: '251cm', change: '+7cm', improved: true }, { label: 'RSA (6×30m)', value: '4.42s', change: '-0.06s', improved: true }, { label: 'Yo-Yo IR1', value: '18.6', change: '+0.8', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Speed & Power', rpe: 8 }, { date: 'Wed 28 May', label: 'Strength Block', rpe: 8 }, { date: 'Mon 26 May', label: 'Conditioning', rpe: 7 }] },
+  { id: 'demo-7', name: 'Ryan Patel', position: 'Central Mid', group: 'Midfield', readiness: 'moderate', available: true, improvementScore: 70, programmeName: 'Midfielder S&C', sessionsThisWeek: 2, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.85s', change: '-0.02s', improved: true }, { label: '30m Sprint', value: '4.28s', change: '-0.02s', improved: true }, { label: 'CMJ', value: '40cm', change: '+1cm', improved: true }, { label: 'Standing Long Jump', value: '245cm', change: '+2cm', improved: true }, { label: 'RSA (6×30m)', value: '4.55s', change: '-0.02s', improved: true }, { label: 'Yo-Yo IR1', value: '17.9', change: '+0.2', improved: true }],
+    recentActivity: [{ date: 'Thu 29 May', label: 'Strength Base', rpe: 7 }, { date: 'Tue 27 May', label: 'Speed Work', rpe: 6 }] },
+  { id: 'demo-8', name: 'Jordan Ellis', position: 'Central Mid', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 75, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.84s', change: '-0.03s', improved: true }, { label: '30m Sprint', value: '4.25s', change: '-0.04s', improved: true }, { label: 'CMJ', value: '41cm', change: '+2cm', improved: true }, { label: 'Standing Long Jump', value: '249cm', change: '+4cm', improved: true }, { label: 'RSA (6×30m)', value: '4.48s', change: '-0.04s', improved: true }, { label: 'Yo-Yo IR1', value: '18.1', change: '+0.5', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Power & Speed', rpe: 7 }, { date: 'Wed 28 May', label: 'Lower Body Strength', rpe: 8 }, { date: 'Mon 26 May', label: 'Conditioning', rpe: 7 }] },
+  { id: 'demo-9', name: 'Sam Hughes', position: 'Right Wing', group: 'Attack', readiness: 'ready', available: true, improvementScore: 91, programmeName: 'Winger Speed', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.72s', change: '-0.07s', improved: true }, { label: '30m Sprint', value: '3.95s', change: '-0.08s', improved: true }, { label: 'CMJ', value: '48cm', change: '+4cm', improved: true }, { label: 'Standing Long Jump', value: '265cm', change: '+8cm', improved: true }, { label: 'RSA (6×30m)', value: '4.22s', change: '-0.07s', improved: true }, { label: 'Yo-Yo IR1', value: '19.2', change: '+1.0', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Sprint Development', rpe: 8 }, { date: 'Wed 28 May', label: 'Plyometrics', rpe: 8 }, { date: 'Mon 26 May', label: 'Speed Endurance', rpe: 7 }] },
+  { id: 'demo-10', name: 'Leo Marsh', position: 'Left Wing', group: 'Attack', readiness: 'moderate', available: true, improvementScore: 62, programmeName: 'Winger Speed', sessionsThisWeek: 2, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.78s', change: '-0.03s', improved: true }, { label: '30m Sprint', value: '4.08s', change: '-0.03s', improved: true }, { label: 'CMJ', value: '44cm', change: '+1cm', improved: true }, { label: 'Standing Long Jump', value: '257cm', change: '+3cm', improved: true }, { label: 'RSA (6×30m)', value: '4.32s', change: '-0.03s', improved: true }, { label: 'Yo-Yo IR1', value: '18.5', change: '+0.4', improved: true }],
+    recentActivity: [{ date: 'Thu 29 May', label: 'Speed Work', rpe: 7 }, { date: 'Tue 27 May', label: 'Power Training', rpe: 7 }] },
+  { id: 'demo-11', name: 'Kai Foster', position: 'Striker', group: 'Attack', readiness: 'ready', available: true, improvementScore: 85, programmeName: 'Striker Power', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.75s', change: '-0.05s', improved: true }, { label: '30m Sprint', value: '4.02s', change: '-0.06s', improved: true }, { label: 'CMJ', value: '46cm', change: '+3cm', improved: true }, { label: 'Standing Long Jump', value: '260cm', change: '+6cm', improved: true }, { label: 'RSA (6×30m)', value: '4.28s', change: '-0.05s', improved: true }, { label: 'Yo-Yo IR1', value: '18.9', change: '+0.7', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Lower Body Power', rpe: 9 }, { date: 'Wed 28 May', label: 'Sprint Mechanics', rpe: 8 }, { date: 'Mon 26 May', label: 'Strength Block', rpe: 8 }] },
+  { id: 'demo-12', name: 'Finn Murphy', position: 'Striker', group: 'Attack', readiness: 'ready', available: true, improvementScore: 77, programmeName: 'Striker Power', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.77s', change: '-0.04s', improved: true }, { label: '30m Sprint', value: '4.05s', change: '-0.05s', improved: true }, { label: 'CMJ', value: '45cm', change: '+2cm', improved: true }, { label: 'Standing Long Jump', value: '258cm', change: '+5cm', improved: true }, { label: 'RSA (6×30m)', value: '4.30s', change: '-0.04s', improved: true }, { label: 'Yo-Yo IR1', value: '18.7', change: '+0.5', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Power Development', rpe: 8 }, { date: 'Wed 28 May', label: 'Speed & Agility', rpe: 7 }, { date: 'Mon 26 May', label: 'Conditioning', rpe: 8 }] },
+  { id: 'demo-13', name: 'Oscar Reid', position: 'Winger', group: 'Attack', readiness: 'moderate', available: true, improvementScore: 55, programmeName: 'Winger Speed', sessionsThisWeek: 2, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.81s', change: '-0.01s', improved: true }, { label: '30m Sprint', value: '4.15s', change: '-0.01s', improved: true }, { label: 'CMJ', value: '42cm', change: '0cm', improved: false }, { label: 'Standing Long Jump', value: '250cm', change: '+1cm', improved: true }, { label: 'RSA (6×30m)', value: '4.45s', change: '+0.01s', improved: false }, { label: 'Yo-Yo IR1', value: '17.8', change: '+0.1', improved: true }],
+    recentActivity: [{ date: 'Thu 29 May', label: 'Speed Endurance', rpe: 6 }, { date: 'Tue 27 May', label: 'Plyometrics', rpe: 7 }] },
+  { id: 'demo-14', name: 'Callum Price', position: 'Centre-Back', group: 'Defence', readiness: 'ready', available: true, improvementScore: 68, programmeName: 'Defender S&C', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.90s', change: '-0.02s', improved: true }, { label: '30m Sprint', value: '4.38s', change: '-0.03s', improved: true }, { label: 'CMJ', value: '37cm', change: '+1cm', improved: true }, { label: 'Standing Long Jump', value: '235cm', change: '+3cm', improved: true }, { label: 'RSA (6×30m)', value: '4.65s', change: '-0.03s', improved: true }, { label: 'Yo-Yo IR1', value: '17.0', change: '+0.2', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Strength & Conditioning', rpe: 7 }, { date: 'Wed 28 May', label: 'Speed Work', rpe: 6 }, { date: 'Mon 26 May', label: 'Lower Body Strength', rpe: 8 }] },
+  { id: 'demo-15', name: 'Harvey Stone', position: 'Midfielder', group: 'Midfield', readiness: 'ready', available: true, improvementScore: 73, programmeName: 'Midfielder S&C', sessionsThisWeek: 3, sessionsTarget: 3,
+    testing: [{ label: '10m Sprint', value: '1.83s', change: '-0.04s', improved: true }, { label: '30m Sprint', value: '4.23s', change: '-0.04s', improved: true }, { label: 'CMJ', value: '41cm', change: '+2cm', improved: true }, { label: 'Standing Long Jump', value: '248cm', change: '+4cm', improved: true }, { label: 'RSA (6×30m)', value: '4.48s', change: '-0.03s', improved: true }, { label: 'Yo-Yo IR1', value: '18.0', change: '+0.4', improved: true }],
+    recentActivity: [{ date: 'Fri 30 May', label: 'Conditioning Block', rpe: 7 }, { date: 'Wed 28 May', label: 'Speed & Power', rpe: 7 }, { date: 'Mon 26 May', label: 'Strength Base', rpe: 8 }] },
 ];
 
 // check for password reset link on both implicit (#type=recovery) and PKCE (?code=) flows
@@ -155,6 +186,8 @@ export default function App() {
   const [squadProfile, setSquadProfile] = useState<{ displayName: string; position: string; jerseyNumber: number | null } | undefined>();
   // Coach: match results
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
+  // Coach: saved attendance records
+  const [savedAttendance, setSavedAttendance] = useState<Array<{ session_date: string; session_title: string; attendance: Record<string, boolean> }>>([]);
   const [showGlobalStrengthSetup, setShowGlobalStrengthSetup] = useState(false);
   const [pendingReTestSession, setPendingReTestSession] = useState<TestSession | null>(null);
   const [myReferralCode, setMyReferralCode] = useState<string | undefined>();
@@ -189,7 +222,14 @@ export default function App() {
           void syncSquad(userId);
           if (!sessionStorage.getItem('vf_boot_synced')) {
             sessionStorage.setItem('vf_boot_synced', '1');
-            await cloudLoadData(userId);
+            const hadCloudData = await cloudLoadData(userId);
+            // New account: cloudSaveData at signup may have failed because the session
+            // didn't exist yet (email confirmation pending, RLS blocked the write).
+            // If there's no cloud row for this user, push whatever is in localStorage
+            // so future refreshes load the correct profile + accountType.
+            if (!hadCloudData) {
+              await cloudSaveData(userId).catch(() => {});
+            }
             // Re-read premium from localStorage now that cloudLoadData has written the
             // server-authoritative value.  usePremium uses plain useState (not
             // useLocalStorage), so it won't pick up the vf-cloud-restored event on its own.
@@ -281,10 +321,19 @@ export default function App() {
         // normal sign-in flows that are handled by the Login screen directly).
         if (!cloudUserIdRef.current) {
           cloudUserIdRef.current = userId;
-          setIsAuthenticated(true);
           setSessionChecking(false);
           identifyUser(userId);
-          cloudLoadData(userId).catch(() => {});
+          // Email confirmation just completed — session now exists so RLS allows writes.
+          // Save first (cloudSaveData failed at signup time — no session = 400 from RLS),
+          // then load so the store has the correct accountType BEFORE we set isAuthenticated.
+          // This prevents a flash of the personal-account paywall for coach accounts.
+          cloudSaveData(userId)
+            .then(() => cloudLoadData(userId))
+            .catch(() => {})
+            .finally(() => {
+              premium.refresh();
+              setIsAuthenticated(true);
+            });
           rcConfigure(userId).catch(() => {});
           void syncSquad(userId);
         }
@@ -596,6 +645,16 @@ export default function App() {
     // 'error' (network/RLS) → keep the code and retry on next authenticated boot
   };
 
+  /** Map position code to group (e.g. 'FB' → 'Defence'). */
+  const getPositionGroup = (posCode: string): SquadGroup => {
+    if (!posCode) return 'Midfield';
+    const code = posCode.toUpperCase();
+    if (['GK', 'CB', 'FB', 'LB', 'RB'].includes(code)) return 'Defence';
+    if (['CM', 'DM', 'AM'].includes(code)) return 'Midfield';
+    if (['W', 'LW', 'RW', 'ST'].includes(code)) return 'Attack';
+    return 'Midfield';
+  };
+
   /** Fetch live squad members from Supabase and populate the coach dashboard. */
   const fetchSquadMembers = useCallback(async (userId: string) => {
     if (!supabase) return;
@@ -616,11 +675,12 @@ export default function App() {
 
       const players: SquadPlayer[] = data.map((row: { player_id: string; joined_at: string; email: string; full_name: string }) => {
         const prof = profileMap[row.player_id];
+        const posCode = prof?.position || '';
         return {
         id: row.player_id,
         name: prof?.display_name || row.full_name || row.email.split('@')[0],
-        position: prof?.position || 'Player',
-        group: 'Midfield' as const,
+        position: posCode || 'Player',
+        group: getPositionGroup(posCode),
         readiness: 'moderate' as const,
         available: true,
         improvementScore: 0,
@@ -690,13 +750,17 @@ export default function App() {
     setLiveAnnouncements(prev => prev.filter(a => a.id !== id));
   }, []);
 
-  /** Fetch announcements from the player's coach (for the player dashboard). */
+  /** Fetch announcements from the player's coach (for the player dashboard).
+   * REQUIRES RLS POLICY: coach_announcements must be scoped to the player's coach_id via squad membership.
+   * See Supabase migrations for RLS setup.
+   */
   const fetchPlayerCoachAnnouncements = useCallback(async () => {
     if (!supabase) return;
     try {
       const { data, error } = await supabase
         .from('coach_announcements')
         .select('id, text, created_at')
+        // Note: coach_id filter is enforced via RLS policy, not here
         .order('created_at', { ascending: false })
         .limit(10);
       if (error) { if (import.meta.env.DEV) console.warn('[announcements] player fetch error:', error.message); return; }
@@ -823,14 +887,34 @@ export default function App() {
     ));
   }, []);
 
-  // Fetch schedule when coach is authenticated
+  /** Fetch saved attendance records from Supabase. */
+  const fetchAttendance = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    try {
+      const { data } = await supabase.from('session_attendance').select('session_date, session_title, player_id, attended').eq('coach_id', userId).order('session_date', { ascending: false });
+      if (!Array.isArray(data)) return;
+      // Group by (session_date, session_title)
+      const grouped: Record<string, { session_date: string; session_title: string; attendance: Record<string, boolean> }> = {};
+      for (const row of data) {
+        const key = `${row.session_date}|${row.session_title}`;
+        if (!grouped[key]) {
+          grouped[key] = { session_date: row.session_date, session_title: row.session_title, attendance: {} };
+        }
+        grouped[key].attendance[row.player_id] = row.attended;
+      }
+      setSavedAttendance(Object.values(grouped));
+    } catch (e) { if (import.meta.env.DEV) console.warn('[attendance] fetch error:', e); }
+  }, []);
+
+  // Fetch schedule, match results, and attendance when coach is authenticated
   useEffect(() => {
     const acct = store.userProfile?.accountType;
     if ((acct === 'coach' || acct === 'club') && isAuthenticated && cloudUserIdRef.current) {
       void fetchSchedule(cloudUserIdRef.current);
       void fetchMatchResults(cloudUserIdRef.current);
+      void fetchAttendance(cloudUserIdRef.current);
     }
-  }, [isAuthenticated, store.userProfile?.accountType, fetchSchedule]);
+  }, [isAuthenticated, store.userProfile?.accountType, fetchSchedule, fetchAttendance]);
 
   // ---- Match results ----
   const fetchMatchResults = useCallback(async (userId: string) => {
@@ -847,7 +931,7 @@ export default function App() {
     // Prevent duplicate results for the same date
     const exists = matchResults.some(r => r.matchDate === result.matchDate);
     if (exists) {
-      alert(`A result for ${result.matchDate} already exists. Delete it first if you want to re-enter it.`);
+      alert(`A result for ${result.matchDate} already exists. Use the Edit button to update it.`);
       return;
     }
     const { data } = await supabase.from('match_results').insert({
@@ -855,6 +939,23 @@ export default function App() {
       venue: result.venue, goals_for: result.goalsFor, goals_against: result.goalsAgainst, notes: result.notes,
     }).select('id').single();
     if (data) setMatchResults(prev => [{ ...result, id: data.id }, ...prev]);
+  }, [matchResults]);
+
+  const handleUpdateMatchResult = useCallback(async (result: MatchResult) => {
+    if (!supabase || !result.id) return;
+    const { error } = await supabase.from('match_results').update({
+      match_date: result.matchDate, opponent: result.opponent, venue: result.venue,
+      goals_for: result.goalsFor, goals_against: result.goalsAgainst, notes: result.notes,
+    }).eq('id', result.id);
+    if (!error) {
+      setMatchResults(prev => prev.map(r => r.id === result.id ? result : r));
+    }
+  }, []);
+
+  const handleDeleteMatchResult = useCallback(async (id: string) => {
+    if (!supabase) return;
+    const { error } = await supabase.from('match_results').delete().eq('id', id);
+    if (!error) setMatchResults(prev => prev.filter(r => r.id !== id));
   }, []);
 
   const handleSaveAttendance = useCallback(async (sessionDate: string, sessionTitle: string, attendance: Record<string, boolean>) => {
@@ -863,15 +964,54 @@ export default function App() {
     const rows = Object.entries(attendance).map(([playerId, attended]) => ({
       coach_id: coachId, session_date: sessionDate, session_title: sessionTitle, player_id: playerId, attended,
     }));
-    await supabase.from('session_attendance').upsert(rows, { onConflict: 'coach_id,session_date,player_id' });
-  }, []);
+    const { error: upsertError } = await supabase.from('session_attendance').upsert(rows, { onConflict: 'coach_id,session_date,player_id' });
+    if (upsertError) { if (import.meta.env.DEV) console.error('[attendance] save error:', upsertError); return; }
+    // Refresh the list
+    try {
+      await fetchAttendance(coachId);
+    } catch (err) { if (import.meta.env.DEV) console.error('[attendance] refresh error:', err); }
+  }, [fetchAttendance]);
 
-  const handleSaveMatchSquad = useCallback(async (matchDate: string, squad: { playerId: string; role: 'starter' | 'sub' | 'unavailable'; position: string }[]) => {
+  const handleSaveMatchSquad = useCallback(async (matchDate: string, squad: { playerId: string; role: 'starter' | 'sub' | 'unavailable'; position: string }[], formationData?: FormationData) => {
     if (!supabase || !cloudUserIdRef.current) return;
     const coachId = cloudUserIdRef.current;
-    const rows = squad.map(s => ({ coach_id: coachId, match_date: matchDate, player_id: s.playerId, role: s.role, position: s.position }));
+    const rows = squad.map(s => ({ coach_id: coachId, match_date: matchDate, player_id: s.playerId, role: s.role, position: s.position, formation_data: formationData || null }));
     await supabase.from('match_squads').upsert(rows, { onConflict: 'coach_id,match_date,player_id' });
   }, []);
+
+  /** Fetch saved formation for a specific match. */
+  const fetchSavedFormation = useCallback(async (matchDate: string) => {
+    if (!supabase || !cloudUserIdRef.current) return null;
+    const { data, error } = await supabase
+      .from('match_squads')
+      .select('formation_data')
+      .eq('coach_id', cloudUserIdRef.current)
+      .eq('match_date', matchDate)
+      .limit(1)
+      .single();
+    if (error || !data?.formation_data) return null;
+    return data.formation_data;
+  }, []);
+
+  /** Fetch the most recent saved formation from any previous match. */
+  const fetchPreviousMatchFormation = useCallback(async () => {
+    if (!supabase || !cloudUserIdRef.current) return null;
+    const { data, error } = await supabase
+      .from('match_squads')
+      .select('formation_data')
+      .eq('coach_id', cloudUserIdRef.current)
+      .not('formation_data', 'is', null)
+      .order('match_date', { ascending: false })
+      .limit(1)
+      .single();
+    if (error || !data?.formation_data) return null;
+    return data.formation_data;
+  }, []);
+
+  /** Post a squad notification as an announcement to all squad players. */
+  const handleNotifySquad = useCallback(async (message: string) => {
+    await handlePostAnnouncement(message);
+  }, [handlePostAnnouncement]);
 
   const doGenerateProgramme = (resolvedInputs: ProgrammeInputs) => {
     const programme = generateProgramme(resolvedInputs);
@@ -1079,7 +1219,7 @@ export default function App() {
         <CoachDashboard
           coachName={[store.userProfile.firstName, store.userProfile.lastName].filter(Boolean).join(' ')}
           inviteSeed={cloudUserIdRef.current ?? store.userProfile.email}
-          players={liveSquadPlayers.length > 0 ? liveSquadPlayers : DEMO_PLAYERS}
+          players={[...liveSquadPlayers, ...DEMO_PLAYERS]}
           weeks={liveScheduleWeeks}
           teams={DEMO_TEAMS}
           announcements={liveAnnouncements}
@@ -1092,8 +1232,14 @@ export default function App() {
           onUpdateScheduleDay={handleUpdateScheduleDay}
           matchResults={matchResults}
           onSaveMatchResult={handleSaveMatchResult}
+          savedAttendance={savedAttendance}
           onSaveAttendance={handleSaveAttendance}
           onSaveMatchSquad={handleSaveMatchSquad}
+          onFetchSavedFormation={fetchSavedFormation}
+          onFetchPreviousFormation={fetchPreviousMatchFormation}
+          onUpdateMatchResult={handleUpdateMatchResult}
+          onDeleteMatchResult={handleDeleteMatchResult}
+          onNotifySquad={handleNotifySquad}
         />
       )}
       {screen === 'dashboard' && !isCoach && (

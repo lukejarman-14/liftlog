@@ -71,6 +71,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [submitting, setSubmitting] = useState(false);
   // Shown after sign-up when Supabase requires email confirmation before issuing a session
   const [awaitingEmailConfirm, setAwaitingEmailConfirm] = useState(false);
+  // True once cloudSignUp has been called — prevents re-calling handleEnterApp
+  // if the user presses back from the confirmation screen and then tries to continue again.
+  const [hasSignedUp, setHasSignedUp] = useState(false);
   const [pendingOnComplete, setPendingOnComplete] = useState<(() => void) | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmError, setConfirmError] = useState('');
@@ -359,6 +362,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         // Block here — show "check your email" screen and wait for SIGNED_IN event
         const proceed = () => onComplete(profile, '', userId);
         setPendingOnComplete(() => proceed);
+        setHasSignedUp(true);
         setAwaitingEmailConfirm(true);
         return;
       }
@@ -457,6 +461,13 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         </button>
 
         <p className="mt-4 text-xs text-gray-400">Can't find it? Check your spam folder.</p>
+
+        <button
+          onClick={() => { setAwaitingEmailConfirm(false); setStep(3); }}
+          className="mt-6 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <ChevronLeft size={14} /> Edit my details
+        </button>
       </div>
     );
   }
@@ -1320,7 +1331,13 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               Back
             </button>
             <button
-              onClick={() => { if (accountType !== 'personal') handleEnterApp(); else setStep(4); }}
+              onClick={() => {
+                // If signup already happened (email confirmation pending), never re-call
+                // handleEnterApp — just return to the confirmation screen. This prevents
+                // the user bypassing email confirmation by going back and re-submitting.
+                if (hasSignedUp) { setAwaitingEmailConfirm(true); return; }
+                if (accountType !== 'personal') handleEnterApp(); else setStep(4);
+              }}
               disabled={submitting}
               className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all ${
                 submitting
@@ -1330,6 +1347,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
             >
               {submitting
                 ? 'Creating…'
+                : hasSignedUp ? 'Back to email confirmation'
                 : accountType === 'coach' ? 'Continue as Coach'
                 : accountType === 'club' ? 'Continue as Club'
                 : 'Continue'}

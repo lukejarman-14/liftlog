@@ -1,5 +1,6 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, useEffect } from 'react';
 const FormationBuilder = lazy(() => import('./FormationBuilder').then(m => ({ default: m.FormationBuilder })));
+import type { FormationData } from './FormationBuilder';
 import { deriveTeamCode } from '../../lib/teams';
 import {
   Users, Copy, Check, Calendar, ChevronRight, ChevronLeft,
@@ -84,8 +85,23 @@ interface CoachDashboardProps {
   onUpdateScheduleDay?: (weekStart: string, day: string, type: ScheduleDay['type'], label: string, description: string) => Promise<void>;
   matchResults?: MatchResult[];
   onSaveMatchResult?: (result: Omit<MatchResult, 'id'>) => Promise<void>;
+  onUpdateMatchResult?: (result: MatchResult) => Promise<void>;
+  onDeleteMatchResult?: (id: string) => Promise<void>;
+  savedAttendance?: Array<{ session_date: string; session_title: string; attendance: Record<string, boolean> }>;
   onSaveAttendance?: (sessionDate: string, sessionTitle: string, attendance: Record<string, boolean>) => Promise<void>;
-  onSaveMatchSquad?: (matchDate: string, squad: { playerId: string; role: 'starter' | 'sub' | 'unavailable'; position: string }[]) => Promise<void>;
+  onSaveMatchSquad?: (matchDate: string, squad: { playerId: string; role: 'starter' | 'sub' | 'unavailable'; position: string }[], formationData?: any) => Promise<void>;
+  onFetchSavedFormation?: (matchDate: string) => Promise<FormationData | null>;
+  onFetchPreviousFormation?: () => Promise<FormationData | null>;
+  onNotifySquad?: (message: string) => Promise<void>;
+}
+
+/** Returns ISO date string for a named weekday within a given week (weekStart = Monday). */
+function getSessionDate(weekStart: string, dayName: string): string {
+  if (!weekStart) return '';
+  const offset: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+  const d = new Date(weekStart + 'T00:00:00');
+  d.setDate(d.getDate() + (offset[dayName] ?? 0));
+  return d.toISOString().slice(0, 10);
 }
 
 function initials(name: string): string {
@@ -277,7 +293,7 @@ export function CoachDashboard({
   inviteSeed, players = [], weeks = [], teams = [], announcements = [],
   maxPlayers = 30, isPaid = true, onUpgrade, onOpenProfile,
   onPostAnnouncement, onDeleteAnnouncement, onUpdateScheduleDay,
-  matchResults = [], onSaveMatchResult, onSaveAttendance, onSaveMatchSquad,
+  matchResults = [], onSaveMatchResult, onUpdateMatchResult, onDeleteMatchResult, savedAttendance = [], onSaveAttendance, onSaveMatchSquad, onFetchSavedFormation, onFetchPreviousFormation, onNotifySquad,
 }: CoachDashboardProps) {
   const [copied, setCopied] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -288,6 +304,7 @@ export function CoachDashboard({
   const [editingDay, setEditingDay] = useState<{ weekStart: string; day: ScheduleDay } | null>(null);
   // Match result modal
   const [showMatchModal, setShowMatchModal] = useState(false);
+  const [editingResultId, setEditingResultId] = useState<string | null>(null);
   const [matchOpponent, setMatchOpponent] = useState('');
   const [matchVenue, setMatchVenue] = useState<'home' | 'away'>('home');
   const [matchGoalsFor, setMatchGoalsFor] = useState('');
@@ -303,6 +320,9 @@ export function CoachDashboard({
   // Formation builder
   const [showFormationBuilder, setShowFormationBuilder] = useState(false);
   const [formationMatchDate, setFormationMatchDate] = useState('');
+  const [savedFormationData, setSavedFormationData] = useState<FormationData | undefined>(undefined);
+  // Session picker (for attendance from History)
+  const [showSessionPicker, setShowSessionPicker] = useState(false);
   const [editType, setEditType] = useState<ScheduleDay['type']>('rest');
   const [editLabel, setEditLabel] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -316,6 +336,25 @@ export function CoachDashboard({
 
   const inviteCode = deriveTeamCode(inviteSeed);
   const selected = players.find(p => p.id === selectedId) ?? null;
+
+  // Load saved formation for the current match when FormationBuilder opens
+  useEffect(() => {
+    if (showFormationBuilder && formationMatchDate && onFetchSavedFormation) {
+      onFetchSavedFormation(formationMatchDate)
+        .then(data => setSavedFormationData(data || undefined))
+        .catch(err => {
+          if (import.meta.env.DEV) console.error('[formation] fetch error:', err);
+          setSavedFormationData(undefined);
+        });
+    }
+  }, [showFormationBuilder, formationMatchDate, onFetchSavedFormation]);
+
+  // All non-rest sessions from all schedule weeks, newest first — used by session picker
+  const allScheduledSessions = weeks.flatMap(w =>
+    w.days
+      .filter(d => d.type !== 'rest')
+      .map(d => ({ weekLabel: w.label, day: d, date: getSessionDate(w.weekStart ?? '', d.day) }))
+  ).sort((a, b) => b.date.localeCompare(a.date));
 
   const copyCode = async () => {
     try { await navigator.clipboard.writeText(inviteCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }
@@ -354,16 +393,25 @@ export function CoachDashboard({
   void _squadActivity;
 
   const exportReport = () => {
-    const header = ['Name', 'Position', 'Readiness', 'Sessions', ...TEST_METRICS.map(m => m.label)];
+    // Quote a cell value — wraps in double quotes if it contains comma, quotes, or newlines
+    const q = (v: string) => /[,"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    const header = ['Name', 'Position', 'Readiness', 'Available', 'Sessions This Week', 'Sessions Target',
+      ...TEST_METRICS.flatMap(m => [m.label, `${m.label} Change`])];
     const rows = [header];
     players.forEach(p => rows.push([
-      p.name, p.position, p.readiness, `${p.sessionsThisWeek}/${p.sessionsTarget}`,
-      ...TEST_METRICS.map(m => p.testing.find(t => t.label === m.label)?.value ?? ''),
+      p.name, p.position, p.readiness, p.available ? 'Yes' : 'No',
+      String(p.sessionsThisWeek), String(p.sessionsTarget),
+      ...TEST_METRICS.flatMap(m => {
+        const t = p.testing.find(tt => tt.label === m.label);
+        return [t?.value ?? '', t?.change ?? ''];
+      }),
     ]));
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    // UTF-8 BOM (﻿) ensures Excel opens the file with correct encoding
+    const csv = '﻿' + rows.map(r => r.map(q).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const a = document.createElement('a');
-    a.href = url; a.download = 'squad-report.csv'; a.click();
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url; a.download = `squad-report-${date}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -623,7 +671,11 @@ export function CoachDashboard({
                     </div>
                     {onDeleteAnnouncement && a.id && (
                       <button
-                        onClick={() => onDeleteAnnouncement(a.id!)}
+                        onClick={() => {
+                          if (confirm('Are you sure you want to delete this announcement?')) {
+                            onDeleteAnnouncement(a.id!);
+                          }
+                        }}
                         className="text-gray-300 hover:text-red-400 text-xs flex-shrink-0 mt-0.5"
                         aria-label="Delete"
                       >✕</button>
@@ -785,17 +837,23 @@ export function CoachDashboard({
                     </>
                   )}
 
-                  <button
-                    disabled={editSaving}
-                    onClick={async () => {
-                      if (!onUpdateScheduleDay || !editingDay.weekStart) return;
-                      setEditSaving(true);
-                      await onUpdateScheduleDay(editingDay.weekStart, editingDay.day.day, editType, editLabel || (editType === 'rest' ? 'Rest' : editType === 'training' ? 'Training' : 'Match'), editDescription);
-                      setEditSaving(false);
-                      setEditingDay(null);
-                    }}
-                    className="w-full bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40"
-                  >{editSaving ? 'Saving…' : 'Save'}</button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditingDay(null)}
+                      className="flex-1 py-3.5 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm"
+                    >Cancel</button>
+                    <button
+                      disabled={editSaving}
+                      onClick={async () => {
+                        if (!onUpdateScheduleDay || !editingDay.weekStart) return;
+                        setEditSaving(true);
+                        await onUpdateScheduleDay(editingDay.weekStart, editingDay.day.day, editType, editLabel || (editType === 'rest' ? 'Rest' : editType === 'training' ? 'Training' : 'Match'), editDescription);
+                        setEditSaving(false);
+                        setEditingDay(null);
+                      }}
+                      className="flex-1 bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40 text-sm"
+                    >{editSaving ? 'Saving…' : 'Save'}</button>
+                  </div>
                 </div>
               </div>
             )}
@@ -815,7 +873,7 @@ export function CoachDashboard({
             {/* Match results */}
             <div className="flex items-center justify-between mb-3 px-1">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Match Results</p>
-              <button onClick={() => { setMatchOpponent(''); setMatchVenue('home'); setMatchGoalsFor(''); setMatchGoalsAgainst(''); setMatchNotes(''); setMatchDate(new Date().toISOString().slice(0,10)); setShowMatchModal(true); }} className="text-xs font-semibold text-brand-600">+ Add Result</button>
+              <button onClick={() => { setEditingResultId(null); setMatchOpponent(''); setMatchVenue('home'); setMatchGoalsFor(''); setMatchGoalsAgainst(''); setMatchNotes(''); setMatchDate(new Date().toISOString().slice(0,10)); setShowMatchModal(true); }} className="text-xs font-semibold text-brand-600">+ Add Result</button>
             </div>
             {matchResults.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-5 text-center text-sm text-gray-400">No match results yet — tap + Add Result</div>
@@ -827,11 +885,25 @@ export function CoachDashboard({
                   return (
                     <div key={m.id ?? i} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white flex-shrink-0 ${won ? 'bg-green-500' : drew ? 'bg-amber-400' : 'bg-red-500'}`}>{won ? 'W' : drew ? 'D' : 'L'}</div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-900">vs {m.opponent} <span className="text-gray-400 font-normal">({m.venue})</span></p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">vs {m.opponent} <span className="text-gray-400 font-normal">({m.venue})</span></p>
                         <p className="text-xs text-gray-400">{m.matchDate}</p>
+                        {m.notes && <p className="text-xs text-gray-400 truncate mt-0.5">{m.notes}</p>}
                       </div>
-                      <p className="text-lg font-black text-gray-900">{m.goalsFor}–{m.goalsAgainst}</p>
+                      <p className="text-lg font-black text-gray-900 flex-shrink-0">{m.goalsFor}–{m.goalsAgainst}</p>
+                      <button
+                        onClick={() => {
+                          setEditingResultId(m.id ?? null);
+                          setMatchDate(m.matchDate);
+                          setMatchOpponent(m.opponent);
+                          setMatchVenue(m.venue);
+                          setMatchGoalsFor(String(m.goalsFor));
+                          setMatchGoalsAgainst(String(m.goalsAgainst));
+                          setMatchNotes(m.notes);
+                          setShowMatchModal(true);
+                        }}
+                        className="text-xs text-brand-500 font-semibold flex-shrink-0 px-2 py-1 rounded-lg hover:bg-brand-50"
+                      >Edit</button>
                     </div>
                   );
                 })}
@@ -841,13 +913,45 @@ export function CoachDashboard({
             {/* Attendance */}
             <div className="flex items-center justify-between mb-3 px-1">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Attendance</p>
-              <button onClick={() => { setAttendanceSession({ date: new Date().toISOString().slice(0,10), title: 'Training' }); setAttendanceMap(Object.fromEntries(players.map(p => [p.id, false]))); setShowAttendanceModal(true); }} className="text-xs font-semibold text-brand-600">+ Log Session</button>
+              <button onClick={() => setShowSessionPicker(true)} className="text-xs font-semibold text-brand-600">+ Log Session</button>
             </div>
             {players.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center text-sm text-gray-400">No players in squad yet</div>
-            ) : (
+            ) : savedAttendance.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-4">
                 <p className="text-sm text-gray-500">Tap "+ Log Session" after training or a match to mark who attended.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 mb-5">
+                {savedAttendance.map((record, i) => {
+                  const attended = Object.values(record.attendance).filter(Boolean).length;
+                  const total = Object.keys(record.attendance).length;
+                  const attendedNames = Object.entries(record.attendance)
+                    .filter(([, present]) => present)
+                    .map(([playerId]) => players.find(p => p.id === playerId)?.name || playerId)
+                    .filter(Boolean);
+                  return (
+                    <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{record.session_title}</p>
+                          <p className="text-xs text-gray-400">{record.session_date}</p>
+                        </div>
+                        <span className="text-sm font-bold text-brand-600">{attended}/{total}</span>
+                      </div>
+                      {attendedNames.length > 0 && (
+                        <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100">
+                          <p className="font-semibold mb-1">Present:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {attendedNames.map((name, idx) => (
+                              <span key={idx} className="bg-green-50 text-green-700 px-2 py-1 rounded-full text-[11px]">{name}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>
@@ -910,11 +1014,11 @@ export function CoachDashboard({
 
       {/* ---- Match Result Modal ---- */}
       {showMatchModal && (
-        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowMatchModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => { setShowMatchModal(false); setEditingResultId(null); }}>
           <div className="absolute inset-0 bg-black/40" />
           <div className="relative w-full bg-white rounded-t-3xl p-6 pb-28 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
-            <p className="font-bold text-gray-900 text-base mb-4">Log Match Result</p>
+            <p className="font-bold text-gray-900 text-base mb-4">{editingResultId ? 'Edit Match Result' : 'Log Match Result'}</p>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Date</p>
             <input type="date" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 mb-3" value={matchDate} onChange={e => setMatchDate(e.target.value)} />
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Opponent</p>
@@ -936,7 +1040,36 @@ export function CoachDashboard({
             </div>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Notes <span className="font-normal text-gray-400">(optional)</span></p>
             <textarea className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-400 resize-none min-h-[60px] mb-4" placeholder="e.g. Great performance, set pieces need work" value={matchNotes} onChange={e => setMatchNotes(e.target.value)} />
-            <button disabled={matchSaving || !matchOpponent.trim()} onClick={async () => { if (!onSaveMatchResult) return; setMatchSaving(true); await onSaveMatchResult({ matchDate, opponent: matchOpponent.trim(), venue: matchVenue, goalsFor: parseInt(matchGoalsFor) || 0, goalsAgainst: parseInt(matchGoalsAgainst) || 0, notes: matchNotes }); setMatchSaving(false); setShowMatchModal(false); }} className="w-full bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40">{matchSaving ? 'Saving…' : 'Save Result'}</button>
+            {editingResultId && onDeleteMatchResult && (
+              <button
+                onClick={async () => {
+                  if (!confirm('Delete this result? This cannot be undone.')) return;
+                  await onDeleteMatchResult(editingResultId);
+                  setShowMatchModal(false);
+                  setEditingResultId(null);
+                }}
+                className="w-full mb-2 py-3 rounded-xl border border-red-200 text-red-500 font-semibold text-sm hover:bg-red-50 transition-colors"
+              >🗑 Delete Result</button>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => { setShowMatchModal(false); setEditingResultId(null); }} className="flex-1 py-3.5 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm">Cancel</button>
+              <button
+                disabled={matchSaving || !matchOpponent.trim()}
+                onClick={async () => {
+                  setMatchSaving(true);
+                  const resultData = { matchDate, opponent: matchOpponent.trim(), venue: matchVenue, goalsFor: parseInt(matchGoalsFor) || 0, goalsAgainst: parseInt(matchGoalsAgainst) || 0, notes: matchNotes };
+                  if (editingResultId && onUpdateMatchResult) {
+                    await onUpdateMatchResult({ ...resultData, id: editingResultId });
+                  } else if (onSaveMatchResult) {
+                    await onSaveMatchResult(resultData);
+                  }
+                  setMatchSaving(false);
+                  setShowMatchModal(false);
+                  setEditingResultId(null);
+                }}
+                className="flex-1 bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40 text-sm"
+              >{matchSaving ? 'Saving…' : editingResultId ? 'Update Result' : 'Save Result'}</button>
+            </div>
           </div>
         </div>
       )}
@@ -961,7 +1094,48 @@ export function CoachDashboard({
                 </button>
               ))}
             </div>
-            <button disabled={attendanceSaving} onClick={async () => { if (!onSaveAttendance) return; setAttendanceSaving(true); await onSaveAttendance(attendanceSession.date, attendanceSession.title, attendanceMap); setAttendanceSaving(false); setShowAttendanceModal(false); }} className="w-full bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40">{attendanceSaving ? 'Saving…' : 'Save Attendance'}</button>
+            <div className="flex gap-2">
+              <button onClick={() => setShowAttendanceModal(false)} className="flex-1 py-3.5 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm">Cancel</button>
+              <button disabled={attendanceSaving} onClick={async () => { if (!onSaveAttendance) return; setAttendanceSaving(true); await onSaveAttendance(attendanceSession.date, attendanceSession.title, attendanceMap); setAttendanceSaving(false); setShowAttendanceModal(false); }} className="flex-1 bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40 text-sm">{attendanceSaving ? 'Saving…' : 'Save Attendance'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Session Picker Modal (for History attendance) ---- */}
+      {showSessionPicker && (
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowSessionPicker(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-12 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <p className="font-bold text-gray-900 text-base mb-1">Select Session</p>
+            <p className="text-xs text-gray-400 mb-4">Choose which session to log attendance for</p>
+            {allScheduledSessions.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">No sessions scheduled yet — add training or match days on the Schedule tab first.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {allScheduledSessions.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setAttendanceSession({ date: s.date, title: s.day.label || s.day.type });
+                      setAttendanceMap(Object.fromEntries(players.map(p => [p.id, false])));
+                      setShowSessionPicker(false);
+                      setShowAttendanceModal(true);
+                    }}
+                    className="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-brand-300 hover:bg-brand-50 text-left transition-colors"
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-900 text-sm">{s.day.label || s.day.type}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{s.date} · {s.weekLabel}</p>
+                      {s.day.description && <p className="text-xs text-gray-400">{s.day.description}</p>}
+                    </div>
+                    <span className={`text-[11px] font-bold px-2 py-1 rounded-full capitalize ml-3 flex-shrink-0 ${SCHEDULE_BADGE[s.day.type]}`}>{s.day.type}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowSessionPicker(false)} className="w-full mt-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-500">Cancel</button>
           </div>
         </div>
       )}
@@ -972,12 +1146,15 @@ export function CoachDashboard({
           <FormationBuilder
             players={players}
             matchDate={formationMatchDate}
-            onSave={async (data) => {
+            initialData={savedFormationData}
+            onSave={async (data, formationData) => {
               if (onSaveMatchSquad) {
-                await onSaveMatchSquad(formationMatchDate, Object.entries(data.assignments).map(([posId, playerId]) => ({ playerId, role: 'starter' as const, position: posId })));
+                await onSaveMatchSquad(formationMatchDate, Object.entries(data.assignments).map(([posId, playerId]) => ({ playerId, role: 'starter' as const, position: posId })), formationData);
               }
             }}
-            onClose={() => setShowFormationBuilder(false)}
+            onNotify={onNotifySquad}
+            onFetchPreviousFormation={onFetchPreviousFormation}
+            onClose={() => { setShowFormationBuilder(false); setSavedFormationData(undefined); }}
           />
         </Suspense>
       )}

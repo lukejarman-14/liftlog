@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Save, RotateCcw } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Save, RotateCcw, Copy } from 'lucide-react';
 import type { SquadPlayer } from './CoachDashboard';
 
 // ─── Formation definitions ────────────────────────────────────────────────────
@@ -140,17 +140,24 @@ interface FormationBuilderProps {
   players: SquadPlayer[];
   matchDate?: string;
   initialData?: FormationData;
-  onSave: (data: FormationData) => Promise<void>;
+  onSave: (data: FormationData, formationData: FormationData) => Promise<void>;
+  onNotify?: (message: string) => Promise<void>;
+  onFetchPreviousFormation?: () => Promise<FormationData | null>;
   onClose: () => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export function FormationBuilder({ players, matchDate, initialData, onSave, onClose }: FormationBuilderProps) {
+export function FormationBuilder({ players, matchDate, initialData, onSave, onNotify, onFetchPreviousFormation, onClose }: FormationBuilderProps) {
   const [formation, setFormation] = useState(initialData?.formation ?? '4-3-3');
   const [assignments, setAssignments] = useState<Record<string, string>>(initialData?.assignments ?? {});
   const [bench, setBench] = useState<Set<string>>(new Set(initialData?.bench ?? []));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Notify dialog (shown after save when onNotify is available)
+  const [showNotifyDialog, setShowNotifyDialog] = useState(false);
+  const [notifyIncludeLineup, setNotifyIncludeLineup] = useState(false);
+  const [notifySending, setNotifySending] = useState(false);
+  const [savedAssignments, setSavedAssignments] = useState<Record<string, string>>({});
 
   // Drag state
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -237,10 +244,53 @@ export function FormationBuilder({ players, matchDate, initialData, onSave, onCl
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave({ formation, assignments, bench: [...bench] });
+    const formationData = { formation, assignments, bench: [...bench] };
+    await onSave(formationData, formationData);
     // Also save as template
-    try { localStorage.setItem('vf_formation_template', JSON.stringify({ formation, assignments, bench: [...bench] })); } catch { /* ignore */ }
+    try { localStorage.setItem('vf_formation_template', JSON.stringify(formationData)); } catch { /* ignore */ }
     setSaving(false);
+    if (onNotify) {
+      setSavedAssignments({ ...assignments });
+      setShowNotifyDialog(true);
+    } else {
+      onClose();
+    }
+  };
+
+  // Load previous match's formation
+  const loadPreviousFormation = async () => {
+    if (!onFetchPreviousFormation) return;
+    const prevFormation = await onFetchPreviousFormation();
+    if (prevFormation) {
+      setFormation(prevFormation.formation ?? '4-3-3');
+      setAssignments(prevFormation.assignments ?? {});
+      setBench(new Set(prevFormation.bench ?? []));
+    }
+  };
+
+  const handleNotify = async (includeLineup: boolean) => {
+    if (!onNotify) return;
+    setNotifySending(true);
+    const currentFormationDef = FORMATIONS[formation];
+    if (includeLineup) {
+      const starters = currentFormationDef.positions
+        .map(pos => {
+          const pid = savedAssignments[pos.id];
+          const player = players.find(p => p.id === pid);
+          return player ? `${pos.label} ${player.name}` : null;
+        })
+        .filter(Boolean);
+      const benchList = [...bench].map(id => players.find(p => p.id === id)?.name).filter(Boolean);
+      const matchLabel = matchDate ? ` for ${matchDate}` : '';
+      let msg = `📋 Squad selected${matchLabel} — ${formation}\n\nStarting XI:\n${starters.join('\n')}`;
+      if (benchList.length) msg += `\n\nBench: ${benchList.join(', ')}`;
+      await onNotify(msg);
+    } else {
+      const matchLabel = matchDate ? ` for ${matchDate}` : '';
+      await onNotify(`📋 Squad selected${matchLabel} — check with your coach for the details.`);
+    }
+    setNotifySending(false);
+    setShowNotifyDialog(false);
     onClose();
   };
 
@@ -279,9 +329,14 @@ export function FormationBuilder({ players, matchDate, initialData, onSave, onCl
           <p className="text-white font-bold text-sm">{matchDate ? `Match · ${matchDate}` : 'Formation Builder'}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={loadTemplate} className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center" title="Load template">
+          <button onClick={loadTemplate} className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors" title="Load saved template">
             <RotateCcw size={16} className="text-white" />
           </button>
+          {onFetchPreviousFormation && (
+            <button onClick={loadPreviousFormation} className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors" title="Load previous match formation">
+              <Copy size={16} className="text-white" />
+            </button>
+          )}
           <button onClick={handleSave} disabled={saving} className="px-4 h-9 rounded-full bg-white text-[#2d6a2d] text-xs font-bold flex items-center gap-1.5 disabled:opacity-60">
             <Save size={14} />{saving ? 'Saving…' : 'Save'}
           </button>
@@ -448,6 +503,53 @@ export function FormationBuilder({ players, matchDate, initialData, onSave, onCl
           </div>
         );
       })()}
+
+      {/* ── Notify players dialog ── */}
+      {showNotifyDialog && (
+        <div className="fixed inset-0 z-[300] flex items-end">
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative w-full bg-white rounded-t-3xl p-6 pb-12">
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <div className="text-center mb-5">
+              <p className="text-2xl mb-1">📋</p>
+              <p className="font-bold text-gray-900 text-base">Squad saved!</p>
+              <p className="text-sm text-gray-500 mt-1">Notify your players?</p>
+            </div>
+
+            {/* Include lineup toggle */}
+            <button
+              onClick={() => setNotifyIncludeLineup(v => !v)}
+              className={`w-full flex items-center justify-between p-4 rounded-xl border mb-4 transition-colors ${notifyIncludeLineup ? 'border-brand-400 bg-brand-50' : 'border-gray-200 bg-white'}`}
+            >
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-900">Include full lineup</p>
+                <p className="text-xs text-gray-400 mt-0.5">Share player names & positions with the squad</p>
+              </div>
+              <div className={`w-12 h-6 rounded-full transition-colors flex items-center px-0.5 ${notifyIncludeLineup ? 'bg-brand-500' : 'bg-gray-200'}`}>
+                <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${notifyIncludeLineup ? 'translate-x-6' : 'translate-x-0'}`} />
+              </div>
+            </button>
+
+            <p className="text-xs text-gray-400 mb-4 px-1">
+              {notifyIncludeLineup
+                ? '📢 Players will see formation, positions and names.'
+                : '🔔 Players will see "Squad selected" — no lineup details.'}
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowNotifyDialog(false); onClose(); }}
+                className="flex-1 py-3.5 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm"
+              >Save Quietly</button>
+              <button
+                disabled={notifySending}
+                onClick={() => handleNotify(notifyIncludeLineup)}
+                className="flex-1 bg-brand-500 text-white font-bold py-3.5 rounded-xl disabled:opacity-40 text-sm"
+              >{notifySending ? 'Sending…' : '📣 Announce'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
