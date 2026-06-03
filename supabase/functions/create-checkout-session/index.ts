@@ -2,17 +2,31 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno
 
 const STRIPE_SECRET_KEY = (Deno.env.get('STRIPE_SECRET_KEY') ?? '').replace(/[^\x20-\x7E]/g, '').trim();
 
+// Keys are "accountType:plan" — validated server-side so clients cannot
+// request a coach/club price by spoofing a personal account type.
 const PRICE_IDS: Record<string, string> = {
-  monthly:  'price_1TaGmJIMo5HQHzLpN9lNXRJs',
-  yearly:   'price_1TaGnPIMo5HQHzLp0QqXRgIs',
-  lifetime: 'price_1TaGoJIMo5HQHzLpnoV0asej',
+  // Personal
+  'personal:monthly':  'price_1TaGmJIMo5HQHzLpN9lNXRJs',
+  'personal:yearly':   'price_1TaGnPIMo5HQHzLp0QqXRgIs',
+  'personal:lifetime': 'price_1TaGoJIMo5HQHzLpnoV0asej',
+  // Coach
+  'coach:monthly':     'price_1TeMbAIMo5HQHzLp5yGZiVTF',
+  'coach:yearly':      'price_1TeMcEIMo5HQHzLpg31WLIA8',
+  // Club
+  'club:monthly':      'price_1TeMczIMo5HQHzLp6qp1Fgiw',
+  'club:yearly':       'price_1TeMdTIMo5HQHzLpFy5VAolp',
 };
+
+// Valid account types — rejects anything not in this set
+const VALID_ACCOUNT_TYPES = new Set(['personal', 'coach', 'club']);
 
 const ALLOWED_ORIGINS = new Set([
   'https://vectorfootball.co.uk',
   'capacitor://localhost',
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:5176',
 ]);
 
 function cors(req: Request): Record<string, string> {
@@ -55,15 +69,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { plan, noTrial } = await req.json();
+    const { plan, accountType: rawAccountType, noTrial } = await req.json();
+
+    // Default to 'personal' for backwards compatibility with older clients
+    const accountType = VALID_ACCOUNT_TYPES.has(rawAccountType) ? rawAccountType : 'personal';
 
     // Redirect URLs are hardcoded server-side — never trusted from the client body.
-    // SITE_URL is set in Supabase Edge Function secrets for each environment.
     const siteUrl = Deno.env.get('SITE_URL') ?? 'https://vectorfootball.co.uk';
     const successUrl = `${siteUrl}/?stripe_success=1`;
     const cancelUrl  = `${siteUrl}/?stripe_cancel=1`;
 
-    const priceId = PRICE_IDS[plan];
+    const priceKey = `${accountType}:${plan}`;
+    const priceId = PRICE_IDS[priceKey];
     if (!priceId) {
       return new Response(JSON.stringify({ error: 'Invalid plan' }), {
         status: 400, headers: { ...cors(req), 'Content-Type': 'application/json' },
@@ -98,12 +115,15 @@ Deno.serve(async (req) => {
     params.set('cancel_url', cancelUrl);
     params.set('metadata[userId]', user.id);
     params.set('metadata[plan]', plan);
+    params.set('metadata[accountType]', accountType);
     if (!isLifetime) {
       if (!noTrial) {
-        params.set('subscription_data[trial_period_days]', '14');
+        // 30-day pre-season trial — expires ~August 1 if users sign up from June 20
+        params.set('subscription_data[trial_period_days]', '30');
       }
       params.set('subscription_data[metadata][userId]', user.id);
       params.set('subscription_data[metadata][plan]', plan);
+      params.set('subscription_data[metadata][accountType]', accountType);
     }
 
     const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {

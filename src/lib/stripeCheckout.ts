@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 export async function createStripeCheckout(
   plan: 'monthly' | 'yearly' | 'lifetime',
   noTrial?: boolean,
+  accountType: 'personal' | 'coach' | 'club' = 'personal',
 ): Promise<{ url: string } | { error: string }> {
   const origin = window.location.origin;
 
@@ -10,6 +11,7 @@ export async function createStripeCheckout(
   const { data, error } = await supabase.functions.invoke('create-checkout-session', {
     body: {
       plan,
+      accountType,
       noTrial: noTrial ?? false,
       successUrl: `${origin}/?stripe_success=1`,
       cancelUrl: `${origin}/?stripe_cancel=1`,

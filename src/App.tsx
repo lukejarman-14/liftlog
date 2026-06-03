@@ -1595,7 +1595,8 @@ export default function App() {
             if (!Capacitor.isNativePlatform()) {
               setStripeCheckoutPending(true);
               sessionStorage.setItem('vf_stripe_plan', plan);
-              const result = await createStripeCheckout(plan, noTrial);
+              const acctType = store.userProfile?.accountType ?? 'personal';
+              const result = await createStripeCheckout(plan, noTrial, acctType);
               if ('url' in result) {
                 window.location.href = result.url;
                 // Don't clear pending — the page is navigating away.

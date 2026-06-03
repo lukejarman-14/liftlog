@@ -16,7 +16,7 @@ import { redeemReferralCode, claimReferralRewards, registerReferralCode } from '
 export type { RCPlan };
 
 const KEY = 'vf_premium';
-const TRIAL_DAYS = 14;
+const TRIAL_DAYS = 30; // Pre-season trial — expires ~August 1 for users signing up from June 20
 const MS_PER_DAY = 86_400_000;
 
 
