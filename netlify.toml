@@ -50,9 +50,12 @@
     # script-src 'self' — all JS is bundled; no inline scripts (auth-detect.js is external)
     # style-src 'unsafe-inline' — React inline style props (e.g. style={{ fontSize }}) require this
     # connect-src — Supabase REST + realtime, PostHog analytics
+    # hcaptcha.com / *.hcaptcha.com — invisible CAPTCHA on auth (script + challenge
+    #   iframe + asset/verify calls + injected styles). Without these the widget is
+    #   blocked by CSP and auth breaks while Supabase CAPTCHA enforcement is on.
     # form-action — allows Stripe Checkout redirect from our origin
     # frame-ancestors 'none' — belt-and-suspenders with X-Frame-Options
-    Content-Security-Policy = "default-src 'none'; script-src 'self' https://*.posthog.com https://posthog.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://posthog.com; font-src 'self'; manifest-src 'self'; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com;"
+    Content-Security-Policy = "default-src 'none'; script-src 'self' https://*.posthog.com https://posthog.com https://hcaptcha.com https://*.hcaptcha.com; style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://posthog.com https://hcaptcha.com https://*.hcaptcha.com; font-src 'self'; manifest-src 'self'; frame-src https://hcaptcha.com https://*.hcaptcha.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com;"
 
 # Waitlist pages use Google Fonts + Mailchimp JSONP — needs its own CSP
 [[headers]]
