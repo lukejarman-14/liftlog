@@ -12,7 +12,7 @@ import { PremiumStatus } from '../types';
 import { rcPurchase, rcRestore, rcCheckEntitlement, RCPlan } from '../lib/revenueCat';
 import { redeemPromoCode } from '../lib/promoCodes';
 import { redeemReferralCode, claimReferralRewards, registerReferralCode } from '../lib/referrals';
-import { computeHasAccess, computeTrialDaysLeft, TRIAL_DAYS, MS_PER_DAY } from '../lib/premiumUtils';
+import { computeHasAccess, computeTrialDaysLeft } from '../lib/premiumUtils';
 
 export type { RCPlan };
 

@@ -86,7 +86,7 @@ describe('Back squat preference (preferBackSquat)', () => {
   });
 
   it('in-season + no preference → Back Squat NOT used (defaults to BSS)', () => {
-    const names = allExerciseNames(base({ offSeason: false, preferBackSquat: false, playStyle: 'possession' }));
+    const names = allExerciseNames(base({ offSeason: false, preferBackSquat: false, playStyle: 'technical' }));
     expect(hasBackSquat(names)).toBe(false);
   });
 });
@@ -110,7 +110,7 @@ describe('Injury history overrides back squat preference', () => {
   });
 
   it('back injury without preference → defaults to BSS', () => {
-    const names = allExerciseNames(base({ injuryHistory: ['back'], preferBackSquat: false, playStyle: 'possession' }));
+    const names = allExerciseNames(base({ injuryHistory: ['back'], preferBackSquat: false, playStyle: 'technical' }));
     expect(hasBackSquat(names)).toBe(false);
     expect(hasBSS(names)).toBe(true);
   });
