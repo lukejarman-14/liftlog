@@ -221,6 +221,10 @@ function ReadinessForm({
     <div className="space-y-3">
       {showHealth && (
         <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+          {/* HealthKit label — required by App Store guideline 2.5.1 */}
+          <p className="text-center text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            Apple HealthKit
+          </p>
           <button
             onClick={autofillFromHealth}
             disabled={hkBusy}

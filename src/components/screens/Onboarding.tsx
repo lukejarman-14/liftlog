@@ -174,8 +174,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     : undefined;
   const isUnderThirteen  = computedAge !== null && computedAge < 13;
   const needsParental    = computedAge !== null && computedAge >= 13 && computedAge < 16;
+  // DOB is optional (Apple guideline 5.1.1v) — users may skip it.
+  // If entered, age must be 13+ and parental consent given if 13–15.
   const canProceedFromAgeTerms =
-    computedAge !== null &&
     !isUnderThirteen &&
     agreedToTerms &&
     (!needsParental || parentalConsent);
@@ -800,7 +801,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
             {/* Date of birth */}
             <div className="mb-5">
-              <Label>Date of Birth</Label>
+              <Label>Date of Birth <span style={{fontWeight: 400, color: '#9ca3af', fontSize: '0.75rem'}}>(optional)</span></Label>
               <div className="grid grid-cols-3 gap-2">
                 <input
                   ref={dobDayRef}

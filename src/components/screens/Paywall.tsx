@@ -339,12 +339,12 @@ export function Paywall({
                 disabled={busy}
                 className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50"
               >
-                Start 14-Day Free Trial
+                Start 30-Day Free Trial
               </button>
               <p className="text-center text-xs text-gray-400 leading-snug">
                 {selected === 'lifetime'
-                  ? `Free for 14 days, then ${selectedPlan.price} once — no subscription.`
-                  : `Free for 14 days, then ${selectedPlan.price}${selected === 'yearly' ? '/year' : '/month'}, auto-renewing. Cancel anytime.`
+                  ? `Free for 30 days, then ${selectedPlan.price} once — no subscription.`
+                  : `Free for 30 days, then ${selectedPlan.price}${selected === 'yearly' ? '/year' : '/month'}, auto-renewing. Cancel anytime.`
                 }
               </p>
               <button
@@ -407,6 +407,16 @@ export function Paywall({
             </button>
           )}
         </div>
+
+        {/* Legal links — required by App Store guideline 3.1.2(c) */}
+        <p className="text-center text-xs text-gray-400 mt-2 leading-relaxed">
+          By subscribing you agree to our{' '}
+          <a href="https://vectorfootball.co.uk/terms" target="_blank" rel="noopener noreferrer" className="underline text-gray-500">Terms of Use</a>
+          {' '}and{' '}
+          <a href="https://vectorfootball.co.uk/privacy" target="_blank" rel="noopener noreferrer" className="underline text-gray-500">Privacy Policy</a>.
+          Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current period.
+          Manage or cancel in your Apple ID settings.
+        </p>
 
         {/* Referral & promo codes — not shown for the sales-led Club tier */}
         {!isClub && (<>
