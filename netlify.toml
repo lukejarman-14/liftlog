@@ -5,6 +5,13 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Waitlist pages — served before the SPA catch-all
+[[redirects]]
+  from = "/waitlist"
+  to = "/waitlist/index.html"
+  status = 200
+  force = true
+
 # Marketing landing page — must be served before the SPA catch-all
 [[redirects]]
   from = "/landing"
@@ -46,6 +53,12 @@
     # form-action — allows Stripe Checkout redirect from our origin
     # frame-ancestors 'none' — belt-and-suspenders with X-Frame-Options
     Content-Security-Policy = "default-src 'none'; script-src 'self' https://*.posthog.com https://posthog.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://posthog.com; font-src 'self'; manifest-src 'self'; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com;"
+
+# Waitlist pages use Google Fonts + Mailchimp JSONP — needs its own CSP
+[[headers]]
+  for = "/waitlist/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'none'; script-src 'self' https://*.list-manage.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.list-manage.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';"
 
 [[headers]]
   for = "/assets/*"

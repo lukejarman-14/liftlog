@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vector Football — AI Training for Players, Coaches & Clubs</title>
+  <meta name="description" content="AI-powered football training built for players, coaches, and clubs. Train with purpose. Perform on gameday." />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">
+        <div class="nav-logo-circle">
+          <img src="logo.png" alt="VectorFootball" />
+        </div>
+        <div class="nav-logo-wordmark">
+          <span class="wordmark-vector">VECTOR</span>
+          <span class="wordmark-football">FOOTBALL</span>
+        </div>
+      </a>
+      <div class="nav-badge">Early Access</div>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-bg">
+        <div class="field-grid"></div>
+        <div class="glow-center"></div>
+        <div class="glow-bottom"></div>
+      </div>
+
+      <div class="hero-content">
+        <div class="hero-logo">
+          <div class="hero-logo-circle">
+            <img src="logo.png" alt="VectorFootball Logo" />
+          </div>
+        </div>
+
+        <p class="pre-text">Now accepting early access signups</p>
+
+        <div class="slogan-block">
+          <div class="slogan-top">
+            Train with <span class="accent">Purpose.</span><br />
+            Perform on <span class="accent">Gameday.</span>
+          </div>
+        </div>
+
+        <p class="hero-desc">The AI-powered football training app built for players, coaches, and clubs. Personalised programmes, injury prevention, and squad management all in one platform.</p>
+
+        <div class="waitlist-wrap">
+          <form class="waitlist-form" id="waitlistForm">
+            <div class="email-field">
+              <input type="email" id="emailInput" placeholder="Enter your email for early access" required autocomplete="email" />
+              <button type="submit" class="btn-join" id="submitBtn">
+                <span class="btn-text">Join Now</span>
+                <span class="btn-arrow">→</span>
+              </button>
+            </div>
+            <p class="form-note">No spam. Unsubscribe any time.</p>
+          </form>
+
+          <div class="success-state" id="successState">
+            <div class="success-icon">✓</div>
+            <div class="success-text">
+              <strong>You're on the list.</strong>
+              <span>We'll be in touch with your early access details.</span>
+            </div>
+          </div>
+
+          <div class="social-proof">
+            <div class="avatars">
+              <div class="avatar av1"></div>
+              <div class="avatar av2"></div>
+              <div class="avatar av3"></div>
+              <div class="avatar av4"></div>
+            </div>
+            <span class="counter-text"><strong id="waitlistCount">31</strong> players already signed up</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- PLAYER FEATURES -->
+    <section class="features">
+      <div class="features-inner">
+        <p class="section-label">For Players</p>
+        <h2 class="section-title">Everything you need to perform at your best.</h2>
+        <div class="features-grid">
+
+          <div class="feature-card feature-card--highlight">
+            <span class="feature-tag">Core Feature</span>
+            <h3>AI Programme Builder</h3>
+            <p>Input your position, playing style, age, height, weight, gym access, and season phase. The AI instantly generates a fully personalised multi-week training programme with no generic plans.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Match-Day Periodisation</h3>
+            <p>Your programme automatically adjusts around matchday. Heavier loads early in the week taper into the game so you train hard without compromising your performance when it matters most.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Active Workout Mode</h3>
+            <p>A real-time session tracker that guides you through each exercise, logs your weights and reps, tracks rest periods, and saves every session automatically on completion.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>ACWR Load Calendar</h3>
+            <p>Powered by the Acute:Chronic Workload Ratio methodology used by professional clubs. Visualise safe zones and high-risk zones week by week so you never overtrain or break down.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Fitness Testing Battery</h3>
+            <p>Six professional-grade tests: 10m Sprint, 30m Sprint, Countermovement Jump, Standing Long Jump, Repeated Sprint Ability, and Yo-Yo Test. Results are graded and fed directly back into your programme.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Training History and Progress</h3>
+            <p>A full searchable log of every completed session. Track your personal bests, monitor improvement over time, and review previous workouts in detail.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Exercise Library</h3>
+            <p>Browse every exercise used across all programmes, complete with descriptions and coaching cues. Tap any exercise to understand exactly how to perform it correctly.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Referral System</h3>
+            <p>Share your personal referral code and give friends 21 extra days of free Premium. You earn additional free days for every player you bring onto the platform.</p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- COACH FEATURES -->
+    <section class="features features--dark">
+      <div class="features-inner">
+        <p class="section-label">For Coaches</p>
+        <h2 class="section-title">Manage your squad. Monitor every player.</h2>
+        <div class="features-grid">
+
+          <div class="feature-card feature-card--highlight">
+            <span class="feature-tag">Coach Pro</span>
+            <h3>Squad Dashboard and Readiness Heatmap</h3>
+            <p>See your entire squad at a glance. A colour-coded readiness heatmap shows every player's status: Ready, Moderate, or Low, so you know exactly who is available before matchday.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Schedule and Phase Planning</h3>
+            <p>Set the current training phase and plan the week. Every player's individual programme auto-periodises around your squad schedule so the whole group peaks together.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Fitness Test Leaderboards</h3>
+            <p>Ranked leaderboards for all six fitness tests across your squad. Identify your fastest and most powerful players, and export all test data as a CSV with one tap.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Compliance and Attendance Tracking</h3>
+            <p>Monitor session completion rates across the whole squad. An activity feed shows recent player actions: sessions completed, tests recorded, and new players joining.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Player Detail View and Private Notes</h3>
+            <p>Tap any player to see their current programme, all six test results, improvement trends, and recent activity. Add private coach notes that only you can see.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Squad Invite System</h3>
+            <p>Every coach gets a unique invite code. Players enter it on sign-up and are instantly linked to your squad. Pro coaches automatically unlock full Premium access for every player in the team.</p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- CLUB -->
+    <section class="features">
+      <div class="features-inner">
+        <p class="section-label">For Clubs and Academies</p>
+        <h2 class="section-title">Enterprise-grade tools for serious organisations.</h2>
+        <div class="features-grid features-grid--wide">
+
+          <div class="feature-card feature-card--highlight">
+            <span class="feature-tag">Club Tier</span>
+            <h3>Multi-Team Management</h3>
+            <p>Manage 200 or more players across multiple teams from a single club dashboard. The full coach feature set scaled to your entire organisation, with readiness heatmaps, test leaderboards, and compliance tracking built in.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Tailored Onboarding</h3>
+            <p>Club accounts are built around your specific needs. Get in touch with the Vector Football team directly and we will put together a solution for your club or academy.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Built for Scale</h3>
+            <p>Powered by Supabase, Stripe, and PostHog. The infrastructure behind Vector Football is built to handle clubs of any size without compromising on speed or reliability.</p>
+          </div>
+
+        </div>
+
+        <div class="demo-cta">
+          <a href="mailto:vectorfootball.com@gmail.com" class="btn-demo">Book a Club Demo</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- BOTTOM CTA -->
+    <section class="cta-section">
+      <div class="cta-inner">
+        <h2>Ready to <span>level up?</span></h2>
+        <p>Join players, coaches, and clubs already using Vector Football to train smarter and perform on gameday.</p>
+        <form class="waitlist-form" id="ctaForm">
+          <div class="email-field">
+            <input type="email" id="ctaEmail" placeholder="Enter your email for early access" required autocomplete="email" />
+            <button type="submit" class="btn-join">
+              <span class="btn-text">Get Early Access</span>
+              <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </form>
+        <div class="success-state" id="ctaSuccess">
+          <div class="success-icon">✓</div>
+          <div class="success-text">
+            <strong>You're on the list.</strong>
+            <span>We'll be in touch with your early access details.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-logo">
+        <div class="nav-logo-circle nav-logo-circle--sm">
+          <img src="logo.png" alt="VectorFootball" />
+        </div>
+        <div class="nav-logo-wordmark">
+          <span class="wordmark-vector">VECTOR</span>
+          <span class="wordmark-football">FOOTBALL</span>
+        </div>
+      </div>
+
+      <div class="socials">
+        <a href="https://instagram.com/vector_footbal" class="social-link" aria-label="Instagram" target="_blank">
+          <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
+        </a>
+        <a href="https://tiktok.com/@vectorfootball7" class="social-link" aria-label="TikTok" target="_blank">
+          <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><path d="M9 12a4 4 0 100 8 4 4 0 000-8zm0 0V4h4s.5 4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a href="https://x.com/vector_football" class="social-link" aria-label="X" target="_blank">
+          <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><path d="M4 4l16 16M4 20L20 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </a>
+      </div>
+
+      <div class="footer-legal">
+        <a href="privacy.html" target="_blank">Privacy Policy</a>
+        <span class="legal-dot">·</span>
+        <a href="terms.html" target="_blank">Terms and Conditions</a>
+        <span class="legal-dot">·</span>
+        <a href="cookies.html" target="_blank">Cookie Policy</a>
+        <span class="legal-dot">·</span>
+        <a href="mailto:vectorfootball.com@gmail.com" target="_blank">Contact Us</a>
+      </div>
+
+      <p class="footer-copy">2026 Vector Football. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
