@@ -22,6 +22,7 @@ import { Capacitor } from '@capacitor/core';
 import {
   isSupabaseConfigured,
   cloudSignOut,
+  clearDataOwnership,
   cloudSaveData,
   cloudLoadData,
   cloudDeleteAccount,
@@ -1162,6 +1163,9 @@ export default function App() {
       setSentryUser(null);
       // Clear the boot-sync guard so the next login re-fetches cloud data fresh.
       sessionStorage.removeItem('vf_boot_synced');
+      // Wipe all local app data + the owner tag so the next account on this
+      // (possibly shared) device starts clean and can't read the prior user's data.
+      clearDataOwnership();
       resetAnalyticsUser();
       cloudUserIdRef.current = null;
       setIsAuthenticated(false);

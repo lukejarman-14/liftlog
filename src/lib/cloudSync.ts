@@ -8,6 +8,28 @@ import { getCaptchaToken } from './hcaptcha';
 // overwrite the server's record.  cloudLoadData restores them correctly on every boot.
 const SERVER_MANAGED_KEYS = new Set<string>(['vf_premium']);
 
+// ---------------------------------------------------------------------------
+// Shared-device account isolation
+// ---------------------------------------------------------------------------
+// localStorage is shared by every account used on this browser/device. Without a
+// guard, account B can inherit or overwrite account A's profile, premium, and
+// squad state (and a stale blob can be uploaded under B's id before B's cloud
+// data loads). We tag local data with the owning user id: we wipe on a mismatched
+// LOAD (sign-in) and refuse a mismatched SAVE — never wiping a fresh signup.
+const DATA_OWNER_KEY = 'vf_data_owner';
+
+/** Remove all app data from localStorage (leaves the Supabase session intact). */
+export function clearLocalAppData(): void {
+  for (const key of STORAGE_KEYS) localStorage.removeItem(key);
+  localStorage.removeItem('vf_pending_team_code');
+}
+
+/** Logout cleanup for a possibly-shared device: wipe app data AND the owner tag. */
+export function clearDataOwnership(): void {
+  clearLocalAppData();
+  localStorage.removeItem(DATA_OWNER_KEY);
+}
+
 function collectAllData(): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   for (const key of STORAGE_KEYS) {
@@ -163,6 +185,16 @@ export async function getExistingSession(): Promise<string | null> {
 /** Push all localStorage data to Supabase for this user. */
 export async function cloudSaveData(userId: string): Promise<void> {
   if (!supabase) return;
+  // Never upload one account's local data under another account's id. If the
+  // local data is owned by a different user (stale shared-device state), abort
+  // rather than contaminating this user's cloud row. (We do NOT wipe here — that
+  // would risk a fresh signup's just-entered profile; the LOAD path wipes.)
+  const owner = localStorage.getItem(DATA_OWNER_KEY);
+  if (owner && owner !== userId) {
+    if (import.meta.env.DEV) console.warn('[CloudSync] save aborted — local data belongs to a different account');
+    return;
+  }
+  localStorage.setItem(DATA_OWNER_KEY, userId);
   const appData = collectAllData();
   // Strip the local password hash before uploading — it's device-only.
   const profile = appData['vf_user_profile'];
@@ -182,6 +214,12 @@ export async function cloudSaveData(userId: string): Promise<void> {
 /** Pull data from Supabase and write to localStorage. Returns true if data was found. */
 export async function cloudLoadData(userId: string): Promise<boolean> {
   if (!supabase) return false;
+  // Shared-device guard: if local data belongs to a different account, wipe it
+  // BEFORE loading (and before any early-return) so nothing from the previous
+  // user survives into this session — even if this user has no cloud row yet.
+  const owner = localStorage.getItem(DATA_OWNER_KEY);
+  if (owner && owner !== userId) clearLocalAppData();
+  localStorage.setItem(DATA_OWNER_KEY, userId);
   const { data, error } = await supabase
     .from('user_data')
     .select('app_data')
