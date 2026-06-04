@@ -15,7 +15,7 @@
     "@capacitor/core": "^8.3.4",
     "@capacitor/ios": "^8.3.4",
     "@capacitor/local-notifications": "^8.2.0",
-    "@revenuecat/purchases-capacitor": "^13.1.1",
+    "@revenuecat/purchases-capacitor": "13.1.5",
     "@sentry/capacitor": "^4.0.0",
     "@sentry/react": "10.43.0",
     "@supabase/supabase-js": "^2.105.3",
@@ -34,7 +34,7 @@
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
-    "vite": "^5.1.4",
+    "vite": "^8.0.16",
     "vitest": "^4.1.7"
   }
 }
