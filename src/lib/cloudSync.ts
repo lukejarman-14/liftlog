@@ -58,11 +58,7 @@ async function guardAuthRateLimit(email: string): Promise<void> {
 export async function cloudSignUp(email: string, password: string): Promise<SignUpResult> {
   if (!supabase) throw new Error('not_configured');
   await guardAuthRateLimit(email);
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { captchaToken: (window as any).hcaptcha?.getResponse() },
-  });
+  const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
   // If email confirmation is disabled, Supabase returns a session immediately.
   // Set it explicitly so getSession() returns it on next load.
