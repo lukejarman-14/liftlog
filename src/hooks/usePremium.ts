@@ -3,12 +3,15 @@
  *
  * Trial logic:
  *   - First time a free user hits a gated feature we stamp trialStartedAt.
- *   - Trial lasts 14 days. After that, isPremium must be true (paid).
- *   - RevenueCat sets isPremium on successful purchase / restore.
+ *   - Trial lasts 30 days. After that, isPremium must be true (paid).
+ *   - RevenueCat sets isPremium on successful purchase / restore (iOS).
+ *   - Stripe (web) + squad/promo/referral access come from the server-side
+ *     entitlement record, read via syncEntitlementFromServer().
  */
 
 import { useState, useCallback, useMemo } from 'react';
 import { PremiumStatus } from '../types';
+import { supabase } from '../lib/supabase';
 import { rcPurchase, rcRestore, rcCheckEntitlement, RCPlan } from '../lib/revenueCat';
 import { redeemPromoCode } from '../lib/promoCodes';
 import { redeemReferralCode, claimReferralRewards, registerReferralCode } from '../lib/referrals';
@@ -123,6 +126,40 @@ export function usePremium() {
       return false;
     } finally {
       setRestoring(false);
+    }
+  }, []);
+
+  /**
+   * Sync access from the SERVER-AUTHORITATIVE entitlement (Stripe web purchases,
+   * squad-inherited, promo/referral grants, server trial). Upgrade-only: it grants
+   * access the server confirms, but never revokes here — so an incomplete server
+   * view (e.g. an iOS RC purchase not yet mirrored server-side) can't lock anyone
+   * out. The dangerous spoof path (faking premium to publish a Pro squad) is closed
+   * separately by the server-authoritative register_squad RPC.
+   */
+  const syncEntitlementFromServer = useCallback(async (): Promise<PremiumStatus> => {
+    const current = load();
+    if (!supabase) return current;
+    try {
+      const { data, error } = await supabase.rpc('get_my_entitlement');
+      if (error || !data) return current;
+      const ent = data as {
+        has_access?: boolean; is_premium?: boolean;
+        plan?: PremiumStatus['plan']; expires_at?: number;
+      };
+      if (!ent.has_access) return current; // upgrade-only — never revoke here
+      const updated: PremiumStatus = {
+        ...current,
+        isPremium: ent.is_premium === true ? true : current.isPremium,
+        plan: ent.plan ?? current.plan,
+        expiresAt: typeof ent.expires_at === 'number' ? ent.expires_at : current.expiresAt,
+        purchasedAt: current.purchasedAt ?? Date.now(),
+      };
+      save(updated);
+      setStatusRaw(updated);
+      return updated;
+    } catch {
+      return current;
     }
   }, []);
 
@@ -286,6 +323,7 @@ export function usePremium() {
     claimReferralRewardsForUser,
     getOrCreateReferralCode,
     syncFromRC,
+    syncEntitlementFromServer,
     revokePremium,
     resetForNewUser,
     refresh,

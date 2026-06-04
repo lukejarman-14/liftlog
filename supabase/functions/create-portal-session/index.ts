@@ -69,20 +69,22 @@ Deno.serve(async (req) => {
     const returnUrl = Deno.env.get('SITE_URL') ?? 'https://vectorfootball.co.uk';
     void await req.json().catch(() => ({})); // consume body to avoid parse errors
 
-    // Use the stored Stripe customer ID when available; fall back to email search
-    // for accounts created before the webhook started persisting it.
+    // Look up the Stripe customer id from the SERVER-ONLY stripe_customers table,
+    // keyed by the authenticated user's id. (Previously this read a client-writable
+    // value from user_data.app_data — an IDOR: a user could overwrite their blob
+    // with another customer's id and open that customer's billing portal.)
     let customerId: string | null = null;
 
-    const { data: userData } = await supabaseAdmin
-      .from('user_data')
-      .select('app_data')
-      .eq('id', user.id)
-      .single();
+    const { data: mapping } = await supabaseAdmin
+      .from('stripe_customers')
+      .select('stripe_customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    const storedCustomerId = (userData?.app_data as Record<string, unknown> | null)?.vf_stripe_customer_id;
-    if (typeof storedCustomerId === 'string' && storedCustomerId) {
-      customerId = storedCustomerId;
+    if (mapping?.stripe_customer_id) {
+      customerId = mapping.stripe_customer_id;
     } else {
+      // Legacy fallback — search Stripe by the JWT-verified email (NOT client input).
       // Legacy fallback — take the most recently created customer for this email.
       const searchRes = await fetch(
         `https://api.stripe.com/v1/customers?email=${encodeURIComponent(user.email!)}&limit=1`,

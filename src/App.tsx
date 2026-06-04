@@ -246,6 +246,8 @@ export default function App() {
             if (import.meta.env.DEV) console.warn('[RC] configure failed:', err);
           });
           await premium.syncFromRC();
+          // Server-authoritative access (Stripe web, squad-inherited, promo/referral).
+          await premium.syncEntitlementFromServer();
 
           const today = new Date().toISOString().split('T')[0];
           const lastShown = localStorage.getItem('vf_trial_prompt_shown');
@@ -271,28 +273,21 @@ export default function App() {
           const params = new URLSearchParams(window.location.search);
           if (params.get('stripe_success') === '1') {
             window.history.replaceState({}, '', window.location.pathname);
-            // Read the plan BEFORE any async work — if sessionStorage was cleared
-            // (e.g. different browser/device), don't fallback to 'monthly' incorrectly.
-            const rawStripePlan = sessionStorage.getItem('vf_stripe_plan') as 'monthly' | 'yearly' | 'lifetime' | null;
-            // Poll Supabase for up to 10s waiting for the Stripe webhook to confirm the purchase.
-            // Falls back to optimistic grant only if we know the exact plan purchased.
+            // The vf_stripe_plan hint is no longer trusted to GRANT access — clear it.
+            sessionStorage.removeItem('vf_stripe_plan');
+            // Access is granted ONLY by the server: poll the authoritative entitlement
+            // (populated by the Stripe webhook) for up to 10s. Never grant from the URL
+            // param or sessionStorage — that path was a free-premium bypass.
             let confirmed = false;
             for (let attempt = 0; attempt < 10; attempt++) {
               if (!appMountedRef.current) break;
               await new Promise<void>(r => setTimeout(r, 1000));
               if (!appMountedRef.current) break;
-              await cloudLoadData(userId);
-              const fresh = premium.refresh();
-              if (fresh.isPremium) { confirmed = true; break; }
+              const ent = await premium.syncEntitlementFromServer();
+              if (ent.isPremium) { confirmed = true; break; }
             }
             if (!appMountedRef.current) return;
-            // Clear only after we've resolved — prevents losing the plan on a mid-poll reload.
-            sessionStorage.removeItem('vf_stripe_plan');
-            if (!confirmed && rawStripePlan) premium.setPremium(rawStripePlan);
-            // Only navigate if we have evidence of a real purchase — if rawStripePlan is
-            // null (cross-device redirect, new tab) and webhook didn't confirm, skip
-            // navigation so the user isn't sent to a gated screen with no access.
-            if (confirmed || rawStripePlan) navigate({ screen: 'programme-builder' });
+            if (confirmed) navigate({ screen: 'programme-builder' });
           } else if (params.get('stripe_cancel') === '1') {
             window.history.replaceState({}, '', window.location.pathname);
           }
@@ -357,7 +352,7 @@ export default function App() {
     const acct = store.userProfile?.accountType;
     const uid = cloudUserIdRef.current;
     if (uid && (acct === 'coach' || acct === 'club')) {
-      void registerSquad(uid, premium.hasAccess ? 'pro' : 'free');
+      void registerSquad(uid);
     }
   }, [isAuthenticated, store.userProfile?.accountType, premium.hasAccess]);
 
@@ -631,7 +626,7 @@ export default function App() {
     let acct: string | undefined;
     try { acct = JSON.parse(localStorage.getItem('vf_user_profile') || '{}').accountType; } catch { /* ignore */ }
     if (acct === 'coach' || acct === 'club') {
-      await registerSquad(userId, premium.hasAccess ? 'pro' : 'free');
+      await registerSquad(userId);
       return;
     }
     const code = localStorage.getItem('vf_pending_team_code');
@@ -1584,13 +1579,13 @@ export default function App() {
               // iOS: trial must go through StoreKit via RevenueCat
               const ok = await premium.purchase(plan);
               if (ok) {
-                if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current, 'pro');
+                if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current);
                 navigate({ screen: dest });
               }
             } else {
               // Web: local 14-day trial clock, no payment required up front
               premium.startTrial();
-              if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current, 'pro');
+              if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current);
               navigate({ screen: dest });
             }
           }}
@@ -1611,7 +1606,7 @@ export default function App() {
             }
             const ok = await premium.purchase(plan);
             if (ok) {
-              if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current, 'pro');
+              if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current);
               navigate({ screen: isCoach ? 'dashboard' : 'programme-builder' });
             }
           }}

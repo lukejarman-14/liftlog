@@ -1,19 +1,34 @@
 import Stripe from 'https://esm.sh/stripe@14?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
 
+// ============================================================================
+// Stripe webhook — writes the SERVER-AUTHORITATIVE entitlement record.
+//
+// Hardened per Codex review:
+//  - Idempotency: every event id is recorded in billing_events; duplicates are
+//    acknowledged without reprocessing (Stripe retries are safe).
+//  - Normalized writes: entitlements + stripe_customers tables (no more
+//    read-modify-write of the whole user_data JSON blob, which raced client saves
+//    and stored the customer id in client-writable storage → IDOR).
+//  - Every DB result is checked; on failure we throw → return non-2xx so Stripe
+//    retries instead of silently losing billing state.
+// ============================================================================
+
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-04-10',
 });
 
+// Service-role client — bypasses RLS to write the server-only tables.
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
 Deno.serve(async (req) => {
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+
   const signature = req.headers.get('stripe-signature');
   const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
-
   if (!signature || !webhookSecret) {
     return new Response('Missing signature or webhook secret', { status: 400 });
   }
@@ -27,26 +42,36 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // ---- Idempotency: skip events we've already processed ------------------
+    const { error: ledgerError } = await supabase
+      .from('billing_events')
+      .insert({ event_id: event.id });
+    if (ledgerError) {
+      // 23505 = unique_violation → already processed. Ack so Stripe stops retrying.
+      if ((ledgerError as { code?: string }).code === '23505') {
+        return json({ received: true, duplicate: true });
+      }
+      throw new Error(`ledger insert failed: ${ledgerError.message}`);
+    }
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.client_reference_id;
         const plan = session.metadata?.plan as string | undefined;
         const stripeCustomerId = session.customer as string | null;
-
         if (!userId || !plan) break;
 
-        // For one-time payments, only proceed once Stripe has confirmed the charge.
-        // Subscriptions handle this via their own lifecycle events.
+        // One-time (lifetime) payments must be confirmed paid before granting.
         if (plan === 'lifetime' && session.payment_status !== 'paid') break;
 
-        let expiresAt: number | null = null;
+        let periodEnd: string | null = null;
         if (plan !== 'lifetime' && session.subscription) {
           const sub = await stripe.subscriptions.retrieve(session.subscription as string);
-          expiresAt = sub.current_period_end * 1000;
+          periodEnd = new Date(sub.current_period_end * 1000).toISOString();
         }
-
-        await upsertPremium(userId, plan, expiresAt, stripeCustomerId);
+        if (stripeCustomerId) await linkCustomer(userId, stripeCustomerId);
+        await grantPaid(userId, plan, periodEnd);
         break;
       }
 
@@ -54,13 +79,12 @@ Deno.serve(async (req) => {
         const sub = event.data.object as Stripe.Subscription;
         const userId = sub.metadata?.userId;
         const plan = sub.metadata?.plan;
-
         if (!userId || !plan) break;
 
         if (sub.status === 'active' || sub.status === 'trialing') {
-          await upsertPremium(userId, plan, sub.current_period_end * 1000);
+          await grantPaid(userId, plan, new Date(sub.current_period_end * 1000).toISOString());
         } else {
-          await revokePremium(userId);
+          await revokePaid(userId);
         }
         break;
       }
@@ -68,103 +92,78 @@ Deno.serve(async (req) => {
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription;
         const userId = sub.metadata?.userId;
-        if (!userId) break;
-        await revokePremium(userId);
+        if (userId) await revokePaid(userId);
         break;
       }
 
       case 'invoice.payment_failed': {
-        // Only revoke after Stripe has exhausted retries — don't cut off users
-        // on a temporary card failure. Stripe retries 3–4 times over several days.
         const invoice = event.data.object as Stripe.Invoice;
         const attemptCount = (invoice as { attempt_count?: number }).attempt_count ?? 1;
-        if (attemptCount < 3) break;
-
+        if (attemptCount < 3) break; // let Stripe retry the card first
         if (invoice.subscription) {
           const sub = await stripe.subscriptions.retrieve(invoice.subscription as string);
           const userId = sub.metadata?.userId;
           if (userId && sub.status !== 'active' && sub.status !== 'trialing') {
-            await revokePremium(userId);
+            await revokePaid(userId);
           }
         }
         break;
       }
     }
 
-    return new Response(JSON.stringify({ received: true }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ received: true });
   } catch (err) {
-    console.error('[stripe-webhook] unhandled error:', (err as Error).message);
-    return new Response(JSON.stringify({ error: 'An unexpected error occurred.' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
+    // Do NOT swallow — returning non-2xx makes Stripe retry the event.
+    console.error('[stripe-webhook] processing error:', (err as Error).message);
+    return new Response(JSON.stringify({ error: 'processing_failed' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' },
     });
   }
 });
 
-async function upsertPremium(
-  userId: string,
-  plan: string,
-  expiresAt: number | null,
-  stripeCustomerId?: string | null,
-) {
-  const { data: existing } = await supabase
-    .from('user_data')
-    .select('app_data')
-    .eq('id', userId)
-    .single();
-
-  const currentData = (existing?.app_data ?? {}) as Record<string, unknown>;
-  const premiumStatus = (currentData.vf_premium ?? {}) as Record<string, unknown>;
-
-  const updated: Record<string, unknown> = {
-    ...premiumStatus,
-    isPremium: true,
-    plan,
-    purchasedAt: premiumStatus.purchasedAt ?? Date.now(),
-  };
-  if (expiresAt !== null) updated.expiresAt = expiresAt;
-
-  const newAppData: Record<string, unknown> = { ...currentData, vf_premium: updated };
-  if (stripeCustomerId) newAppData.vf_stripe_customer_id = stripeCustomerId;
-
-  await supabase
-    .from('user_data')
-    .upsert({
-      id: userId,
-      app_data: newAppData,
-      updated_at: new Date().toISOString(),
-    });
+function json(body: unknown): Response {
+  return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } });
 }
 
-async function revokePremium(userId: string) {
-  const { data: existing } = await supabase
-    .from('user_data')
-    .select('app_data')
-    .eq('id', userId)
-    .single();
+/** Map a Supabase user to their Stripe customer id (server-only table). */
+async function linkCustomer(userId: string, stripeCustomerId: string): Promise<void> {
+  const { error } = await supabase
+    .from('stripe_customers')
+    .upsert({ user_id: userId, stripe_customer_id: stripeCustomerId, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id' });
+  if (error) throw new Error(`stripe_customers upsert failed: ${error.message}`);
+}
 
-  if (!existing) return;
-
-  const currentData = (existing.app_data ?? {}) as Record<string, unknown>;
-  const premiumStatus = (currentData.vf_premium ?? {}) as Record<string, unknown>;
-
-  // Never revoke lifetime purchases via webhook
-  if (premiumStatus.plan === 'lifetime') return;
-
-  const updated: Record<string, unknown> = {
-    ...premiumStatus,
-    isPremium: false,
-    plan: null,
-    expiresAt: null,
-  };
-
-  await supabase
-    .from('user_data')
-    .update({
-      app_data: { ...currentData, vf_premium: updated },
+/** Grant/refresh paid entitlement. Only the billing columns are written, so the
+ *  user's trial_started_at / grant_expires_at are preserved. */
+async function grantPaid(userId: string, plan: string, periodEnd: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('entitlements')
+    .upsert({
+      user_id: userId,
+      is_premium: true,
+      plan,
+      source: 'stripe',
+      current_period_end: periodEnd,
       updated_at: new Date().toISOString(),
-    })
-    .eq('id', userId);
+    }, { onConflict: 'user_id' });
+  if (error) throw new Error(`entitlements grant failed: ${error.message}`);
+}
+
+/** Revoke paid entitlement — but never downgrade a lifetime purchase. */
+async function revokePaid(userId: string): Promise<void> {
+  const { data: existing, error: readErr } = await supabase
+    .from('entitlements')
+    .select('plan')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (readErr) throw new Error(`entitlements read failed: ${readErr.message}`);
+  if (existing?.plan === 'lifetime') return;
+
+  const { error } = await supabase
+    .from('entitlements')
+    .update({ is_premium: false, plan: null, source: null, current_period_end: null,
+              updated_at: new Date().toISOString() })
+    .eq('user_id', userId);
+  if (error) throw new Error(`entitlements revoke failed: ${error.message}`);
 }
