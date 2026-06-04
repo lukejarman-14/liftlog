@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Dumbbell, Eye, EyeOff, Check } from 'lucide-react';
 import { cloudUpdatePassword } from '../../lib/cloudSync';
+import { validatePassword } from '../../lib/validation';
 
 interface ResetPasswordProps {
   onDone: () => void;
@@ -21,7 +22,9 @@ export function ResetPassword({ onDone }: ResetPasswordProps) {
     e.preventDefault();
     if (!password || loading) return;
     if (password !== confirm) { setError('Passwords do not match.'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    // Central validator enforces both min (8) and max (128) length consistently.
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.ok) { setError(pwCheck.error); return; }
 
     setLoading(true);
     setError('');

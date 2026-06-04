@@ -401,8 +401,14 @@ export function CoachDashboard({
   void _squadActivity;
 
   const exportReport = () => {
-    // Quote a cell value — wraps in double quotes if it contains comma, quotes, or newlines
-    const q = (v: string) => /[,"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    // Quote a cell value, and neutralise spreadsheet formula injection.
+    // Player-controlled fields (names, positions) starting with = + - @ or a
+    // leading tab/CR are prefixed with a single quote so Excel/Sheets treat them
+    // as text, never as executable formulas (CSV injection / CWE-1236).
+    const q = (raw: string) => {
+      const v = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+      return /[,"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    };
     const header = ['Name', 'Position', 'Readiness', 'Available', 'Sessions This Week', 'Sessions Target',
       ...TEST_METRICS.flatMap(m => [m.label, `${m.label} Change`])];
     const rows = [header];

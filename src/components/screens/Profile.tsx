@@ -8,6 +8,7 @@ import {
 import { isSupabaseConfigured, cloudUpdatePassword } from '../../lib/cloudSync';
 import { exportData } from '../../lib/dataSync';
 import { hashPassword } from '../../lib/authUtils';
+import { validatePassword } from '../../lib/validation';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { UserProfile, WeightEntry, UserSettings, WorkoutSession } from '../../types';
@@ -524,7 +525,9 @@ function ChangePasswordModal({
 
   const handleSave = async () => {
     setError('');
-    if (!passwordStrong) { setError('New password must be at least 8 characters.'); return; }
+    // Central validator enforces both min (8) and max (128) length consistently.
+    const pwCheck = validatePassword(newPw);
+    if (!pwCheck.ok) { setError(pwCheck.error); return; }
     if (!passwordsMatch) { setError('New passwords do not match.'); return; }
     setLoading(true);
     // Verify current password (local hash check)
