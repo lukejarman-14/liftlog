@@ -685,6 +685,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                     value={firstName}
                     onChange={e => setFirstName(e.target.value)}
                     placeholder="First name"
+                    maxLength={50}
                     style={{ fontSize: '16px' }}
                     className={inputClass(!firstName.trim() && firstName !== '')}
                     autoComplete="given-name"
@@ -696,6 +697,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                     value={lastName}
                     onChange={e => setLastName(e.target.value)}
                     placeholder="Last name"
+                    maxLength={50}
                     style={{ fontSize: '16px' }}
                     className={inputClass()}
                     autoComplete="family-name"
