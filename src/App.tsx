@@ -120,6 +120,9 @@ function detectRecoveryUrl(): boolean {
   return (
     hash.includes('type=recovery') ||
     search.includes('type=recovery') ||
+    // auth-detect.js snapshots this BEFORE Supabase strips ?code= from the URL
+    // (PKCE reset links). Without honouring it, the reset flow was missed.
+    sessionStorage.getItem('vf_auth_redirect') === '1' ||
     sessionStorage.getItem('vf_recovery_mode') === '1'
   );
 }
@@ -1183,6 +1186,7 @@ export default function App() {
       <ResetPassword
         onDone={() => {
           sessionStorage.removeItem('vf_recovery_mode');
+          sessionStorage.removeItem('vf_auth_redirect');
           setIsRecoveryMode(false);
           navigate({ screen: 'dashboard' });
         }}
@@ -1479,7 +1483,11 @@ export default function App() {
               try {
                 await cloudDeleteAccount();
               } catch {
-                // Cloud deletion failed — still wipe local data so the user isn't stuck
+                // Fail closed: do NOT wipe local data or redirect if the SERVER
+                // deletion failed — otherwise the user believes their account is
+                // gone while it still exists server-side (privacy/GDPR violation).
+                toast.error('Could not delete your account. Please check your connection and try again.');
+                return;
               }
             }
             startTransition(() => store.clearAll());

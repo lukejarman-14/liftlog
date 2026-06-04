@@ -70,6 +70,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   // If existingUserId is provided, skip landing and go straight to profile setup
   const [step, setStep] = useState(existingUserId ? 1 : 0);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   // Shown after sign-up when Supabase requires email confirmation before issuing a session
   const [awaitingEmailConfirm, setAwaitingEmailConfirm] = useState(false);
   // True once cloudSignUp has been called — prevents re-calling handleEnterApp
@@ -303,6 +304,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const handleEnterApp = async () => {
     if (submitting) return;
     setSubmitting(true);
+    setSubmitError('');
     try {
       // Only hash a password for the local-auth fallback path (Supabase not configured).
       // When Supabase is configured it handles authentication server-side — storing a
@@ -358,6 +360,14 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
             } catch { /* fall through to local-only */ }
           }
         }
+      }
+
+      // Fail closed: with Supabase configured, never proceed into the app as a
+      // local-only "authenticated" session if sign-up AND sign-in both failed.
+      // (Previously this fell through to onComplete with userId=undefined.)
+      if (isSupabaseConfigured && !userId && !needsConfirmation) {
+        setSubmitError('Could not create your account. Please check your connection and try again.');
+        return;
       }
 
       // Push data to cloud immediately (profile is already in localStorage above)
@@ -1422,6 +1432,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               {!submitting && <ChevronRight size={16} />}
             </button>
           </div>
+        )}
+        {submitError && (
+          <p className="text-sm text-red-600 mt-3 text-center px-4">{submitError}</p>
         )}
       </div>
     </div>
