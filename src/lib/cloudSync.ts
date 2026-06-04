@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { STORAGE_KEYS } from './dataSync';
+import { getCaptchaToken } from './hcaptcha';
 
 
 // Keys whose values are authoritative on the server only (written by webhooks/RevenueCat).
@@ -58,7 +59,13 @@ async function guardAuthRateLimit(email: string): Promise<void> {
 export async function cloudSignUp(email: string, password: string): Promise<SignUpResult> {
   if (!supabase) throw new Error('not_configured');
   await guardAuthRateLimit(email);
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  // captchaToken is required when Supabase CAPTCHA is enabled; ignored when off.
+  const captchaToken = await getCaptchaToken();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { captchaToken },
+  });
   if (error) throw error;
   // If email confirmation is disabled, Supabase returns a session immediately.
   // Set it explicitly so getSession() returns it on next load.
@@ -75,7 +82,13 @@ export async function cloudSignUp(email: string, password: string): Promise<Sign
 export async function cloudSignIn(email: string, password: string): Promise<string> {
   if (!supabase) throw new Error('not_configured');
   await guardAuthRateLimit(email);
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  // captchaToken is required when Supabase CAPTCHA is enabled; ignored when off.
+  const captchaToken = await getCaptchaToken();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+    options: { captchaToken },
+  });
   if (error) throw error;
   return data.user.id;
 }
@@ -108,7 +121,13 @@ export async function cloudDeleteAccount(): Promise<void> {
 /** Re-send the email confirmation link to the given address. */
 export async function cloudResendConfirmation(email: string): Promise<void> {
   if (!supabase) throw new Error('not_configured');
-  const { error } = await supabase.auth.resend({ type: 'signup', email });
+  // captchaToken is required when Supabase CAPTCHA is enabled; ignored when off.
+  const captchaToken = await getCaptchaToken();
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: { captchaToken },
+  });
   if (error) throw error;
 }
 
@@ -117,8 +136,11 @@ export async function cloudResetPassword(email: string): Promise<void> {
   if (!supabase) throw new Error('not_configured');
   await guardAuthRateLimit(email);
   const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
+  // captchaToken is required when Supabase CAPTCHA is enabled; ignored when off.
+  const captchaToken = await getCaptchaToken();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/`,
+    captchaToken,
   });
   if (error) throw error;
 }
