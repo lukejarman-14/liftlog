@@ -55,7 +55,9 @@
     #   blocked by CSP and auth breaks while Supabase CAPTCHA enforcement is on.
     # form-action — allows Stripe Checkout redirect from our origin
     # frame-ancestors 'none' — belt-and-suspenders with X-Frame-Options
-    Content-Security-Policy = "default-src 'none'; script-src 'self' https://*.posthog.com https://posthog.com https://hcaptcha.com https://*.hcaptcha.com; style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://posthog.com https://hcaptcha.com https://*.hcaptcha.com; font-src 'self'; manifest-src 'self'; frame-src https://hcaptcha.com https://*.hcaptcha.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com;"
+    # *.sentry.io — error-monitoring ingest endpoint (was being CSP-blocked, so no
+    #   events were reaching Sentry until this was added to connect-src).
+    Content-Security-Policy = "default-src 'none'; script-src 'self' https://*.posthog.com https://posthog.com https://hcaptcha.com https://*.hcaptcha.com; style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://posthog.com https://hcaptcha.com https://*.hcaptcha.com https://*.sentry.io; font-src 'self'; manifest-src 'self'; frame-src https://hcaptcha.com https://*.hcaptcha.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com;"
 
 # Waitlist pages use Google Fonts + Mailchimp JSONP — needs its own CSP
 [[headers]]
