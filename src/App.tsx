@@ -16,7 +16,7 @@ import { generateProgramme, buildTestEmphasis } from './lib/programmeGenerator';
 import { sessionToWorkoutExercises, getProgrammeWeekIndex } from './lib/sessionUtils';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 import { usePremium } from './hooks/usePremium';
-import { rcConfigure } from './lib/revenueCat';
+import { rcConfigure, rcLogOut } from './lib/revenueCat';
 import { createStripeCheckout, createStripePortalSession } from './lib/stripeCheckout';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -1161,6 +1161,8 @@ export default function App() {
       // Wipe all local app data + the owner tag so the next account on this
       // (possibly shared) device starts clean and can't read the prior user's data.
       clearDataOwnership();
+      // Detach the RevenueCat identity so iOS purchases don't carry to the next user.
+      void rcLogOut();
       resetAnalyticsUser();
       cloudUserIdRef.current = null;
       setIsAuthenticated(false);

@@ -21,19 +21,45 @@ const PLAN_TO_PACKAGE: Record<string, string> = {
 
 export type RCPlan = 'monthly' | 'yearly' | 'lifetime';
 
+let isConfigured = false;
 let configuredUserId: string | null = null;
 
-/** Call on app boot and after login. Re-configures if the user changes (e.g. logout → new login). */
+/**
+ * Call on app boot and after login. Configures RevenueCat exactly ONCE, then
+ * switches identity via logIn/logOut — never re-configure() per user. Re-running
+ * configure() for a different user on a shared device can leave purchases or
+ * entitlements attached to the previous identity (Codex #13).
+ */
 export async function rcConfigure(userId?: string): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   if (!IOS_API_KEY) return;
   const nextId = userId ?? null;
-  if (configuredUserId === nextId) return;
   try {
-    await Purchases.setLogLevel({ level: LOG_LEVEL.ERROR });
-    await Purchases.configure({ apiKey: IOS_API_KEY, appUserID: nextId });
+    if (!isConfigured) {
+      await Purchases.setLogLevel({ level: LOG_LEVEL.ERROR });
+      await Purchases.configure({ apiKey: IOS_API_KEY, appUserID: nextId ?? undefined });
+      isConfigured = true;
+      configuredUserId = nextId;
+      return;
+    }
+    if (nextId === configuredUserId) return;
+    // Identity change on an already-configured SDK — use logIn/logOut.
+    if (nextId) {
+      await Purchases.logIn({ appUserID: nextId });
+    } else {
+      await Purchases.logOut();
+    }
     configuredUserId = nextId;
   } catch { /* RC unavailable */ }
+}
+
+/** Detach the RevenueCat identity on logout (shared-device hygiene). */
+export async function rcLogOut(): Promise<void> {
+  if (!Capacitor.isNativePlatform() || !IOS_API_KEY || !isConfigured) return;
+  try {
+    await Purchases.logOut();
+    configuredUserId = null;
+  } catch { /* already anonymous / RC unavailable */ }
 }
 
 export type RCEntitlementStatus = {
