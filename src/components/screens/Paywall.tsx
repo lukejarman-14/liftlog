@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Zap, Check, Shield, Lock, RotateCcw, Tag, Mail, ChevronLeft, UserPlus, Dumbbell, Building2 } from 'lucide-react';
 import { RCPlan } from '../../hooks/usePremium';
 import { trackEvent } from '../../lib/analytics';
+import { sanitisePromoCode, PROMO_CODE_MAX } from '../../lib/validation';
 
 interface PaywallProps {
   featureLabel?: string;
@@ -495,7 +496,8 @@ export function Paywall({
                 <input
                   type="text"
                   value={promoCode}
-                  onChange={e => { setPromoCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); setPromoError(null); }}
+                  onChange={e => { setPromoCode(sanitisePromoCode(e.target.value)); setPromoError(null); }}
+                  maxLength={PROMO_CODE_MAX}
                   placeholder="Enter code"
                   style={{ fontSize: '16px' }}
                   className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-400"

@@ -6,6 +6,7 @@ import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoa
 import { supabase } from '../../lib/supabase';
 import { trackEvent } from '../../lib/analytics';
 import { hashPassword } from '../../lib/authUtils';
+import { validateEmail, sanitiseTeamCode, EMAIL_MAX, PASSWORD_MAX, TEAM_CODE_MAX } from '../../lib/validation';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile, recommendedPlanId: string, userId?: string) => void;
@@ -201,11 +202,11 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     return total > 0 ? Math.round(total * 0.453592 * 10) / 10 : undefined;
   })();
 
-  const passwordStrong = password.length >= 8;
+  const passwordStrong = password.length >= 8 && password.length <= PASSWORD_MAX;
   const passwordsMatch = password === confirmPassword && confirmPassword !== '';
   const canCreateAccount = existingUserId
-    ? firstName.trim() !== '' && lastName.trim() !== '' && email.includes('@')
-    : firstName.trim() !== '' && lastName.trim() !== '' && email.includes('@') && passwordStrong && passwordsMatch;
+    ? firstName.trim() !== '' && lastName.trim() !== '' && validateEmail(email).ok
+    : firstName.trim() !== '' && lastName.trim() !== '' && validateEmail(email).ok && passwordStrong && passwordsMatch;
 
   const handleLogin = async () => {
     if (!loginEmail.trim() || !loginPassword) {
@@ -712,6 +713,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                   onChange={e => setEmail(e.target.value)}
                   type="email"
                   placeholder="you@example.com"
+                  maxLength={EMAIL_MAX}
                   style={{ fontSize: '16px' }}
                   className={inputClass()}
                   autoComplete="email"
@@ -728,6 +730,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                         onChange={e => { setPassword(e.target.value); }}
                         type={showPassword ? 'text' : 'password'}
                         placeholder="Min. 8 characters"
+                        maxLength={PASSWORD_MAX}
                         style={{ fontSize: '16px' }}
                         className={inputClass(password !== '' && !passwordStrong)}
                         autoComplete="new-password"
@@ -759,6 +762,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                         type={showConfirm ? 'text' : 'password'}
                         style={{ fontSize: '16px' }}
                         placeholder="Re-enter password"
+                        maxLength={PASSWORD_MAX}
                         className={inputClass(confirmPassword !== '' && !passwordsMatch)}
                         autoComplete="new-password"
                       />
@@ -1275,8 +1279,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                 <input
                   type="text"
                   value={teamCode}
-                  onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
+                  onChange={e => setTeamCode(sanitiseTeamCode(e.target.value))}
                   placeholder="e.g. VF-K7M2P"
+                  maxLength={TEAM_CODE_MAX}
                   style={{ fontSize: '16px' }}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-400"
                 />

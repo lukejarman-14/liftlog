@@ -58,7 +58,8 @@ Deno.serve(async (req) => {
   });
   if (rlError || !allowed) {
     return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
-      status: 429, headers: { ...cors(req), 'Content-Type': 'application/json' },
+      status: 429,
+      headers: { ...cors(req), 'Content-Type': 'application/json', 'Retry-After': '3' },
     });
   }
 

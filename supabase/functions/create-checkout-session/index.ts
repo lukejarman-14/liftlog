@@ -38,9 +38,26 @@ function cors(req: Request): Record<string, string> {
   };
 }
 
+// Extract the real client IP — Supabase Edge Functions run behind a proxy.
+function clientIp(req: Request): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    req.headers.get('cf-connecting-ip') ??
+    req.headers.get('x-real-ip') ??
+    'unknown'
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors(req) });
+  }
+
+  // Only accept POST — reject unexpected methods early.
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405, headers: { ...cors(req), 'Content-Type': 'application/json' },
+    });
   }
 
   const authHeader = req.headers.get('Authorization');
@@ -68,7 +85,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Rate limiting: 10 checkout attempts per hour per user
+  // Rate limiting: 10 checkout attempts per hour per user (user-scoped).
   const { data: allowed, error: rlError } = await supabase.rpc('check_edge_rate_limit', {
     p_user_id: user.id,
     p_endpoint: 'create-checkout-session',
@@ -77,7 +94,13 @@ Deno.serve(async (req) => {
   });
   if (rlError || !allowed) {
     return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
-      status: 429, headers: { ...cors(req), 'Content-Type': 'application/json' },
+      status: 429,
+      headers: {
+        ...cors(req),
+        'Content-Type': 'application/json',
+        // Tells well-behaved clients to wait ~2.9 s before retrying.
+        'Retry-After': '3',
+      },
     });
   }
 
@@ -90,13 +113,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
+    const rawBody = await req.json();
+
+    // Whitelist accepted fields — reject any unexpected keys silently by ignoring them.
+    // This prevents parameter pollution and makes the API surface explicit.
+    const ALLOWED_FIELDS = new Set(['plan', 'accountType', 'noTrial']);
+    const body: Record<string, unknown> = {};
+    for (const key of ALLOWED_FIELDS) {
+      if (key in rawBody) body[key] = rawBody[key];
+    }
 
     // Explicit type guards — never trust client-supplied field types.
     const VALID_PLANS = new Set(['monthly', 'yearly', 'lifetime']);
-    const rawPlan         = typeof body.plan === 'string'          ? body.plan          : '';
-    const rawAccountType  = typeof body.accountType === 'string'   ? body.accountType   : '';
-    const noTrial         = body.noTrial === true; // must be exactly true, not truthy
+    const rawPlan        = typeof body.plan === 'string'        ? body.plan        : '';
+    const rawAccountType = typeof body.accountType === 'string' ? body.accountType : '';
+    const noTrial        = body.noTrial === true; // must be exactly true, not truthy
 
     if (!VALID_PLANS.has(rawPlan)) {
       return new Response(JSON.stringify({ error: 'Invalid plan' }), {
@@ -106,7 +137,7 @@ Deno.serve(async (req) => {
 
     const plan = rawPlan;
 
-    // Default to 'personal' for backwards compatibility with older clients
+    // Default to 'personal' for backwards compatibility with older clients.
     const accountType = VALID_ACCOUNT_TYPES.has(rawAccountType) ? rawAccountType : 'personal';
 
     // Redirect URLs are hardcoded server-side — never trusted from the client body.

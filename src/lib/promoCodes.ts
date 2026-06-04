@@ -42,68 +42,55 @@ function cacheRedeemedLocally(code: string, userId: string) {
   }
 }
 
+export type RedeemReason =
+  | 'invalid' | 'already_used' | 'inactive' | 'error'
+  | 'not_authenticated' | 'email_unconfirmed' | 'rate_limited';
+
 export type RedeemResult =
   | { success: true; expiresAt: number }
-  | { success: false; reason: 'invalid' | 'already_used' | 'inactive' | 'error' | 'not_authenticated' };
+  | { success: false; reason: RedeemReason };
 
-/** Check a promo code and return the expiry timestamp if valid. */
+/**
+ * Redeem a promo code.
+ *
+ * All validation, single-use enforcement and rate limiting now happen
+ * server-side in the `redeem_promo_code` SECURITY DEFINER RPC (migration 010).
+ * The client no longer reads `promo_codes` directly, so codes cannot be
+ * enumerated. The local cache + client rate limit below are UX niceties only
+ * (instant feedback, fewer round-trips) — they are NOT the security boundary.
+ */
 export async function redeemPromoCode(rawCode: string): Promise<RedeemResult> {
-  if (isPromoRateLimited()) return { success: false, reason: 'error' };
+  if (isPromoRateLimited()) return { success: false, reason: 'rate_limited' };
   const code = rawCode.trim().toUpperCase();
   if (!code) return { success: false, reason: 'invalid' };
-
   if (!supabase) return { success: false, reason: 'error' };
 
   try {
-    const { data: promoRow, error: promoError } = await supabase
-      .from('promo_codes')
-      .select('code, active')
-      .eq('code', code)
-      .single();
-
-    if (promoError || !promoRow) return { success: false, reason: 'invalid' };
-    if (!promoRow.active) return { success: false, reason: 'inactive' };
-
+    // Fast local "already used" short-circuit to avoid a needless round-trip.
+    // Scoped per user so different accounts on the same device don't collide.
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, reason: 'not_authenticated' };
-
-    // Local cache check is scoped to this user — done after getUser() so we
-    // have the user ID. Avoids a false "already used" for a different account
-    // on the same device.
-    if (getLocalRedeemedCodes(user.id).includes(code)) {
+    if (user && getLocalRedeemedCodes(user.id).includes(code)) {
       return { success: false, reason: 'already_used' };
     }
 
-    // Destructure error so a network/RLS failure doesn't look like "not redeemed"
-    const { data: existingRedemption, error: redemptionCheckError } = await supabase
-      .from('promo_redemptions')
-      .select('id')
-      .eq('code', code)
-      .eq('user_id', user.id)
-      .maybeSingle();
+    // Server is authoritative: validates the code, enforces the rate limit,
+    // requires a confirmed email, and records the redemption atomically.
+    const { data, error } = await supabase.rpc('redeem_promo_code', { p_code: code });
+    if (error || !data) return { success: false, reason: 'error' };
 
-    if (redemptionCheckError) return { success: false, reason: 'error' };
+    const result = data as { success: boolean; reason?: RedeemReason; expires_at?: number };
 
-    if (existingRedemption) {
-      cacheRedeemedLocally(code, user.id);
-      return { success: false, reason: 'already_used' };
+    if (!result.success) {
+      // Cache a server-confirmed "already used" so we short-circuit next time.
+      if (result.reason === 'already_used' && user) cacheRedeemedLocally(code, user.id);
+      return { success: false, reason: result.reason ?? 'error' };
     }
 
-    const expiresAt = Date.now() + PROMO_DURATION_MS;
-    const { error: insertError } = await supabase
-      .from('promo_redemptions')
-      .insert({ code, user_id: user.id, redeemed_at: new Date().toISOString() });
-
-    if (insertError) {
-      // 23505 = unique_violation — a concurrent request got there first.
-      if (insertError.code === '23505') {
-        cacheRedeemedLocally(code, user.id);
-        return { success: false, reason: 'already_used' };
-      }
-      return { success: false, reason: 'error' };
-    }
-
-    cacheRedeemedLocally(code, user.id);
+    if (user) cacheRedeemedLocally(code, user.id);
+    // Prefer the server's expiry; fall back to a local 30-day window.
+    const expiresAt = typeof result.expires_at === 'number'
+      ? result.expires_at
+      : Date.now() + PROMO_DURATION_MS;
     return { success: true, expiresAt };
   } catch {
     return { success: false, reason: 'error' };
