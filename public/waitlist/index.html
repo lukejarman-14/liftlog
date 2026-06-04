@@ -3,290 +3,654 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vector Football — AI Training for Players, Coaches & Clubs</title>
-  <meta name="description" content="AI-powered football training built for players, coaches, and clubs. Train with purpose. Perform on gameday." />
-  <link rel="stylesheet" href="style.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <title>Vector Football — Join the Waitlist</title>
+  <meta name="description" content="Get early access to Vector Football. AI-powered S&C programmes built around your match schedule, your gym access, and your fitness numbers." />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange: #f97316;
+      --orange-dark: #ea6c0a;
+      --bg: #0c0c0c;
+      --surface: #161616;
+      --border: #242424;
+      --text: #f0f0f0;
+      --muted: #888;
+      --max: 680px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-logo img {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 0.9rem;
+    }
+
+    .nav-links a { color: var(--muted); transition: color 0.15s; }
+    .nav-links a:hover { color: var(--text); }
+
+    .btn-nav {
+      padding: 8px 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.875rem;
+      color: var(--text) !important;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .btn-nav:hover { background: var(--surface); border-color: #444; }
+
+    /* ── Hero ── */
+    .hero {
+      max-width: var(--max);
+      margin: 28px auto 0;
+      padding: 0 24px;
+      text-align: center;
+    }
+
+    .hero-eyebrow {
+      font-size: 0.8rem;
+      color: var(--orange);
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-size: clamp(1.9rem, 6vw, 2.8rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 14px;
+    }
+
+    h1 span { color: var(--orange); }
+
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--muted);
+      max-width: 480px;
+      margin: 0 auto 28px;
+      line-height: 1.65;
+    }
+
+    /* ── Email form ── */
+    .email-form-wrap {
+      max-width: 460px;
+      margin: 0 auto;
+    }
+
+    .email-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .email-row input[type="email"] {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 0.95rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+      min-width: 0;
+    }
+
+    .email-row input[type="email"]::placeholder { color: #555; }
+    .email-row input[type="email"]:focus { border-color: var(--orange); }
+
+    .btn-join {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--orange);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 14px 22px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+      font-family: inherit;
+      letter-spacing: -0.01em;
+    }
+    .btn-join:hover { background: var(--orange-dark); }
+    .btn-join:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .form-note {
+      font-size: 0.75rem;
+      color: #555;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    /* ── Social proof ── */
+    .social-proof {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .avatars {
+      display: flex;
+    }
+
+    .avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid var(--bg);
+      margin-right: -8px;
+    }
+
+    .av1 { background: #f97316; }
+    .av2 { background: #3b82f6; }
+    .av3 { background: #22c55e; }
+    .av4 { background: #a855f7; }
+
+    .counter-text {
+      font-size: 0.85rem;
+      color: var(--muted);
+      padding-left: 12px;
+    }
+
+    .counter-text strong { color: var(--text); }
+
+    /* ── Success state ── */
+    .success-state {
+      display: none;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+      border: 1px solid #2a3a2a;
+      border-radius: 12px;
+      padding: 16px 20px;
+      text-align: left;
+    }
+
+    .success-state.visible { display: flex; }
+
+    .success-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(34,197,94,0.12);
+      color: #22c55e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .success-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.875rem;
+    }
+
+    .success-text strong { color: var(--text); }
+    .success-text span { color: var(--muted); font-size: 0.8rem; }
+
+    /* ── Divider ── */
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      max-width: 900px;
+      margin: 52px auto;
+    }
+
+    /* ── Section shared ── */
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .section-heading {
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .section-body {
+      color: var(--muted);
+      font-size: 1rem;
+      max-width: 480px;
+      line-height: 1.7;
+      margin-bottom: 40px;
+    }
+
+    /* ── Features ── */
+    .features {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      transition: border-color 0.15s;
+    }
+    .feature-card:hover { border-color: #333; }
+
+    .feature-title {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-desc {
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .feature-tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 100px;
+      background: rgba(249,115,22,0.12);
+      color: var(--orange);
+      margin-bottom: 12px;
+    }
+
+    /* ── Demo CTA ── */
+    .demo-cta {
+      margin-top: 32px;
+    }
+
+    .btn-demo {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 12px 22px;
+      border-radius: 10px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .btn-demo:hover { border-color: #444; background: #1e1e1e; }
+
+    /* ── Bottom CTA ── */
+    .bottom-cta {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 24px;
+      text-align: center;
+    }
+
+    .bottom-cta h2 {
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 14px;
+    }
+
+    .bottom-cta h2 span { color: var(--orange); }
+
+    .bottom-cta p {
+      color: var(--muted);
+      margin-bottom: 28px;
+      font-size: 1rem;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      max-width: 900px;
+      margin: 80px auto 0;
+      padding: 32px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .footer-brand img { width: 24px; height: 24px; border-radius: 6px; }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      flex-wrap: wrap;
+    }
+
+    .footer-links a:hover { color: var(--text); }
+
+    .footer-social {
+      display: flex;
+      gap: 16px;
+    }
+
+    .footer-social a {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      transition: color 0.15s;
+    }
+
+    .footer-social a:hover { color: var(--text); }
+
+    @media (max-width: 700px) {
+      footer { flex-direction: column; align-items: flex-start; gap: 20px; }
+      .email-row { flex-direction: column; }
+      .btn-join { width: 100%; justify-content: center; }
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 2rem; }
+    }
+  </style>
 </head>
 <body>
 
-  <!-- NAV -->
-  <nav class="nav">
-    <div class="nav-inner">
-      <a href="index.html" class="nav-logo">
-        <div class="nav-logo-circle">
-          <img src="logo.png" alt="VectorFootball" />
-        </div>
-        <div class="nav-logo-wordmark">
-          <span class="wordmark-vector">VECTOR</span>
-          <span class="wordmark-football">FOOTBALL</span>
-        </div>
-      </a>
-      <div class="nav-badge">Early Access</div>
+<!-- Nav -->
+<nav>
+  <a href="/waitlist" class="nav-logo">
+    <img src="/icon-192.png" alt="Vector Football" />
+    Vector Football
+  </a>
+  <div class="nav-links">
+    <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>
+    <a href="/" class="btn-nav" target="_blank" rel="noopener noreferrer">Open app</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <p class="hero-eyebrow">Now accepting early access signups</p>
+
+  <h1>Train with purpose.<br /><span>Perform on gameday.</span></h1>
+
+  <p class="hero-sub">
+    AI-powered S&amp;C programmes built around your match schedule, your gym access, and your actual fitness numbers. Get early access before the full launch.
+  </p>
+
+  <div class="email-form-wrap">
+    <form id="waitlistForm">
+      <div class="email-row">
+        <input type="email" id="emailInput" placeholder="Enter your email for early access" required autocomplete="email" />
+        <button type="submit" class="btn-join">
+          <span class="btn-text">Join waitlist</span>
+          <span class="btn-arrow"> &rarr;</span>
+        </button>
+      </div>
+      <p class="form-note">No spam. Unsubscribe any time.</p>
+    </form>
+
+    <div class="success-state" id="successState">
+      <div class="success-icon">&#10003;</div>
+      <div class="success-text">
+        <strong>You're on the list.</strong>
+        <span>We'll be in touch with your early access details.</span>
+      </div>
     </div>
-  </nav>
 
-  <main>
-
-    <!-- HERO -->
-    <section class="hero">
-      <div class="hero-bg">
-        <div class="field-grid"></div>
-        <div class="glow-center"></div>
-        <div class="glow-bottom"></div>
+    <div class="social-proof">
+      <div class="avatars">
+        <div class="avatar av1"></div>
+        <div class="avatar av2"></div>
+        <div class="avatar av3"></div>
+        <div class="avatar av4"></div>
       </div>
-
-      <div class="hero-content">
-        <div class="hero-logo">
-          <div class="hero-logo-circle">
-            <img src="logo.png" alt="VectorFootball Logo" />
-          </div>
-        </div>
-
-        <p class="pre-text">Now accepting early access signups</p>
-
-        <div class="slogan-block">
-          <div class="slogan-top">
-            Train with <span class="accent">Purpose.</span><br />
-            Perform on <span class="accent">Gameday.</span>
-          </div>
-        </div>
-
-        <p class="hero-desc">The AI-powered football training app built for players, coaches, and clubs. Personalised programmes, injury prevention, and squad management all in one platform.</p>
-
-        <div class="waitlist-wrap">
-          <form class="waitlist-form" id="waitlistForm">
-            <div class="email-field">
-              <input type="email" id="emailInput" placeholder="Enter your email for early access" required autocomplete="email" />
-              <button type="submit" class="btn-join" id="submitBtn">
-                <span class="btn-text">Join Now</span>
-                <span class="btn-arrow">→</span>
-              </button>
-            </div>
-            <p class="form-note">No spam. Unsubscribe any time.</p>
-          </form>
-
-          <div class="success-state" id="successState">
-            <div class="success-icon">✓</div>
-            <div class="success-text">
-              <strong>You're on the list.</strong>
-              <span>We'll be in touch with your early access details.</span>
-            </div>
-          </div>
-
-          <div class="social-proof">
-            <div class="avatars">
-              <div class="avatar av1"></div>
-              <div class="avatar av2"></div>
-              <div class="avatar av3"></div>
-              <div class="avatar av4"></div>
-            </div>
-            <span class="counter-text"><strong id="waitlistCount">31</strong> players already signed up</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <div class="divider"></div>
-
-    <!-- PLAYER FEATURES -->
-    <section class="features">
-      <div class="features-inner">
-        <p class="section-label">For Players</p>
-        <h2 class="section-title">Everything you need to perform at your best.</h2>
-        <div class="features-grid">
-
-          <div class="feature-card feature-card--highlight">
-            <span class="feature-tag">Core Feature</span>
-            <h3>AI Programme Builder</h3>
-            <p>Input your position, playing style, age, height, weight, gym access, and season phase. The AI instantly generates a fully personalised multi-week training programme with no generic plans.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Match-Day Periodisation</h3>
-            <p>Your programme automatically adjusts around matchday. Heavier loads early in the week taper into the game so you train hard without compromising your performance when it matters most.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Active Workout Mode</h3>
-            <p>A real-time session tracker that guides you through each exercise, logs your weights and reps, tracks rest periods, and saves every session automatically on completion.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>ACWR Load Calendar</h3>
-            <p>Powered by the Acute:Chronic Workload Ratio methodology used by professional clubs. Visualise safe zones and high-risk zones week by week so you never overtrain or break down.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Fitness Testing Battery</h3>
-            <p>Six professional-grade tests: 10m Sprint, 30m Sprint, Countermovement Jump, Standing Long Jump, Repeated Sprint Ability, and Yo-Yo Test. Results are graded and fed directly back into your programme.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Training History and Progress</h3>
-            <p>A full searchable log of every completed session. Track your personal bests, monitor improvement over time, and review previous workouts in detail.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Exercise Library</h3>
-            <p>Browse every exercise used across all programmes, complete with descriptions and coaching cues. Tap any exercise to understand exactly how to perform it correctly.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Referral System</h3>
-            <p>Share your personal referral code and give friends 21 extra days of free Premium. You earn additional free days for every player you bring onto the platform.</p>
-          </div>
-
-        </div>
-      </div>
-    </section>
-
-    <div class="divider"></div>
-
-    <!-- COACH FEATURES -->
-    <section class="features features--dark">
-      <div class="features-inner">
-        <p class="section-label">For Coaches</p>
-        <h2 class="section-title">Manage your squad. Monitor every player.</h2>
-        <div class="features-grid">
-
-          <div class="feature-card feature-card--highlight">
-            <span class="feature-tag">Coach Pro</span>
-            <h3>Squad Dashboard and Readiness Heatmap</h3>
-            <p>See your entire squad at a glance. A colour-coded readiness heatmap shows every player's status: Ready, Moderate, or Low, so you know exactly who is available before matchday.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Schedule and Phase Planning</h3>
-            <p>Set the current training phase and plan the week. Every player's individual programme auto-periodises around your squad schedule so the whole group peaks together.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Fitness Test Leaderboards</h3>
-            <p>Ranked leaderboards for all six fitness tests across your squad. Identify your fastest and most powerful players, and export all test data as a CSV with one tap.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Compliance and Attendance Tracking</h3>
-            <p>Monitor session completion rates across the whole squad. An activity feed shows recent player actions: sessions completed, tests recorded, and new players joining.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Player Detail View and Private Notes</h3>
-            <p>Tap any player to see their current programme, all six test results, improvement trends, and recent activity. Add private coach notes that only you can see.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Squad Invite System</h3>
-            <p>Every coach gets a unique invite code. Players enter it on sign-up and are instantly linked to your squad. Pro coaches automatically unlock full Premium access for every player in the team.</p>
-          </div>
-
-        </div>
-      </div>
-    </section>
-
-    <div class="divider"></div>
-
-    <!-- CLUB -->
-    <section class="features">
-      <div class="features-inner">
-        <p class="section-label">For Clubs and Academies</p>
-        <h2 class="section-title">Enterprise-grade tools for serious organisations.</h2>
-        <div class="features-grid features-grid--wide">
-
-          <div class="feature-card feature-card--highlight">
-            <span class="feature-tag">Club Tier</span>
-            <h3>Multi-Team Management</h3>
-            <p>Manage 200 or more players across multiple teams from a single club dashboard. The full coach feature set scaled to your entire organisation, with readiness heatmaps, test leaderboards, and compliance tracking built in.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Tailored Onboarding</h3>
-            <p>Club accounts are built around your specific needs. Get in touch with the Vector Football team directly and we will put together a solution for your club or academy.</p>
-          </div>
-
-          <div class="feature-card">
-            <h3>Built for Scale</h3>
-            <p>Powered by Supabase, Stripe, and PostHog. The infrastructure behind Vector Football is built to handle clubs of any size without compromising on speed or reliability.</p>
-          </div>
-
-        </div>
-
-        <div class="demo-cta">
-          <a href="mailto:vectorfootball.com@gmail.com" class="btn-demo">Book a Club Demo</a>
-        </div>
-      </div>
-    </section>
-
-    <div class="divider"></div>
-
-    <!-- BOTTOM CTA -->
-    <section class="cta-section">
-      <div class="cta-inner">
-        <h2>Ready to <span>level up?</span></h2>
-        <p>Join players, coaches, and clubs already using Vector Football to train smarter and perform on gameday.</p>
-        <form class="waitlist-form" id="ctaForm">
-          <div class="email-field">
-            <input type="email" id="ctaEmail" placeholder="Enter your email for early access" required autocomplete="email" />
-            <button type="submit" class="btn-join">
-              <span class="btn-text">Get Early Access</span>
-              <span class="btn-arrow">→</span>
-            </button>
-          </div>
-        </form>
-        <div class="success-state" id="ctaSuccess">
-          <div class="success-icon">✓</div>
-          <div class="success-text">
-            <strong>You're on the list.</strong>
-            <span>We'll be in touch with your early access details.</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- FOOTER -->
-  <footer class="footer">
-    <div class="footer-inner">
-      <div class="footer-logo">
-        <div class="nav-logo-circle nav-logo-circle--sm">
-          <img src="logo.png" alt="VectorFootball" />
-        </div>
-        <div class="nav-logo-wordmark">
-          <span class="wordmark-vector">VECTOR</span>
-          <span class="wordmark-football">FOOTBALL</span>
-        </div>
-      </div>
-
-      <div class="socials">
-        <a href="https://instagram.com/vector_footbal" class="social-link" aria-label="Instagram" target="_blank">
-          <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
-        </a>
-        <a href="https://tiktok.com/@vectorfootball7" class="social-link" aria-label="TikTok" target="_blank">
-          <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><path d="M9 12a4 4 0 100 8 4 4 0 000-8zm0 0V4h4s.5 4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
-        <a href="https://x.com/vector_football" class="social-link" aria-label="X" target="_blank">
-          <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><path d="M4 4l16 16M4 20L20 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        </a>
-      </div>
-
-      <div class="footer-legal">
-        <a href="privacy.html" target="_blank">Privacy Policy</a>
-        <span class="legal-dot">·</span>
-        <a href="terms.html" target="_blank">Terms and Conditions</a>
-        <span class="legal-dot">·</span>
-        <a href="cookies.html" target="_blank">Cookie Policy</a>
-        <span class="legal-dot">·</span>
-        <a href="mailto:vectorfootball.com@gmail.com" target="_blank">Contact Us</a>
-      </div>
-
-      <p class="footer-copy">2026 Vector Football. All rights reserved.</p>
+      <span class="counter-text"><strong id="waitlistCount">31</strong> players already signed up</span>
     </div>
-  </footer>
+  </div>
+</section>
 
-  <script src="script.js"></script>
+<hr class="section-divider" />
+
+<!-- Player features -->
+<section class="features">
+  <p class="section-label">For Players</p>
+  <h2 class="section-heading">Everything you need to perform at your best.</h2>
+  <p class="section-body">
+    Most training apps treat football as an afterthought. With Vector, the match schedule is the foundation and everything else fits around it.
+  </p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <span class="feature-tag">Core feature</span>
+      <div class="feature-title">AI Programme Builder</div>
+      <p class="feature-desc">Position, play style, gym access, season phase. The AI generates a fully personalised multi-week programme instantly. No generic plans.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-title">Periodised to your fixture list</div>
+      <p class="feature-desc">Sessions shift based on how many days you are from a match. Heavy loads early in the week taper into gameday so you train hard without compromising performance.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-title">Train to your actual numbers</div>
+      <p class="feature-desc">10m, 30m, CMJ, RSA, Yo-Yo. Run the testing battery and Vector sets loads from your real scores, not a percentage of some average player's numbers.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-title">Works with what you have got</div>
+      <p class="feature-desc">Full gym, basic gym, or just a park. Tell it your access and the programme adapts. Change it any time. Your plan updates for the new situation.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-title">Active workout mode</div>
+      <p class="feature-desc">A real-time session tracker guides you through each exercise, logs your weights and reps, tracks rest periods, and saves every session automatically.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-title">Progressive overload, done for you</div>
+      <p class="feature-desc">Sets, reps, intensity, and rest periods progress across weeks automatically. You do not need to plan it. Just show up and do the session.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- Coach features -->
+<section class="features">
+  <p class="section-label">For Coaches</p>
+  <h2 class="section-heading">Manage your squad. Monitor every player.</h2>
+  <p class="section-body">
+    See your whole squad at a glance. Know who is ready before matchday. Every player's programme auto-periodises around your schedule.
+  </p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <span class="feature-tag">Coach Pro</span>
+      <div class="feature-title">Squad readiness heatmap</div>
+      <p class="feature-desc">A colour-coded heatmap shows every player's status: Ready, Moderate, or Low. Know exactly who is available before matchday without asking anyone.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-title">Fitness test leaderboards</div>
+      <p class="feature-desc">Ranked leaderboards for all six fitness tests across your squad. Identify your fastest and most powerful players and export all data as a CSV with one tap.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-title">Compliance tracking</div>
+      <p class="feature-desc">Monitor session completion rates across the whole squad. An activity feed shows recent player actions: sessions completed, tests recorded, and new players joining.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-title">Squad invite system</div>
+      <p class="feature-desc">Every coach gets a unique invite code. Players enter it on sign-up and are instantly linked to your squad. Pro coaches unlock Premium access for every player in the team.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- Club features -->
+<section class="features">
+  <p class="section-label">For Clubs and Academies</p>
+  <h2 class="section-heading">Enterprise tools for serious organisations.</h2>
+  <p class="section-body">
+    Manage 200 or more players across multiple teams from a single club dashboard. Built to handle clubs of any size without compromising on speed or reliability.
+  </p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <span class="feature-tag">Club tier</span>
+      <div class="feature-title">Multi-team management</div>
+      <p class="feature-desc">The full coach feature set scaled to your entire organisation. Readiness heatmaps, test leaderboards, and compliance tracking across every team.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-title">Tailored onboarding</div>
+      <p class="feature-desc">Club accounts are built around your specific needs. Get in touch directly and we will put together a solution for your club or academy.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-title">Built for scale</div>
+      <p class="feature-desc">Powered by Supabase, Stripe, and PostHog. The infrastructure behind Vector Football handles clubs of any size without compromising on speed or reliability.</p>
+    </div>
+  </div>
+
+  <div class="demo-cta">
+    <a href="mailto:vectorfootball.com@gmail.com" class="btn-demo" target="_blank" rel="noopener noreferrer">Book a club demo &rarr;</a>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- Bottom CTA -->
+<section class="bottom-cta" style="padding-bottom: 20px;">
+  <h2>Get in early.<br /><span>Spots are limited.</span></h2>
+  <p>Join players, coaches, and clubs already signed up for early access.</p>
+
+  <div class="email-form-wrap">
+    <form id="ctaForm">
+      <div class="email-row">
+        <input type="email" id="ctaEmail" placeholder="Enter your email" required autocomplete="email" />
+        <button type="submit" class="btn-join">
+          <span class="btn-text">Get early access</span>
+          <span class="btn-arrow"> &rarr;</span>
+        </button>
+      </div>
+    </form>
+
+    <div class="success-state" id="ctaSuccess">
+      <div class="success-icon">&#10003;</div>
+      <div class="success-text">
+        <strong>You're on the list.</strong>
+        <span>We'll be in touch with your early access details.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-brand">
+    <img src="/icon-192.png" alt="" />
+    Vector Football
+  </div>
+  <div class="footer-links">
+    <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy policy</a>
+    <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of use</a>
+    <a href="/" target="_blank" rel="noopener noreferrer">Open app</a>
+  </div>
+  <div class="footer-social">
+    <a href="https://instagram.com/vector_footbal" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+      @vector_footbal
+    </a>
+    <a href="https://x.com/Vector_football" target="_blank" rel="noopener noreferrer" aria-label="X">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.261 5.635 5.903-5.635Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      @Vector_football
+    </a>
+    <a href="https://tiktok.com/@vectorfootball7" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/></svg>
+      @vectorfootball7
+    </a>
+  </div>
+</footer>
+
+<script src="script.js"></script>
 </body>
 </html>

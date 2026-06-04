@@ -493,9 +493,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
         {step === 0 && (
           <div className="flex-1 flex flex-col justify-center items-center text-center py-16">
-            <div className="w-20 h-20 rounded-3xl bg-brand-500 flex items-center justify-center mb-6 shadow-lg">
-              <Dumbbell size={36} className="text-white" />
-            </div>
+            <img src="/icon-512.png" alt="Vector Football" className="w-20 h-20 rounded-3xl mb-6 shadow-lg" />
             <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Vector Football</h1>
             <p className="text-gray-500 text-base mb-10 max-w-xs leading-relaxed">
               Elite football strength and conditioning, personalised to your match schedule and readiness.
