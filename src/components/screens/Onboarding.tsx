@@ -862,8 +862,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               </div>
             )}
 
-            {/* Terms checkboxes — only shown once we have a valid non-under-13 age */}
-            {computedAge !== null && !isUnderThirteen && (
+            {/* Terms checkboxes — shown unless user has confirmed they are under 13.
+                DOB is optional (guideline 5.1.1v), so terms show immediately by default. */}
+            {!isUnderThirteen && (
               <div className="flex flex-col gap-3">
                 {needsParental && (
                   <label className="flex gap-3 items-start cursor-pointer">
