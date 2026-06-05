@@ -91,11 +91,17 @@ public class HealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
             healthStore.execute(query)
         }
 
-        // --- HRV (SDNN): most recent sample, in milliseconds ---
+        // Recovery metrics must be RECENT — a sample from weeks ago must not drive
+        // today's readiness. Bound HRV/RHR queries to the last 7 days; if there's
+        // no recent sample we return null rather than a stale value.
+        let recentStart = Calendar.current.date(byAdding: .day, value: -7, to: Date())
+        let recentPredicate = HKQuery.predicateForSamples(withStart: recentStart, end: Date(), options: [])
+
+        // --- HRV (SDNN): most recent sample in the last 7 days, in milliseconds ---
         if let hrvType = HKObjectType.quantityType(forIdentifier: .heartRateVariabilitySDNN) {
             group.enter()
             let sort = [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
-            let query = HKSampleQuery(sampleType: hrvType, predicate: nil, limit: 1, sortDescriptors: sort) { _, samples, _ in
+            let query = HKSampleQuery(sampleType: hrvType, predicate: recentPredicate, limit: 1, sortDescriptors: sort) { _, samples, _ in
                 if let sample = samples?.first as? HKQuantitySample {
                     hrvMs = sample.quantity.doubleValue(for: HKUnit.secondUnit(with: .milli))
                 }
@@ -104,12 +110,12 @@ public class HealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
             healthStore.execute(query)
         }
 
-        // --- Resting heart rate: most recent sample, in bpm ---
+        // --- Resting heart rate: most recent sample in the last 7 days, in bpm ---
         if let rhrType = HKObjectType.quantityType(forIdentifier: .restingHeartRate) {
             group.enter()
             let sort = [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
             let bpm = HKUnit.count().unitDivided(by: HKUnit.minute())
-            let query = HKSampleQuery(sampleType: rhrType, predicate: nil, limit: 1, sortDescriptors: sort) { _, samples, _ in
+            let query = HKSampleQuery(sampleType: rhrType, predicate: recentPredicate, limit: 1, sortDescriptors: sort) { _, samples, _ in
                 if let sample = samples?.first as? HKQuantitySample {
                     restingHr = sample.quantity.doubleValue(for: bpm)
                 }

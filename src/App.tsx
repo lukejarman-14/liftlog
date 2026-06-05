@@ -1279,7 +1279,7 @@ export default function App() {
         <CoachDashboard
           coachName={[store.userProfile.firstName, store.userProfile.lastName].filter(Boolean).join(' ')}
           inviteSeed={cloudUserIdRef.current ?? store.userProfile.email}
-          players={[...liveSquadPlayers, ...DEMO_PLAYERS]}
+          players={import.meta.env.DEV ? [...liveSquadPlayers, ...DEMO_PLAYERS] : liveSquadPlayers}
           weeks={liveScheduleWeeks}
           teams={DEMO_TEAMS}
           announcements={liveAnnouncements}

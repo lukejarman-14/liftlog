@@ -155,6 +155,28 @@ Deno.serve(async (req) => {
 
     const isLifetime = plan === 'lifetime';
 
+    // Server-side repeat-trial + duplicate-subscription guard (Codex). Reads the
+    // user's OWN authoritative entitlement (RLS select-own).
+    //  - If they already have active paid access, block creating a second sub.
+    //  - "30 days per user": if a trial was already started (in-app OR a prior
+    //    Stripe trial stamped trial_started_at), do NOT grant another trial.
+    const { data: ent } = await supabase
+      .from('entitlements')
+      .select('is_premium, plan, current_period_end, trial_started_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const nowMs = Date.now();
+    const activePaid =
+      ent?.is_premium === true &&
+      (ent.plan === 'lifetime' || !ent.current_period_end ||
+       new Date(ent.current_period_end as string).getTime() > nowMs);
+    if (activePaid && !isLifetime) {
+      return new Response(JSON.stringify({ error: 'You already have an active subscription.' }), {
+        status: 409, headers: { ...cors(req), 'Content-Type': 'application/json' },
+      });
+    }
+    const trialAlreadyUsed = !!ent?.trial_started_at;
+
     // Reuse an existing Stripe customer to keep payment history consolidated
     // and respect the "one trial per customer" setting in the Stripe dashboard.
     let existingCustomerId: string | null = null;
@@ -183,8 +205,9 @@ Deno.serve(async (req) => {
     params.set('metadata[plan]', plan);
     params.set('metadata[accountType]', accountType);
     if (!isLifetime) {
-      if (!noTrial) {
-        // 30-day pre-season trial — expires ~August 1 if users sign up from June 20
+      if (!noTrial && !trialAlreadyUsed) {
+        // 30-day trial — only for users who have never started one (server-enforced
+        // "30 days per user"). Repeat trials are blocked by trialAlreadyUsed.
         params.set('subscription_data[trial_period_days]', '30');
       }
       params.set('subscription_data[metadata][userId]', user.id);
