@@ -66,12 +66,15 @@ Deno.serve(async (req) => {
         if (plan === 'lifetime' && session.payment_status !== 'paid') break;
 
         let periodEnd: string | null = null;
+        let isTrial = false;
         if (plan !== 'lifetime' && session.subscription) {
           const sub = await stripe.subscriptions.retrieve(session.subscription as string);
           periodEnd = new Date(sub.current_period_end * 1000).toISOString();
+          isTrial = sub.status === 'trialing' || sub.trial_end != null;
         }
         if (stripeCustomerId) await linkCustomer(userId, stripeCustomerId);
         await grantPaid(userId, plan, periodEnd);
+        if (isTrial) await markTrialUsed(userId);
         break;
       }
 
@@ -83,6 +86,7 @@ Deno.serve(async (req) => {
 
         if (sub.status === 'active' || sub.status === 'trialing') {
           await grantPaid(userId, plan, new Date(sub.current_period_end * 1000).toISOString());
+          if (sub.status === 'trialing' || sub.trial_end != null) await markTrialUsed(userId);
         } else {
           await revokePaid(userId);
         }
@@ -148,6 +152,18 @@ async function grantPaid(userId: string, plan: string, periodEnd: string | null)
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' });
   if (error) throw new Error(`entitlements grant failed: ${error.message}`);
+}
+
+/** Stamp trial_started_at ONCE when a Stripe trial is created — never overwrite
+ *  an earlier trial. This is what the checkout repeat-trial guard reads to
+ *  enforce "30 days per user". */
+async function markTrialUsed(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('entitlements')
+    .update({ trial_started_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .is('trial_started_at', null);   // only stamp if not already set
+  if (error) throw new Error(`trial stamp failed: ${error.message}`);
 }
 
 /** Revoke paid entitlement — but never downgrade a lifetime purchase. */

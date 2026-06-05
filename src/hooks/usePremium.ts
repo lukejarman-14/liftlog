@@ -55,10 +55,18 @@ export function usePremium() {
   const isTrialActive = trialDaysLeft !== null && trialDaysLeft > 0;
   const isTrialExpired = status.trialStartedAt != null && !status.isPremium && !isTrialActive;
 
-  /** Call when user first taps a gated feature — starts the trial clock. */
-  const startTrial = useCallback(() => {
+  /** Call when user first taps a gated feature — starts the trial clock.
+   *  When signed in, the trial is stamped SERVER-SIDE via start_trial() so it
+   *  can't be reset/extended by editing localStorage and so the checkout
+   *  repeat-trial guard can see it. Local trialStartedAt is kept as a UI cache. */
+  const startTrial = useCallback(async () => {
     const current = load();
     if (current.trialStartedAt || current.isPremium) return;
+    if (supabase) {
+      // server owns the authoritative trial clock; ignore RPC errors and still
+      // set the local cache so the UI reflects the trial offline.
+      try { await supabase.rpc('start_trial'); } catch { /* offline — local only */ }
+    }
     const updated: PremiumStatus = { ...current, trialStartedAt: Date.now() };
     save(updated);
     setStatusRaw(updated);

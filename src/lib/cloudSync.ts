@@ -126,19 +126,17 @@ export async function cloudSignOut(): Promise<void> {
 export async function cloudDeleteAccount(): Promise<void> {
   if (!supabase) return;
   const { data: { user } } = await supabase.auth.getUser();
-  try {
-    if (user) {
-      // Auth must be deleted first — the RPC runs under the current session,
-      // so the session needs to be valid when it executes.
-      const { error: authError } = await supabase.rpc('delete_user');
-      if (authError) throw new Error(`Failed to delete auth account: ${authError.message}`);
-      // Clean up any orphaned app data (CASCADE should handle this, but be explicit).
-      await supabase.from('user_data').delete().eq('id', user.id);
-    }
-  } finally {
-    // Always sign out, even if deletion threw — the local session must not survive.
-    await supabase.auth.signOut();
-  }
+  if (!user) return;
+  // Auth must be deleted first — the RPC runs under the current session,
+  // so the session needs to be valid when it executes.
+  const { error: authError } = await supabase.rpc('delete_user');
+  if (authError) throw new Error(`Failed to delete auth account: ${authError.message}`);
+  // Clean up any orphaned app data (CASCADE should handle this, but be explicit).
+  await supabase.from('user_data').delete().eq('id', user.id);
+  // Sign out ONLY after a successful deletion. On failure we throw above WITHOUT
+  // signing out, so the user stays logged in and can retry — fail-closed, and
+  // never leaves them believing a failed deletion succeeded.
+  await supabase.auth.signOut();
 }
 
 /** Re-send the email confirmation link to the given address. */

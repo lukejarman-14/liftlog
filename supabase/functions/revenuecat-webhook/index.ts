@@ -81,6 +81,13 @@ Deno.serve(async (req) => {
 
     if (grantTypes.includes(event.type ?? '')) {
       const plan = planForProduct(event.product_id);
+      // Exact-allowlist: refuse to grant premium for an unrecognized product.
+      // (Without this, an unknown product → plan=null → could read as permanent
+      // premium downstream.) Ack so RevenueCat stops retrying.
+      if (!plan) {
+        console.error('[revenuecat-webhook] unknown product, refusing grant:', event.product_id);
+        return json({ received: true, ignored: 'unknown_product' });
+      }
       const periodEnd = event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null;
       const { error } = await supabase.from('entitlements').upsert({
         user_id: userId,

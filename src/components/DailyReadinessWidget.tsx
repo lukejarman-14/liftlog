@@ -179,10 +179,11 @@ function ReadinessForm({
   const [recovery, setRecovery] = useState<RecoveryData | null>(null);
   const [hkError, setHkError] = useState(false);
 
-  // Web-preview flag: HealthKit is iOS-only, so the button is hidden on web for
-  // real users. Setting localStorage 'vf_health_preview' = '1' reveals the UI on
-  // web with SAMPLE data, purely to preview layout before the iOS build.
+  // Web-preview flag: HealthKit is iOS-only. The localStorage 'vf_health_preview'
+  // toggle reveals the UI on web with SAMPLE data to preview layout — but ONLY in
+  // development builds, so it can't be enabled by editing localStorage in prod.
   const healthPreview = (() => {
+    if (!import.meta.env.DEV) return false;
     try { return localStorage.getItem('vf_health_preview') === '1'; } catch { return false; }
   })();
   const showHealth = isHealthKitSupported() || healthPreview;
