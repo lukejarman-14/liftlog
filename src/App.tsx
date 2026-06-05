@@ -910,7 +910,11 @@ export default function App() {
       { coach_id: cloudUserIdRef.current, week_start: weekStart, day_of_week: day, type, label, description, updated_at: new Date().toISOString() },
       { onConflict: 'coach_id,week_start,day_of_week' }
     );
-    if (error) { if (import.meta.env.DEV) console.warn('[schedule] upsert error:', error.message); return; }
+    if (error) {
+      toast.error('Failed to save schedule. Please try again.');
+      captureError(error, { context: 'handleUpdateScheduleDay' });
+      return;
+    }
     // Update local state immediately
     setLiveScheduleWeeks(prev => prev.map(w =>
       w.weekStart === weekStart
