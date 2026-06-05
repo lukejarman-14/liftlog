@@ -16,8 +16,9 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  -- Only the coach (or admin) can query their own squad.
-  IF public.auth.uid() != p_coach_id THEN
+  -- Only the coach can query their own squad. auth.uid() lives in the auth
+  -- schema (NOT public) — must stay schema-qualified under search_path=''.
+  IF auth.uid() != p_coach_id THEN
     RAISE EXCEPTION 'unauthorized';
   END IF;
 
@@ -26,7 +27,7 @@ BEGIN
          au.email::text,
          COALESCE(au.raw_user_meta_data->>'full_name', split_part(au.email, '@', 1)) AS full_name
   FROM public.squad_members sm
-  JOIN public.auth.users au ON au.id = sm.player_id
+  JOIN auth.users au ON au.id = sm.player_id   -- auth.users is in the auth schema
   WHERE sm.coach_id = p_coach_id;
 END;
 $$;
