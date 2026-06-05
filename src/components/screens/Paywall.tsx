@@ -3,6 +3,7 @@ import { X, Zap, Check, Shield, Lock, RotateCcw, Tag, Mail, ChevronLeft, UserPlu
 import { RCPlan } from '../../hooks/usePremium';
 import { trackEvent } from '../../lib/analytics';
 import { sanitisePromoCode, PROMO_CODE_MAX } from '../../lib/validation';
+import { REFERRALS_ENABLED } from '../../lib/featureFlags';
 
 interface PaywallProps {
   featureLabel?: string;
@@ -422,6 +423,7 @@ export function Paywall({
         {/* Referral & promo codes — not shown for the sales-led Club tier */}
         {!isClub && (<>
         {/* Referral code */}
+        {REFERRALS_ENABLED && (
         <div className="mt-4">
           {!showReferralInput ? (
             <button
@@ -474,6 +476,7 @@ export function Paywall({
             </div>
           )}
         </div>
+        )}
 
         {/* Promo code */}
         <div className="mt-4">

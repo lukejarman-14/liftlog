@@ -15,6 +15,7 @@ import { supabase } from '../lib/supabase';
 import { rcPurchase, rcRestore, rcCheckEntitlement, RCPlan } from '../lib/revenueCat';
 import { redeemPromoCode } from '../lib/promoCodes';
 import { redeemReferralCode, claimReferralRewards, registerReferralCode } from '../lib/referrals';
+import { REFERRALS_ENABLED } from '../lib/featureFlags';
 import { computeHasAccess, computeTrialDaysLeft } from '../lib/premiumUtils';
 
 export type { RCPlan };
@@ -214,6 +215,9 @@ export function usePremium() {
 
   /** Redeem a referral code — grants 21-day trial. Returns error string or null on success. */
   const redeemReferral = useCallback(async (code: string, userId: string): Promise<string | null> => {
+    // Referrals are disabled during the pre-season 30-day-trial period. The UI is
+    // hidden, but guard here too so the path is inert even if reached directly.
+    if (!REFERRALS_ENABLED) return 'Referrals are not available right now.';
     // Don't replace an active lifetime or open-ended RC subscription.
     const current = load();
     if (current.isPremium && !current.expiresAt) {

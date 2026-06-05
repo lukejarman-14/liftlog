@@ -30,6 +30,7 @@ import {
 } from './lib/cloudSync';
 import { supabase } from './lib/supabase';
 import { registerSquad, joinSquad } from './lib/teams';
+import { REFERRALS_ENABLED } from './lib/featureFlags';
 import { identifyUser, resetAnalyticsUser, trackEvent, applyAnalyticsOptOut } from './lib/analytics';
 import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificationPermission, scheduleDailyReminder } from './lib/notifications';
 import { localDateStr } from './lib/loadManagement';
@@ -267,11 +268,16 @@ export default function App() {
           if (lastShown !== today && !premiumAfterSync) {
             setTimeout(() => setShowTrialPrompt(true), TRIAL_PROMPT_DELAY_MS);
           }
-          // If DB write fails, leave referral code undefined — card won't render
-          // but the app still boots normally. Code will be registered on next boot.
-          const code = await premium.getOrCreateReferralCode(userId).catch(() => undefined);
-          setMyReferralCode(code);
-          await premium.claimReferralRewardsForUser(userId);
+          // Referrals are disabled during the pre-season 30-day-trial period
+          // (see featureFlags.REFERRALS_ENABLED). Skip code generation + reward
+          // claiming entirely so no referral UI renders. Code kept for re-enabling.
+          if (REFERRALS_ENABLED) {
+            // If DB write fails, leave referral code undefined — card won't render
+            // but the app still boots normally. Code will be registered on next boot.
+            const code = await premium.getOrCreateReferralCode(userId).catch(() => undefined);
+            setMyReferralCode(code);
+            await premium.claimReferralRewardsForUser(userId);
+          }
 
           const params = new URLSearchParams(window.location.search);
           if (params.get('stripe_success') === '1') {
