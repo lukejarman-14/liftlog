@@ -166,6 +166,17 @@ export async function cloudResetPassword(email: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Re-authenticate with the current password before a sensitive change (e.g. a
+ *  password update from Profile). Returns true if the password is correct. An
+ *  active session alone must not be enough to set a new password. */
+export async function cloudVerifyPassword(email: string, password: string): Promise<boolean> {
+  if (!supabase) return true; // not configured — the local hash check governs
+  // CAPTCHA enforcement is on for signInWithPassword, so pass a fresh token.
+  const captchaToken = await getCaptchaToken();
+  const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
+  return !error;
+}
+
 /** Update the current user's password (used after clicking reset link). */
 export async function cloudUpdatePassword(newPassword: string): Promise<void> {
   if (!supabase) throw new Error('not_configured');

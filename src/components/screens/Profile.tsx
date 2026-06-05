@@ -5,7 +5,7 @@ import {
   Ruler, Weight, AlertTriangle, Pencil, Plus, TrendingUp, TrendingDown, Bell, BellOff, Download,
   Trophy,
 } from 'lucide-react';
-import { isSupabaseConfigured, cloudUpdatePassword } from '../../lib/cloudSync';
+import { isSupabaseConfigured, cloudUpdatePassword, cloudVerifyPassword } from '../../lib/cloudSync';
 import { exportData } from '../../lib/dataSync';
 import { hashPassword } from '../../lib/authUtils';
 import { validatePassword } from '../../lib/validation';
@@ -541,6 +541,11 @@ function ChangePasswordModal({
     }
     // Update password in Supabase (this is the real auth password)
     if (isSupabaseConfigured) {
+      // Require current-password reauth — an active session alone must not allow
+      // setting a new password (defends a hijacked/borrowed session).
+      if (!currentPw) { setError('Enter your current password.'); setLoading(false); return; }
+      const reauthOk = await cloudVerifyPassword(userEmail, currentPw);
+      if (!reauthOk) { setError('Current password is incorrect.'); setLoading(false); return; }
       try {
         await cloudUpdatePassword(newPw);
       } catch {
@@ -636,7 +641,7 @@ function ChangePasswordModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={loading || success || !newPw || !confirmPw || (!!currentHash && !currentPw)}
+            disabled={loading || success || !newPw || !confirmPw || ((!!currentHash || isSupabaseConfigured) && !currentPw)}
             className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
               loading || success || !newPw || !confirmPw
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
