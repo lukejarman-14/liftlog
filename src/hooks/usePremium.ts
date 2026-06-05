@@ -92,12 +92,13 @@ export function usePremium() {
     setPurchaseError(null);
     setPurchasing(true);
     try {
-      const { success, cancelled, expiresAt } = await rcPurchase(plan);
+      const { success, cancelled, expiresAt, error } = await rcPurchase(plan);
       if (success) {
         setPremium(plan, expiresAt ?? undefined);
         return true;
       }
-      if (!cancelled) setPurchaseError('Purchase failed. Please try again.');
+      // Show the REAL reason (not a generic message) so failures are diagnosable.
+      if (!cancelled) setPurchaseError(error ?? 'Purchase failed. Please try again.');
       return false;
     } catch {
       setPurchaseError('Purchase failed. Please try again.');

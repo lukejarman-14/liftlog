@@ -109,16 +109,22 @@ export type RCPurchaseResult = {
   cancelled: boolean;
   /** Expiry timestamp (ms). null for lifetime purchases or when unavailable. */
   expiresAt: number | null;
+  /** Human-readable failure reason — surfaced in the paywall so we can SEE why a
+   *  purchase failed (App Store review showed only a generic "purchase failed"). */
+  error?: string;
 };
 
 /** Purchase a package by plan ID. */
 export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
-  if (!Capacitor.isNativePlatform()) return { success: false, cancelled: false, expiresAt: null };
+  if (!Capacitor.isNativePlatform()) {
+    return { success: false, cancelled: false, expiresAt: null, error: 'Not a native device.' };
+  }
   try {
     const offering = await rcGetOfferings();
     if (!offering) {
       if (import.meta.env.DEV) console.error('[RC] rcPurchase: no offering available — cannot purchase.');
-      return { success: false, cancelled: false, expiresAt: null };
+      return { success: false, cancelled: false, expiresAt: null,
+        error: 'No RevenueCat offering loaded — check the API key in the build and that an offering is marked Current.' };
     }
 
     const packageId = PLAN_TO_PACKAGE[plan] ?? plan;
@@ -126,15 +132,19 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
       p.identifier === packageId
     );
     if (!pkg) {
-      if (import.meta.env.DEV) console.error(`[RC] rcPurchase: package "${packageId}" not found in offering. Available:`, offering.availablePackages.map((p: { identifier: string }) => p.identifier));
-      return { success: false, cancelled: false, expiresAt: null };
+      const available = offering.availablePackages.map((p: { identifier: string }) => p.identifier).join(', ') || 'none';
+      if (import.meta.env.DEV) console.error(`[RC] rcPurchase: package "${packageId}" not found. Available:`, available);
+      return { success: false, cancelled: false, expiresAt: null,
+        error: `Package "${packageId}" not in the offering (available: ${available}).` };
     }
 
     const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
     const entitlement = customerInfo.entitlements.active[ENTITLEMENT_ID];
     if (!entitlement) {
-      if (import.meta.env.DEV) console.error(`[RC] rcPurchase: entitlement "${ENTITLEMENT_ID}" not active after purchase. Active entitlements:`, Object.keys(customerInfo.entitlements.active));
-      return { success: false, cancelled: false, expiresAt: null };
+      const active = Object.keys(customerInfo.entitlements.active).join(', ') || 'none';
+      if (import.meta.env.DEV) console.error(`[RC] rcPurchase: entitlement "${ENTITLEMENT_ID}" not active. Active:`, active);
+      return { success: false, cancelled: false, expiresAt: null,
+        error: `Bought OK, but entitlement "${ENTITLEMENT_ID}" isn't active (active: ${active}).` };
     }
 
     const expiresAt = entitlement.expirationDate
@@ -144,7 +154,9 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
   } catch (err: unknown) {
     const isCancel = (err as { userCancelled?: boolean })?.userCancelled === true;
     if (!isCancel && import.meta.env.DEV) console.error('[RC] rcPurchase threw:', err);
-    return { success: false, cancelled: isCancel, expiresAt: null };
+    const message = (err as { message?: string })?.message ?? String(err);
+    return { success: false, cancelled: isCancel, expiresAt: null,
+      error: isCancel ? undefined : `StoreKit error: ${message}` };
   }
 }
 
