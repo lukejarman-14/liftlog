@@ -823,13 +823,16 @@ export default function App() {
     setSquadProfile({ displayName, position, jerseyNumber });
   }, []);
 
-  /** Save a coach's notes about a player. */
+  /** Save a coach's notes about a player — into the per-(coach,player) table so
+   *  coaches never overwrite each other and the coach owns their own notes. */
   const handleSavePlayerNote = useCallback(async (playerId: string, notes: string) => {
     if (!supabase || !cloudUserIdRef.current) return;
     const { error } = await supabase
-      .from('player_profiles')
-      .update({ coach_notes: notes || null, updated_at: new Date().toISOString() })
-      .eq('player_id', playerId);
+      .from('coach_player_notes')
+      .upsert(
+        { coach_id: cloudUserIdRef.current, player_id: playerId, notes: notes || null, updated_at: new Date().toISOString() },
+        { onConflict: 'coach_id,player_id' },
+      );
     if (error) {
       toast.error('Failed to save notes. Please try again.');
       captureError(error, { context: 'handleSavePlayerNote', playerId });
