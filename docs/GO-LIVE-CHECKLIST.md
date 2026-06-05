@@ -12,6 +12,19 @@ Everything below is the manual work to get them live + clear the App Store rejec
 
 ---
 
+## ⏱️ TONIGHT — fastest path to clear the Apple rejection (no Terminal / Docker / new build)
+
+The two rejections do NOT need the security deploy, Docker, or a new binary.
+- ❌ Do NOT install Docker / do the schema dump — irrelevant to Apple, time sink.
+- [ ] **Sign the Paid Apps Agreement** (App Store Connect → Business → Agreements) → fixes IAP (2.1b).
+- [ ] Confirm 3 IAP products are "Ready to Submit" + in the RevenueCat offering (this is the real time sink if not done).
+- [ ] **Resubmit the EXISTING build** (14) via Resolution Center with review notes for HealthKit (2.5.1):
+      *"Paid Apps Agreement now active; IAP configured. HealthKit: Home tab → Daily Readiness card → Start → Autofill from Apple Health."*
+- The HealthKit feature already exists in build 14 — notes can clear 2.5.1 without a rebuild.
+- The security hardening + HealthKit label polish ship in the NEXT build, AFTER sandbox testing — NOT tonight (rushing untested billing breaks it).
+
+---
+
 ## STAGE 1 — Un-reject the App Store  (start here, can run in parallel)
 
 ### IAP rejection (Guideline 2.1b) — this is CONFIG, not code
