@@ -134,8 +134,15 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
             <Zap size={18} className="text-gray-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-700">How are you feeling today?</p>
-            <p className="text-xs text-gray-400">Log your daily readiness in 30 seconds</p>
+            <p className="text-sm font-semibold text-gray-700">Daily Readiness</p>
+            <p className="text-xs text-gray-400">Log how you feel in 30 seconds</p>
+            {/* Apple Health is clearly identified on the entry point (App Store
+                guideline 2.5.1) — not just inside the expanded form. iOS only. */}
+            {isHealthKitSupported() && (
+              <p className="text-xs text-brand-600 font-semibold mt-1 flex items-center gap-1">
+                <Activity size={12} /> Syncs with Apple Health
+              </p>
+            )}
           </div>
           <button
             onClick={() => setOpen(true)}
