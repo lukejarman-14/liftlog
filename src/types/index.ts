@@ -389,7 +389,7 @@ export interface GeneratedProgramme {
 export interface PremiumStatus {
   isPremium: boolean;
   plan?: 'monthly' | 'yearly' | 'lifetime'; // which subscription tier
-  trialStartedAt?: number;               // timestamp — when 14-day trial began
+  trialStartedAt?: number;               // timestamp — when 30-day trial began
   purchasedAt?: number;                  // timestamp — when they became premium
   expiresAt?: number;                    // timestamp — subscription expiry
   rcCustomerId?: string;                 // RevenueCat customer ID (set when integrating)

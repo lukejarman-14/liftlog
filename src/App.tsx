@@ -1597,7 +1597,7 @@ export default function App() {
                 navigate({ screen: dest });
               }
             } else {
-              // Web: local 14-day trial clock, no payment required up front
+              // Web: 30-day trial (server-stamped via start_trial), no payment up front
               premium.startTrial();
               if (isCoach && cloudUserIdRef.current) await registerSquad(cloudUserIdRef.current);
               navigate({ screen: dest });
@@ -1845,7 +1845,7 @@ export default function App() {
               Ready to build your personalised training programme? It only takes a minute and uses everything you just told us.
             </p>
             <div className="flex items-center justify-center gap-1.5 mb-5">
-              <span className="text-xs font-bold text-brand-600 bg-brand-50 px-3 py-1 rounded-full">14-day free trial · no card needed</span>
+              <span className="text-xs font-bold text-brand-600 bg-brand-50 px-3 py-1 rounded-full">30-day free trial · no card needed</span>
             </div>
             <div className="flex flex-col gap-3">
               <button

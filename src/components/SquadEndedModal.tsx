@@ -60,7 +60,7 @@ export function SquadEndedModal({ squadName, onKeepPremium, onDismiss }: SquadEn
           onClick={onKeepPremium}
           className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors mb-2"
         >
-          Keep Premium — start 14-day free trial
+          Keep Premium — start 30-day free trial
         </button>
         <button
           onClick={onDismiss}
