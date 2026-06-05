@@ -28,6 +28,12 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors(req) });
   }
+  // Only POST is valid — reject other verbs early.
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405, headers: { ...cors(req), 'Content-Type': 'application/json' },
+    });
+  }
 
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
@@ -93,8 +99,11 @@ Deno.serve(async (req) => {
       const searchData = await searchRes.json();
 
       if (!searchRes.ok) {
-        return new Response(JSON.stringify({ error: searchData.error?.message ?? 'Stripe error' }), {
-          status: 500, headers: { ...cors(req), 'Content-Type': 'application/json' },
+        // Log the real Stripe error server-side; return a generic message so we
+        // don't leak Stripe internals to the client.
+        console.error('[create-portal-session] customer search failed:', searchData.error?.message);
+        return new Response(JSON.stringify({ error: 'Unable to open billing portal. Please try again.' }), {
+          status: 502, headers: { ...cors(req), 'Content-Type': 'application/json' },
         });
       }
 
@@ -123,8 +132,9 @@ Deno.serve(async (req) => {
     const portalData = await portalRes.json();
 
     if (!portalRes.ok) {
-      return new Response(JSON.stringify({ error: portalData.error?.message ?? 'Stripe error' }), {
-        status: 500, headers: { ...cors(req), 'Content-Type': 'application/json' },
+      console.error('[create-portal-session] portal create failed:', portalData.error?.message);
+      return new Response(JSON.stringify({ error: 'Unable to open billing portal. Please try again.' }), {
+        status: 502, headers: { ...cors(req), 'Content-Type': 'application/json' },
       });
     }
 

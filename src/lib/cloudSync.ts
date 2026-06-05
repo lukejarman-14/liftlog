@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { STORAGE_KEYS } from './dataSync';
 import { getCaptchaToken } from './hcaptcha';
+import { captureError } from './sentry';
 
 
 // Keys whose values are authoritative on the server only (written by webhooks/RevenueCat).
@@ -183,8 +184,8 @@ export async function getExistingSession(): Promise<string | null> {
 
 
 /** Push all localStorage data to Supabase for this user. */
-export async function cloudSaveData(userId: string): Promise<void> {
-  if (!supabase) return;
+export async function cloudSaveData(userId: string): Promise<boolean> {
+  if (!supabase) return false;
   // Never upload one account's local data under another account's id. If the
   // local data is owned by a different user (stale shared-device state), abort
   // rather than contaminating this user's cloud row. (We do NOT wipe here — that
@@ -192,7 +193,7 @@ export async function cloudSaveData(userId: string): Promise<void> {
   const owner = localStorage.getItem(DATA_OWNER_KEY);
   if (owner && owner !== userId) {
     if (import.meta.env.DEV) console.warn('[CloudSync] save aborted — local data belongs to a different account');
-    return;
+    return false;
   }
   localStorage.setItem(DATA_OWNER_KEY, userId);
   const appData = collectAllData();
@@ -206,9 +207,13 @@ export async function cloudSaveData(userId: string): Promise<void> {
   const { error } = await supabase
     .from('user_data')
     .upsert({ id: userId, app_data: appData, updated_at: new Date().toISOString() });
-  if (error && import.meta.env.DEV) {
-    console.warn('[CloudSync] Save failed — will retry on next sync:', error.message);
+  if (error) {
+    // Report in PRODUCTION too (was dev-only console) so silent sync failures are
+    // visible in Sentry. Returns false so callers can react instead of assuming success.
+    captureError(error, { context: 'cloudSaveData', userId });
+    return false;
   }
+  return true;
 }
 
 /** Pull data from Supabase and write to localStorage. Returns true if data was found. */

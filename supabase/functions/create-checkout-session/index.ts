@@ -227,8 +227,10 @@ Deno.serve(async (req) => {
     const session = await response.json();
 
     if (!response.ok) {
-      return new Response(JSON.stringify({ error: session.error?.message ?? 'Stripe error' }), {
-        status: 500, headers: { ...cors(req), 'Content-Type': 'application/json' },
+      // Log the real Stripe error server-side; return a generic message to the client.
+      console.error('[create-checkout-session] Stripe error:', session.error?.message);
+      return new Response(JSON.stringify({ error: 'Unable to start checkout. Please try again.' }), {
+        status: 502, headers: { ...cors(req), 'Content-Type': 'application/json' },
       });
     }
 
