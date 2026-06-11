@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { STORAGE_KEYS } from './dataSync';
 import { getCaptchaToken } from './hcaptcha';
 import { captureError } from './sentry';
+import type { Provider } from '@supabase/supabase-js';
 
 
 // Keys whose values are authoritative on the server only (written by webhooks/RevenueCat).
@@ -44,10 +45,16 @@ function collectAllData(): Record<string, unknown> {
 
 function restoreAllData(data: Record<string, unknown>) {
   for (const key of STORAGE_KEYS) {
-    const val = data[key];
-    if (val !== undefined && val !== null) {
-      localStorage.setItem(key, JSON.stringify(val));
+    let val = data[key];
+    if (val === undefined || val === null) continue;
+    // Defensively strip any legacy password hash a pre-fix cloud row may still
+    // carry, so the device-only secret never repopulates onto a device.
+    if (key === 'vf_user_profile' && typeof val === 'object') {
+      const { passwordHash: _omit, ...rest } = val as Record<string, unknown>;
+      void _omit;
+      val = rest;
     }
+    localStorage.setItem(key, JSON.stringify(val));
   }
   window.dispatchEvent(new CustomEvent('vf-cloud-restored'));
 }
@@ -63,6 +70,8 @@ export type SignUpResult = {
   /** true when Supabase requires the user to click a confirmation email before a session is issued */
   needsEmailConfirmation: boolean;
 };
+
+export type OAuthProvider = Extract<Provider, 'apple' | 'google'>;
 
 /** Shared auth rate-limit guard — 5 attempts per 15 minutes per email.
  *  Throws 'too_many_attempts' if the limit is exceeded so callers can
@@ -116,6 +125,20 @@ export async function cloudSignIn(email: string, password: string): Promise<stri
   return data.user.id;
 }
 
+/** Start Apple / Google OAuth through Supabase. The browser redirects away. */
+export async function cloudSignInWithOAuth(provider: OAuthProvider): Promise<void> {
+  if (!supabase) throw new Error('not_configured');
+  const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: `${origin}/`,
+      queryParams: provider === 'google' ? { prompt: 'select_account' } : undefined,
+    },
+  });
+  if (error) throw error;
+}
+
 /** Sign out from Supabase. */
 export async function cloudSignOut(): Promise<void> {
   if (!supabase) return;
@@ -127,12 +150,11 @@ export async function cloudDeleteAccount(): Promise<void> {
   if (!supabase) return;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  // Auth must be deleted first — the RPC runs under the current session,
-  // so the session needs to be valid when it executes.
+  // The SECURITY DEFINER RPC deletes every user-owned application row and then
+  // removes auth.users. Keep this as the single server-side delete path so the
+  // client never reports success after only a partial cleanup.
   const { error: authError } = await supabase.rpc('delete_user');
-  if (authError) throw new Error(`Failed to delete auth account: ${authError.message}`);
-  // Clean up any orphaned app data (CASCADE should handle this, but be explicit).
-  await supabase.from('user_data').delete().eq('id', user.id);
+  if (authError) throw new Error(`Failed to delete account: ${authError.message}`);
   // Sign out ONLY after a successful deletion. On failure we throw above WITHOUT
   // signing out, so the user stays logged in and can retry — fail-closed, and
   // never leaves them believing a failed deletion succeeded.

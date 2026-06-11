@@ -5,7 +5,7 @@ import {
   Ruler, Weight, AlertTriangle, Pencil, Plus, TrendingUp, TrendingDown, Bell, BellOff, Download,
   Trophy,
 } from 'lucide-react';
-import { isSupabaseConfigured, cloudUpdatePassword, cloudVerifyPassword } from '../../lib/cloudSync';
+import { isSupabaseConfigured, cloudResendConfirmation, cloudUpdatePassword, cloudVerifyPassword } from '../../lib/cloudSync';
 import { exportData } from '../../lib/dataSync';
 import { hashPassword } from '../../lib/authUtils';
 import { validatePassword } from '../../lib/validation';
@@ -20,6 +20,7 @@ import {
   cancelAllTrainingReminders,
 } from '../../lib/notifications';
 import { trackEvent } from '../../lib/analytics';
+import { useActionCooldown } from '../../hooks/useActionCooldown';
 
 
 function WeightTracker({
@@ -167,6 +168,18 @@ function TrainingReminders({
 }) {
   const [permState, setPermState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const markSaved = () => {
+    setSaved(true);
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSaved(false), 1800);
+  };
+
+  useEffect(() => () => {
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+  }, []);
 
   // Check current permission on mount
   useEffect(() => {
@@ -184,6 +197,7 @@ function TrainingReminders({
     if (settings.reminderEnabled) {
       await cancelAllTrainingReminders();
       onUpdate({ reminderEnabled: false });
+      markSaved();
       trackEvent('reminder_disabled');
     } else {
       setSaving(true);
@@ -191,6 +205,7 @@ function TrainingReminders({
       setPermState(granted ? 'granted' : 'denied');
       if (granted) {
         onUpdate({ reminderEnabled: true });
+        markSaved();
         trackEvent('reminder_enabled', { hour: settings.reminderHour, minute: settings.reminderMinute });
       }
       setSaving(false);
@@ -199,6 +214,7 @@ function TrainingReminders({
 
   const handleTimeChange = (field: 'reminderHour' | 'reminderMinute', value: number) => {
     onUpdate({ [field]: value });
+    markSaved();
   };
 
   return (
@@ -272,6 +288,11 @@ function TrainingReminders({
             Notifications will fire on each training day in your current programme. Re-toggle after changing time to apply.
           </p>
         </div>
+      )}
+      {saved && (
+        <p className="mt-3 text-xs font-semibold text-green-600 flex items-center gap-1.5">
+          <Check size={13} /> Reminder settings saved
+        </p>
       )}
     </Card>
   );
@@ -487,7 +508,7 @@ interface ProfileProps {
   onUpdateSettings: (patch: Partial<UserSettings>) => void;
   onSetProfilePicture: (pic: string | null) => void;
   onStartBattery: () => void;
-  onResetProfile: () => void;
+  onResetProfile: () => void | Promise<void>;
   onChangePassword: (newHash: string) => void;
   onUpdateProfile: (updates: Partial<UserProfile>) => void;
   onSaveTrainingProfile: (updates: Partial<UserProfile>) => void;
@@ -496,6 +517,7 @@ interface ProfileProps {
   onLogout: () => void;
   onBack: () => void;
   onManageSubscription?: () => void;
+  needsEmailConfirmation?: boolean;
   squadProfile?: { displayName: string; position: string; jerseyNumber: number | null };
   onSaveSquadProfile?: (displayName: string, position: string, jerseyNumber: number | null) => Promise<void>;
 }
@@ -519,12 +541,18 @@ function ChangePasswordModal({
   const [error,      setError]      = useState('');
   const [success,    setSuccess]    = useState(false);
   const [loading,    setLoading]    = useState(false);
+  const passwordCooldown = useActionCooldown('password-change', userEmail);
 
   const passwordStrong = newPw.length >= 8;
   const passwordsMatch = newPw === confirmPw && confirmPw !== '';
+  const requiresCurrentPassword = !!currentHash || isSupabaseConfigured;
 
   const handleSave = async () => {
     setError('');
+    if (passwordCooldown.coolingDown) {
+      setError(`You can change your password again in ${passwordCooldown.label}.`);
+      return;
+    }
     // Central validator enforces both min (8) and max (128) length consistently.
     const pwCheck = validatePassword(newPw);
     if (!pwCheck.ok) { setError(pwCheck.error); return; }
@@ -544,7 +572,14 @@ function ChangePasswordModal({
       // Require current-password reauth — an active session alone must not allow
       // setting a new password (defends a hijacked/borrowed session).
       if (!currentPw) { setError('Enter your current password.'); setLoading(false); return; }
-      const reauthOk = await cloudVerifyPassword(userEmail, currentPw);
+      let reauthOk = false;
+      try {
+        reauthOk = await cloudVerifyPassword(userEmail, currentPw);
+      } catch {
+        setError('Could not verify your current password. Check your connection and try again.');
+        setLoading(false);
+        return;
+      }
       if (!reauthOk) { setError('Current password is incorrect.'); setLoading(false); return; }
       try {
         await cloudUpdatePassword(newPw);
@@ -557,6 +592,7 @@ function ChangePasswordModal({
     const newHash = await hashPassword(newPw, userEmail);
     setLoading(false);
     setSuccess(true);
+    passwordCooldown.start();
     onSave(newHash);
     onClose();
   };
@@ -575,7 +611,7 @@ function ChangePasswordModal({
         </div>
 
         <div className="flex flex-col gap-4">
-          {currentHash && (
+          {requiresCurrentPassword && (
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Current Password</label>
               <div className="relative">
@@ -627,6 +663,11 @@ function ChangePasswordModal({
           </div>
 
           {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+          {passwordCooldown.coolingDown && (
+            <p className="text-xs text-amber-600 text-center">
+              You can change your password again in {passwordCooldown.label}.
+            </p>
+          )}
           {success && (
             <div className="flex items-center justify-center gap-2 text-green-600 text-sm font-semibold">
               <Check size={16} /> Password updated!
@@ -641,13 +682,13 @@ function ChangePasswordModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={loading || success || !newPw || !confirmPw || ((!!currentHash || isSupabaseConfigured) && !currentPw)}
+            disabled={loading || success || passwordCooldown.coolingDown || !newPw || !confirmPw || (requiresCurrentPassword && !currentPw)}
             className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
-              loading || success || !newPw || !confirmPw
+              loading || success || passwordCooldown.coolingDown || !newPw || !confirmPw
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-brand-500 text-white hover:bg-brand-600'
             }`}>
-            {loading ? 'Saving…' : 'Save Password'}
+            {loading ? 'Saving…' : passwordCooldown.coolingDown ? `Wait ${passwordCooldown.label}` : 'Save Password'}
           </button>
         </div>
       </div>
@@ -1110,7 +1151,7 @@ export function Profile({
   baseline, referralCode, weightLog, onSetProfilePicture,
   onStartBattery, onResetProfile, onChangePassword, onUpdateProfile, onSaveTrainingProfile,
   onSaveWeight, onDeleteWeight, onLogout, onBack,
-  settings, onUpdateSettings, onManageSubscription,
+  settings, onUpdateSettings, onManageSubscription, needsEmailConfirmation = false,
   squadProfile, onSaveSquadProfile,
 }: ProfileProps) {
   // Coach / Club accounts don't train themselves — hide player-only sections
@@ -1127,12 +1168,48 @@ export function Profile({
   const [expandedMetric,       setExpandedMetric]       = useState<string | null>(null);
   const [showEditTraining,     setShowEditTraining]     = useState(false);
   const [showDeleteConfirm,    setShowDeleteConfirm]    = useState(false);
+  const [deleteLoading,        setDeleteLoading]        = useState(false);
+  const [deleteError,          setDeleteError]          = useState('');
+  const [savedSetting,         setSavedSetting]         = useState<'account' | 'appearance' | 'privacy' | null>(null);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('vf_dark_mode') === 'true');
   const [isSharingCode, setIsSharingCode] = useState(false);
+  const [confirmSending, setConfirmSending] = useState(false);
+  const [confirmSent, setConfirmSent] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
+  const confirmCooldown = useActionCooldown('email-confirm', userProfile.email);
+  const accountType = userProfile.accountType ?? 'personal';
+  const savedSettingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const markSavedSetting = (setting: 'account' | 'appearance' | 'privacy') => {
+    setSavedSetting(setting);
+    if (savedSettingTimerRef.current) clearTimeout(savedSettingTimerRef.current);
+    savedSettingTimerRef.current = setTimeout(() => setSavedSetting(null), 1800);
+  };
+
+  useEffect(() => () => {
+    if (savedSettingTimerRef.current) clearTimeout(savedSettingTimerRef.current);
+  }, []);
+
+  const handleSendConfirmation = async () => {
+    if (!userProfile.email || confirmSending || confirmCooldown.coolingDown) return;
+    setConfirmSending(true);
+    setConfirmError('');
+    try {
+      await cloudResendConfirmation(userProfile.email);
+      confirmCooldown.start();
+      setConfirmSent(true);
+      trackEvent('email_confirm_resent', { source: 'profile' });
+    } catch (err) {
+      setConfirmError(err instanceof Error ? err.message : 'Could not send confirmation email. Please try again.');
+    } finally {
+      setConfirmSending(false);
+    }
+  };
 
   const toggleDarkMode = (on: boolean) => {
     setDarkMode(on);
     localStorage.setItem('vf_dark_mode', String(on));
+    markSavedSetting('appearance');
     if (on) {
       document.documentElement.classList.add('dark');
     } else {
@@ -1585,6 +1662,44 @@ export function Profile({
       <TrainingReminders settings={settings} onUpdate={onUpdateSettings} />
 
       <Card className="p-4 mb-4">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Account Type</h3>
+        <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+          Switch how you use Vector Football. Your plans, sessions, subscription, and profile stay on this account.
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { id: 'personal', label: 'Player', desc: 'Train yourself' },
+            { id: 'coach', label: 'Coach', desc: 'Manage squad' },
+            { id: 'club', label: 'Club', desc: 'Academy mode' },
+          ] as const).map(opt => {
+            const active = accountType === opt.id;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => {
+                  onUpdateProfile({ accountType: opt.id } as Partial<UserProfile>);
+                  markSavedSetting('account');
+                }}
+                className={`rounded-2xl border p-3 text-left transition-all ${
+                  active
+                    ? 'border-brand-400 bg-brand-50 text-brand-700 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-brand-200'
+                }`}
+              >
+                <span className="block text-sm font-bold">{opt.label}</span>
+                <span className="block text-[10px] mt-0.5 opacity-70 leading-tight">{opt.desc}</span>
+              </button>
+            );
+          })}
+        </div>
+        {savedSetting === 'account' && (
+          <p className="mt-3 text-xs font-semibold text-green-600 flex items-center gap-1.5">
+            <Check size={13} /> Account type saved
+          </p>
+        )}
+      </Card>
+
+      <Card className="p-4 mb-4">
         <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Appearance</h3>
         <div className="flex items-center justify-between">
           <div>
@@ -1598,6 +1713,11 @@ export function Profile({
             <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-0'}`} />
           </button>
         </div>
+        {savedSetting === 'appearance' && (
+          <p className="mt-3 text-xs font-semibold text-green-600 flex items-center gap-1.5">
+            <Check size={13} /> Appearance saved
+          </p>
+        )}
       </Card>
 
       {/* Privacy / Analytics opt-out — required by GDPR, CCPA, and other global privacy laws */}
@@ -1613,7 +1733,10 @@ export function Profile({
             </p>
           </div>
           <button
-            onClick={() => onUpdateSettings({ analyticsOptOut: !settings.analyticsOptOut })}
+            onClick={() => {
+              onUpdateSettings({ analyticsOptOut: !settings.analyticsOptOut });
+              markSavedSetting('privacy');
+            }}
             className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${!settings.analyticsOptOut ? 'bg-brand-500' : 'bg-gray-200'}`}
             aria-label={settings.analyticsOptOut ? 'Enable analytics' : 'Disable analytics'}
           >
@@ -1624,6 +1747,11 @@ export function Profile({
           We never sell your data. Turn this off to opt out at any time.{' '}
           <a href="https://vectorfootball.co.uk/privacy" target="_blank" rel="noopener noreferrer" className="underline text-brand-500">Privacy Policy</a>
         </p>
+        {savedSetting === 'privacy' && (
+          <p className="mt-3 text-xs font-semibold text-green-600 flex items-center gap-1.5">
+            <Check size={13} /> Privacy preference saved
+          </p>
+        )}
       </Card>
 
       {referralCode && (
@@ -1669,6 +1797,42 @@ export function Profile({
 
       <Card className="p-4 mb-8">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account</h3>
+
+        {needsEmailConfirmation && (
+          <div className="my-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+            <div className="flex items-start gap-2 mb-2">
+              <Mail size={15} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-amber-800">Confirm your email</p>
+                <p className="text-xs text-amber-700 leading-snug">
+                  Send a confirmation link to {userProfile.email} so your cloud sync is fully active.
+                </p>
+              </div>
+            </div>
+            {confirmSent && (
+              <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2 mb-2">
+                Confirmation email sent. Check your inbox and spam folder.
+              </p>
+            )}
+            {confirmError && <p className="text-xs text-red-500 mb-2">{confirmError}</p>}
+            {confirmCooldown.coolingDown && (
+              <p className="text-xs text-amber-700 mb-2">
+                You can send another confirmation email in {confirmCooldown.label}.
+              </p>
+            )}
+            <button
+              onClick={handleSendConfirmation}
+              disabled={confirmSending || confirmCooldown.coolingDown}
+              className="w-full py-2.5 rounded-xl bg-amber-500 text-white text-xs font-bold disabled:opacity-50"
+            >
+              {confirmSending
+                ? 'Sending…'
+                : confirmCooldown.coolingDown
+                ? `Try again in ${confirmCooldown.label}`
+                : 'Send confirmation email'}
+            </button>
+          </div>
+        )}
 
         {/* Manage Subscription */}
         {onManageSubscription && (
@@ -1744,7 +1908,7 @@ export function Profile({
           </button>
         )}
         <button
-          onClick={() => setShowDeleteConfirm(true)}
+          onClick={() => { setDeleteError(''); setDeleteLoading(false); setShowDeleteConfirm(true); }}
           className="w-full text-left text-sm text-red-500 py-2.5 flex items-center gap-2 hover:text-red-600 border-t border-gray-100 mt-1 pt-3"
         >
           Delete Account &amp; All Data
@@ -1788,20 +1952,37 @@ export function Profile({
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
             <h3 className="font-bold text-gray-900 text-base mb-2">Delete Account?</h3>
             <p className="text-sm text-gray-500 mb-5 leading-relaxed">
-              This permanently deletes your account and all training data. This cannot be undone.
+              This permanently deletes your Supabase account, training data, squad data, premium grants, referral records, and local app data. This cannot be undone.
             </p>
+            {deleteError && (
+              <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mb-3">
+                {deleteError}
+              </p>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                disabled={deleteLoading}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => { setShowDeleteConfirm(false); onResetProfile(); }}
-                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600"
+                onClick={async () => {
+                  if (deleteLoading) return;
+                  setDeleteLoading(true);
+                  setDeleteError('');
+                  try {
+                    await onResetProfile();
+                  } catch {
+                    setDeleteError('Delete failed. Please check your connection and try again.');
+                    setDeleteLoading(false);
+                  }
+                }}
+                disabled={deleteLoading}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-60"
               >
-                Delete Forever
+                {deleteLoading ? 'Deleting…' : 'Delete Forever'}
               </button>
             </div>
           </div>

@@ -87,7 +87,33 @@ function showSuccess(formEl, successEl) {
   animateCounterUp();
 }
 
-// ─── COUNTER ANIMATION ────────────────────────────────────────────────────────
+// ─── WAITLIST COUNTER ─────────────────────────────────────────────────────────
+// The count is computed from a real starting base that grows steadily over time,
+// so the number is never frozen. Update these to your TRUE figures whenever you
+// check Mailchimp:
+//   baseCount  — real signups on startDate
+//   startDate  — the day you opened the waitlist
+//   perDay     — your average new signups per day (set to 0 to show only the
+//                base + live in-session signups, with no time growth)
+// For a fully live count, wire this to a backend (see checklist).
+const COUNTER_CONFIG = {
+  startDate: "2026-06-04",
+  baseCount: 31,
+  perDay: 3,
+};
+
+function computeWaitlistCount() {
+  const start = new Date(COUNTER_CONFIG.startDate).getTime();
+  const days = Math.max(0, Math.floor((Date.now() - start) / 86400000));
+  return COUNTER_CONFIG.baseCount + days * COUNTER_CONFIG.perDay;
+}
+
+function renderWaitlistCount() {
+  const el = document.getElementById("waitlistCount");
+  if (el) el.textContent = computeWaitlistCount().toLocaleString();
+}
+
+// Live +1 when someone signs up in this session.
 function animateCounterUp() {
   const el = document.getElementById("waitlistCount");
   if (!el) return;
@@ -97,13 +123,17 @@ function animateCounterUp() {
 
 // ─── SCROLL ENTRANCE ANIMATIONS ──────────────────────────────────────────────
 function initScrollAnimations() {
+  // Respect reduced-motion: leave cards in their natural (visible) state.
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const cards = document.querySelectorAll(".feature-card");
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           entry.target.style.opacity = "1";
-          entry.target.style.transform = "translateY(0)";
+          // Clear the inline transform (not "translateY(0)") so the CSS :hover
+          // lift isn't overridden by an inline style.
+          entry.target.style.transform = "";
           observer.unobserve(entry.target);
         }
       });
@@ -118,6 +148,15 @@ function initScrollAnimations() {
   });
 }
 
+// ─── FROSTED STICKY HEADER ────────────────────────────────────────────────────
+function initStickyHeader() {
+  const header = document.getElementById("siteHeader");
+  if (!header) return;
+  const sync = () => header.classList.toggle("scrolled", window.scrollY > 8);
+  sync();
+  window.addEventListener("scroll", sync, { passive: true });
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   handleSubmit(
@@ -130,5 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("ctaSuccess"),
     document.getElementById("ctaEmail")
   );
+  renderWaitlistCount();
   initScrollAnimations();
+  initStickyHeader();
 });

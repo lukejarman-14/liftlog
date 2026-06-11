@@ -65,6 +65,9 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
   const [fatigue, setFatigue]   = useState(() => existing?.fatigue  ?? 3);
   const [soreness, setSoreness] = useState(() => existing?.soreness ?? 3);
   const [stress, setStress]     = useState(() => existing?.stress   ?? 3);
+  const [sleepHours, setSleepHours] = useState(() => existing?.sleepHours?.toString() ?? '');
+  const [hrvMs, setHrvMs] = useState(() => existing?.hrvMs?.toString() ?? '');
+  const [restingHr, setRestingHr] = useState(() => existing?.restingHr?.toString() ?? '');
 
   // Sync sliders if existing changes after mount (e.g. cloud restore)
   useEffect(() => {
@@ -73,15 +76,24 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
     setFatigue(existing.fatigue);
     setSoreness(existing.soreness);
     setStress(existing.stress);
+    setSleepHours(existing.sleepHours?.toString() ?? '');
+    setHrvMs(existing.hrvMs?.toString() ?? '');
+    setRestingHr(existing.restingHr?.toString() ?? '');
   }, [existing]);
 
   const handleSave = () => {
     const raw = calcReadiness({ sleep, fatigue, soreness, stress });
     const now = new Date();
     const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const parsedSleepHours = parseOptionalMetric(sleepHours);
+    const parsedHrvMs = parseOptionalMetric(hrvMs);
+    const parsedRestingHr = parseOptionalMetric(restingHr);
     const entry: DailyReadiness = {
       date: localDate,
       sleep, fatigue, soreness, stress,
+      ...(parsedSleepHours !== undefined ? { sleepHours: parsedSleepHours } : {}),
+      ...(parsedHrvMs !== undefined ? { hrvMs: parsedHrvMs } : {}),
+      ...(parsedRestingHr !== undefined ? { restingHr: parsedRestingHr } : {}),
       score: raw.score,
       level: raw.level,
       completedAt: Date.now(),
@@ -103,6 +115,13 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
             <div>
               <p className={`text-sm font-bold ${cfg.text}`}>{cfg.label} Readiness · {existing.score}/5</p>
               <p className="text-xs text-gray-500">Today's check-in complete</p>
+              {(existing.sleepHours != null || existing.hrvMs != null || existing.restingHr != null) && (
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  {existing.sleepHours != null && `${existing.sleepHours.toFixed(1)}h sleep`}
+                  {existing.hrvMs != null && `${existing.sleepHours != null ? ' · ' : ''}${Math.round(existing.hrvMs)}ms HRV`}
+                  {existing.restingHr != null && `${existing.sleepHours != null || existing.hrvMs != null ? ' · ' : ''}${Math.round(existing.restingHr)} bpm RHR`}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -117,6 +136,8 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
             <ReadinessForm
               sleep={sleep} fatigue={fatigue} soreness={soreness} stress={stress}
               setSleep={setSleep} setFatigue={setFatigue} setSoreness={setSoreness} setStress={setStress}
+              sleepHours={sleepHours} hrvMs={hrvMs} restingHr={restingHr}
+              setSleepHours={setSleepHours} setHrvMs={setHrvMs} setRestingHr={setRestingHr}
               onSave={handleSave}
             />
           </div>
@@ -166,20 +187,31 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
       <ReadinessForm
         sleep={sleep} fatigue={fatigue} soreness={soreness} stress={stress}
         setSleep={setSleep} setFatigue={setFatigue} setSoreness={setSoreness} setStress={setStress}
+        sleepHours={sleepHours} hrvMs={hrvMs} restingHr={restingHr}
+        setSleepHours={setSleepHours} setHrvMs={setHrvMs} setRestingHr={setRestingHr}
         onSave={handleSave}
       />
     </div>
   );
 }
 
+function parseOptionalMetric(value: string): number | undefined {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 function ReadinessForm({
   sleep, fatigue, soreness, stress,
   setSleep, setFatigue, setSoreness, setStress,
+  sleepHours, hrvMs, restingHr,
+  setSleepHours, setHrvMs, setRestingHr,
   onSave,
 }: {
   sleep: number; fatigue: number; soreness: number; stress: number;
   setSleep: (v: number) => void; setFatigue: (v: number) => void;
   setSoreness: (v: number) => void; setStress: (v: number) => void;
+  sleepHours: string; hrvMs: string; restingHr: string;
+  setSleepHours: (v: string) => void; setHrvMs: (v: string) => void; setRestingHr: (v: string) => void;
   onSave: () => void;
 }) {
   const [hkBusy, setHkBusy] = useState(false);
@@ -206,6 +238,9 @@ function ReadinessForm({
         // Web preview only — HealthKit can't exist on web, so show sample data.
         const demo = { sleepHours: 7.4, hrvMs: 62, restingHr: 51 };
         setRecovery(demo);
+        setSleepHours(demo.sleepHours.toString());
+        setHrvMs(demo.hrvMs.toString());
+        setRestingHr(demo.restingHr.toString());
         setSleep(sleepHoursToScore(demo.sleepHours));
         setFatigue(hrvToFatigueScore(demo.hrvMs));
         setStress(restingHrToStressScore(demo.restingHr));
@@ -217,9 +252,18 @@ function ReadinessForm({
       if (!data) { setHkError(true); return; }
       setRecovery(data);
       // Auto-fill every slider we have data for — user can still adjust before saving.
-      if (data.sleepHours != null) setSleep(sleepHoursToScore(data.sleepHours));
-      if (data.hrvMs != null)      setFatigue(hrvToFatigueScore(data.hrvMs));
-      if (data.restingHr != null)  setStress(restingHrToStressScore(data.restingHr));
+      if (data.sleepHours != null) {
+        setSleepHours(data.sleepHours.toFixed(1));
+        setSleep(sleepHoursToScore(data.sleepHours));
+      }
+      if (data.hrvMs != null) {
+        setHrvMs(String(Math.round(data.hrvMs)));
+        setFatigue(hrvToFatigueScore(data.hrvMs));
+      }
+      if (data.restingHr != null) {
+        setRestingHr(String(Math.round(data.restingHr)));
+        setStress(restingHrToStressScore(data.restingHr));
+      }
     } finally {
       setHkBusy(false);
     }
@@ -265,6 +309,45 @@ function ReadinessForm({
           )}
         </div>
       )}
+      <div className="grid grid-cols-3 gap-2">
+        <MetricInput
+          label="Sleep"
+          suffix="h"
+          value={sleepHours}
+          onChange={(next) => {
+            setSleepHours(next);
+            const parsed = parseOptionalMetric(next);
+            if (parsed !== undefined) setSleep(sleepHoursToScore(parsed));
+          }}
+          placeholder="7.5"
+          step="0.1"
+        />
+        <MetricInput
+          label="HRV"
+          suffix="ms"
+          value={hrvMs}
+          onChange={(next) => {
+            setHrvMs(next);
+            const parsed = parseOptionalMetric(next);
+            if (parsed !== undefined) setFatigue(hrvToFatigueScore(parsed));
+          }}
+          placeholder="62"
+        />
+        <MetricInput
+          label="Rest HR"
+          suffix="bpm"
+          value={restingHr}
+          onChange={(next) => {
+            setRestingHr(next);
+            const parsed = parseOptionalMetric(next);
+            if (parsed !== undefined) setStress(restingHrToStressScore(parsed));
+          }}
+          placeholder="51"
+        />
+      </div>
+      <p className="text-[11px] text-gray-400 text-center">
+        Optional recovery metrics feed the graph below. Apple Health can fill these automatically.
+      </p>
       <QuickSlider label="Sleep quality" value={sleep} onChange={setSleep} />
       <QuickSlider label="Fatigue" value={fatigue} onChange={setFatigue} inverted />
       <QuickSlider label="Soreness" value={soreness} onChange={setSoreness} inverted />
@@ -277,5 +360,42 @@ function ReadinessForm({
         Save Readiness
       </button>
     </div>
+  );
+}
+
+function MetricInput({
+  label,
+  suffix,
+  value,
+  onChange,
+  placeholder,
+  step = '1',
+}: {
+  label: string;
+  suffix: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  step?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">{label}</span>
+      <div className="relative">
+        <input
+          type="number"
+          min="0"
+          step={step}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          style={{ fontSize: '16px' }}
+          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 pr-9 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-400"
+        />
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-400">
+          {suffix}
+        </span>
+      </div>
+    </label>
   );
 }

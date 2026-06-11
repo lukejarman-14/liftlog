@@ -9,7 +9,7 @@ import { AppBootSkeleton, DashboardSkeleton, LoginSkeleton } from './components/
 import { CookieBanner } from './components/CookieBanner';
 import { Dashboard } from './components/screens/Dashboard';
 import type { FormationData } from './components/screens/FormationBuilder';
-import { NavState, WorkoutExercise, WorkoutSession, UserProfile, TestSession, ProgrammeSession } from './types';
+import { NavState, PremiumStatus, WorkoutExercise, WorkoutSession, UserProfile, TestSession, ProgrammeSession } from './types';
 import { POSITION_TEMPLATES } from './data/positionPlans';
 import { sessionToLegacyTest, calcBaselineResults } from './data/testingBattery';
 import { generateProgramme, buildTestEmphasis } from './lib/programmeGenerator';
@@ -34,10 +34,14 @@ import { REFERRALS_ENABLED } from './lib/featureFlags';
 import { identifyUser, resetAnalyticsUser, trackEvent, applyAnalyticsOptOut } from './lib/analytics';
 import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificationPermission, scheduleDailyReminder } from './lib/notifications';
 import { localDateStr } from './lib/loadManagement';
+import { forgetRememberedLogin, shouldRestoreRememberedLogin } from './lib/authPersistence';
+import { computeHasAccess } from './lib/premiumUtils';
 
 const APP_STORE_URL = 'https://apps.apple.com/gb/app/vector-football/id6772522502?action=write-review';
 const MS_PER_DAY = 86_400_000;
 const TRIAL_PROMPT_DELAY_MS = 2_000;
+const PAYWALL_AFTER_LOGIN_DELAY_MS = 700;
+const LOGIN_PAYWALL_SESSION_KEY = 'vf_login_paywall_shown';
 const NOTIF_PROMPT_DELAY_MS = 1_200;
 const REFERRAL_REDIRECT_DELAY_MS = 1_500;
 // Default interval counts — used when no stored count or history exists for an exercise
@@ -158,6 +162,18 @@ function EmailConfirmedLanding() {
   );
 }
 
+function clearLoginPaywallSessionFlags() {
+  try {
+    Object.keys(sessionStorage)
+      .filter(key => key === LOGIN_PAYWALL_SESSION_KEY || key.startsWith(`${LOGIN_PAYWALL_SESSION_KEY}:`))
+      .forEach(key => sessionStorage.removeItem(key));
+  } catch { /* ignore unavailable sessionStorage */ }
+}
+
+type NavigateOptions = {
+  bypassActiveWorkoutGuard?: boolean;
+};
+
 export default function App() {
   const store = useStore();
   const toast = useToast();
@@ -177,6 +193,7 @@ export default function App() {
   useEffect(() => () => { appMountedRef.current = false; }, []);
   const [showProgrammePrompt, setShowProgrammePrompt] = useState(false);
   const [pendingEmailConfirm, setPendingEmailConfirm] = useState(false);
+  const [signupRecoveryNotice, setSignupRecoveryNotice] = useState<string | undefined>();
   // Shown to a personal player whose squad (coach) access has ended — prompts them to keep Premium.
   // In production this flag is set when the player's coach link is revoked. For preview, set
   // localStorage 'vf_squad_ended' = '1' and reload.
@@ -217,6 +234,60 @@ export default function App() {
   const [pendingTestGrades, setPendingTestGrades] = useState<Record<string, 1|2|3|4|5> | null>(null);
 
   const [pendingWorkout, setPendingWorkout] = useState<{ name: string; items: WorkoutExercise[] } | null>(null);
+  const [pendingExitNav, setPendingExitNav] = useState<NavState | null>(null);
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator === 'undefined' ? true : navigator.onLine,
+  );
+
+  const navigate = useCallback((next: NavState, options: NavigateOptions = {}) => {
+    if (
+      !options.bypassActiveWorkoutGuard &&
+      nav.screen === 'active-workout' &&
+      activeSession &&
+      next.screen !== 'active-workout'
+    ) {
+      setPendingExitNav(next);
+      return;
+    }
+    startTransition(() => setNav(next));
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [activeSession, nav.screen]);
+
+  const maybeShowPaywallAfterLogin = useCallback((statusOverride?: PremiumStatus | null): boolean => {
+    if (isRecoveryMode || isEmailConfirmLanding) return false;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('stripe_success') === '1' || params.get('stripe_cancel') === '1') return false;
+
+    try {
+      if (!localStorage.getItem('vf_user_profile')) return false;
+    } catch {
+      return false;
+    }
+
+    const status = statusOverride ?? premium.refresh();
+    if (computeHasAccess(status)) return false;
+
+    const key = cloudUserIdRef.current
+      ? `${LOGIN_PAYWALL_SESSION_KEY}:${cloudUserIdRef.current}`
+      : LOGIN_PAYWALL_SESSION_KEY;
+    try {
+      if (sessionStorage.getItem(key) === '1') return false;
+      sessionStorage.setItem(key, '1');
+    } catch {
+      // If sessionStorage is unavailable, still show the paywall once for this call.
+    }
+
+    setShowTrialPrompt(false);
+    setPaywallFeatureLabel(undefined);
+    window.setTimeout(() => {
+      if (!appMountedRef.current) return;
+      setShowTrialPrompt(false);
+      navigate({ screen: 'paywall' });
+    }, PAYWALL_AFTER_LOGIN_DELAY_MS);
+
+    return true;
+  }, [isEmailConfirmLanding, isRecoveryMode, navigate, premium.refresh]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -229,8 +300,9 @@ export default function App() {
           // Unblock the UI immediately — the spinner disappears as soon as we know
           // the auth state. All background syncs (cloud, RC) continue after this.
           setSessionChecking(false);
-          // Register coach/club squad or finish a pending player join.
-          void syncSquad(userId);
+          // Register coach/club squad or finish a pending player join before
+          // deciding whether this login should see the paywall.
+          await syncSquad(userId).catch(() => {});
           if (!sessionStorage.getItem('vf_boot_synced')) {
             sessionStorage.setItem('vf_boot_synced', '1');
             const hadCloudData = await cloudLoadData(userId);
@@ -252,20 +324,14 @@ export default function App() {
           await premium.syncFromRC();
           // Server-authoritative access (Stripe web, squad-inherited, promo/referral).
           await premium.syncEntitlementFromServer();
+          const premiumStatus = premium.refresh();
 
           const today = new Date().toISOString().split('T')[0];
           const lastShown = localStorage.getItem('vf_trial_prompt_shown');
-          // Read directly from localStorage after syncFromRC has written — avoids calling
-          // refresh() which triggers an extra setStatusRaw state update inside this async chain.
-          const premiumAfterSync = (() => {
-            try {
-              const s = JSON.parse(localStorage.getItem('vf_premium') ?? '{}');
-              // Also treat active timed grants (referral/promo) as having access
-              return s.isPremium === true || (s.expiresAt && s.expiresAt > Date.now());
-            }
-            catch { return false; }
-          })();
-          if (lastShown !== today && !premiumAfterSync) {
+          const params = new URLSearchParams(window.location.search);
+          const hasStripeReturn = params.get('stripe_success') === '1' || params.get('stripe_cancel') === '1';
+          const queuedLoginPaywall = !hasStripeReturn && maybeShowPaywallAfterLogin(premiumStatus);
+          if (!queuedLoginPaywall && lastShown !== today && !computeHasAccess(premiumStatus)) {
             setTimeout(() => setShowTrialPrompt(true), TRIAL_PROMPT_DELAY_MS);
           }
           // Referrals are disabled during the pre-season 30-day-trial period
@@ -279,7 +345,6 @@ export default function App() {
             await premium.claimReferralRewardsForUser(userId);
           }
 
-          const params = new URLSearchParams(window.location.search);
           if (params.get('stripe_success') === '1') {
             window.history.replaceState({}, '', window.location.pathname);
             // The vf_stripe_plan hint is no longer trusted to GRANT access — clear it.
@@ -308,6 +373,16 @@ export default function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    const updateOnlineState = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateOnlineState);
+    window.addEventListener('offline', updateOnlineState);
+    return () => {
+      window.removeEventListener('online', updateOnlineState);
+      window.removeEventListener('offline', updateOnlineState);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!supabase) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
@@ -334,25 +409,69 @@ export default function App() {
           cloudUserIdRef.current = userId;
           setSessionChecking(false);
           identifyUser(userId);
-          // Email confirmation just completed — session now exists so RLS allows writes.
-          // Save first (cloudSaveData failed at signup time — no session = 400 from RLS),
-          // then load so the store has the correct accountType BEFORE we set isAuthenticated.
-          // This prevents a flash of the personal-account paywall for coach accounts.
-          cloudSaveData(userId)
-            .then(() => cloudLoadData(userId))
+          // Auth redirects can come from email confirmation OR Apple/Google OAuth.
+          // Load first so existing OAuth users never overwrite their cloud row with
+          // stale localStorage. Only upload local data when there is no cloud row yet.
+          (async () => {
+            const loaded = await cloudLoadData(userId);
+            if (!loaded) {
+              let hasLocalProfile = false;
+              try {
+                hasLocalProfile = Boolean(localStorage.getItem('vf_user_profile'));
+              } catch {
+                hasLocalProfile = false;
+              }
+              if (hasLocalProfile) {
+                await cloudSaveData(userId);
+                await cloudLoadData(userId);
+              }
+            }
+            await rcConfigure(userId).catch(() => {});
+            await syncSquad(userId).catch(() => {});
+            await premium.syncFromRC();
+            await premium.syncEntitlementFromServer();
+          })()
             .catch((err) => { captureError(err, { context: 'SIGNED_IN cloud sync', userId }); })
             .finally(() => {
-              premium.refresh();
+              const status = premium.refresh();
               setSentryUser(userId);
               setIsAuthenticated(true);
+              maybeShowPaywallAfterLogin(status);
             });
-          rcConfigure(userId).catch(() => {});
-          void syncSquad(userId);
         }
       }
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (sessionChecking || isAuthenticated || isRecoveryMode || isEmailConfirmLanding || !store.userProfile) return;
+    if (!shouldRestoreRememberedLogin(store.userProfile.email)) return;
+    const status = premium.refresh();
+    setIsAuthenticated(true);
+    maybeShowPaywallAfterLogin(status);
+  }, [
+    sessionChecking,
+    isAuthenticated,
+    isRecoveryMode,
+    isEmailConfirmLanding,
+    store.userProfile?.email,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || sessionChecking || isAuthenticated || !store.userProfile) return;
+    try {
+      const hasCloudOwner = Boolean(localStorage.getItem('vf_data_owner'));
+      const isLocalFallbackProfile = Boolean(store.userProfile.passwordHash);
+      if (!hasCloudOwner && !isLocalFallbackProfile) {
+        clearDataOwnership();
+        store.clearAll();
+        setSignupRecoveryNotice('We cleared an unfinished offline signup. You are back online now, so create the account again and it should complete normally.');
+      }
+    } catch {
+      // If storage cannot be read, leave the normal login flow alone.
+    }
+  }, [sessionChecking, isAuthenticated, store.userProfile]);
 
   // Robustly keep a coach/club squad registered with the right tier whenever the
   // user is authenticated — re-runs when their premium status changes (trial/sub).
@@ -403,8 +522,12 @@ export default function App() {
     const activeProg = store.activeProgrammeId
       ? store.generatedProgrammes.find(p => p.id === store.activeProgrammeId) ?? null
       : null;
-    if (reminderEnabled && activeProg) {
-      scheduleTrainingReminders(activeProg, reminderHour, reminderMinute);
+    if (reminderEnabled) {
+      if (activeProg) {
+        scheduleTrainingReminders(activeProg, reminderHour, reminderMinute);
+      } else {
+        scheduleDailyReminder(reminderHour, reminderMinute);
+      }
     } else if (!reminderEnabled) {
       cancelAllTrainingReminders();
     }
@@ -414,6 +537,37 @@ export default function App() {
     store.userSettings.reminderMinute,
     store.activeProgrammeId,
     store.generatedProgrammes, // re-schedule when programme content changes (e.g. rebuild)
+  ]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isSupabaseConfigured || !cloudUserIdRef.current) return;
+    void cloudSaveData(cloudUserIdRef.current);
+  }, [isAuthenticated, store.userSettings]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isSupabaseConfigured || !cloudUserIdRef.current || !isOnline) return;
+    const timeout = window.setTimeout(() => {
+      if (cloudUserIdRef.current) void cloudSaveData(cloudUserIdRef.current);
+    }, 1_500);
+    return () => window.clearTimeout(timeout);
+  }, [
+    isAuthenticated,
+    isOnline,
+    store.userProfile,
+    store.customExercises,
+    store.templates,
+    store.sessions,
+    store.activePlan,
+    store.userSettings,
+    store.baseline,
+    store.matchEntries,
+    store.testSessions,
+    store.generatedProgrammes,
+    store.activeProgrammeId,
+    store.dailyReadinessLog,
+    store.footballIntensityLog,
+    store.scheduledWorkouts,
+    store.weightLog,
   ]);
 
   useEffect(() => {
@@ -438,11 +592,6 @@ export default function App() {
     if (isSupabaseConfigured && cloudUserIdRef.current) {
       cloudSaveData(cloudUserIdRef.current);
     }
-  }, []);
-
-  const navigate = useCallback((next: NavState) => {
-    startTransition(() => setNav(next));
-    window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
   /** Navigate to a gated screen — show paywall if no access. */
@@ -1174,10 +1323,11 @@ export default function App() {
       setSentryUser(null);
       // Clear the boot-sync guard so the next login re-fetches cloud data fresh.
       sessionStorage.removeItem('vf_boot_synced');
-      // Wipe all local app data + the owner tag so the next account on this
-      // (possibly shared) device starts clean and can't read the prior user's data.
-      clearDataOwnership();
-      // Detach the RevenueCat identity so iOS purchases don't carry to the next user.
+      clearLoginPaywallSessionFlags();
+      // Keep local training data, plans, and premium state intact on normal logout.
+      // Destructive resets still go through "Delete Account & All Data" / "Start fresh".
+      forgetRememberedLogin();
+      // Detach the RevenueCat identity, but do not erase the local premium cache.
       void rcLogOut();
       resetAnalyticsUser();
       cloudUserIdRef.current = null;
@@ -1218,21 +1368,33 @@ export default function App() {
         // If already authenticated (e.g. login succeeded but profile wasn't in cloud),
         // pass the userId so Onboarding skips auth and goes straight to profile setup.
         existingUserId={isAuthenticated ? (cloudUserIdRef.current ?? undefined) : undefined}
+        initialNotice={signupRecoveryNotice}
         onComplete={(profile, planId, userId) => {
           if (userId) { identifyUser(userId, { position: profile.position }); setSentryUser(userId); }
           handleOnboardingComplete(profile, planId, userId);
           setIsAuthenticated(true);
         }}
         onLoginSuccess={(userId) => {
+          let status = premium.refresh();
           if (userId) {
             cloudUserIdRef.current = userId;
             identifyUser(userId);
             setSentryUser(userId);
-            // Re-sync premium state: cloudLoadData ran in Onboarding before this callback,
-            // so localStorage now has the server-authoritative value — refresh React state.
-            premium.refresh();
-            rcConfigure(userId).then(() => premium.syncFromRC()).catch(() => {});
-            void syncSquad(userId);
+            void (async () => {
+              try {
+                await rcConfigure(userId);
+                await syncSquad(userId);
+                await premium.syncFromRC();
+                await premium.syncEntitlementFromServer();
+              } catch (err) {
+                captureError(err, { context: 'onboarding login premium sync', userId });
+              } finally {
+                status = premium.refresh();
+                maybeShowPaywallAfterLogin(status);
+              }
+            })();
+          } else {
+            maybeShowPaywallAfterLogin(status);
           }
           setIsAuthenticated(true);
         }}
@@ -1246,12 +1408,25 @@ export default function App() {
         <Login
           profile={store.userProfile}
           onLogin={(userId) => {
+            let status = premium.refresh();
             if (userId) {
               cloudUserIdRef.current = userId;
               identifyUser(userId);
-              // cloudLoadData ran in Login before this callback — re-sync premium state.
-              premium.refresh();
-              rcConfigure(userId).then(() => premium.syncFromRC()).catch(() => {});
+              void (async () => {
+                try {
+                  await rcConfigure(userId);
+                  await syncSquad(userId);
+                  await premium.syncFromRC();
+                  await premium.syncEntitlementFromServer();
+                } catch (err) {
+                  captureError(err, { context: 'login premium sync', userId });
+                } finally {
+                  status = premium.refresh();
+                  maybeShowPaywallAfterLogin(status);
+                }
+              })();
+            } else {
+              maybeShowPaywallAfterLogin(status);
             }
             setIsAuthenticated(true);
           }}
@@ -1287,6 +1462,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
       <CookieBanner />
+      {!isOnline && (
+        <div className="fixed left-1/2 z-[260] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 shadow-lg safe-area-top">
+          Offline. Changes stay on this device and will sync when you are back online.
+        </div>
+      )}
       <Suspense fallback={screenFallback}>
       {screen === 'dashboard' && isCoach && (
         <CoachDashboard
@@ -1421,7 +1601,7 @@ export default function App() {
             store.saveGeneratedProgramme(updated);
             setCurrentProgramme(updated);
           }}
-          onDiscard={() => { setActiveSession(null); navigate({ screen: 'dashboard' }); }}
+          onDiscard={() => { setActiveSession(null); navigate({ screen: 'dashboard' }, { bypassActiveWorkoutGuard: true }); }}
         />
       )}
 
@@ -1500,33 +1680,57 @@ export default function App() {
                 // deletion failed — otherwise the user believes their account is
                 // gone while it still exists server-side (privacy/GDPR violation).
                 toast.error('Could not delete your account. Please check your connection and try again.');
-                return;
+                throw new Error('delete_account_failed');
               }
             }
+            setSentryUser(null);
+            resetAnalyticsUser();
+            forgetRememberedLogin();
+            clearLoginPaywallSessionFlags();
+            sessionStorage.removeItem('vf_boot_synced');
+            await cancelAllTrainingReminders();
+            await rcLogOut().catch(() => {});
+            premium.resetForNewUser();
+            cloudUserIdRef.current = null;
+            setIsAuthenticated(false);
             startTransition(() => store.clearAll());
             window.location.href = '/';
           }}
           onChangePassword={(newHash) => {
             if (store.userProfile) {
               store.setUserProfile({ ...store.userProfile, passwordHash: newHash });
+              immediateSave();
             }
           }}
           onUpdateProfile={(updates) => {
             if (store.userProfile) {
               store.setUserProfile({ ...store.userProfile, ...updates });
+              immediateSave();
             }
           }}
           onSaveTrainingProfile={(updates) => {
             if (store.userProfile) {
               store.setUserProfile({ ...store.userProfile, ...updates });
               store.setActiveProgrammeId(null);
+              immediateSave();
             }
           }}
           weightLog={store.weightLog}
-          onSaveWeight={store.saveWeightEntry}
-          onDeleteWeight={store.deleteWeightEntry}
+          onSaveWeight={(entry) => { store.saveWeightEntry(entry); immediateSave(); }}
+          onDeleteWeight={(date) => { store.deleteWeightEntry(date); immediateSave(); }}
           settings={store.userSettings}
-          onUpdateSettings={store.updateSettings}
+          onUpdateSettings={(updates) => {
+            const nextSettings = { ...store.userSettings, ...updates };
+            store.updateSettings(updates);
+            try {
+              localStorage.setItem('vf_settings', JSON.stringify(nextSettings));
+            } catch {
+              // useLocalStorage will still try to persist the React state update.
+            }
+            if (isSupabaseConfigured && cloudUserIdRef.current) {
+              void cloudSaveData(cloudUserIdRef.current);
+            }
+          }}
           onLogout={handleLogout}
           onBack={() => navigate({ screen: 'dashboard' })}
           onManageSubscription={premium.hasAccess ? async () => {
@@ -1543,6 +1747,7 @@ export default function App() {
               }
             }
           } : undefined}
+          needsEmailConfirmation={isSupabaseConfigured && !cloudUserIdRef.current}
           squadProfile={store.userProfile?.accountType === 'personal' ? squadProfile : undefined}
           onSaveSquadProfile={store.userProfile?.accountType === 'personal' ? handleSaveSquadProfile : undefined}
         />
@@ -1854,7 +2059,7 @@ export default function App() {
               Ready to build your personalised training programme? It only takes a minute and uses everything you just told us.
             </p>
             <div className="flex items-center justify-center gap-1.5 mb-5">
-              <span className="text-xs font-bold text-brand-600 bg-brand-50 px-3 py-1 rounded-full">30-day free trial · no card needed</span>
+              <span className="text-xs font-bold text-brand-600 bg-brand-50 px-3 py-1 rounded-full">30-day free trial</span>
             </div>
             <div className="flex flex-col gap-3">
               <button
@@ -2190,7 +2395,7 @@ export default function App() {
               </button>
               <div className="text-4xl mb-2">⚡</div>
               <h2 className="text-xl font-extrabold mb-1">Try Pro Free for 14 Days</h2>
-              <p className="text-sm text-white/80">No card needed. Cancel anytime.</p>
+              <p className="text-sm text-white/80">Cancel anytime.</p>
             </div>
             <div className="px-6 py-5">
               <div className="flex flex-col gap-2.5 mb-5">
@@ -2229,6 +2434,36 @@ export default function App() {
         </div>
       )}
       </Suspense>
+
+      {pendingExitNav && (
+        <div className="fixed inset-0 z-[320] flex items-end justify-center bg-black/45 p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-extrabold text-gray-900 mb-2">Leave this workout?</h2>
+            <p className="text-sm text-gray-500 leading-relaxed mb-5">
+              Your current workout is still in progress. Leaving will discard any unsaved sets from this session.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPendingExitNav(null)}
+                className="flex-1 rounded-2xl border border-gray-200 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50"
+              >
+                Continue workout
+              </button>
+              <button
+                onClick={() => {
+                  const next = pendingExitNav;
+                  setPendingExitNav(null);
+                  setActiveSession(null);
+                  navigate(next, { bypassActiveWorkoutGuard: true });
+                }}
+                className="flex-1 rounded-2xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-600"
+              >
+                Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast notifications */}
       <ToastContainer toasts={store.toasts} onDismiss={store.removeToast} />

@@ -10,6 +10,7 @@ const supabaseAdmin = createClient(
 
 const ALLOWED_ORIGINS = new Set([
   'https://vectorfootball.co.uk',
+  'capacitor://vectorfootball.co.uk',
   'capacitor://localhost',
   'http://localhost:5173',
   'http://localhost:5174',

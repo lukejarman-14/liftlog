@@ -5,6 +5,7 @@ import { trackEvent } from '../../lib/analytics';
 import { ShareStatsCard } from '../ShareStatsCard';
 import { WeeklyCalendar } from '../WeeklyCalendar';
 import { DailyReadinessWidget } from '../DailyReadinessWidget';
+import { RecoveryTrackingGraph } from '../RecoveryTrackingGraph';
 import { WorkoutSession, NavState, ActivePlan, DailyReadiness, GeneratedProgramme, Exercise, WorkoutExercise, ProgrammeSession } from '../../types';
 import { useStore } from '../../hooks/useStore';
 import { cloudResendConfirmation } from '../../lib/cloudSync';
@@ -122,7 +123,7 @@ function IntensityPrompt({ date, onSave }: {
 }
 
 export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup, onSkipSession, onRescheduleSession, onDeleteSession, referralCode, cloudUnlinked = false, coachAnnouncements = [] }: DashboardProps) {
-  const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries, getDaysSinceLastTest } = useStore();
+  const { userProfile, dailyReadinessLog, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries, getDaysSinceLastTest } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
   const [showShareCard, setShowShareCard] = useState(false);
 
@@ -574,6 +575,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
 
       {/* Daily readiness check-in */}
       <DailyReadinessWidget existing={todayReadiness} onSave={onSaveReadiness} />
+      <RecoveryTrackingGraph entries={dailyReadinessLog} />
 
       {/* Referral card — shown to all users with a code */}
       {referralCode && (

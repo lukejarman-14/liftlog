@@ -39,6 +39,13 @@ export function exportData(): void {
     }
   }
 
+  // Never include the local password hash in an exported backup — it is a
+  // device-only secret and must not travel inside a shareable file.
+  const exportedProfile = data['vf_user_profile'];
+  if (exportedProfile && typeof exportedProfile === 'object') {
+    delete (exportedProfile as Record<string, unknown>).passwordHash;
+  }
+
   const backup: BackupFile = {
     version: 1,
     app: 'VectorFootball',

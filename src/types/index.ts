@@ -151,6 +151,9 @@ export interface DailyReadiness {
   fatigue: number;        // 1–5 (1=best, 5=worst)
   soreness: number;       // 1–5 (1=best, 5=worst)
   stress: number;         // 1–5 (1=best, 5=worst)
+  sleepHours?: number;    // optional raw recovery metric, usually from Apple Health
+  hrvMs?: number;         // optional raw heart-rate-variability metric
+  restingHr?: number;     // optional raw resting heart rate in bpm
   score: number;          // computed 1–5
   level: 'elite' | 'high' | 'moderate' | 'low';
   completedAt: number;    // timestamp

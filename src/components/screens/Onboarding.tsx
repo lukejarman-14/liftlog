@@ -6,13 +6,19 @@ import { isSupabaseConfigured, cloudSignUp, cloudSignIn, cloudSaveData, cloudLoa
 import { supabase } from '../../lib/supabase';
 import { trackEvent } from '../../lib/analytics';
 import { hashPassword } from '../../lib/authUtils';
-import { validateEmail, sanitiseTeamCode, EMAIL_MAX, PASSWORD_MAX, TEAM_CODE_MAX } from '../../lib/validation';
+import { validateDateOfBirth, validateEmail, sanitiseTeamCode, EMAIL_MAX, PASSWORD_MAX, TEAM_CODE_MAX } from '../../lib/validation';
+import { activateAppReviewDemo, isAppReviewDemoLogin } from '../../lib/appReviewDemo';
+import { forgetRememberedLogin, rememberLogin } from '../../lib/authPersistence';
+import { useActionCooldown } from '../../hooks/useActionCooldown';
+import { OAuthButtons } from '../OAuthButtons';
+import { OAUTH_ENABLED } from '../../lib/featureFlags';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile, recommendedPlanId: string, userId?: string) => void;
   onLoginSuccess?: (userId?: string) => void;
   /** When set, the user is already authenticated — skip auth step, go straight to profile setup */
   existingUserId?: string;
+  initialNotice?: string;
 }
 
 const GENDERS = [
@@ -65,7 +71,7 @@ const GYM_ACCESS_OPTIONS = [
   { id: 'none',  label: '🌳 Home / Outdoor' },
 ] as const;
 
-export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: OnboardingProps) {
+export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initialNotice }: OnboardingProps) {
   // step: 0 = landing, -1 = login mode, 1 = create account, 2 = body metrics, 3 = training profile
   // If existingUserId is provided, skip landing and go straight to profile setup
   const [step, setStep] = useState(existingUserId ? 1 : 0);
@@ -87,6 +93,18 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [step]);
 
+  useEffect(() => {
+    const handleOnline = () => {
+      setSubmitError(prev =>
+        prev.toLowerCase().includes('connection') || prev.toLowerCase().includes('offline')
+          ? ''
+          : prev
+      );
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
   // Listen for email confirmation — when Supabase fires SIGNED_IN after the user
   // clicks the confirmation link, proceed with onboarding completion.
   useEffect(() => {
@@ -107,6 +125,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [loginError,      setLoginError]      = useState('');
   const [loginLoading,    setLoginLoading]    = useState(false);
   const [restoreSuccess,  setRestoreSuccess]  = useState('');
+  const [stayLoggedIn,    setStayLoggedIn]    = useState(true);
 
   // Forgot password state
   const [showForgot,     setShowForgot]     = useState(false);
@@ -114,6 +133,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [forgotLoading,  setForgotLoading]  = useState(false);
   const [forgotSent,     setForgotSent]     = useState(false);
   const [forgotError,    setForgotError]    = useState('');
+  const forgotCooldown = useActionCooldown('password-reset', forgotEmail || loginEmail || 'unknown');
 
   // Step 1 — Account
   const [firstName,       setFirstName]       = useState('');
@@ -123,6 +143,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [confirmPassword, setConfirmPassword]  = useState('');
   const [showPassword,    setShowPassword]     = useState(false);
   const [showConfirm,     setShowConfirm]      = useState(false);
+  const confirmEmailCooldown = useActionCooldown('email-confirm', email || 'unknown');
 
   // Step 2 — Age verification + Terms
   const [dobDay,         setDobDay]         = useState('');
@@ -156,29 +177,16 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   // Optional squad invite code (personal players joining a coach/club).
   const [teamCode, setTeamCode] = useState('');
 
-  // Age computation from DOB inputs
-  const computedAge: number | null = (() => {
-    const d = parseInt(dobDay, 10);
-    const m = parseInt(dobMonth, 10);
-    const y = parseInt(dobYear, 10);
-    if (!d || !m || !y || dobYear.length !== 4) return null;
-    const birth = new Date(y, m - 1, d);
-    // Reject invalid dates (e.g. Feb 30)
-    if (isNaN(birth.getTime()) || birth.getMonth() !== m - 1) return null;
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const md = today.getMonth() - birth.getMonth();
-    if (md < 0 || (md === 0 && today.getDate() < birth.getDate())) age--;
-    return age >= 0 && age <= 120 ? age : null;
-  })();
-  const dobString = (computedAge !== null && dobYear.length === 4)
-    ? `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
-    : undefined;
+  // Age computation from DOB inputs. DOB is required and must be a real calendar date.
+  const dobValidation = validateDateOfBirth(dobDay, dobMonth, dobYear);
+  const hasDobInput = dobDay !== '' || dobMonth !== '' || dobYear !== '';
+  const computedAge = dobValidation.ok ? dobValidation.value.age : null;
   const isUnderThirteen  = computedAge !== null && computedAge < 13;
   const needsParental    = computedAge !== null && computedAge >= 13 && computedAge < 16;
-  // DOB is optional (Apple guideline 5.1.1v) — users may skip it.
-  // If entered, age must be 13+ and parental consent given if 13–15.
+  const dobError = !dobValidation.ok && hasDobInput ? dobValidation.error : '';
+  // DOB must be a real date, age must be 13+, and parental consent is required for 13–15.
   const canProceedFromAgeTerms =
+    dobValidation.ok &&
     !isUnderThirteen &&
     agreedToTerms &&
     (!needsParental || parentalConsent);
@@ -218,6 +226,16 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     setLoginError('');
 
     try {
+      if (isAppReviewDemoLogin(loginEmail, loginPassword)) {
+        activateAppReviewDemo();
+        if (stayLoggedIn) rememberLogin(loginEmail);
+        else forgetRememberedLogin();
+        setRestoreSuccess('App Review demo mode unlocked.');
+        onLoginSuccess?.();
+        setLoginLoading(false);
+        return;
+      }
+
       if (isSupabaseConfigured) {
         let userId: string;
         try {
@@ -242,6 +260,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           // cloudLoadData fires 'vf-cloud-restored' — all useLocalStorage hooks
           // re-read from localStorage so no page reload is needed
           setRestoreSuccess('Signed in! Loading your data…');
+          if (stayLoggedIn) rememberLogin(loginEmail, userId);
+          else forgetRememberedLogin();
+          onLoginSuccess?.(userId);
         } else {
           // No cloud data for this account. Check for valid local profile.
           let localProfile: { email?: string } | null = null;
@@ -253,6 +274,8 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           if (localProfile && typeof localProfile === 'object' && localProfile.email) {
             // Has valid local data (e.g. offline mode / sync failed) — proceed
             await cloudSaveData(userId);
+            if (stayLoggedIn) rememberLogin(loginEmail, userId);
+            else forgetRememberedLogin();
             onLoginSuccess?.(userId);
           } else {
             // Signed in to Supabase but zero data exists — account was deleted.
@@ -288,6 +311,8 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         }
       }
 
+      if (stayLoggedIn) rememberLogin(loginEmail);
+      else forgetRememberedLogin();
       onLoginSuccess?.();
     } catch {
       setLoginError('Unable to sign in. Check your connection and try again.');
@@ -303,6 +328,22 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
   const handleEnterApp = async () => {
     if (submitting) return;
+    if (!dobValidation.ok) {
+      setSubmitError(dobValidation.error);
+      return;
+    }
+    if (isUnderThirteen) {
+      setSubmitError('You must be at least 13 years old to use Vector Football.');
+      return;
+    }
+    if (needsParental && !parentalConsent) {
+      setSubmitError('A parent or guardian must agree before you can continue.');
+      return;
+    }
+    if (!agreedToTerms) {
+      setSubmitError('You must agree to the Terms of Use and Privacy Policy before continuing.');
+      return;
+    }
     setSubmitting(true);
     setSubmitError('');
     try {
@@ -327,23 +368,30 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         heightCm,
         weightKg,
         gender:          gender || undefined,
-        dateOfBirth:     dobString,
+        dateOfBirth:     dobValidation.value.isoDate,
         termsAcceptedAt: Date.now(),
         accountType,
       };
 
-      // Write profile directly to localStorage NOW so cloudSaveData always finds it,
-      // regardless of whether React's useEffect has committed yet.
-      localStorage.setItem('vf_user_profile', JSON.stringify(profile));
+      const persistProfileForAuthenticatedFlow = () => {
+        // Write profile directly to localStorage before cloudSaveData so it can
+        // collect the latest onboarding data immediately. Only do this after
+        // auth has succeeded (or local-only mode is active) so a failed offline
+        // signup cannot leave a fake completed account on the device.
+        localStorage.setItem('vf_user_profile', JSON.stringify(profile));
 
-      // Stash a pending squad code so App can join once the player is authenticated
-      // (handles the email-confirmation delay — join happens on first real session).
-      if (accountType === 'personal' && teamCode.trim()) {
-        localStorage.setItem('vf_pending_team_code', teamCode.trim().toUpperCase());
-      }
+        // Stash a pending squad code so App can join once the player is authenticated
+        // (handles the email-confirmation delay — join happens on first real session).
+        if (accountType === 'personal' && teamCode.trim()) {
+          localStorage.setItem('vf_pending_team_code', teamCode.trim().toUpperCase());
+        } else {
+          localStorage.removeItem('vf_pending_team_code');
+        }
+      };
 
       let userId: string | undefined = existingUserId;
       let needsConfirmation = false;
+      let authFailureMessage = '';
       if (!userId && isSupabaseConfigured) {
         try {
           const result = await cloudSignUp(profile.email, password);
@@ -357,7 +405,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               const id = await cloudSignIn(profile.email, password);
               if (id) userId = id;
               needsConfirmation = false;
-            } catch { /* fall through to local-only */ }
+            } catch { authFailureMessage = msg; }
+          } else {
+            authFailureMessage = msg;
           }
         }
       }
@@ -366,9 +416,20 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
       // local-only "authenticated" session if sign-up AND sign-in both failed.
       // (Previously this fell through to onComplete with userId=undefined.)
       if (isSupabaseConfigured && !userId && !needsConfirmation) {
-        setSubmitError('Could not create your account. Please check your connection and try again.');
+        const msg = authFailureMessage.toLowerCase();
+        if (!navigator.onLine) {
+          setSubmitError('You are offline. Connect to Wi-Fi or mobile data, then try creating your account again.');
+        } else if (msg.includes('captcha') || msg.includes('verification')) {
+          setSubmitError('Security verification did not finish. Check your connection, wait a moment, then try again.');
+        } else if (msg.includes('too_many_attempts')) {
+          setSubmitError('Too many attempts. Please wait 15 minutes before trying again.');
+        } else {
+          setSubmitError('Could not create your account. Please check your connection and try again.');
+        }
         return;
       }
+
+      persistProfileForAuthenticatedFlow();
 
       // Push data to cloud immediately (profile is already in localStorage above)
       if (userId) {
@@ -377,7 +438,11 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
       if (needsConfirmation) {
         // Block here — show "check your email" screen and wait for SIGNED_IN event
-        const proceed = () => onComplete(profile, '', userId);
+        const proceed = () => {
+          if (stayLoggedIn) rememberLogin(profile.email);
+          else forgetRememberedLogin();
+          onComplete(profile, '', userId);
+        };
         setPendingOnComplete(() => proceed);
         setHasSignedUp(true);
         setAwaitingEmailConfirm(true);
@@ -385,6 +450,8 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
       }
 
       // No plan pre-selected during onboarding — paywall shown immediately after
+      if (stayLoggedIn) rememberLogin(profile.email);
+      else forgetRememberedLogin();
       onComplete(profile, '', userId);
     } finally {
       setSubmitting(false);
@@ -403,6 +470,8 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
       try {
         const userId = await cloudSignIn(email.trim().toLowerCase(), password);
         // Sign-in succeeded — email is confirmed
+        if (stayLoggedIn) rememberLogin(email, userId);
+        else forgetRememberedLogin();
         setAwaitingEmailConfirm(false);
         if (pendingOnComplete) pendingOnComplete();
         else if (userId) onComplete({ firstName, lastName, email: email.trim().toLowerCase() } as Parameters<typeof onComplete>[0], '', userId);
@@ -419,10 +488,12 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     };
 
     const handleResend = async () => {
+      if (confirmEmailCooldown.coolingDown) return;
       setResendLoading(true);
       setResendSent(false);
       try {
         await cloudResendConfirmation(email.trim().toLowerCase());
+        confirmEmailCooldown.start();
         setResendSent(true);
       } catch {
         // silent — user can try again
@@ -471,10 +542,16 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
         <button
           onClick={handleResend}
-          disabled={resendLoading || resendSent}
+          disabled={resendLoading || resendSent || confirmEmailCooldown.coolingDown}
           className="text-xs text-brand-500 underline disabled:opacity-50"
         >
-          {resendSent ? 'Email resent! Check your inbox.' : resendLoading ? 'Sending…' : "Didn't get it? Resend email"}
+          {resendSent
+            ? 'Email resent! Check your inbox.'
+            : resendLoading
+            ? 'Sending…'
+            : confirmEmailCooldown.coolingDown
+            ? `Resend available in ${confirmEmailCooldown.label}`
+            : "Didn't get it? Resend email"}
         </button>
 
         <p className="mt-4 text-xs text-gray-400">Can't find it? Check your spam folder.</p>
@@ -511,6 +588,12 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               Elite football strength and conditioning, personalised to your match schedule and readiness.
             </p>
 
+            {initialNotice && (
+              <div className="w-full max-w-xs rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left mb-4">
+                <p className="text-xs font-semibold text-amber-800 leading-relaxed">{initialNotice}</p>
+              </div>
+            )}
+
             <div className="flex flex-col gap-3 w-full max-w-xs">
               <button
                 onClick={() => setStep(1)}
@@ -526,6 +609,16 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                 <LogIn size={18} />
                 Log In
               </button>
+              {OAUTH_ENABLED && (
+                <>
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="h-px bg-gray-200 flex-1" />
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">or</span>
+                    <div className="h-px bg-gray-200 flex-1" />
+                  </div>
+                  <OAuthButtons onError={setSubmitError} />
+                </>
+              )}
             </div>
           </div>
         )}
@@ -534,6 +627,12 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
           <div className="flex-1 flex flex-col py-12 pt-16">
             <h2 className="text-2xl font-bold text-gray-900 mb-1">Welcome back</h2>
             <p className="text-gray-500 text-sm mb-7">Sign in to your account.</p>
+
+            {OAUTH_ENABLED && (
+              <div className="mb-5">
+                <OAuthButtons onError={setLoginError} />
+              </div>
+            )}
 
             <div className="flex flex-col gap-4">
               <div>
@@ -569,6 +668,20 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                   </button>
                 </div>
               </div>
+
+              <label className="flex items-start gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={stayLoggedIn}
+                  onChange={e => setStayLoggedIn(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-400"
+                />
+                <span className="text-xs text-gray-500 leading-snug">
+                  <span className="font-semibold text-gray-700">Stay logged in</span>
+                  <br />
+                  Keep this account open when you close or refresh the app.
+                </span>
+              </label>
 
               {loginError && (
                 <div className="rounded-xl bg-red-50 border border-red-200 p-3">
@@ -640,6 +753,11 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                       className={inputClass(!!forgotError)}
                     />
                     {forgotError && <p className="text-xs text-red-500 mt-1">{forgotError}</p>}
+                    {forgotCooldown.coolingDown && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        You can send another reset email in {forgotCooldown.label}.
+                      </p>
+                    )}
                     <div className="flex gap-2 mt-3">
                       <button
                         onClick={() => setShowForgot(false)}
@@ -649,21 +767,22 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                       </button>
                       <button
                         onClick={async () => {
-                          if (!forgotEmail || forgotLoading) return;
+                          if (!forgotEmail || forgotLoading || forgotCooldown.coolingDown) return;
                           setForgotLoading(true);
                           setForgotError('');
                           try {
                             await cloudResetPassword(forgotEmail);
+                            forgotCooldown.start();
                             setForgotSent(true);
                           } catch {
                             setForgotError('Could not send reset email. Check the address.');
                           }
                           setForgotLoading(false);
                         }}
-                        disabled={!forgotEmail || forgotLoading}
+                        disabled={!forgotEmail || forgotLoading || forgotCooldown.coolingDown}
                         className="flex-1 py-2 rounded-lg text-sm font-bold bg-brand-500 text-white hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400"
                       >
-                        {forgotLoading ? 'Sending…' : 'Send Reset Link'}
+                        {forgotLoading ? 'Sending…' : forgotCooldown.coolingDown ? `Try again in ${forgotCooldown.label}` : 'Send Reset Link'}
                       </button>
                     </div>
                   </>
@@ -685,6 +804,11 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               <>
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">Create your account</h2>
                 <p className="text-gray-500 text-sm mb-7">Your details are stored securely on this device.</p>
+                {OAUTH_ENABLED && (
+                  <div className="mb-5">
+                    <OAuthButtons onError={setSubmitError} />
+                  </div>
+                )}
               </>
             )}
 
@@ -793,6 +917,20 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                       <p className="text-xs text-red-400 mt-1">Passwords don't match</p>
                     )}
                   </div>
+
+                  <label className="flex items-start gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={stayLoggedIn}
+                      onChange={e => setStayLoggedIn(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-400"
+                    />
+                    <span className="text-xs text-gray-500 leading-snug">
+                      <span className="font-semibold text-gray-700">Stay logged in</span>
+                      <br />
+                      Keep this account open when you close or refresh the app.
+                    </span>
+                  </label>
                 </>
               )}
 
@@ -817,7 +955,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
             {/* Date of birth */}
             <div className="mb-5">
-              <Label>Date of Birth <span style={{fontWeight: 400, color: '#9ca3af', fontSize: '0.75rem'}}>(optional)</span></Label>
+              <Label>Date of Birth <span style={{fontWeight: 400, color: '#9ca3af', fontSize: '0.75rem'}}>(required)</span></Label>
               <div className="grid grid-cols-3 gap-2">
                 <input
                   ref={dobDayRef}
@@ -829,8 +967,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                   }}
                   placeholder="DD"
                   inputMode="numeric"
+                  aria-invalid={dobError ? 'true' : 'false'}
                   style={{ fontSize: '16px' }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400 ${dobError ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'}`}
                 />
                 <input
                   ref={dobMonthRef}
@@ -842,8 +981,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                   }}
                   placeholder="MM"
                   inputMode="numeric"
+                  aria-invalid={dobError ? 'true' : 'false'}
                   style={{ fontSize: '16px' }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400 ${dobError ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'}`}
                 />
                 <input
                   ref={dobYearRef}
@@ -851,11 +991,16 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                   onChange={e => setDobYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder="YYYY"
                   inputMode="numeric"
+                  aria-invalid={dobError ? 'true' : 'false'}
                   style={{ fontSize: '16px' }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400 ${dobError ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'}`}
                 />
               </div>
-              <p className="text-xs text-gray-400 mt-1.5 text-center">Day &nbsp;/&nbsp; Month &nbsp;/&nbsp; Year</p>
+              {dobError ? (
+                <p className="text-xs text-red-500 mt-1.5 text-center">{dobError}</p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-1.5 text-center">Day &nbsp;/&nbsp; Month &nbsp;/&nbsp; Year</p>
+              )}
             </div>
 
             {/* Under-13 block */}
@@ -878,8 +1023,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
               </div>
             )}
 
-            {/* Terms checkboxes — shown unless user has confirmed they are under 13.
-                DOB is optional (guideline 5.1.1v), so terms show immediately by default. */}
+            {/* Terms checkboxes — shown unless user has confirmed they are under 13. */}
             {!isUnderThirteen && (
               <div className="flex flex-col gap-3">
                 {needsParental && (

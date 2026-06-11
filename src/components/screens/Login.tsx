@@ -3,6 +3,12 @@ import { Dumbbell, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignIn, cloudLoadData, cloudResetPassword } from '../../lib/cloudSync';
 import { hashPassword } from '../../lib/authUtils';
+import { activateAppReviewDemo, isAppReviewDemoPassword } from '../../lib/appReviewDemo';
+import { forgetRememberedLogin, rememberLogin } from '../../lib/authPersistence';
+import { useActionCooldown } from '../../hooks/useActionCooldown';
+import { OAuthButtons } from '../OAuthButtons';
+import { OAUTH_ENABLED } from '../../lib/featureFlags';
+import { getFriendlyAuthError } from '../../lib/authErrors';
 
 interface LoginProps {
   profile: UserProfile;
@@ -17,6 +23,7 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error,        setError]        = useState('');
   const [loading,      setLoading]      = useState(false);
+  const [stayLoggedIn, setStayLoggedIn] = useState(true);
 
   // Forgot password state
   const [showForgot,     setShowForgot]     = useState(false);
@@ -24,6 +31,7 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
   const [forgotLoading,  setForgotLoading]  = useState(false);
   const [forgotSent,     setForgotSent]     = useState(false);
   const [forgotError,    setForgotError]    = useState('');
+  const forgotCooldown = useActionCooldown('password-reset', forgotEmail || profile.email || 'unknown');
 
   // Start over confirmation
   const [confirmStartOver, setConfirmStartOver] = useState(false);
@@ -34,28 +42,27 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
     setLoading(true);
     setError('');
 
+    if (isAppReviewDemoPassword(password)) {
+      activateAppReviewDemo();
+      if (stayLoggedIn) rememberLogin(profile.email);
+      else forgetRememberedLogin();
+      onLogin();
+      return;
+    }
+
     if (isSupabaseConfigured) {
       try {
         const userId = await cloudSignIn(profile.email, password);
         // cloudLoadData fires 'vf-cloud-restored' which causes all useLocalStorage hooks
         // to re-read from localStorage — no page reload needed
         await cloudLoadData(userId);
+        if (stayLoggedIn) rememberLogin(profile.email);
+        else forgetRememberedLogin();
         onLogin(userId);
         // Component unmounts here — do not call any state setters after this point
         return;
       } catch (err) {
-        const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-        // Supabase returns "Invalid login credentials" for BOTH wrong password AND
-        // unconfirmed email — check for confirmation clues in the message.
-        if (msg.includes('too_many_attempts')) {
-          setError('Too many attempts. Please wait 15 minutes before trying again.');
-        } else if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-          setError('Your email isn\'t confirmed yet — check your inbox and click the link, then try again.');
-        } else if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('invalid email or password')) {
-          setError('Incorrect password. Please try again.');
-        } else {
-          setError('Sign in failed. Please try again.');
-        }
+        setError(getFriendlyAuthError(err, 'Sign in failed. Please try again.'));
         setPassword('');
         setLoading(false);
       }
@@ -64,6 +71,8 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
 
     const hash = await hashPassword(password, profile.email);
     if (hash === profile.passwordHash) {
+      if (stayLoggedIn) rememberLogin(profile.email);
+      else forgetRememberedLogin();
       onLogin();
     } else {
       setError('Incorrect password. Please try again.');
@@ -74,14 +83,15 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
 
   const handleSendReset = async (e: FormEvent) => {
     e.preventDefault();
-    if (!forgotEmail || forgotLoading) return;
+    if (!forgotEmail || forgotLoading || forgotCooldown.coolingDown) return;
     setForgotLoading(true);
     setForgotError('');
     try {
       await cloudResetPassword(forgotEmail);
+      forgotCooldown.start();
       setForgotSent(true);
-    } catch {
-      setForgotError('Could not send reset email. Check the address and try again.');
+    } catch (err) {
+      setForgotError(getFriendlyAuthError(err, 'Could not send reset email. Check the address and try again.'));
     }
     setForgotLoading(false);
   };
@@ -135,18 +145,23 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
                   } bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400`}
                 />
                 {forgotError && <p className="text-xs text-red-500 mt-1.5">{forgotError}</p>}
+                {forgotCooldown.coolingDown && (
+                  <p className="text-xs text-amber-600 mt-1.5">
+                    You can send another reset email in {forgotCooldown.label}.
+                  </p>
+                )}
               </div>
 
               <button
                 type="submit"
-                disabled={!forgotEmail || forgotLoading}
+                disabled={!forgotEmail || forgotLoading || forgotCooldown.coolingDown}
                 className={`w-full py-3.5 rounded-xl text-sm font-bold transition-all ${
-                  forgotEmail && !forgotLoading
+                  forgotEmail && !forgotLoading && !forgotCooldown.coolingDown
                     ? 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                {forgotLoading ? 'Sending…' : 'Send Reset Link'}
+                {forgotLoading ? 'Sending…' : forgotCooldown.coolingDown ? `Try again in ${forgotCooldown.label}` : 'Send Reset Link'}
               </button>
             </form>
           )}
@@ -167,6 +182,12 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
             {profile.firstName} {profile.lastName}
           </p>
         </div>
+
+        {OAUTH_ENABLED && (
+          <div className="mb-5">
+            <OAuthButtons onError={setError} />
+          </div>
+        )}
 
         <form onSubmit={handleSignIn} className="flex flex-col gap-4">
           <div>
@@ -197,6 +218,20 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
             </div>
             {error && <p className="text-xs text-red-500 mt-1.5">{error}</p>}
           </div>
+
+          <label className="flex items-start gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+            <input
+              type="checkbox"
+              checked={stayLoggedIn}
+              onChange={e => setStayLoggedIn(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-400"
+            />
+            <span className="text-xs text-gray-500 leading-snug">
+              <span className="font-semibold text-gray-700">Stay logged in</span>
+              <br />
+              Keep this account open when you close or refresh the app.
+            </span>
+          </label>
 
           <button
             type="submit"

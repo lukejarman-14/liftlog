@@ -82,6 +82,77 @@ export function validatePassword(raw: string): Result<string> {
   return ok(raw);
 }
 
+// --- Date of birth ----------------------------------------------------------
+
+export const DOB_MAX_AGE = 120;
+
+export type DateOfBirthValue = {
+  isoDate: string;
+  age: number;
+};
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function calculateAge(birth: Date, today: Date): number {
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDelta = today.getMonth() - birth.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+export function validateDateOfBirth(
+  dayRaw: string,
+  monthRaw: string,
+  yearRaw: string,
+  today = new Date(),
+): Result<DateOfBirthValue> {
+  const dayText = dayRaw.trim();
+  const monthText = monthRaw.trim();
+  const yearText = yearRaw.trim();
+
+  if (!dayText || !monthText || !yearText) {
+    return err('Enter your full date of birth.');
+  }
+  if (!/^\d{1,2}$/.test(dayText) || !/^\d{1,2}$/.test(monthText) || !/^\d{4}$/.test(yearText)) {
+    return err('Enter a real date of birth.');
+  }
+
+  const day = Number(dayText);
+  const month = Number(monthText);
+  const year = Number(yearText);
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return err('Enter a real date of birth.');
+  }
+
+  const birth = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(birth.getTime()) ||
+    birth.getFullYear() !== year ||
+    birth.getMonth() !== month - 1 ||
+    birth.getDate() !== day
+  ) {
+    return err('Enter a real date of birth.');
+  }
+
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (birth > todayStart) {
+    return err('Date of birth cannot be in the future.');
+  }
+
+  const age = calculateAge(birth, todayStart);
+  if (age < 0 || age > DOB_MAX_AGE) {
+    return err('Enter a realistic date of birth.');
+  }
+
+  return ok({
+    isoDate: `${year}-${pad2(month)}-${pad2(day)}`,
+    age,
+  });
+}
+
 // --- Team / squad code ---------------------------------------------------
 
 /** Alphanumeric + hyphens only; 3–20 chars. Emoji stripped by regex allowlist. */

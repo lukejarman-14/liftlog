@@ -45,6 +45,11 @@ export interface ScheduleDay {
   label: string;
   description?: string;
 }
+
+function blurActiveFormControl() {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) active.blur();
+}
 export interface ScheduleWeek {
   label: string;
   phase: string;
@@ -434,7 +439,7 @@ export function CoachDashboard({
     return (
       <div className="min-h-screen bg-gray-50 pb-12">
         <div className="bg-gradient-to-b from-brand-600 to-brand-500 text-white px-5 pb-6"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}>
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 2.25rem)' }}>
           <button onClick={() => setSelectedId(null)} className="flex items-center gap-1 text-white/80 text-sm font-medium mb-3 hover:text-white">
             <ChevronLeft size={16} /> Squad
           </button>
@@ -520,12 +525,24 @@ export function CoachDashboard({
   const tabTitle: Record<CoachTab, string> = {
     home: team, schedule: 'Squad Schedule', history: 'Squad History', tests: 'Squad Tests',
   };
+  const submitAnnouncement = async () => {
+    if (!announcementDraft.trim() || !onPostAnnouncement || announcementPosting) return;
+    blurActiveFormControl();
+    setAnnouncementPosting(true);
+    try {
+      await onPostAnnouncement(announcementDraft.trim());
+      setShowNewAnnouncement(false);
+      setAnnouncementDraft('');
+    } finally {
+      setAnnouncementPosting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
       <div className="bg-gradient-to-b from-brand-600 to-brand-500 text-white px-5 pb-6"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.75rem)' }}>
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 2.5rem)' }}>
         <div className="flex items-center justify-between mb-4">
           <div className="relative">
             <p className="text-white/70 text-xs font-semibold uppercase tracking-wider">Coach</p>
@@ -643,41 +660,8 @@ export function CoachDashboard({
                 >+ New</button>
               </div>
 
-              {/* New announcement composer */}
-              {showNewAnnouncement && (
-                <div className="mb-4 bg-brand-50 rounded-xl p-3 border border-brand-100">
-                  <textarea
-                    className="w-full text-sm bg-transparent outline-none resize-none text-gray-800 placeholder-gray-400 min-h-[72px]"
-                    placeholder="Type your announcement to the squad…"
-                    value={announcementDraft}
-                    onChange={e => setAnnouncementDraft(e.target.value)}
-                    maxLength={500}
-                    autoFocus
-                  />
-                  <p className="text-[11px] text-gray-400 text-right">{announcementDraft.length}/500</p>
-                  <div className="flex justify-end gap-2 mt-2">
-                    <button
-                      onClick={() => setShowNewAnnouncement(false)}
-                      className="text-xs text-gray-500 px-3 py-1.5 rounded-lg"
-                    >Cancel</button>
-                    <button
-                      disabled={!announcementDraft.trim() || announcementPosting}
-                      onClick={async () => {
-                        if (!announcementDraft.trim() || !onPostAnnouncement) return;
-                        setAnnouncementPosting(true);
-                        await onPostAnnouncement(announcementDraft.trim());
-                        setAnnouncementPosting(false);
-                        setShowNewAnnouncement(false);
-                        setAnnouncementDraft('');
-                      }}
-                      className="text-xs font-semibold bg-brand-500 text-white px-4 py-1.5 rounded-lg disabled:opacity-40"
-                    >{announcementPosting ? 'Sending…' : 'Post'}</button>
-                  </div>
-                </div>
-              )}
-
               <div className="flex flex-col gap-2.5">
-                {announcements.length === 0 && !showNewAnnouncement && (
+                {announcements.length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-2">No announcements yet. Tap + New to post one.</p>
                 )}
                 {announcements.map((a, i) => (
@@ -1155,6 +1139,73 @@ export function CoachDashboard({
               </div>
             )}
             <button onClick={() => setShowSessionPicker(false)} className="w-full mt-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-500">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showNewAnnouncement && (
+        <div
+          className="fixed inset-0 z-[65] flex items-end justify-center bg-black/45 backdrop-blur-sm p-4"
+          onClick={() => {
+            blurActiveFormControl();
+            setShowNewAnnouncement(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl p-5 shadow-2xl"
+            style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center">
+                  <Megaphone size={17} className="text-brand-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 text-base">New announcement</p>
+                  <p className="text-xs text-gray-400">Send a notice to the squad.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  blurActiveFormControl();
+                  setShowNewAnnouncement(false);
+                }}
+                className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-lg leading-none"
+                aria-label="Close announcement composer"
+              >
+                ×
+              </button>
+            </div>
+
+            <textarea
+              className="w-full min-h-[132px] rounded-2xl border border-gray-200 bg-white px-4 py-3 text-base outline-none resize-none text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-brand-400"
+              placeholder="Type your announcement to the squad..."
+              value={announcementDraft}
+              onChange={e => setAnnouncementDraft(e.target.value)}
+              maxLength={500}
+              autoFocus
+            />
+            <p className="text-[11px] text-gray-400 text-right mt-1">{announcementDraft.length}/500</p>
+
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => {
+                  blurActiveFormControl();
+                  setShowNewAnnouncement(false);
+                }}
+                className="flex-1 py-3 rounded-2xl bg-gray-100 text-gray-600 text-sm font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!announcementDraft.trim() || announcementPosting}
+                onClick={submitAnnouncement}
+                className="flex-1 py-3 rounded-2xl bg-brand-500 text-white text-sm font-bold disabled:opacity-40"
+              >
+                {announcementPosting ? 'Sending...' : 'Post'}
+              </button>
+            </div>
           </div>
         </div>
       )}

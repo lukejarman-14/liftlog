@@ -30,6 +30,10 @@ interface ActiveWorkoutProps {
   onUpdateStrengthSetup?: (setup: StrengthSetup) => void;
 }
 
+function blurActiveFormControl() {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) active.blur();
+}
 
 // Persistent AudioContext ref — reused across all sound calls to avoid iOS 6-context limit.
 const _audioCtxRef = { current: null as AudioContext | null };
@@ -1466,6 +1470,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
 
   const handleCondFeedbackConfirm = useCallback(() => {
     if (!pendingFinishSession || !onConditioningFeedback) return;
+    blurActiveFormControl();
     const updates: Record<string, number> = {};
     conditioningExercises.forEach(ex => {
       const typeLabel = getCondTypeLabel(ex.exerciseId);
@@ -1512,6 +1517,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   }, []);
 
   const handleFinishConfirm = useCallback((s: WorkoutSession) => {
+    blurActiveFormControl();
     const finalSession = {
       ...s,
       endTime: Date.now(),
@@ -1811,7 +1817,16 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
             )}
 
             <div className="flex gap-3">
-              <Button variant="secondary" fullWidth onClick={() => setShowFinish(false)}>Continue</Button>
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => {
+                  blurActiveFormControl();
+                  setShowFinish(false);
+                }}
+              >
+                Continue
+              </Button>
               <Button fullWidth onClick={() => handleFinishConfirm(session)}>Finish</Button>
             </div>
             <button
@@ -2100,6 +2115,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
               <Button
                 fullWidth
                 onClick={() => {
+                  blurActiveFormControl();
                   const s = { ...pendingRpeSession, sessionRpe: selectedRpe };
                   setShowRpeModal(false);
                   setPendingRpeSession(null);

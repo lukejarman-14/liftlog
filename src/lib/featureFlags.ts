@@ -10,3 +10,9 @@
 // Typed as boolean (not the literal `false`) so toggling it doesn't make
 // TypeScript treat the gated branches as unreachable / dead code.
 export const REFERRALS_ENABLED: boolean = false;
+
+// Apple / Google social sign-in. OFF until the OAuth providers are fully
+// configured in Supabase (Apple Services ID + key, Google OAuth client) and
+// the native redirect flow is verified on-device. All OAuth code is kept
+// intact — flip to `true` once the providers are set up and tested, post-launch.
+export const OAUTH_ENABLED: boolean = false;

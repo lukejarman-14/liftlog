@@ -119,7 +119,7 @@
       margin-bottom: 14px;
     }
 
-    h1 span { color: var(--orange); }
+    /* highlight colour now lives on .hl (see UI polish block) */
 
     .hero-sub {
       font-size: 1rem;
@@ -599,11 +599,139 @@
       .pricing-cards { grid-template-columns: 1fr; }
       footer { flex-direction: column; align-items: flex-start; }
     }
+
+    /* ════════════════════════════════════════════════════════════
+       UI polish — purely visual, no content changes
+       ════════════════════════════════════════════════════════════ */
+
+    /* Decorative background: breathing pitch glow + faint markings + grain */
+    .bg-fx, .grain { position: fixed; inset: 0; pointer-events: none; }
+    .bg-fx { z-index: 0; overflow: hidden; }
+    .bg-glow {
+      position: absolute; top: -12%; left: 50%;
+      width: 760px; height: 760px; max-width: 130vw;
+      transform: translateX(-50%);
+      background: radial-gradient(circle, rgba(249,115,22,0.20), rgba(249,115,22,0) 60%);
+      filter: blur(24px);
+      animation: glowPulse 7s ease-in-out infinite;
+    }
+    .bg-pitch {
+      position: absolute; top: -90px; left: 50%;
+      width: 620px; height: 620px; max-width: 135vw;
+      transform: translateX(-50%);
+      opacity: 0.05;
+      background:
+        radial-gradient(circle 86px at 50% 50%, transparent 84px, #fff 85px, transparent 88px),
+        linear-gradient(#fff, #fff) center / 1px 100% no-repeat,
+        linear-gradient(#fff, #fff) center / 100% 1px no-repeat;
+    }
+    @keyframes glowPulse {
+      0%, 100% { opacity: 0.7;  transform: translateX(-50%) scale(1); }
+      50%      { opacity: 1;    transform: translateX(-50%) scale(1.08); }
+    }
+    .grain {
+      z-index: 1; opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    /* Keep all real content above the background layers */
+    header, .hero, .mockup-wrap, .pricing, .features, .how, .bottom-cta, footer, .section-divider {
+      position: relative; z-index: 2;
+    }
+
+    /* Frosted sticky header */
+    #siteHeader {
+      position: sticky; top: 0; z-index: 50;
+      border-bottom: 1px solid transparent;
+      transition: background 0.25s ease, border-color 0.25s ease, backdrop-filter 0.25s ease;
+    }
+    #siteHeader.scrolled {
+      background: rgba(12,12,12,0.72);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom-color: var(--border);
+    }
+
+    /* Hero headline: gradient highlight + line-by-line reveal on load */
+    h1 .reveal-line {
+      display: block; opacity: 0; transform: translateY(16px);
+      animation: lineUp 0.7s cubic-bezier(.2,.7,.2,1) forwards;
+    }
+    h1 .reveal-line:nth-child(1) { animation-delay: 0.05s; }
+    h1 .reveal-line:nth-child(2) { animation-delay: 0.18s; }
+    @keyframes lineUp { to { opacity: 1; transform: none; } }
+    h1 .hl {
+      background: linear-gradient(120deg, #fdba74, #f97316);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: var(--orange);
+    }
+
+    /* Primary button: shine sweep on hover */
+    .btn-primary { position: relative; overflow: hidden; }
+    .btn-primary::after {
+      content: ''; position: absolute; top: 0; left: -120%;
+      width: 55%; height: 100%;
+      background: linear-gradient(100deg, transparent, rgba(255,255,255,0.30), transparent);
+      transform: skewX(-20deg);
+    }
+    .btn-primary:hover::after { animation: shine 0.8s ease; }
+    @keyframes shine { to { left: 140%; } }
+
+    /* Phone mockup: 3D tilt, floor glow, day-dot stagger */
+    .mockup-wrap { perspective: 1100px; }
+    .mockup-phone { position: relative; z-index: 1; transition: transform 0.15s ease-out; transform-style: preserve-3d; will-change: transform; }
+    .mockup-glow {
+      position: absolute; left: 50%; bottom: -26px; z-index: 0;
+      width: 72%; height: 64px; transform: translateX(-50%);
+      background: radial-gradient(ellipse, rgba(249,115,22,0.40), rgba(249,115,22,0) 70%);
+      filter: blur(22px);
+    }
+    .mockup-days .mockup-day { opacity: 0; animation: dotPop 0.5s cubic-bezier(.2,.8,.2,1) forwards; }
+    .mockup-days .mockup-day:nth-child(1) { animation-delay: 0.30s; }
+    .mockup-days .mockup-day:nth-child(2) { animation-delay: 0.37s; }
+    .mockup-days .mockup-day:nth-child(3) { animation-delay: 0.44s; }
+    .mockup-days .mockup-day:nth-child(4) { animation-delay: 0.51s; }
+    .mockup-days .mockup-day:nth-child(5) { animation-delay: 0.58s; }
+    .mockup-days .mockup-day:nth-child(6) { animation-delay: 0.65s; }
+    .mockup-days .mockup-day:nth-child(7) { animation-delay: 0.72s; }
+    @keyframes dotPop { from { opacity: 0; transform: translateY(8px) scale(0.85); } to { opacity: 1; transform: none; } }
+
+    /* Feature cards: lift + orange glow on hover */
+    .feature-card { transition: border-color 0.15s, transform 0.2s ease, box-shadow 0.2s ease; }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(249,115,22,0.28);
+    }
+
+    /* "Open app" CTAs — web app is live; App Store is coming soon */
+    .btn-soon { opacity: 0.55; cursor: not-allowed; display: inline-flex; align-items: center; gap: 6px; }
+    .soon-tag {
+      font-size: 0.58rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+      background: var(--border); color: var(--muted); padding: 1px 6px; border-radius: 100px;
+    }
+    .footer-soon { opacity: 0.55; cursor: not-allowed; }
+    /* Keep the mobile nav uncluttered — the App Store option still shows in the footer.
+       Remove this rule when the App Store link goes live. */
+    @media (max-width: 600px) { nav .btn-soon { display: none; } }
+
+    /* Respect reduced-motion: no entrance/idle animations */
+    @media (prefers-reduced-motion: reduce) {
+      .bg-glow { animation: none; }
+      h1 .reveal-line { animation: none; opacity: 1; transform: none; }
+      .mockup-days .mockup-day { animation: none; opacity: 1; transform: none; }
+      .btn-primary:hover::after { animation: none; }
+    }
   </style>
 </head>
 <body>
 
+<!-- Decorative background (visual only) -->
+<div class="bg-fx" aria-hidden="true">
+  <div class="bg-glow"></div>
+  <div class="bg-pitch"></div>
+</div>
+<div class="grain" aria-hidden="true"></div>
+
 <!-- Nav -->
+<header id="siteHeader">
 <nav>
   <a href="/landing" class="nav-logo">
     <img src="/icon-192.png" alt="Vector Football" />
@@ -611,15 +739,23 @@
   </a>
   <div class="nav-links">
     <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>
-    <a href="/" class="btn-nav" target="_blank" rel="noopener noreferrer">Open app</a>
+    <a href="/" class="btn-nav" target="_blank" rel="noopener noreferrer">Open web app</a>
+    <!-- App Store: when the iOS app passes review, replace this <span> with
+         <a href="APP_STORE_URL" class="btn-nav" target="_blank" rel="noopener noreferrer">Open on App Store</a>
+         and remove the `nav .btn-soon { display:none }` mobile rule above. -->
+    <span class="btn-nav btn-soon" aria-disabled="true" title="Coming soon to the App Store">App Store<span class="soon-tag">Soon</span></span>
   </div>
 </nav>
+</header>
 
 <!-- Hero -->
 <section class="hero">
   <p class="hero-eyebrow">Now in beta. Free for 30 days.</p>
 
-  <h1>Your training should know<br /><span>when you play.</span></h1>
+  <h1>
+    <span class="reveal-line">Your training should know</span>
+    <span class="reveal-line"><span class="hl">when you play.</span></span>
+  </h1>
 
   <p class="hero-sub">
     S&amp;C programmes built around your match schedule, your gym access, and your fitness numbers. Not a generic template.
@@ -630,12 +766,13 @@
       Start free trial &rarr;
     </a>
   </div>
-  <p class="hero-note" style="margin-top: 10px;">30 days free. No card needed. Cancel any time.</p>
+  <p class="hero-note" style="margin-top: 10px;">30 days free. Cancel any time.</p>
 </section>
 
 <!-- App mockup -->
 <div class="mockup-wrap">
-  <div class="mockup-phone">
+  <div class="mockup-glow" aria-hidden="true"></div>
+  <div class="mockup-phone" id="mockupPhone">
     <div class="mockup-bar">
       <div>
         <div class="mockup-greeting">Thursday · 3 days to match</div>
@@ -701,7 +838,7 @@
   <div class="pricing-intro">
     <p class="section-label">Pricing</p>
     <h2 class="section-heading">Pick your plan.</h2>
-    <p>30-day free trial on all plans. No card needed.</p>
+    <p>30-day free trial on all plans.</p>
   </div>
 
   <table class="pricing-table">
@@ -847,7 +984,7 @@
     </tbody>
   </table>
 
-  <p class="pricing-note-row">All plans include a 30-day free trial. No card required to start.</p>
+  <p class="pricing-note-row">All plans include a 30-day free trial.</p>
 </section>
 
 <hr class="section-divider" />
@@ -862,6 +999,7 @@
 
   <div class="feature-grid">
     <div class="feature-card">
+      <div class="feature-icon">📅</div>
       <div class="feature-title">Periodised to your fixture list</div>
       <p class="feature-desc">
         Sessions shift based on how many days you are from a match. Heavy gym work happens early in the week. Lighter activation closer to matchday. It adjusts when your schedule changes.
@@ -869,6 +1007,7 @@
     </div>
 
     <div class="feature-card">
+      <div class="feature-icon">📊</div>
       <div class="feature-title">Test yourself. Train to your numbers.</div>
       <p class="feature-desc">
         10m, 30m, CMJ, RSA, Yo-Yo. Run the testing battery and Vector uses your actual scores to set loads. Not a percentage of some average player's numbers.
@@ -876,6 +1015,7 @@
     </div>
 
     <div class="feature-card">
+      <div class="feature-icon">🏟️</div>
       <div class="feature-title">Works with what you've got</div>
       <p class="feature-desc">
         Full gym, basic gym, or just a park. Tell it your access and the programme adapts. Change it any time. Your plan updates for the new situation.
@@ -883,6 +1023,7 @@
     </div>
 
     <div class="feature-card">
+      <div class="feature-icon">📈</div>
       <div class="feature-title">Progressive overload, done for you</div>
       <p class="feature-desc">
         Sets, reps, intensity, and rest periods progress across the weeks automatically. You don't need to plan it. Just show up and do the session.
@@ -944,7 +1085,9 @@
   <div class="footer-links">
     <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy policy</a>
     <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of use</a>
-    <a href="/" target="_blank" rel="noopener noreferrer">Open app</a>
+    <a href="/" target="_blank" rel="noopener noreferrer">Open web app</a>
+    <!-- App Store: replace with <a href="APP_STORE_URL" ...>Open on App Store</a> when it passes review. -->
+    <span class="footer-soon" aria-disabled="true" title="Coming soon to the App Store">App Store — coming soon</span>
   </div>
   <div class="footer-social">
     <a href="https://instagram.com/vector_footbal" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
@@ -955,12 +1098,14 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.261 5.635 5.903-5.635Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
       @Vector_football
     </a>
-    <a href="https://tiktok.com/@vectorfootball7" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+    <a href="https://tiktok.com/@vector.football4" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/></svg>
-      @vectorfootball7
+      @vector.football4
     </a>
   </div>
 </footer>
+
+<script src="/landing.js" defer></script>
 
 </body>
 </html>
