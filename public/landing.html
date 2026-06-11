@@ -701,6 +701,17 @@
       box-shadow: 0 18px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(249,115,22,0.28);
     }
 
+    /* "Open app" CTAs — web app is live; App Store is coming soon */
+    .btn-soon { opacity: 0.55; cursor: not-allowed; display: inline-flex; align-items: center; gap: 6px; }
+    .soon-tag {
+      font-size: 0.58rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+      background: var(--border); color: var(--muted); padding: 1px 6px; border-radius: 100px;
+    }
+    .footer-soon { opacity: 0.55; cursor: not-allowed; }
+    /* Keep the mobile nav uncluttered — the App Store option still shows in the footer.
+       Remove this rule when the App Store link goes live. */
+    @media (max-width: 600px) { nav .btn-soon { display: none; } }
+
     /* Respect reduced-motion: no entrance/idle animations */
     @media (prefers-reduced-motion: reduce) {
       .bg-glow { animation: none; }
@@ -728,7 +739,11 @@
   </a>
   <div class="nav-links">
     <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>
-    <a href="/" class="btn-nav" target="_blank" rel="noopener noreferrer">Open app</a>
+    <a href="/" class="btn-nav" target="_blank" rel="noopener noreferrer">Open web app</a>
+    <!-- App Store: when the iOS app passes review, replace this <span> with
+         <a href="APP_STORE_URL" class="btn-nav" target="_blank" rel="noopener noreferrer">Open on App Store</a>
+         and remove the `nav .btn-soon { display:none }` mobile rule above. -->
+    <span class="btn-nav btn-soon" aria-disabled="true" title="Coming soon to the App Store">App Store<span class="soon-tag">Soon</span></span>
   </div>
 </nav>
 </header>
@@ -1070,7 +1085,9 @@
   <div class="footer-links">
     <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy policy</a>
     <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of use</a>
-    <a href="/" target="_blank" rel="noopener noreferrer">Open app</a>
+    <a href="/" target="_blank" rel="noopener noreferrer">Open web app</a>
+    <!-- App Store: replace with <a href="APP_STORE_URL" ...>Open on App Store</a> when it passes review. -->
+    <span class="footer-soon" aria-disabled="true" title="Coming soon to the App Store">App Store — coming soon</span>
   </div>
   <div class="footer-social">
     <a href="https://instagram.com/vector_footbal" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
@@ -1081,9 +1098,9 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.261 5.635 5.903-5.635Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
       @Vector_football
     </a>
-    <a href="https://tiktok.com/@vectorfootball7" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+    <a href="https://tiktok.com/@vector.football4" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/></svg>
-      @vectorfootball7
+      @vector.football4
     </a>
   </div>
 </footer>
