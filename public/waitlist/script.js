@@ -123,13 +123,17 @@ function animateCounterUp() {
 
 // ─── SCROLL ENTRANCE ANIMATIONS ──────────────────────────────────────────────
 function initScrollAnimations() {
+  // Respect reduced-motion: leave cards in their natural (visible) state.
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const cards = document.querySelectorAll(".feature-card");
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           entry.target.style.opacity = "1";
-          entry.target.style.transform = "translateY(0)";
+          // Clear the inline transform (not "translateY(0)") so the CSS :hover
+          // lift isn't overridden by an inline style.
+          entry.target.style.transform = "";
           observer.unobserve(entry.target);
         }
       });
@@ -142,6 +146,15 @@ function initScrollAnimations() {
     card.style.transition = `opacity 0.5s ease ${i * 60}ms, transform 0.5s ease ${i * 60}ms`;
     observer.observe(card);
   });
+}
+
+// ─── FROSTED STICKY HEADER ────────────────────────────────────────────────────
+function initStickyHeader() {
+  const header = document.getElementById("siteHeader");
+  if (!header) return;
+  const sync = () => header.classList.toggle("scrolled", window.scrollY > 8);
+  sync();
+  window.addEventListener("scroll", sync, { passive: true });
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
@@ -158,4 +171,5 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   renderWaitlistCount();
   initScrollAnimations();
+  initStickyHeader();
 });
