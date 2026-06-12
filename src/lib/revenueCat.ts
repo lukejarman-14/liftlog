@@ -4,7 +4,7 @@
  * Packages:     $rc_monthly | $rc_annual | $rc_lifetime
  */
 
-import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
+import { Purchases, LOG_LEVEL, type PurchasesOffering } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
 
 const IOS_API_KEY = import.meta.env.VITE_REVENUECAT_IOS_KEY as string | undefined;
@@ -23,6 +23,93 @@ export type RCPlan = 'monthly' | 'yearly' | 'lifetime';
 
 let isConfigured = false;
 let configuredUserId: string | null = null;
+let lastOfferingsError: string | null = null;
+
+type RevenueCatEntitlementInfo = {
+  expirationDate?: string | null;
+};
+
+type RevenueCatCustomerInfo = {
+  entitlements?: {
+    active?: Record<string, RevenueCatEntitlementInfo | undefined>;
+  };
+};
+
+function describeRevenueCatError(err: unknown): string {
+  if (!err) return 'Unknown RevenueCat error.';
+  if (typeof err === 'string') return err;
+
+  const candidate = err as {
+    message?: string;
+    errorMessage?: string;
+    readableErrorCode?: string;
+    code?: string | number;
+    errorCode?: string | number;
+    underlyingErrorMessage?: string;
+  };
+
+  const parts = [
+    candidate.message,
+    candidate.errorMessage,
+    candidate.underlyingErrorMessage,
+    candidate.readableErrorCode,
+    candidate.code != null ? `code ${candidate.code}` : undefined,
+    candidate.errorCode != null ? `error ${candidate.errorCode}` : undefined,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .map(part => part.trim());
+
+  return Array.from(new Set(parts)).join(' — ') || String(err);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+/**
+ * A GENUINE user cancellation, per RevenueCat's explicit signals only.
+ * We deliberately do NOT match the word "cancel" in the error message: a real
+ * StoreKit failure (store problem, payment pending/deferred, account/sandbox
+ * issue) often contains "cancel" in its text, and treating it as a user-cancel
+ * silently swallows the error so the user never sees WHY the purchase failed.
+ * RevenueCat's cancel code is PURCHASE_CANCELLED_ERROR = "1".
+ */
+function isUserCancellation(err: unknown): boolean {
+  const candidate = err as {
+    userCancelled?: boolean | null;
+    code?: string | number;
+    errorCode?: string | number;
+    readableErrorCode?: string;
+  };
+  return (
+    candidate?.userCancelled === true ||
+    String(candidate?.code) === '1' ||
+    String(candidate?.errorCode) === '1' ||
+    candidate?.readableErrorCode === 'PURCHASE_CANCELLED'
+  );
+}
+
+function findActiveEntitlement(customerInfo: RevenueCatCustomerInfo) {
+  const activeEntitlements = customerInfo.entitlements?.active ?? {};
+  const activeIds = Object.keys(activeEntitlements);
+
+  const exact = activeEntitlements[ENTITLEMENT_ID];
+  if (exact) return { entitlement: exact, activeIds };
+
+  const normalisedExpected = ENTITLEMENT_ID.trim().toLowerCase();
+  const matchingId = activeIds.find(id => id.trim().toLowerCase() === normalisedExpected);
+  if (matchingId && activeEntitlements[matchingId]) {
+    return { entitlement: activeEntitlements[matchingId]!, activeIds };
+  }
+
+  // RevenueCat has confirmed one active entitlement after purchase/restore. Accept it
+  // instead of blocking a successful StoreKit purchase because of an ID formatting mismatch.
+  if (activeIds.length === 1 && activeEntitlements[activeIds[0]]) {
+    return { entitlement: activeEntitlements[activeIds[0]]!, activeIds };
+  }
+
+  return { entitlement: null, activeIds };
+}
 
 /**
  * Call on app boot and after login. Configures RevenueCat exactly ONCE, then
@@ -76,7 +163,7 @@ export async function rcCheckEntitlement(): Promise<RCEntitlementStatus | null> 
   if (!Capacitor.isNativePlatform()) return null;
   try {
     const { customerInfo } = await Purchases.getCustomerInfo();
-    const entitlement = customerInfo.entitlements.active[ENTITLEMENT_ID];
+    const { entitlement } = findActiveEntitlement(customerInfo);
     if (!entitlement) return { active: false, expiresAt: null };
     const expiry = entitlement.expirationDate
       ? new Date(entitlement.expirationDate).getTime()
@@ -90,16 +177,41 @@ export async function rcCheckEntitlement(): Promise<RCEntitlementStatus | null> 
 /** Fetch available packages for the default offering. */
 export async function rcGetOfferings() {
   if (!Capacitor.isNativePlatform()) return null;
+  lastOfferingsError = null;
+
+  if (!IOS_API_KEY) {
+    lastOfferingsError = 'RevenueCat iOS API key is missing from this build.';
+    return null;
+  }
+
   try {
-    const offerings = await Purchases.getOfferings();
-    if (!offerings.current) {
-      if (import.meta.env.DEV) console.warn('[RC] getOfferings: no current offering returned. Check RevenueCat dashboard → Offerings.');
-    } else {
-      if (import.meta.env.DEV) console.log('[RC] getOfferings: OK — packages:', offerings.current.availablePackages.map((p: { identifier: string }) => p.identifier));
+    if (!isConfigured) {
+      await rcConfigure();
     }
-    return offerings.current;
+
+    const offerings = await Purchases.getOfferings() as {
+      current?: PurchasesOffering | null;
+      all?: Record<string, PurchasesOffering>;
+    };
+    const fallbackOffering =
+      offerings.all?.default ??
+      Object.values(offerings.all ?? {})[0] ??
+      null;
+    const offering = offerings.current ?? fallbackOffering;
+
+    if (!offering) {
+      lastOfferingsError = 'RevenueCat returned no current/default offering for this customer.';
+      if (import.meta.env.DEV) console.warn('[RC] getOfferings: no offering returned. Check RevenueCat dashboard → Offerings.');
+    } else {
+      if (!offerings.current && import.meta.env.DEV) {
+        console.warn('[RC] getOfferings: no current offering returned; using fallback offering:', offering.identifier ?? 'unknown');
+      }
+      if (import.meta.env.DEV) console.log('[RC] getOfferings: OK — packages:', offering.availablePackages.map((p: { identifier: string }) => p.identifier));
+    }
+    return offering;
   } catch (err) {
-    if (import.meta.env.DEV) console.error('[RC] getOfferings failed:', err);
+    lastOfferingsError = describeRevenueCatError(err);
+    console.error('[RC] getOfferings failed:', err);
     return null;
   }
 }
@@ -124,7 +236,9 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
     if (!offering) {
       if (import.meta.env.DEV) console.error('[RC] rcPurchase: no offering available — cannot purchase.');
       return { success: false, cancelled: false, expiresAt: null,
-        error: 'No RevenueCat offering loaded — check the API key in the build and that an offering is marked Current.' };
+        error: lastOfferingsError
+          ? `RevenueCat could not load products: ${lastOfferingsError}`
+          : 'No RevenueCat offering loaded — check the API key in the build and that an offering is marked Current.' };
     }
 
     const packageId = PLAN_TO_PACKAGE[plan] ?? plan;
@@ -139,9 +253,9 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
     }
 
     const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
-    const entitlement = customerInfo.entitlements.active[ENTITLEMENT_ID];
+    const { entitlement, activeIds } = findActiveEntitlement(customerInfo);
     if (!entitlement) {
-      const active = Object.keys(customerInfo.entitlements.active).join(', ') || 'none';
+      const active = activeIds.join(', ') || 'none';
       if (import.meta.env.DEV) console.error(`[RC] rcPurchase: entitlement "${ENTITLEMENT_ID}" not active. Active:`, active);
       return { success: false, cancelled: false, expiresAt: null,
         error: `Bought OK, but entitlement "${ENTITLEMENT_ID}" isn't active (active: ${active}).` };
@@ -152,11 +266,30 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
       : null;
     return { success: true, cancelled: false, expiresAt };
   } catch (err: unknown) {
-    const isCancel = (err as { userCancelled?: boolean })?.userCancelled === true;
-    if (!isCancel && import.meta.env.DEV) console.error('[RC] rcPurchase threw:', err);
-    const message = (err as { message?: string })?.message ?? String(err);
-    return { success: false, cancelled: isCancel, expiresAt: null,
-      error: isCancel ? undefined : `StoreKit error: ${message}` };
+    const message = describeRevenueCatError(err);
+    const cancelled = isUserCancellation(err);
+
+    // The purchase may have actually completed even though purchasePackage threw
+    // (late receipt sync, sandbox flakiness, or a mislabeled cancellation). Give
+    // RevenueCat a moment, then trust the real entitlement state over the error —
+    // for ANY error, not just cancellations.
+    try {
+      await delay(1200);
+      const { customerInfo } = await Purchases.getCustomerInfo();
+      const { entitlement } = findActiveEntitlement(customerInfo);
+      if (entitlement) {
+        const expiresAt = entitlement.expirationDate
+          ? new Date(entitlement.expirationDate).getTime()
+          : null;
+        return { success: true, cancelled: false, expiresAt };
+      }
+    } catch {
+      // entitlement re-check failed too — fall through to the failure result
+    }
+
+    if (!cancelled && import.meta.env.DEV) console.error('[RC] rcPurchase threw:', err);
+    return { success: false, cancelled, expiresAt: null,
+      error: cancelled ? undefined : `StoreKit error: ${message}` };
   }
 }
 
@@ -170,7 +303,7 @@ export async function rcRestore(): Promise<RCRestoreResult> {
   if (!Capacitor.isNativePlatform()) return { active: false, expiresAt: null };
   try {
     const { customerInfo } = await Purchases.restorePurchases();
-    const entitlement = customerInfo.entitlements.active[ENTITLEMENT_ID];
+    const { entitlement } = findActiveEntitlement(customerInfo);
     if (!entitlement) return { active: false, expiresAt: null };
     const expiresAt = entitlement.expirationDate
       ? new Date(entitlement.expirationDate).getTime()
