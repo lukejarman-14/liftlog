@@ -231,6 +231,7 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
   if (!Capacitor.isNativePlatform()) {
     return { success: false, cancelled: false, expiresAt: null, error: 'Not a native device.' };
   }
+  let confirmedNoEntitlementBeforePurchase = false;
   try {
     const offering = await rcGetOfferings();
     if (!offering) {
@@ -252,9 +253,29 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
         error: `Package "${packageId}" not in the offering (available: ${available}).` };
     }
 
+    const entitlementBeforePurchase = await rcCheckEntitlement();
+    confirmedNoEntitlementBeforePurchase = entitlementBeforePurchase?.active === false;
+    if (entitlementBeforePurchase?.active) {
+      return { success: false, cancelled: false, expiresAt: entitlementBeforePurchase.expiresAt,
+        error: 'An App Store subscription is already active for this Apple ID. Tap Restore purchases to unlock it instead of starting a new trial.' };
+    }
+
     const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
     const { entitlement, activeIds } = findActiveEntitlement(customerInfo);
     if (!entitlement) {
+      // Receipt may not have propagated to RevenueCat yet (common in sandbox).
+      // Wait and re-fetch before declaring failure.
+      try {
+        await delay(2000);
+        const { customerInfo: refreshed } = await Purchases.getCustomerInfo();
+        const { entitlement: refreshedEntitlement } = findActiveEntitlement(refreshed);
+        if (refreshedEntitlement) {
+          const expiresAt = refreshedEntitlement.expirationDate
+            ? new Date(refreshedEntitlement.expirationDate).getTime()
+            : null;
+          return { success: true, cancelled: false, expiresAt };
+        }
+      } catch { /* fall through to failure */ }
       const active = activeIds.join(', ') || 'none';
       if (import.meta.env.DEV) console.error(`[RC] rcPurchase: entitlement "${ENTITLEMENT_ID}" not active. Active:`, active);
       return { success: false, cancelled: false, expiresAt: null,
@@ -271,20 +292,22 @@ export async function rcPurchase(plan: RCPlan): Promise<RCPurchaseResult> {
 
     // The purchase may have actually completed even though purchasePackage threw
     // (late receipt sync, sandbox flakiness, or a mislabeled cancellation). Give
-    // RevenueCat a moment, then trust the real entitlement state over the error —
-    // for ANY error, not just cancellations.
-    try {
-      await delay(1200);
-      const { customerInfo } = await Purchases.getCustomerInfo();
-      const { entitlement } = findActiveEntitlement(customerInfo);
-      if (entitlement) {
-        const expiresAt = entitlement.expirationDate
-          ? new Date(entitlement.expirationDate).getTime()
-          : null;
-        return { success: true, cancelled: false, expiresAt };
+    // RevenueCat a moment, then trust the real entitlement state only when we
+    // proved there was no active entitlement before this purchase attempt.
+    if (confirmedNoEntitlementBeforePurchase) {
+      try {
+        await delay(1200);
+        const { customerInfo } = await Purchases.getCustomerInfo();
+        const { entitlement } = findActiveEntitlement(customerInfo);
+        if (entitlement) {
+          const expiresAt = entitlement.expirationDate
+            ? new Date(entitlement.expirationDate).getTime()
+            : null;
+          return { success: true, cancelled: false, expiresAt };
+        }
+      } catch {
+        // entitlement re-check failed too — fall through to the failure result
       }
-    } catch {
-      // entitlement re-check failed too — fall through to the failure result
     }
 
     if (!cancelled && import.meta.env.DEV) console.error('[RC] rcPurchase threw:', err);
