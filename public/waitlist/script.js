@@ -87,30 +87,25 @@ function showSuccess(formEl, successEl) {
   animateCounterUp();
 }
 
-// ─── WAITLIST COUNTER ─────────────────────────────────────────────────────────
-// The count is computed from a real starting base that grows steadily over time,
-// so the number is never frozen. Update these to your TRUE figures whenever you
-// check Mailchimp:
-//   baseCount  — real signups on startDate
-//   startDate  — the day you opened the waitlist
-//   perDay     — your average new signups per day (set to 0 to show only the
-//                base + live in-session signups, with no time growth)
-// For a fully live count, wire this to a backend (see checklist).
-const COUNTER_CONFIG = {
-  startDate: "2026-06-04",
-  baseCount: 31,
-  perDay: 3,
-};
-
-function computeWaitlistCount() {
-  const start = new Date(COUNTER_CONFIG.startDate).getTime();
-  const days = Math.max(0, Math.floor((Date.now() - start) / 86400000));
-  return COUNTER_CONFIG.baseCount + days * COUNTER_CONFIG.perDay;
-}
-
-function renderWaitlistCount() {
+// ─── WAITLIST COUNTER (live) ──────────────────────────────────────────────────
+// Shows the REAL Mailchimp subscriber count, fetched from a Netlify function
+// (netlify/functions/waitlist-count.js), so the number climbs by exactly one
+// with every genuine signup instead of guessing. If the function can't be
+// reached — e.g. local preview, or before MAILCHIMP_API_KEY is set in Netlify —
+// we leave the static number already in the HTML as a graceful fallback.
+async function renderWaitlistCount() {
   const el = document.getElementById("waitlistCount");
-  if (el) el.textContent = computeWaitlistCount().toLocaleString();
+  if (!el) return;
+  try {
+    const res = await fetch("/.netlify/functions/waitlist-count", { cache: "no-store" });
+    if (!res.ok) return; // keep the HTML fallback
+    const data = await res.json();
+    if (typeof data.count === "number") {
+      el.textContent = data.count.toLocaleString();
+    }
+  } catch (_) {
+    // offline / function unavailable — keep the static fallback in the HTML
+  }
 }
 
 // Live +1 when someone signs up in this session.
