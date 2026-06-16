@@ -1,4 +1,4 @@
-import { Dumbbell, BookOpen, History, LayoutDashboard, Map } from 'lucide-react';
+import { Dumbbell, History, LayoutDashboard, Map, User } from 'lucide-react';
 import { Screen } from '../types';
 
 interface NavigationProps {
@@ -10,15 +10,15 @@ const navItems = [
   { screen: 'dashboard' as Screen, label: 'Home', icon: LayoutDashboard },
   { screen: 'plans' as Screen, label: 'Plans', icon: Map },
   { screen: 'workout-builder' as Screen, label: 'Workouts', icon: Dumbbell },
-  { screen: 'exercise-library' as Screen, label: 'Exercises', icon: BookOpen },
-  { screen: 'history' as Screen, label: 'History & Tests', icon: History },
+  { screen: 'history' as Screen, label: 'History', icon: History },
+  { screen: 'profile' as Screen, label: 'Profile', icon: User },
 ];
 
 export function Navigation({ current, onNavigate }: NavigationProps) {
   const isActive = (screen: Screen) =>
     current === screen ||
     (screen === 'workout-builder' && current === 'active-workout') ||
-    (screen === 'exercise-library' && current === 'exercise-detail') ||
+    (screen === 'workout-builder' && current === 'exercise-detail') ||
     (screen === 'plans' && current === 'plan-detail');
 
   return (

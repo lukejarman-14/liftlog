@@ -3,7 +3,8 @@ import { Dumbbell, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignIn, cloudLoadData, cloudResetPassword } from '../../lib/cloudSync';
 import { hashPassword } from '../../lib/authUtils';
-import { activateAppReviewDemo, isAppReviewDemoPassword } from '../../lib/appReviewDemo';
+import { activateAppReviewDemo, isAppReviewDemoLogin } from '../../lib/appReviewDemo';
+import { activateDemoFilming, isDemoFilmingLogin } from '../../lib/demoFilming';
 import { forgetRememberedLogin, rememberLogin } from '../../lib/authPersistence';
 import { useActionCooldown } from '../../hooks/useActionCooldown';
 import { OAuthButtons } from '../OAuthButtons';
@@ -42,8 +43,16 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
     setLoading(true);
     setError('');
 
-    if (isAppReviewDemoPassword(password)) {
+    if (isAppReviewDemoLogin(profile.email, password)) {
       activateAppReviewDemo();
+      if (stayLoggedIn) rememberLogin(profile.email);
+      else forgetRememberedLogin();
+      onLogin();
+      return;
+    }
+
+    if (isDemoFilmingLogin(profile.email, password)) {
+      activateDemoFilming();
       if (stayLoggedIn) rememberLogin(profile.email);
       else forgetRememberedLogin();
       onLogin();

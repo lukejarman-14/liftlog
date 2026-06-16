@@ -80,12 +80,15 @@ export function useStore() {
     });
 
   const saveGeneratedProgramme = (programme: GeneratedProgramme) => {
-    // Compute next synchronously from the closed-over state value. The updater
-    // pattern is wrong here: React queues updaters and runs them lazily, so
-    // computedNext would always be [] at the eviction-check line, causing
-    // setActiveProgrammeId(null) to fire on every save and wipe the active plan.
+    // Use the updater form so concurrent saves (e.g. generate then immediately
+    // apply) always merge against the latest committed list, not a stale closure.
+    // We still compute a synchronous copy from the closed-over value to drive the
+    // eviction-check below — that check only ever clears the active id, so a
+    // one-render-stale read is safe (worst case the clear fires a tick late).
     const computedNext = [programme, ...generatedProgrammes.filter(p => p.id !== programme.id)].slice(0, 20);
-    setGeneratedProgrammes(computedNext);
+    setGeneratedProgrammes(prev =>
+      [programme, ...prev.filter(p => p.id !== programme.id)].slice(0, 20)
+    );
     if (activeProgrammeId && !computedNext.some(p => p.id === activeProgrammeId)) {
       setActiveProgrammeId(null);
     }
@@ -306,12 +309,14 @@ export function useStore() {
         'vf_premium',
       ];
       VF_KEYS.forEach(k => localStorage.removeItem(k));
-      // Clear ephemeral prompt-suppression keys so a reset account sees them fresh
-      ['vf_trial_prompt_shown', 'vf_notif_prompted', 'vf_review_prompted', 'vf_boot_synced', 'vf_redeemed_codes'].forEach(k => localStorage.removeItem(k));
-      // Clear per-programme completion dismissals
+      // Clear every app-owned local key: remembered login, owner tag, cooldowns,
+      // prompt suppressions, per-programme dismissals, and legacy leftovers.
       Object.keys(localStorage)
-        .filter(k => k.startsWith('vf_prog_complete_'))
+        .filter(k => k.startsWith('vf_'))
         .forEach(k => localStorage.removeItem(k));
+      Object.keys(sessionStorage)
+        .filter(k => k.startsWith('vf_'))
+        .forEach(k => sessionStorage.removeItem(k));
       // Reset React state
       setUserProfile(null);
       setCustomExercises([]);

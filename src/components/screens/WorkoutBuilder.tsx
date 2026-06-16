@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp, BookMarked, User } from 'lucide-react';
+import { Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp, BookMarked, User, BookOpen } from 'lucide-react';
+import { ExerciseLibrary } from './ExerciseLibrary';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import {
-  Exercise, WorkoutExercise, WorkoutTemplate, ExerciseCategory,
+  Exercise, WorkoutExercise, WorkoutTemplate, ExerciseCategory, NavState,
 } from '../../types';
 import { CATEGORY_COLORS } from '../../data/exercises';
 import { BUILT_IN_PROGRAMS, FOOTBALL_PROGRAMS, BuiltInTemplate, Program } from '../../data/programs';
@@ -20,9 +21,13 @@ interface WorkoutBuilderProps {
   exercises: Exercise[];
   templates: WorkoutTemplate[];
   initialTemplateId?: string;
+  initialTab?: string;
   onStart: (name: string, items: WorkoutExercise[]) => void;
   onSaveTemplate: (t: WorkoutTemplate) => void;
   onDeleteTemplate: (id: string) => void;
+  onAddCustom: (ex: Exercise) => void;
+  onDeleteCustom: (id: string) => void;
+  onNavigate: (nav: NavState) => void;
 }
 
 
@@ -493,21 +498,25 @@ function MyTemplates({
 }
 
 
-type Tab = 'programs' | 'mine' | 'build';
+type Tab = 'programs' | 'mine' | 'build' | 'exercises';
 
 export function WorkoutBuilder({
   exercises,
   templates,
   initialTemplateId,
+  initialTab,
   onStart,
   onSaveTemplate,
   onDeleteTemplate,
+  onAddCustom,
+  onDeleteCustom,
+  onNavigate,
 }: WorkoutBuilderProps) {
   const initial = initialTemplateId
     ? templates.find(t => t.id === initialTemplateId)
     : null;
 
-  const [tab, setTab] = useState<Tab>(initial ? 'build' : 'programs');
+  const [tab, setTab] = useState<Tab>(initial ? 'build' : (initialTab as Tab | undefined) ?? 'programs');
   const [name, setName] = useState(initial?.name ?? '');
   const [items, setItems] = useState<WorkoutExercise[]>(initial?.exercises ?? []);
   const [showPicker, setShowPicker] = useState(false);
@@ -645,6 +654,7 @@ export function WorkoutBuilder({
   const tabs: { id: Tab; label: string; icon: typeof BookMarked }[] = [
     { id: 'programs', label: 'Programmes', icon: BookMarked },
     { id: 'mine', label: 'My Templates', icon: User },
+    { id: 'exercises', label: 'All Exercises', icon: BookOpen },
   ];
 
   return (
@@ -700,6 +710,17 @@ export function WorkoutBuilder({
 
       {/* Programs tab */}
       {tab === 'programs' && <ProgramsBrowser onLoad={loadTemplate} />}
+
+      {/* All Exercises tab */}
+      {tab === 'exercises' && (
+        <ExerciseLibrary
+          exercises={exercises}
+          onAddCustom={onAddCustom}
+          onDeleteCustom={onDeleteCustom}
+          onNavigate={onNavigate}
+          embedded
+        />
+      )}
 
       {/* My Templates tab */}
       {tab === 'mine' && (

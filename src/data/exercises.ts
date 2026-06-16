@@ -60,6 +60,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'plank', name: 'Plank', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Abs', 'Obliques'], measureType: 'time' },
   { id: 'crunch', name: 'Crunch', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Abs'] },
   { id: 'ab-wheel', name: 'Ab Wheel Rollout', category: 'Core', defaultRestSeconds: 90, muscleGroups: ['Abs', 'Obliques'], measureType: 'reps' },
+  { id: 'rotational-cable-chop', name: 'Rotational Cable Chop', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Obliques', 'Core', 'Abs'], measureType: 'reps' },
   { id: 'hanging-leg-raise', name: 'Hanging Leg Raise', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Abs', 'Hip Flexors'] },
   { id: 'russian-twist', name: 'Russian Twist', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Obliques'] },
   { id: 'cable-crunch', name: 'Cable Crunch', category: 'Core', defaultRestSeconds: 60, muscleGroups: ['Abs'] },

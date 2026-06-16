@@ -18,6 +18,8 @@ interface ExerciseLibraryProps {
   onAddCustom: (ex: Exercise) => void;
   onDeleteCustom: (id: string) => void;
   onNavigate: (nav: NavState) => void;
+  onBack?: () => void;
+  embedded?: boolean;
 }
 
 function AddExerciseModal({ onAdd, onClose }: {
@@ -82,7 +84,7 @@ function AddExerciseModal({ onAdd, onClose }: {
   );
 }
 
-export function ExerciseLibrary({ exercises, onAddCustom, onDeleteCustom, onNavigate }: ExerciseLibraryProps) {
+export function ExerciseLibrary({ exercises, onAddCustom, onDeleteCustom, onNavigate, onBack, embedded }: ExerciseLibraryProps) {
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<ExerciseCategory | 'All'>('All');
   const [showAdd, setShowAdd] = useState(false);
@@ -98,15 +100,17 @@ export function ExerciseLibrary({ exercises, onAddCustom, onDeleteCustom, onNavi
     return matchesQuery && matchesCategory;
   });
 
-  return (
-    <Layout
-      title="Exercise Library"
-      rightAction={
-        <Button size="sm" onClick={() => setShowAdd(true)}>
-          <Plus size={15} /> Add
-        </Button>
-      }
-    >
+  const content = (
+    <>
+      {embedded && (
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs text-gray-400">{exercises.filter(e => !e.isWarmup).length} exercises</p>
+          <Button size="sm" onClick={() => setShowAdd(true)}>
+            <Plus size={15} /> Add
+          </Button>
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative mb-4">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -193,6 +197,22 @@ export function ExerciseLibrary({ exercises, onAddCustom, onDeleteCustom, onNavi
       {showAdd && (
         <AddExerciseModal onAdd={onAddCustom} onClose={() => setShowAdd(false)} />
       )}
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <Layout
+      title="All Exercises"
+      onBack={onBack}
+      rightAction={
+        <Button size="sm" onClick={() => setShowAdd(true)}>
+          <Plus size={15} /> Add
+        </Button>
+      }
+    >
+      {content}
     </Layout>
   );
 }

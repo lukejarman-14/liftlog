@@ -13,7 +13,7 @@ import { NavState, PremiumStatus, WorkoutExercise, WorkoutSession, UserProfile, 
 import { POSITION_TEMPLATES } from './data/positionPlans';
 import { sessionToLegacyTest, calcBaselineResults } from './data/testingBattery';
 import { generateProgramme, buildTestEmphasis } from './lib/programmeGenerator';
-import { sessionToWorkoutExercises, getProgrammeWeekIndex } from './lib/sessionUtils';
+import { sessionToWorkoutExercises, getProgrammeWeekIndex, resolveProgrammeSessionKey } from './lib/sessionUtils';
 import { ProgrammeInputs, GeneratedProgramme as GPType } from './types';
 import { usePremium } from './hooks/usePremium';
 import { rcConfigure, rcLogOut } from './lib/revenueCat';
@@ -36,11 +36,11 @@ import { scheduleTrainingReminders, cancelAllTrainingReminders, requestNotificat
 import { localDateStr } from './lib/loadManagement';
 import { forgetRememberedLogin, shouldRestoreRememberedLogin } from './lib/authPersistence';
 import { computeHasAccess } from './lib/premiumUtils';
+import { needsDemoDataRefresh, seedDemoData } from './lib/demoFilming';
 
 const APP_STORE_URL = 'https://apps.apple.com/gb/app/vector-football/id6772522502?action=write-review';
 const MS_PER_DAY = 86_400_000;
 const TRIAL_PROMPT_DELAY_MS = 2_000;
-const PAYWALL_AFTER_LOGIN_DELAY_MS = 700;
 const LOGIN_PAYWALL_SESSION_KEY = 'vf_login_paywall_shown';
 const NOTIF_PROMPT_DELAY_MS = 1_200;
 const REFERRAL_REDIRECT_DELAY_MS = 1_500;
@@ -183,6 +183,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   // true while we confirm whether a Supabase session exists (skip spinner for recovery URLs)
   const [sessionChecking, setSessionChecking] = useState(isSupabaseConfigured && !detectRecoveryUrl());
+  const [authFinalizing, setAuthFinalizing] = useState(false);
   // true when the user has arrived via a password-reset link — bypasses profile/auth guards
   const [isRecoveryMode, setIsRecoveryMode] = useState(detectRecoveryUrl);
   // true when the user has arrived via an email confirmation link — show landing page
@@ -280,11 +281,7 @@ export default function App() {
 
     setShowTrialPrompt(false);
     setPaywallFeatureLabel(undefined);
-    window.setTimeout(() => {
-      if (!appMountedRef.current) return;
-      setShowTrialPrompt(false);
-      navigate({ screen: 'paywall' });
-    }, PAYWALL_AFTER_LOGIN_DELAY_MS);
+    navigate({ screen: 'paywall' });
 
     return true;
   }, [isEmailConfirmLanding, isRecoveryMode, navigate, premium.refresh]);
@@ -295,11 +292,7 @@ export default function App() {
       .then(async userId => {
         if (userId) {
           cloudUserIdRef.current = userId;
-          setIsAuthenticated(true);
           identifyUser(userId);
-          // Unblock the UI immediately — the spinner disappears as soon as we know
-          // the auth state. All background syncs (cloud, RC) continue after this.
-          setSessionChecking(false);
           // Register coach/club squad or finish a pending player join before
           // deciding whether this login should see the paywall.
           await syncSquad(userId).catch(() => {});
@@ -365,6 +358,9 @@ export default function App() {
           } else if (params.get('stripe_cancel') === '1') {
             window.history.replaceState({}, '', window.location.pathname);
           }
+
+          if (!appMountedRef.current) return;
+          setIsAuthenticated(true);
         }
       })
       .catch(() => { /* session check failed — continue as unauthenticated */ })
@@ -381,6 +377,12 @@ export default function App() {
       window.removeEventListener('offline', updateOnlineState);
     };
   }, []);
+
+  useEffect(() => {
+    if (!needsDemoDataRefresh(store.userProfile)) return;
+    seedDemoData();
+    premium.refresh();
+  }, [store.userProfile?.email, premium.refresh]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -604,6 +606,15 @@ export default function App() {
     }
   }, [premium.hasAccess, navigate]);
 
+  // Premium gate for the generated programme: if a subscription/trial lapses
+  // while the user is viewing (or navigates to) their programme, bounce them to
+  // the paywall. Covers every entry point (dashboard card, plans hub, deep link).
+  useEffect(() => {
+    if (nav.screen === 'generated-programme' && !premium.hasAccess) {
+      navigateGated({ screen: 'generated-programme' }, 'Your Training Programme');
+    }
+  }, [nav.screen, premium.hasAccess, navigateGated]);
+
 
   const launchWorkout = useCallback((name: string, items: WorkoutExercise[]) => {
     const session: WorkoutSession = {
@@ -659,6 +670,19 @@ export default function App() {
     // store.sessions.length would still reflect the pre-save value after the call.
     const completedCount = store.sessions.length + 1;
     store.saveSession(session);
+    // Credit the matching programme session so Dashboard progress advances for the
+    // normal Start→finish flow — previously only the WeeklyCalendar quick-complete
+    // circle wrote completedSessionKeys, so progress stayed at 0/N for most users.
+    const activeProg = getActiveProgramme();
+    if (activeProg) {
+      const key = resolveProgrammeSessionKey(activeProg, session);
+      if (key && !(activeProg.completedSessionKeys ?? []).includes(key)) {
+        store.saveGeneratedProgramme({
+          ...activeProg,
+          completedSessionKeys: [...(activeProg.completedSessionKeys ?? []), key],
+        });
+      }
+    }
     immediateSave();
     setActiveSession(null);
     setNav({ screen: 'dashboard' });
@@ -684,6 +708,12 @@ export default function App() {
       : null;
 
   const handleStartProgrammeSession = (name: string, items: WorkoutExercise[]) => {
+    // Programme access is premium-gated: when a subscription/trial lapses the
+    // user can no longer open or run their generated programme.
+    if (!premium.hasAccess) {
+      navigateGated({ screen: 'generated-programme' }, 'Your Training Programme');
+      return;
+    }
     const activeProg = getActiveProgramme();
     const adjustedItems = items.map(item => {
       const exercise = store.getExercise(item.exerciseId);
@@ -1235,6 +1265,7 @@ export default function App() {
     const finalProgramme = {
       ...programme,
       programmeStartDate: todayStr,
+      completedSessionKeys: [],
       ...(resolvedInputs.lifts?.length ? { strengthSetup: { lifts: resolvedInputs.lifts, configuredAt: Date.now() } } : {}),
     };
     store.saveGeneratedProgramme(finalProgramme);
@@ -1303,6 +1334,7 @@ export default function App() {
       createdAt: currentProgramme.createdAt,
       programmeStartDate: currentProgramme.programmeStartDate,
       strengthSetup: currentProgramme.strengthSetup,
+      completedSessionKeys: [],
     };
     store.saveGeneratedProgramme(merged);
     setCurrentProgramme(merged);
@@ -1324,11 +1356,11 @@ export default function App() {
       // Clear the boot-sync guard so the next login re-fetches cloud data fresh.
       sessionStorage.removeItem('vf_boot_synced');
       clearLoginPaywallSessionFlags();
-      // Keep local training data, plans, and premium state intact on normal logout.
-      // Destructive resets still go through "Delete Account & All Data" / "Start fresh".
       forgetRememberedLogin();
-      // Detach the RevenueCat identity, but do not erase the local premium cache.
+      // Detach the RevenueCat identity and clear native premium cache. Real App
+      // Store access is restored only after the next login re-checks RevenueCat.
       void rcLogOut();
+      if (Capacitor.isNativePlatform()) premium.resetForNewUser();
       resetAnalyticsUser();
       cloudUserIdRef.current = null;
       setIsAuthenticated(false);
@@ -1358,7 +1390,7 @@ export default function App() {
   }
 
   // While checking for Supabase session, show a skeleton that matches the splash layout
-  if (sessionChecking) {
+  if (sessionChecking || authFinalizing) {
     return <AppBootSkeleton />;
   }
 
@@ -1380,6 +1412,7 @@ export default function App() {
             cloudUserIdRef.current = userId;
             identifyUser(userId);
             setSentryUser(userId);
+            setAuthFinalizing(true);
             void (async () => {
               try {
                 await rcConfigure(userId);
@@ -1391,12 +1424,14 @@ export default function App() {
               } finally {
                 status = premium.refresh();
                 maybeShowPaywallAfterLogin(status);
+                setIsAuthenticated(true);
+                setAuthFinalizing(false);
               }
             })();
           } else {
             maybeShowPaywallAfterLogin(status);
+            setIsAuthenticated(true);
           }
-          setIsAuthenticated(true);
         }}
       />
     );
@@ -1412,6 +1447,7 @@ export default function App() {
             if (userId) {
               cloudUserIdRef.current = userId;
               identifyUser(userId);
+              setAuthFinalizing(true);
               void (async () => {
                 try {
                   await rcConfigure(userId);
@@ -1423,15 +1459,21 @@ export default function App() {
                 } finally {
                   status = premium.refresh();
                   maybeShowPaywallAfterLogin(status);
+                  setIsAuthenticated(true);
+                  setAuthFinalizing(false);
                 }
               })();
             } else {
               maybeShowPaywallAfterLogin(status);
+              setIsAuthenticated(true);
             }
-            setIsAuthenticated(true);
           }}
           onStartOver={() => {
             store.clearAll();
+            premium.resetForNewUser();
+            void rcLogOut();
+            forgetRememberedLogin();
+            clearLoginPaywallSessionFlags();
             resetAnalyticsUser();
             cloudUserIdRef.current = null;
           }}
@@ -1546,6 +1588,13 @@ export default function App() {
             trackEvent('session_rescheduled', { week: weekIdx + 1, new_date: newDate });
           }}
           onDeleteSession={(id) => { store.deleteSession(id); }}
+          onToggleSessionComplete={(sessionKey, completed) => {
+            const prog = getActiveProgramme();
+            if (!prog) return;
+            const current = new Set(prog.completedSessionKeys ?? []);
+            if (completed) current.add(sessionKey); else current.delete(sessionKey);
+            store.saveGeneratedProgramme({ ...prog, completedSessionKeys: [...current] });
+          }}
           referralCode={myReferralCode}
           cloudUnlinked={isSupabaseConfigured && !cloudUserIdRef.current}
           coachAnnouncements={playerCoachAnnouncements}
@@ -1569,7 +1618,7 @@ export default function App() {
             exercise={exercise}
             sessions={store.sessions}
             onNavigate={navigate}
-            onBack={() => setNav({ screen: 'exercise-library' })}
+            onBack={() => setNav({ screen: 'workout-builder', workoutTab: 'exercises' })}
           />
         );
       })()}
@@ -1579,9 +1628,13 @@ export default function App() {
           exercises={store.exercises}
           templates={store.templates}
           initialTemplateId={nav.templateId}
+          initialTab={nav.workoutTab}
           onStart={handleStartWorkout}
           onSaveTemplate={(t) => { store.saveTemplate(t); immediateSave(); }}
           onDeleteTemplate={(id) => { store.deleteTemplate(id); immediateSave(); }}
+          onAddCustom={store.addCustomExercise}
+          onDeleteCustom={store.deleteCustomExercise}
+          onNavigate={navigate}
         />
       )}
 
@@ -1609,6 +1662,7 @@ export default function App() {
         <History
           sessions={store.sessions}
           matchEntries={store.matchEntries}
+          dailyReadiness={store.dailyReadinessLog}
           onNavigate={navigate}
           onDeleteSession={store.deleteSession}
           isPremium={premium.hasAccess}
@@ -1890,7 +1944,7 @@ export default function App() {
             onBack={() => navigate({ screen: 'plans' })}
             onRebuild={() => navigate({ screen: 'programme-builder' })}
             onApply={(startDate) => {
-              const updated = { ...prog, programmeStartDate: startDate };
+              const updated = { ...prog, programmeStartDate: startDate, completedSessionKeys: [] };
               store.saveGeneratedProgramme(updated);
               store.setActiveProgrammeId(prog.id);
               setCurrentProgramme(updated);

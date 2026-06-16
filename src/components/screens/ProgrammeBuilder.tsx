@@ -325,17 +325,13 @@ function AvailabilityPicker({
   matchIndices: Set<number>;
   totalNeeded: number;
 }) {
-  const totalSelected = availableDays.size + matchIndices.size;
-  // Min days = ceil(totalNeeded/2) since max 2 sessions per day; max = 6 to keep 1 rest
-  const minDays = Math.min(Math.ceil(totalNeeded / 2), 6);
-  const needsDoubles = totalNeeded > 7;
+  const nonMatchSelected = availableDays.size;
+  const tooFewDays = nonMatchSelected > 0 && nonMatchSelected < totalNeeded;
   return (
     <div>
       <p className="text-sm font-semibold text-gray-700 mb-1">Which days are you available to train?</p>
       <p className="text-xs text-gray-400 mb-3">
-        Select at least {minDays} day{minDays !== 1 ? 's' : ''}.
-        {needsDoubles && ` With ${totalNeeded} sessions some days will have 2 sessions (AM + PM).`}
-        {!needsDoubles && ' Sessions will be assigned automatically around fatigue.'}
+        Select exactly {totalNeeded} day{totalNeeded !== 1 ? 's' : ''} — one per session, no doubles.
         {matchIndices.size > 0 && ' Match days are pre-selected.'}
       </p>
       <div className="grid grid-cols-7 gap-1.5 mb-2">
@@ -361,9 +357,14 @@ function AvailabilityPicker({
           );
         })}
       </div>
-      {totalSelected > 0 && totalSelected < totalNeeded && (
+      {tooFewDays && (
         <p className="text-xs text-orange-600 font-medium">
-          {totalSelected}/{totalNeeded} days selected — add {totalNeeded - totalSelected} more
+          {nonMatchSelected}/{totalNeeded} days selected — add {totalNeeded - nonMatchSelected} more (one per session)
+        </p>
+      )}
+      {nonMatchSelected > totalNeeded && (
+        <p className="text-xs text-orange-600 font-medium">
+          {nonMatchSelected} days selected but only {totalNeeded} sessions — deselect {nonMatchSelected - totalNeeded}
         </p>
       )}
     </div>
@@ -617,10 +618,11 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   const totalAvailable = nonMatchAvailable + matchIndicesSet.size;
   const scheduleRestCount = Object.values(weekSchedule).filter(v => v === 'rest').length;
 
-  const minDaysNeeded = Math.ceil(totalNeeded / 2);
+  // Require exactly one day per training session — no double days ever.
   const scheduleValid =
     seasonType !== null &&
-    totalAvailable >= minDaysNeeded &&
+    nonMatchAvailable >= totalNeeded &&
+    totalAvailable >= 1 &&
     scheduleRestCount >= 1;
   // Step 0 — Position & play style (nothing pre-selected)
   const [primaryPos, setPrimaryPos] = useState<string>('');
@@ -739,6 +741,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
       preferBackSquat: gymAccess !== 'none' ? preferBackSquat : undefined,
       upperPullChoice: gymAccess !== 'none' ? upperPullChoice : undefined,
       lifts: computedLifts.length > 0 ? computedLifts : undefined,
+      allowedDayIndices: availableDays.size > 0 ? Array.from(availableDays).sort((a, b) => a - b) : undefined,
     };
     genCallbackRef.current = () => onGenerate(inputs);
     setIsGenerating(true);
@@ -829,8 +832,8 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
             <div className="grid grid-cols-3 gap-2">
               {([
                 { type: 'in-season' as const, emoji: '⚽', label: 'In-Season', desc: 'Training built around match days' },
-                { type: 'pre-season' as const, emoji: '🏃', label: 'Pre-Season', desc: 'Ramping up — no matches yet' },
-                { type: 'off-season' as const, emoji: '🏝️', label: 'Off-Season', desc: 'Pure fitness building' },
+                { type: 'pre-season' as const, emoji: '🏃', label: 'Pre-Season', desc: 'Adding matches — building match fitness' },
+                { type: 'off-season' as const, emoji: '🏋️', label: 'Off-Season', desc: 'Ramping up — no matches yet' },
               ]).map(({ type, emoji, label, desc }) => (
                 <button
                   key={type}

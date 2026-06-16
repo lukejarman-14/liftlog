@@ -21,6 +21,7 @@ import {
 } from '../../lib/notifications';
 import { trackEvent } from '../../lib/analytics';
 import { useActionCooldown } from '../../hooks/useActionCooldown';
+import { DEMO_FILMING_EMAIL, seedDemoData, clearDemoData, isDemoSeeded } from '../../lib/demoFilming';
 
 
 function WeightTracker({
@@ -1885,6 +1886,21 @@ export function Profile({
           </div>
           <ChevronRight size={14} className="text-gray-300" />
         </a>
+
+        {/* Demo data toggle — only for the demo@ filming account (hidden from the
+            reviewer and all real users). Seeds / clears a lived-in account. */}
+        {userProfile.email === DEMO_FILMING_EMAIL && (
+          <button
+            onClick={() => { if (isDemoSeeded()) clearDemoData(); else seedDemoData(); window.location.reload(); }}
+            className="w-full text-left text-sm text-indigo-600 py-2.5 flex items-center justify-between gap-2 hover:text-indigo-700 border-t border-gray-100"
+          >
+            <div className="flex items-center gap-2">
+              <Zap size={15} className="text-indigo-400" />
+              {isDemoSeeded() ? 'Demo data: ON — tap to clear' : 'Demo data: OFF — tap to load'}
+            </div>
+            <ChevronRight size={14} className="text-gray-300" />
+          </button>
+        )}
 
         {/* Log Out */}
         <button

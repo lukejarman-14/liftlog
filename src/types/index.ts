@@ -151,9 +151,14 @@ export interface DailyReadiness {
   fatigue: number;        // 1–5 (1=best, 5=worst)
   soreness: number;       // 1–5 (1=best, 5=worst)
   stress: number;         // 1–5 (1=best, 5=worst)
-  sleepHours?: number;    // optional raw recovery metric, usually from Apple Health
-  hrvMs?: number;         // optional raw heart-rate-variability metric
-  restingHr?: number;     // optional raw resting heart rate in bpm
+  sleepHours?: number;      // total sleep duration in hours
+  deepSleepHours?: number;  // deep sleep stage duration in hours
+  remSleepHours?: number;   // REM sleep stage duration in hours
+  awakeHours?: number;      // awake time during sleep window in hours
+  sleepScore?: number;      // computed 0–100 from calcSleepScore (all four metrics)
+  fatigueScore?: number;    // computed 0–100 from HRV+RHR vs 30-day Apple Health baseline (100=fresh)
+  hrvMs?: number;           // heart-rate variability in ms
+  restingHr?: number;       // resting heart rate in bpm
   score: number;          // computed 1–5
   level: 'elite' | 'high' | 'moderate' | 'low';
   completedAt: number;    // timestamp
@@ -275,6 +280,7 @@ export interface NavState {
   templateId?: string;
   sessionId?: string;
   planId?: string;
+  workoutTab?: string;
 }
 
 
@@ -303,7 +309,7 @@ export interface ProgrammeInputs {
   secondMatchDay?: GameDayPref;
   biggestWeakness: Weakness;
   injuryHistory: InjuryArea[];
-  readiness?: { sleep: number; fatigue: number; soreness: number; stress: number };
+  readiness?: { sleep: number; fatigue: number; soreness: number; stress: number; sleepScore100?: number; fatigueScore100?: number };
   gymAccess: 'full' | 'basic' | 'none';
   offSeason?: boolean;
   preSeason?: boolean;           // pre-season variant — no matches but match-prep conditioning included
@@ -312,6 +318,7 @@ export interface ProgrammeInputs {
   upperPullChoice?: 'pull-up' | 'row';  // whether the player uses pull-ups or rows for the upper-pull slot
   lifts?: LiftBaseline[];      // collected during wizard for personalised load prescriptions
   testGrades?: Partial<Record<string, 1 | 2 | 3 | 4 | 5>>; // from most recent TestSession.grades — drives programme emphasis adjustments
+  allowedDayIndices?: number[]; // 0=Mon…6=Sun — user-selected training days; sessions are remapped to these days
 }
 
 export interface ProgrammeExercise {
@@ -386,6 +393,7 @@ export interface GeneratedProgramme {
   conditioningStagnation?: Record<string, number>;  // exerciseId → sessions completed at current count without increasing
   programmeStartDate?: string;                      // YYYY-MM-DD chosen by user when activating — week 1 anchors here
   skippedSessions?: Record<string, { reason: string; skippedAt: number }>; // sessionKey → skip info
+  completedSessionKeys?: string[]; // "wi-si" keys explicitly ticked as done
 }
 
 

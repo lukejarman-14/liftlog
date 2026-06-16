@@ -8,6 +8,68 @@ import {
 import { NAME_TO_ID } from './sessionUtils';
 import { DAY_INDEX, capitalize } from './utils';
 
+const ORDERED_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+// Remap sessions so every dayOfWeek falls within the user's selected training days.
+// No double days: sessions already on an allowed day are locked in first, then
+// displaced sessions are spread to the nearest free allowed day.
+function remapSessionDays(weeks: ProgrammeWeek[], allowedDayIndices: number[]): ProgrammeWeek[] {
+  if (!allowedDayIndices.length) return weeks;
+  const sorted = [...allowedDayIndices].sort((a, b) => a - b);
+
+  function nearestFree(idx: number, used: Set<number>): number {
+    for (let dist = 0; dist <= 6; dist++) {
+      const candidates = sorted.filter(d => {
+        const fwd = (d - idx + 7) % 7;
+        const bwd = (idx - d + 7) % 7;
+        return Math.min(fwd, bwd) === dist && !used.has(d);
+      });
+      if (candidates.length > 0) return candidates[0];
+    }
+    // Every allowed day is taken: overflow to any free day of the week rather than
+    // double-booking one (preserves the "no double days" guarantee — only a week
+    // with >7 sessions, which can't happen, would fall through to a collision).
+    const anyFree = ORDERED_DAYS.findIndex((_, i) => !used.has(i));
+    return sorted.find(d => !used.has(d)) ?? (anyFree !== -1 ? anyFree : sorted[0]);
+  }
+
+  return weeks.map(week => {
+    const used = new Set<number>();
+    const locked: ProgrammeSession[] = [];
+    const displaced: ProgrammeSession[] = [];
+
+    for (const session of week.sessions) {
+      if (session.mdDay?.toLowerCase().includes('match')) {
+        const idx = ORDERED_DAYS.indexOf(session.dayOfWeek);
+        if (idx !== -1) used.add(idx);
+        locked.push(session);
+        continue;
+      }
+      const origIdx = ORDERED_DAYS.indexOf(session.dayOfWeek);
+      if (origIdx !== -1 && sorted.includes(origIdx) && !used.has(origIdx)) {
+        used.add(origIdx);
+        locked.push(session);
+      } else {
+        displaced.push(session);
+      }
+    }
+
+    const remapped = displaced.map(session => {
+      const origIdx = ORDERED_DAYS.indexOf(session.dayOfWeek);
+      const newIdx = nearestFree(origIdx === -1 ? 0 : origIdx, used);
+      used.add(newIdx);
+      return { ...session, dayOfWeek: ORDERED_DAYS[newIdx] };
+    });
+
+    return {
+      ...week,
+      sessions: [...locked, ...remapped].sort(
+        (a, b) => ORDERED_DAYS.indexOf(a.dayOfWeek) - ORDERED_DAYS.indexOf(b.dayOfWeek)
+      ),
+    };
+  });
+}
+
 // Resolves a display name → library ID using exact + partial lookup only.
 // No fuzzy fallback — gaps here are caught by the test suite, not papered over.
 
@@ -53,7 +115,16 @@ export function calcReadiness(r: ProgrammeInputs['readiness']): {
   // Default to "high" readiness (3,2,2,2) when not supplied — programme is built as a template,
   // the home-screen daily readiness widget drives per-session adjustments at workout time.
   const safe = r ?? { sleep: 4, fatigue: 2, soreness: 2, stress: 2 };
-  const raw = (safe.sleep + (6 - safe.fatigue) + (6 - safe.soreness) + (6 - safe.stress)) / 4;
+  // If a 0–100 computed sleep score is available, normalise to 1–5 for the combined formula
+  const sleepAs5 = safe.sleepScore100 != null
+    ? 1 + (safe.sleepScore100 / 100) * 4
+    : safe.sleep;
+  // Fatigue: a 0–100 recovery score (100=fresh) maps straight to the 1–5 "freshness"
+  // term the formula expects (5=fresh). Otherwise invert the 1–5 fatigue slider (6 - fatigue).
+  const fatigueFresh = safe.fatigueScore100 != null
+    ? 1 + (safe.fatigueScore100 / 100) * 4
+    : 6 - safe.fatigue;
+  const raw = (sleepAs5 + fatigueFresh + (6 - safe.soreness) + (6 - safe.stress)) / 4;
   const score = Math.round(raw * 10) / 10;
 
   if (score >= 4.5) {
@@ -1146,17 +1217,13 @@ const ECCENTRIC_BLOCK: Record<GymKey, ProgrammeExercise[]> = {
 };
 
 // Core block — always last block in every gym session.
-// Two exercises: one anti-extension (Ab Wheel Rollout), one anti-rotation (Pallof Press).
-// Anti-extension + anti-rotation covers the primary trunk-stability demands of football:
-// sprinting, shooting, heading (extension) and cutting, turning, striking (rotation).
-// Ab Wheel Rollout: far harder than Dead Bug — trains spinal stability under genuine load,
-// exactly replicating the trunk-bracing demand of explosive movements.
-// No ab wheel? A barbell on a smooth floor works identically.
-// Pallof Press uses a cable or resistance band — works at full/basic/none gym levels.
+// Two exercises: one rotational (Rotational Cable Chop), one anti-rotation (Pallof Press).
+// Rotation + anti-rotation covers the primary trunk-stability demands of football:
+// cutting, turning, striking (rotation) and sprinting, heading, shooting (anti-rotation bracing).
 const CORE_BLOCK: ProgrammeExercise[] = [
-  ex('Ab Wheel Rollout', '3', '10', '60s',
-    'Kneel on floor. Grip ab wheel (or barbell) with both hands directly under shoulders. Brace hard — neutral spine locked. Roll forward slowly until hips are close to the floor, then pull back. Back must NOT sag. If it does, roll shorter. Anti-extension stability: the rectus abdominis and entire anterior chain resist spinal extension against gravity. Directly replicates the bracing demands of striking, heading, and sprinting. Harder range = shorter rollout, not more reps.',
-    { tempo: '2-1-2-0', methodType: 'isometric', intensityIntent: 'controlled' }),
+  ex('Rotational Cable Chop', '2', '10 each side', '60s',
+    'Set cable to high position. Stand side-on to the stack, feet shoulder-width. Pull the handle diagonally downward across your body — from shoulder height to opposite hip. Drive the rotation from your core, not your arms. Control the return. Anti-rotation → rotational power: trains the obliques and deep core through the same diagonal force pattern used in shooting, crossing, and direction changes. Each side independently.',
+    { tempo: '1-0-x-1', methodType: 'concentric', intensityIntent: 'controlled' }),
   ex('Pallof Press', '2', '10 each side', '60s',
     'Cable or resistance band at chest height. Press hands straight out and resist rotation completely. Anti-rotation: trains obliques and deep core to stiffen the trunk against lateral forces of cutting, turning, and striking. Face perpendicular to anchor. Step out to increase band tension.',
     { tempo: '1-1-1-1', methodType: 'isometric', intensityIntent: 'controlled' }),
@@ -2576,6 +2643,9 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
         sessions,
       };
     });
+    const finalWeeks = inputs.allowedDayIndices?.length
+      ? remapSessionDays(weeks, inputs.allowedDayIndices)
+      : weeks;
     return {
       id: `prog-${Date.now()}`,
       createdAt: Date.now(),
@@ -2587,7 +2657,7 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
       readinessGuidance,
       durationWeeks: totalWeeks,
       inputs,
-      weeks,
+      weeks: finalWeeks,
     };
   }
 
@@ -2686,6 +2756,9 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     ? ` + ${condSlots.length} conditioning (${inSeasonCondTypes.join(', ')})`
     : '';
 
+  const finalWeeks = inputs.allowedDayIndices?.length
+    ? remapSessionDays(weeks, inputs.allowedDayIndices)
+    : weeks;
   return {
     id: `prog-${Date.now()}`,
     createdAt: Date.now(),
@@ -2697,6 +2770,6 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
     readinessGuidance,
     durationWeeks: totalWeeks,
     inputs,
-    weeks,
+    weeks: finalWeeks,
   };
 }

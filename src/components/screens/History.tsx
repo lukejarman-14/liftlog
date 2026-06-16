@@ -2,10 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 
 /** How long (ms) a touch-triggered chart tooltip stays visible before auto-hiding. */
 const TOOLTIP_HIDE_DELAY_MS = 1_500;
-import { Trash2, Clock, TrendingUp, ChevronDown, ChevronUp, Activity, Zap, BarChart2, FlaskConical, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
+import { Trash2, Clock, TrendingUp, ChevronDown, ChevronUp, Activity, Zap, BarChart2, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
-import { WorkoutSession, MatchEntry, NavState, MeasureType, CompletedSet, TestType } from '../../types';
+import { WorkoutSession, MatchEntry, NavState, MeasureType, CompletedSet, TestType, DailyReadiness } from '../../types';
+import { RecoveryTrackingGraph } from '../RecoveryTrackingGraph';
 import { useStore } from '../../hooks/useStore';
 import { sessionAvgRpe, RIR_LABELS } from '../../lib/rpeProgression';
 import { GRADE_LABELS, GRADE_COLOURS, calcVo2Max, calcYoyoDistance } from '../../data/testingBattery';
@@ -271,8 +272,12 @@ function NormDetail({
 }
 
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => void }) {
   const { baseline, userProfile } = useStore();
+  const noTest = !baseline;
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const results = baseline?.results;
@@ -310,13 +315,10 @@ function PerformanceOverview({ onNavigate }: { onNavigate: (nav: NavState) => vo
         </button>
       </div>
 
-      {baseline ? (
-        <p className="text-xs text-gray-400 mb-3">
-          Last tested {new Date(baseline.savedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-        </p>
-      ) : (
-        <p className="text-xs text-gray-400 mb-3">No tests completed yet — tap Take Test to begin.</p>
-      )}
+      {noTest
+        ? <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 mb-3">No test yet — tap <span className="font-semibold text-brand-600">Take Test</span> to build your performance profile.</p>
+        : <p className="text-xs text-gray-400 mb-3">Last tested {new Date(baseline!.savedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+      }
 
       {/* Energy system bars */}
       {(results?.aerobicScore !== undefined || results?.anaerobicScore !== undefined) && (
@@ -507,12 +509,14 @@ function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; match
   };
 
   const thisMonday = getMonday(new Date());
-  const weeks: { label: string; volume: number; gymVolume: number; matchVolume: number; sessions: number; matches: number }[] = [];
+  const weeks: { label: string; rangeLabel: string; volume: number; gymVolume: number; matchVolume: number; sessions: number; matches: number }[] = [];
   for (let i = 11; i >= 0; i--) {
     const mon = new Date(thisMonday);
     mon.setDate(thisMonday.getDate() - i * 7);
     const sun = new Date(mon);
     sun.setDate(mon.getDate() + 7);
+    const sunEnd = new Date(mon);
+    sunEnd.setDate(mon.getDate() + 6);
     const ws = sessions.filter(s => {
       const d = new Date(s.date + 'T12:00:00');
       return d >= mon && d < sun;
@@ -523,8 +527,14 @@ function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; match
     });
     const gymVol = ws.reduce((a, s) => a + totalVolume(s), 0);
     const matchVol = ms.reduce((a, m) => a + matchLoadEquiv(m), 0);
+    const monMonth = mon.toLocaleDateString('en-GB', { month: 'short' });
+    const sunMonth = sunEnd.toLocaleDateString('en-GB', { month: 'short' });
+    const rangeLabel = monMonth === sunMonth
+      ? `${mon.getDate()}–${sunEnd.getDate()} ${monMonth}`
+      : `${mon.getDate()} ${monMonth}–${sunEnd.getDate()} ${sunMonth}`;
     weeks.push({
       label: mon.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+      rangeLabel,
       volume: gymVol + matchVol,
       gymVolume: gymVol,
       matchVolume: matchVol,
@@ -535,19 +545,54 @@ function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; match
 
   const hasData = weeks.some(w => w.volume > 0);
 
-  // ACWR calculation — both acute and chronic use the same Monday-anchored calendar weeks
-  // so the windows are aligned and the ratio is meaningful mid-week
-  const acuteWeek = weeks[weeks.length - 1]?.volume ?? 0;
-  // Chronic baseline = average over the last 4 weeks that ACTUALLY have training data.
-  // Averaging over only trained weeks (not the zero-padded weeks before the athlete
-  // started) prevents a brand-new athlete's first logged week being divided by a
-  // deflated baseline and falsely flagged "High Risk". Needs ≥2 trained weeks to mean
-  // anything — below that we show no ratio (the card stays hidden until a baseline exists).
-  const chronicWindow = weeks.slice(-4).filter(w => w.volume > 0);
+  const displayWeeks = weeks;
+
+  // Switch week→month when real data spans more than 3 months
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  const threeMonthsCutoff = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, '0')}-${String(threeMonthsAgo.getDate()).padStart(2, '0')}`;
+  const allDataDates = [
+    ...sessions.map(s => s.date),
+    ...matchEntries.map(m => m.date),
+  ];
+  const oldestDate = allDataDates.length > 0 ? allDataDates.reduce((a, b) => a < b ? a : b) : null;
+  const isMonthlyView = hasData && oldestDate != null && oldestDate < threeMonthsCutoff;
+
+  const monthRows: typeof weeks = [];
+  if (isMonthlyView && oldestDate) {
+    const start = new Date(oldestDate + 'T12:00:00');
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    const now = new Date();
+    while (cursor <= now) {
+      const mStart = new Date(cursor);
+      const mEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+      const mSessions = sessions.filter(s => { const d = new Date(s.date + 'T12:00:00'); return d >= mStart && d < mEnd; });
+      const mMatches  = matchEntries.filter(m => { const d = new Date(m.date + 'T12:00:00'); return d >= mStart && d < mEnd; });
+      const gymVol   = mSessions.reduce((a, s) => a + totalVolume(s), 0);
+      const matchVol = mMatches.reduce((a, m) => a + matchLoadEquiv(m), 0);
+      monthRows.push({
+        label:      cursor.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }),
+        rangeLabel: cursor.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+        volume: gymVol + matchVol,
+        gymVolume: gymVol,
+        matchVolume: matchVol,
+        sessions: mSessions.length,
+        matches:  mMatches.length,
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+  }
+
+  const displayData  = isMonthlyView ? monthRows : displayWeeks;
+  const periodLabel  = isMonthlyView ? 'Month by Month' : 'Week by Week';
+
+  // ACWR calculation uses displayWeeks so demo data also shows the ACWR card
+  const acuteWeek = displayWeeks[displayWeeks.length - 1]?.volume ?? 0;
+  const chronicWindow = displayWeeks.slice(-4).filter(w => w.volume > 0);
   const chronicAvg = chronicWindow.length > 0
     ? chronicWindow.reduce((a, w) => a + w.volume, 0) / chronicWindow.length
     : 0;
-  const acute7 = acuteWeek; // rename alias so display labels stay the same
+  const acute7 = acuteWeek;
   const acwr = (chronicAvg > 0 && chronicWindow.length >= 2) ? acute7 / chronicAvg : null;
   const acwrZone =
     acwr === null ? null :
@@ -556,26 +601,28 @@ function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; match
     acwr <= 1.5 ? { label: 'Caution ⚠️',   color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' } :
                   { label: 'High Risk 🔴',  color: 'text-red-600',   bg: 'bg-red-50',   border: 'border-red-200'   };
 
+  // SVG bar chart
+  const maxVol = Math.max(...displayData.map(w => w.volume), 1);
+  const chartH = 120;
+  const barW = 18;
+  const gap = 6;
+  const totalW = displayData.length * (barW + gap) - gap;
+  const padT = 10, padB = 28;
+  const plotH = chartH - padT - padB;
+
   if (!hasData) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-        <BarChart2 size={36} className="text-gray-300 mb-3" />
-        <p className="text-sm font-semibold text-gray-500 mb-1">No load data yet</p>
-        <p className="text-xs text-gray-400 leading-relaxed">
-          Complete workouts to start tracking your weekly training volume. The chart will show your load trend over the past 12 weeks.
+      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center mb-4">
+          <BarChart2 size={28} className="text-brand-500" />
+        </div>
+        <h3 className="text-lg font-bold text-gray-900 mb-2">No training load yet</h3>
+        <p className="text-sm text-gray-500 max-w-xs">
+          Complete workouts and log matches to see your weekly load and Acute:Chronic Workload Ratio (injury-risk) trends.
         </p>
       </div>
     );
   }
-
-  // SVG bar chart
-  const maxVol = Math.max(...weeks.map(w => w.volume), 1);
-  const chartH = 120;
-  const barW = 18;
-  const gap = 6;
-  const totalW = weeks.length * (barW + gap) - gap;
-  const padT = 10, padB = 28;
-  const plotH = chartH - padT - padB;
 
   return (
     <div className="flex flex-col gap-4 pb-6">
@@ -607,13 +654,14 @@ function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; match
 
       {/* Bar chart */}
       <Card className="p-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Weekly Volume — 12 weeks</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{isMonthlyView ? 'Monthly Volume' : 'Weekly Volume — 12 weeks'}</p>
+        </div>
         <svg
           viewBox={`0 0 ${totalW + 4} ${chartH}`}
           className="w-full overflow-visible"
           style={{ height: chartH }}
         >
-          {/* Grid lines */}
           {[0, 0.5, 1].map(t => {
             const y = padT + plotH * (1 - t);
             return (
@@ -629,30 +677,16 @@ function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; match
               </g>
             );
           })}
-
-          {/* Bars */}
-          {weeks.map((w, i) => {
+          {displayData.map((w, i) => {
             const x = i * (barW + gap);
             const barH = w.volume > 0 ? Math.max(4, (w.volume / maxVol) * plotH) : 0;
             const y = padT + plotH - barH;
-            const isLast = i === weeks.length - 1;
+            const isLast = i === displayData.length - 1;
             return (
               <g key={i}>
-                <rect
-                  x={x} y={y}
-                  width={barW} height={barH}
-                  rx={3}
-                  fill={isLast ? '#6366f1' : '#c7d2fe'}
-                />
-                {/* X label — first, middle, last */}
-                {(i === 0 || i === 5 || i === 11) && (
-                  <text
-                    x={x + barW / 2}
-                    y={chartH - 4}
-                    fontSize="7"
-                    fill="#9ca3af"
-                    textAnchor={i === 0 ? 'start' : i === 11 ? 'end' : 'middle'}
-                  >
+                <rect x={x} y={y} width={barW} height={barH} rx={3} fill={isLast ? '#6366f1' : '#c7d2fe'} />
+                {(i === 0 || i === Math.floor(displayData.length / 2) || i === displayData.length - 1) && (
+                  <text x={x + barW / 2} y={chartH - 4} fontSize="7" fill="#9ca3af" textAnchor={i === 0 ? 'start' : i === displayData.length - 1 ? 'end' : 'middle'}>
                     {w.label}
                   </text>
                 )}
@@ -661,28 +695,22 @@ function LoadTab({ sessions, matchEntries }: { sessions: WorkoutSession[]; match
           })}
         </svg>
         <p className="text-[10px] text-gray-400 mt-1 leading-snug">
-          Purple = this week. Bars are in arbitrary units (AU): gym volume × weight + match time × intensity.
-          {' '}<span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-300 inline-block" /> Gym{' '}<span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> Match</span>
+          Purple = this week. AU = gym volume + match load equivalent.{' '}
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-300 inline-block" /> Gym{' '}<span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> Match</span>
         </p>
       </Card>
 
       {/* Weekly breakdown table */}
       <Card className="p-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Week by Week</p>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{periodLabel}</p>
         <div className="flex flex-col gap-1.5">
-          {[...weeks].reverse().map((w, i) => (
+          {[...displayData].reverse().map((w, i) => (
             w.volume > 0 && (
               <div key={i} className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 w-16 flex-shrink-0">{w.label}</span>
+                <span className="text-xs text-gray-400 w-28 flex-shrink-0">{w.rangeLabel}</span>
                 <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden flex">
-                  <div
-                    className="h-full bg-brand-400 rounded-l-full"
-                    style={{ width: `${(w.gymVolume / maxVol) * 100}%` }}
-                  />
-                  <div
-                    className="h-full bg-orange-400"
-                    style={{ width: `${(w.matchVolume / maxVol) * 100}%` }}
-                  />
+                  <div className="h-full bg-brand-400 rounded-l-full" style={{ width: `${(w.gymVolume / maxVol) * 100}%` }} />
+                  <div className="h-full bg-orange-400" style={{ width: `${(w.matchVolume / maxVol) * 100}%` }} />
                 </div>
                 <span className="text-xs font-semibold text-gray-700 w-14 text-right flex-shrink-0">
                   {w.volume >= 1000 ? `${(w.volume / 1000).toFixed(1)}k` : w.volume}
@@ -1112,20 +1140,21 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
     return [{ date: session.date, value: res.fatigueIndex! }];
   });
 
-  if (typesWithData.length === 0) {
+  if (testSessions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-        <FlaskConical size={36} className="text-gray-300 mb-3" />
-        <p className="text-sm font-semibold text-gray-500 mb-1">No fitness tests recorded</p>
-        <p className="text-xs text-gray-400 mb-5 leading-relaxed">
-          Complete a fitness test to start tracking your progression over time.
-          Sprint times, jump height, and Yo-Yo level will all appear here.
+      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center mb-4">
+          <TrendingUp size={28} className="text-brand-500" />
+        </div>
+        <h3 className="text-lg font-bold text-gray-900 mb-2">No tests completed yet</h3>
+        <p className="text-sm text-gray-500 max-w-xs mb-6">
+          Take your first fitness test (sprints, CMJ, Yo-Yo) to start tracking your progression over the season.
         </p>
         <button
           onClick={() => onNavigate({ screen: 'testing-battery' })}
-          className="px-5 py-2.5 bg-brand-500 text-white text-sm font-bold rounded-xl hover:bg-brand-600 transition-colors"
+          className="px-5 py-3 bg-brand-500 text-white text-sm font-semibold rounded-2xl hover:bg-brand-600 transition-colors"
         >
-          Take First Test
+          Take a fitness test
         </button>
       </div>
     );
@@ -1204,14 +1233,15 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
 interface HistoryProps {
   sessions: WorkoutSession[];
   matchEntries: MatchEntry[];
+  dailyReadiness: DailyReadiness[];
   onNavigate: (nav: NavState) => void;
   onDeleteSession: (id: string) => void;
   isPremium: boolean;
   onUpgrade: (featureLabel: string) => void;
 }
 
-export function History({ sessions, matchEntries, onNavigate, onDeleteSession, isPremium, onUpgrade }: HistoryProps) {
-  const [activeTab, setActiveTab] = useState<'sessions' | 'load' | 'tests'>('sessions');
+export function History({ sessions, matchEntries, dailyReadiness, onNavigate, onDeleteSession, isPremium, onUpgrade }: HistoryProps) {
+  const [activeTab, setActiveTab] = useState<'sessions' | 'load' | 'tests' | 'recovery'>('sessions');
 
   const sorted = [...sessions].sort((a, b) => b.startTime - a.startTime);
 
@@ -1229,7 +1259,7 @@ export function History({ sessions, matchEntries, onNavigate, onDeleteSession, i
 
       {/* Tab switcher */}
       <div className="flex gap-1 p-1 bg-gray-100 rounded-2xl mb-5">
-        {(['sessions', 'load', 'tests'] as const).map(tab => (
+        {(['sessions', 'load', 'tests', 'recovery'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -1239,12 +1269,14 @@ export function History({ sessions, matchEntries, onNavigate, onDeleteSession, i
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {tab === 'sessions' ? 'Sessions' : tab === 'load' ? 'Load' : 'Tests'}
+            {tab === 'sessions' ? 'Sessions' : tab === 'load' ? 'Load' : tab === 'tests' ? 'Tests' : 'Recovery'}
           </button>
         ))}
       </div>
 
-      {activeTab === 'tests' ? (
+      {activeTab === 'recovery' ? (
+        <RecoveryTrackingGraph entries={dailyReadiness} />
+      ) : activeTab === 'tests' ? (
         <>
           <PerformanceOverview onNavigate={onNavigate} />
           <TestProgressionTab onNavigate={onNavigate} />

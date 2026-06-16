@@ -41,8 +41,8 @@ export function activateAppReviewDemo() {
     accountType: 'personal',
   };
 
-  // Do NOT grant premium — Apple reviewers need to see the paywall and test
-  // the purchase flow. They will use a Sandbox Apple ID to complete the IAP.
+  // Apple reviewers need to see the RevenueCat paywall and StoreKit purchase flow.
+  // Keep the demo account complete, but do not unlock Premium automatically.
   const premiumStatus: PremiumStatus = {
     isPremium: false,
   };

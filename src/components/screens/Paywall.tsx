@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { X, Zap, Check, Shield, Lock, RotateCcw, Tag, Mail, ChevronLeft, UserPlus, Dumbbell, Building2 } from 'lucide-react';
 import { RCPlan } from '../../hooks/usePremium';
 import { trackEvent } from '../../lib/analytics';
@@ -246,7 +247,7 @@ export function Paywall({
           <div className="mb-4 flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
             <Mail size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-amber-800 font-medium">
-              Check your inbox for a confirmation email and tap the link before using a promo code or starting a trial.
+              Check your inbox for a confirmation email and tap the link before {Capacitor.isNativePlatform() ? 'starting a trial' : 'using a promo code or starting a trial'}.
             </p>
           </div>
         )}
@@ -478,7 +479,10 @@ export function Paywall({
         </div>
         )}
 
-        {/* Promo code */}
+        {/* Promo code — web only. Apple guideline 3.1.1 forbids unlocking
+            Premium outside In-App Purchase, so this is hidden on native iOS
+            (RevenueCat / StoreKit is the only purchase path there). */}
+        {!Capacitor.isNativePlatform() && (
         <div className="mt-4">
           {!showCodeInput ? (
             <button
@@ -532,6 +536,7 @@ export function Paywall({
             </div>
           )}
         </div>
+        )}
         </>)}
 
         {/* Trust signals */}

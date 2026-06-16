@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
+import DateScrollPicker from '../DateScrollPicker';
 import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus, Mail, Building2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { UserProfile } from '../../types';
@@ -8,6 +9,7 @@ import { trackEvent } from '../../lib/analytics';
 import { hashPassword } from '../../lib/authUtils';
 import { validateDateOfBirth, validateEmail, sanitiseTeamCode, EMAIL_MAX, PASSWORD_MAX, TEAM_CODE_MAX } from '../../lib/validation';
 import { activateAppReviewDemo, isAppReviewDemoLogin } from '../../lib/appReviewDemo';
+import { activateDemoFilming, isDemoFilmingLogin } from '../../lib/demoFilming';
 import { forgetRememberedLogin, rememberLogin } from '../../lib/authPersistence';
 import { useActionCooldown } from '../../hooks/useActionCooldown';
 import { OAuthButtons } from '../OAuthButtons';
@@ -146,14 +148,12 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
   const confirmEmailCooldown = useActionCooldown('email-confirm', email || 'unknown');
 
   // Step 2 — Age verification + Terms
-  const [dobDay,         setDobDay]         = useState('');
-  const [dobMonth,       setDobMonth]       = useState('');
-  const [dobYear,        setDobYear]        = useState('');
-  const dobDayRef   = useRef<HTMLInputElement>(null);
-  const dobMonthRef = useRef<HTMLInputElement>(null);
-  const dobYearRef  = useRef<HTMLInputElement>(null);
+  const [dobDay,         setDobDay]         = useState('01');
+  const [dobMonth,       setDobMonth]       = useState('01');
+  const [dobYear,        setDobYear]        = useState('2000');
   const [agreedToTerms,  setAgreedToTerms]  = useState(false);
   const [parentalConsent,setParentalConsent]= useState(false);
+  const [dobTouched,     setDobTouched]     = useState(false);
 
   // Step 3 — Body metrics (optional)
   const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
@@ -179,13 +179,18 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
 
   // Age computation from DOB inputs. DOB is required and must be a real calendar date.
   const dobValidation = validateDateOfBirth(dobDay, dobMonth, dobYear);
-  const hasDobInput = dobDay !== '' || dobMonth !== '' || dobYear !== '';
-  const computedAge = dobValidation.ok ? dobValidation.value.age : null;
+  // Age-gate: the picker shows a default date, so we must NOT treat that default
+  // as a real answer. Require the user to actually interact with the wheels
+  // before the date counts — otherwise an under-13 user could tap straight
+  // through and be recorded as the default 01/01/2000.
+  const hasDobInput = dobTouched;
+  const computedAge = dobValidation.ok && dobTouched ? dobValidation.value.age : null;
   const isUnderThirteen  = computedAge !== null && computedAge < 13;
   const needsParental    = computedAge !== null && computedAge >= 13 && computedAge < 16;
   const dobError = !dobValidation.ok && hasDobInput ? dobValidation.error : '';
-  // DOB must be a real date, age must be 13+, and parental consent is required for 13–15.
+  // DOB must be explicitly set, a real date, age 13+, and parental consent for 13–15.
   const canProceedFromAgeTerms =
+    dobTouched &&
     dobValidation.ok &&
     !isUnderThirteen &&
     agreedToTerms &&
@@ -231,6 +236,16 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
         if (stayLoggedIn) rememberLogin(loginEmail);
         else forgetRememberedLogin();
         setRestoreSuccess('App Review demo mode unlocked.');
+        onLoginSuccess?.();
+        setLoginLoading(false);
+        return;
+      }
+
+      if (isDemoFilmingLogin(loginEmail, loginPassword)) {
+        activateDemoFilming();
+        if (stayLoggedIn) rememberLogin(loginEmail);
+        else forgetRememberedLogin();
+        setRestoreSuccess('Demo filming mode unlocked.');
         onLoginSuccess?.();
         setLoginLoading(false);
         return;
@@ -557,10 +572,20 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
         <p className="mt-4 text-xs text-gray-400">Can't find it? Check your spam folder.</p>
 
         <button
-          onClick={() => { setAwaitingEmailConfirm(false); setStep(3); }}
+          onClick={() => {
+            // Let the user correct a mistyped email and create a fresh Supabase
+            // signup. The previous unconfirmed account may remain in Supabase,
+            // but it must not trap this browser in the old confirmation flow.
+            setAwaitingEmailConfirm(false);
+            setHasSignedUp(false);
+            setPendingOnComplete(null);
+            setConfirmError('');
+            setResendSent(false);
+            setStep(1);
+          }}
           className="mt-6 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
         >
-          <ChevronLeft size={14} /> Edit my details
+          <ChevronLeft size={14} /> Edit email or details
         </button>
       </div>
     );
@@ -956,50 +981,20 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
             {/* Date of birth */}
             <div className="mb-5">
               <Label>Date of Birth <span style={{fontWeight: 400, color: '#9ca3af', fontSize: '0.75rem'}}>(required)</span></Label>
-              <div className="grid grid-cols-3 gap-2">
-                <input
-                  ref={dobDayRef}
-                  value={dobDay}
-                  onChange={e => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                    setDobDay(val);
-                    if (val.length === 2) dobMonthRef.current?.focus();
-                  }}
-                  placeholder="DD"
-                  inputMode="numeric"
-                  aria-invalid={dobError ? 'true' : 'false'}
-                  style={{ fontSize: '16px' }}
-                  className={`w-full px-3 py-2.5 rounded-xl border text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400 ${dobError ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'}`}
-                />
-                <input
-                  ref={dobMonthRef}
-                  value={dobMonth}
-                  onChange={e => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                    setDobMonth(val);
-                    if (val.length === 2) dobYearRef.current?.focus();
-                  }}
-                  placeholder="MM"
-                  inputMode="numeric"
-                  aria-invalid={dobError ? 'true' : 'false'}
-                  style={{ fontSize: '16px' }}
-                  className={`w-full px-3 py-2.5 rounded-xl border text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400 ${dobError ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'}`}
-                />
-                <input
-                  ref={dobYearRef}
-                  value={dobYear}
-                  onChange={e => setDobYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="YYYY"
-                  inputMode="numeric"
-                  aria-invalid={dobError ? 'true' : 'false'}
-                  style={{ fontSize: '16px' }}
-                  className={`w-full px-3 py-2.5 rounded-xl border text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400 ${dobError ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'}`}
-                />
-              </div>
-              {dobError ? (
+              <DateScrollPicker
+                day={dobDay}
+                month={dobMonth}
+                year={dobYear}
+                onDayChange={setDobDay}
+                onMonthChange={setDobMonth}
+                onYearChange={setDobYear}
+                onInteract={() => setDobTouched(true)}
+              />
+              {!dobTouched && (
+                <p className="text-xs text-gray-400 mt-1.5 text-center">Scroll to set your date of birth.</p>
+              )}
+              {dobError && (
                 <p className="text-xs text-red-500 mt-1.5 text-center">{dobError}</p>
-              ) : (
-                <p className="text-xs text-gray-400 mt-1.5 text-center">Day &nbsp;/&nbsp; Month &nbsp;/&nbsp; Year</p>
               )}
             </div>
 
