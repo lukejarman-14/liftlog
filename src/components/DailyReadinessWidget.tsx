@@ -393,7 +393,6 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
       <>
         {showQuickHealthInfo && (
           <HealthPermissionInfo
-            onCancel={() => setShowQuickHealthInfo(false)}
             onContinue={() => {
               setShowQuickHealthInfo(false);
               void handleQuickSync();
@@ -717,7 +716,6 @@ function ReadinessForm({
       </button>
       {showHealthInfo && (
         <HealthPermissionInfo
-          onCancel={() => setShowHealthInfo(false)}
           onContinue={() => {
             setShowHealthInfo(false);
             void autofillFromHealth();
@@ -729,12 +727,14 @@ function ReadinessForm({
 }
 
 function HealthPermissionInfo({
-  onCancel,
   onContinue,
 }: {
-  onCancel: () => void;
   onContinue: () => void;
 }) {
+  // App Store guideline 5.1.1(iv): this explanatory message must NOT offer a way
+  // to exit/delay the permission request. The user always proceeds to the system
+  // Apple Health permission sheet after the message (where they can allow or deny
+  // each data type). So there is intentionally no Cancel/close/backdrop-dismiss here.
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
@@ -745,22 +745,13 @@ function HealthPermissionInfo({
         <p className="mb-5 text-center text-sm leading-relaxed text-gray-500">
           Vector Football can read sleep, HRV, and resting heart rate from Apple Health to fill your readiness check-in. You can edit the values before saving. We do not write data to Apple Health.
         </p>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onContinue}
-            className="flex-1 rounded-xl bg-brand-500 py-3 text-sm font-bold text-white"
-          >
-            Continue
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onContinue}
+          className="w-full rounded-xl bg-brand-500 py-3 text-sm font-bold text-white"
+        >
+          Continue
+        </button>
       </div>
     </div>
   );

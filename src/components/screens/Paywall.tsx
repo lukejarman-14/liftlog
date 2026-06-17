@@ -336,32 +336,51 @@ export function Paywall({
               </p>
             </>
           ) : noTrialYet ? (
-            <>
-              <button
-                onClick={handleStartTrial}
-                disabled={busy}
-                className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50"
-              >
-                Start 30-Day Free Trial
-              </button>
-              <p className="text-center text-xs text-gray-400 leading-snug">
-                {selected === 'lifetime'
-                  ? `Free for 30 days, then ${selectedPlan.price} once — no subscription.`
-                  : `Free for 30 days, then ${selectedPlan.price}${selected === 'yearly' ? '/year' : '/month'}, auto-renewing. Cancel anytime.`
-                }
-              </p>
-              <button
-                onClick={() => handleSelectPlan(selected, true)}
-                disabled={busy}
-                className="w-full py-3.5 rounded-2xl border-2 border-brand-500 text-brand-600 font-extrabold text-base hover:bg-brand-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {busy ? (
-                  <span className="w-5 h-5 border-2 border-brand-400 border-t-brand-600 rounded-full animate-spin" />
-                ) : (
-                  `${selected === 'lifetime' ? 'Buy' : 'Subscribe'} Now — ${selectedPlan.price}`
-                )}
-              </button>
-            </>
+            selected === 'lifetime' ? (
+              <>
+                {/* Lifetime is a one-time purchase — StoreKit cannot attach a free
+                    trial to a non-renewing product, so we never advertise one here
+                    (the stated terms must match the actual purchase: App Store 2.1b). */}
+                <button
+                  onClick={() => handleSelectPlan('lifetime', true)}
+                  disabled={busy}
+                  className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {busy ? (
+                    <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    `Buy Now — ${selectedPlan.price}`
+                  )}
+                </button>
+                <p className="text-center text-xs text-gray-400 leading-snug">
+                  One-time payment — yours forever. No subscription, no auto-renewal.
+                </p>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleStartTrial}
+                  disabled={busy}
+                  className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50"
+                >
+                  Start 30-Day Free Trial
+                </button>
+                <p className="text-center text-xs text-gray-400 leading-snug">
+                  {`Free for 30 days, then ${selectedPlan.price}${selected === 'yearly' ? '/year' : '/month'}, auto-renewing. Cancel anytime.`}
+                </p>
+                <button
+                  onClick={() => handleSelectPlan(selected, true)}
+                  disabled={busy}
+                  className="w-full py-3.5 rounded-2xl border-2 border-brand-500 text-brand-600 font-extrabold text-base hover:bg-brand-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {busy ? (
+                    <span className="w-5 h-5 border-2 border-brand-400 border-t-brand-600 rounded-full animate-spin" />
+                  ) : (
+                    `Subscribe Now — ${selectedPlan.price}`
+                  )}
+                </button>
+              </>
+            )
           ) : (
             <>
               <button
