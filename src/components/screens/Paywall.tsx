@@ -363,10 +363,10 @@ export function Paywall({
                   disabled={busy}
                   className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50"
                 >
-                  Start 30-Day Free Trial
+                  Start 1-Month Free Trial
                 </button>
                 <p className="text-center text-xs text-gray-400 leading-snug">
-                  {`Free for 30 days, then ${selectedPlan.price}${selected === 'yearly' ? '/year' : '/month'}, auto-renewing. Cancel anytime.`}
+                  {`Free for 1 month, then ${selectedPlan.price}${selected === 'yearly' ? '/year' : '/month'}, auto-renewing. Cancel anytime.`}
                 </p>
                 <button
                   onClick={() => handleSelectPlan(selected, true)}
