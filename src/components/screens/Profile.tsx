@@ -6,6 +6,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { isSupabaseConfigured, cloudResendConfirmation, cloudUpdatePassword, cloudVerifyPassword } from '../../lib/cloudSync';
+import { isHealthKitSupported } from '../../lib/healthKit';
 import { exportData } from '../../lib/dataSync';
 import { hashPassword } from '../../lib/authUtils';
 import { validatePassword } from '../../lib/validation';
@@ -1661,6 +1662,28 @@ export function Profile({
       )}
 
       <TrainingReminders settings={settings} onUpdate={onUpdateSettings} />
+
+      {/* Apple Health identification — App Store guideline 2.5.1 requires the
+          HealthKit integration to be clearly identified in the UI. Shown on all
+          iOS devices (iPhone + iPad) so reviewers can always find it. */}
+      {isHealthKitSupported() && (
+        <Card className="p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+              <Activity size={18} className="text-red-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Apple Health</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                Vector Football reads your <strong>sleep</strong>, <strong>heart rate variability (HRV)</strong> and <strong>resting heart rate</strong> from Apple Health to calculate your <strong>Daily Readiness</strong> score on the Home tab. Access is read-only — we never write data to Apple Health.
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 leading-relaxed">
+                Connect from the <strong>Daily Readiness</strong> card on the Home tab. You can change or revoke access anytime in the iOS <strong>Settings → Privacy &amp; Security → Health</strong>.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card className="p-4 mb-4">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Account Type</h3>

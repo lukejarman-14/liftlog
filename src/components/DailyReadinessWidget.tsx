@@ -408,7 +408,7 @@ export function DailyReadinessWidget({ existing, onSave }: Props) {
               <p className="text-sm font-semibold text-gray-700">Daily Readiness</p>
               {/* Apple Health is clearly identified on the entry point (App Store guideline 2.5.1) */}
               {isHealthKitSupported()
-                ? <p className="text-xs text-brand-600 font-semibold flex items-center gap-1"><Activity size={12} /> Apple Health</p>
+                ? <p className="text-xs text-brand-600 font-semibold flex items-center gap-1"><Activity size={12} /> Syncs with Apple Health</p>
                 : <p className="text-xs text-gray-400">Log how you feel in 30 seconds</p>
               }
             </div>
