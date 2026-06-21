@@ -90,7 +90,6 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   // Plyometrics
   { id: 'cmj', name: 'Countermovement Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'], measureType: 'reps' },
   { id: 'squat-jump', name: 'Squat Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'], measureType: 'reps' },
-  { id: 'tuck-jump', name: 'Tuck Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Hip Flexors', 'Calves'], measureType: 'reps' },
   { id: 'box-jump', name: 'Box Jump', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes', 'Calves'], measureType: 'reps' },
   { id: 'depth-jump', name: 'Depth Jump', category: 'Plyometrics', defaultRestSeconds: 120, muscleGroups: ['Quads', 'Glutes', 'Calves'], measureType: 'reps' },
   { id: 'broad-jump', name: 'Broad Jump', category: 'Plyometrics', defaultRestSeconds: 90, muscleGroups: ['Quads', 'Glutes', 'Hamstrings'], measureType: 'reps' },

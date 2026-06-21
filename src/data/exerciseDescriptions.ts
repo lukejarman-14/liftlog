@@ -880,13 +880,6 @@ Total ≈ 28m — mimics a defender tracking a forward.`,
     tips: ['Can be loaded with a light barbell, dumbbells, or bodyweight.'],
     footballContext: 'Develops the concentric leg power needed for explosive first-step acceleration.',
   },
-  'tuck-jump': {
-    how: [
-      'Jump as high as possible and bring your knees to your chest at the peak.',
-      'Land softly and immediately jump again.',
-    ],
-    tips: ['The knee tuck should happen at the very top — pull the knees up, do not pull the body down.'],
-  },
   'lateral-box-jump': {
     how: [
       'Stand to one side of a box. Jump sideways onto the box, landing with both feet.',

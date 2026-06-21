@@ -257,7 +257,6 @@ export const NAME_TO_ID: Record<string, string> = {
   'sled push — speed variant': 'sled-push',
   // Bounding / jumps
   'standing bounding': 'bounding',
-  'tuck jump': 'tuck-jump',
   'squat jump': 'squat-jump',
   'lateral bound': 'lateral-bound',
   // Position-specific block exercises

@@ -3,6 +3,9 @@ import { Dumbbell, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { isSupabaseConfigured, cloudSignIn, cloudLoadData, cloudResetPassword } from '../../lib/cloudSync';
 import { hashPassword } from '../../lib/authUtils';
+import { signInWithApple, isAppleSignInAvailable, signInWithGoogle, isGoogleSignInAvailable } from '../../lib/socialAuth';
+import { AppleSignInButton } from '../AppleSignInButton';
+import { GoogleSignInButton } from '../GoogleSignInButton';
 
 interface LoginProps {
   profile: UserProfile;
@@ -27,6 +30,50 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
 
   // Start over confirmation
   const [confirmStartOver, setConfirmStartOver] = useState(false);
+
+  // Apple sign-in
+  const [socialLoading, setSocialLoading] = useState(false);
+  const [socialError,   setSocialError]   = useState('');
+
+  const handleAppleSignIn = async () => {
+    if (socialLoading) return;
+    setSocialLoading(true);
+    setSocialError('');
+    try {
+      const result = await signInWithApple();
+      // Load any cloud data for this account, then enter the app.
+      await cloudLoadData(result.userId);
+      onLogin(result.userId);
+      // Component unmounts here — no state updates past this point.
+    } catch (err) {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (msg.includes('cancel') || msg.includes('1001') || msg.includes('popup_closed')) {
+        // user cancelled — silent
+      } else {
+        setSocialError('Apple sign-in failed. Please try again.');
+      }
+      setSocialLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (socialLoading) return;
+    setSocialLoading(true);
+    setSocialError('');
+    try {
+      const result = await signInWithGoogle();
+      await cloudLoadData(result.userId);
+      onLogin(result.userId);
+    } catch (err) {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (msg.includes('cancel') || msg.includes('cancelled')) {
+        // user cancelled — silent
+      } else {
+        setSocialError('Google sign-in failed. Please try again.');
+      }
+      setSocialLoading(false);
+    }
+  };
 
   const handleSignIn = async (e: FormEvent) => {
     e.preventDefault();
@@ -210,6 +257,25 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+
+        {(isAppleSignInAvailable() || isGoogleSignInAvailable()) && (
+          <div className="mt-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 bg-gray-200" />
+              <span className="text-xs text-gray-400 font-medium">or</span>
+              <div className="h-px flex-1 bg-gray-200" />
+            </div>
+            <div className="flex flex-col gap-3">
+              {isAppleSignInAvailable() && (
+                <AppleSignInButton onClick={handleAppleSignIn} label="Sign in with Apple" loading={socialLoading} />
+              )}
+              {isGoogleSignInAvailable() && (
+                <GoogleSignInButton onClick={handleGoogleSignIn} label="Sign in with Google" loading={socialLoading} />
+              )}
+            </div>
+            {socialError && <p className="text-xs text-red-500 mt-2 text-center">{socialError}</p>}
+          </div>
+        )}
 
         <button
           onClick={() => setShowForgot(true)}

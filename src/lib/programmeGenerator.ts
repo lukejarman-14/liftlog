@@ -923,80 +923,71 @@ function buildMaxStrengthBlock(
 // Low reps (2–3), full 3 min rest. Max CNS output every rep.
 const EXPLOSIVE_PLYO_POOL: Record<GymKey, ProgrammeExercise[][]> = {
   full: [
+    // Week 1 — vertical + horizontal
     [
-      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement every rep. Load hips, drive arms hard. Stick the landing — absorb with hips and knees. Full CNS reset between reps.',
+      ex('Box Jump', '3', '2', '1:30', 'Drive arms, explode onto box. Land softly in partial squat. Step down every time — never jump down. Full rest before next rep.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Box Jump', '3', '3', '3:00', 'Drive arms, explode onto box. Land softly in partial squat. Step down every time — never jump down. Full rest before next rep.',
+      ex('Broad Jump', '3', '2', '1:30', 'Max horizontal displacement every rep. Load hips, drive arms hard. Stick the landing — absorb with hips and knees. Full CNS reset between reps.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
     ],
+    // Week 2 — vertical + horizontal
     [
-      ex('Depth Jump', '3', '3', '3:00', 'Step off box, hit the ground, immediately explode up. Ground contact as brief as possible — this is reactive strength, not a squat. Full rest between reps.',
+      ex('Countermovement Jump', '3', '2', '1:30', 'Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset between reps.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Hurdle Jump', '3', '3', '3:00', 'Jump over hurdle (or cone), land and immediately rebound over the next. Stiffen ankles on contact. Continuous explosive rhythm — no pausing between hurdles.',
+      ex('Lateral Bound', '3', '3 each side', '1:30', 'Single-leg lateral push, stick the landing on the opposite leg. Max lateral displacement. Replicates change-of-direction power.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
     ],
+    // Week 3 — vertical + horizontal
     [
-      ex('Single-Leg Box Jump', '3', '3 each leg', '3:00', 'Drive off one leg, land two-footed on box. Switch legs each set. Single-leg power production — directly replicates sprint push-off mechanics.',
+      ex('Depth Jump', '3', '2', '1:30', 'Step off box, hit the ground, immediately explode up. Ground contact as brief as possible — this is reactive strength, not a squat. Full rest between reps.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Standing Bounding', '3', '6 bounds', '3:00', 'Maximal alternating single-leg bounds. Drive knee up, push ground back hard. Distance per bound is your metric — aim further every rep.',
-        { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ],
-    [
-      ex('Tuck Jump', '3', '4', '3:00', 'Maximum height, knees drive to chest at peak. Absorb landing fast, immediate rebound. CNS power expression — every rep identical intent.',
-        { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement. Load hips, drive arms, push the ground back hard. Stick the landing. Full reset between reps.',
+      ex('Broad Jump', '3', '2', '1:30', 'Max horizontal displacement. Load hips, drive arms, push the ground back hard. Stick the landing. Full reset between reps.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
     ],
   ],
   basic: [
+    // Week 1 — vertical + horizontal
     [
-      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement every rep. Drive arms, load hips, push the ground back hard. Stick the landing. Full reset between reps.',
+      ex('Box Jump', '3', '2', '1:30', 'Drive arms, explode onto box. Land softly in partial squat. Step down every time — never jump down. Full rest before next rep.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Box Jump', '3', '3', '3:00', 'Drive arms, explode onto box. Land softly in partial squat. Step down every time — never jump down. Full rest before next rep.',
+      ex('Broad Jump', '3', '2', '1:30', 'Max horizontal displacement every rep. Drive arms, load hips, push the ground back hard. Stick the landing. Full reset between reps.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
     ],
+    // Week 2 — vertical + horizontal
     [
-      ex('Depth Jump', '3', '3', '3:00', 'Step off box, hit the ground, immediately explode up. Ground contact as brief as possible. Full rest between reps.',
+      ex('Countermovement Jump', '3', '2', '1:30', 'Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Countermovement Jump', '3', '3', '3:00', 'Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset.',
+      ex('Lateral Bound', '3', '3 each side', '1:30', 'Single-leg lateral push, stick the landing on the opposite leg. Max lateral displacement. Replicates change-of-direction power.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
     ],
+    // Week 3 — vertical + horizontal
     [
-      ex('Standing Bounding', '3', '6 bounds', '3:00', 'Maximal alternating single-leg bounds. Drive knee up, push ground back. Distance per bound is the metric.',
+      ex('Depth Jump', '3', '2', '1:30', 'Step off box, hit the ground, immediately explode up. Ground contact as brief as possible. Full rest between reps.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Hurdle Jump', '3', '3', '3:00', 'Jump over hurdle (or cone), land, immediately rebound. Stiffen ankles on contact. Full rest between sets.',
-        { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ],
-    [
-      ex('Single-Leg Broad Jump', '3', '3 each leg', '3:00', 'Single-leg takeoff, land two-footed. Max distance. Switch legs each set. Replicates sprint push-off power.',
-        { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement. Load hips, drive arms, push the ground back hard. Stick the landing. Full reset between reps.',
+      ex('Broad Jump', '3', '2', '1:30', 'Max horizontal displacement. Load hips, drive arms, push the ground back hard. Stick the landing. Full reset between reps.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
     ],
   ],
   none: [
+    // Week 1 — vertical + horizontal
     [
-      ex('Countermovement Jump', '3', '3', '3:00', 'Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset between reps.',
+      ex('Countermovement Jump', '3', '2', '1:30', 'Arms back, deep dip, drive hard through the ceiling. Max height every rep. Full CNS reset between reps.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement. Swing arms, load hips, drive. Stick the landing. Full reset between every rep.',
+      ex('Broad Jump', '3', '2', '1:30', 'Max horizontal displacement. Swing arms, load hips, drive. Stick the landing. Full reset between every rep.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
     ],
+    // Week 2 — vertical + horizontal
     [
-      ex('Tuck Jump', '3', '4', '3:00', 'Maximum height, knees to chest at peak. Absorb landing fast, immediate rebound. Every rep max intent.',
+      ex('Squat Jump', '3', '2', '1:30', 'No countermovement — drop into quarter squat, pause 1s, explode up. Pure concentric power. Max height every rep.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Standing Bounding', '3', '6 bounds', '3:00', 'Maximal alternating single-leg bounds. Drive knee, push ground hard. Distance per bound is the metric.',
+      ex('Lateral Bound', '3', '3 each side', '1:30', 'Single-leg lateral push, stick the landing on the opposite leg. Max lateral displacement. Replicates change-of-direction power.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
     ],
+    // Week 3 — vertical + horizontal
     [
-      ex('Broad Jump', '3', '3', '3:00', 'Max horizontal displacement. Load hips, drive arms. Stick the landing. Full reset between reps.',
+      ex('Depth Jump', '3', '2', '1:30', 'Step off a low step or curb, hit the ground, immediately explode up. Ground contact as brief as possible. Full rest between reps.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Lateral Bound', '3', '5 each side', '3:00', 'Single-leg lateral push, stick the landing on the opposite leg. Max lateral displacement. Replicates change-of-direction power.',
-        { methodType: 'reactive', intensityIntent: 'explosive' }),
-    ],
-    [
-      ex('Squat Jump', '3', '4', '3:00', 'No countermovement — drop into quarter squat, pause 1s, explode up. Pure concentric power. Max height every rep.',
-        { methodType: 'reactive', intensityIntent: 'explosive' }),
-      ex('Countermovement Jump', '3', '3', '3:00', 'Arms back, deep dip, drive hard through the ceiling. Max height. Full CNS reset between reps.',
+      ex('Broad Jump', '3', '2', '1:30', 'Max horizontal displacement. Load hips, drive arms. Stick the landing. Full reset between reps.',
         { methodType: 'reactive', intensityIntent: 'explosive' }),
     ],
   ],
@@ -1589,7 +1580,7 @@ const WEAKNESS_EX: Record<string, ProgrammeExercise[]> = {
   speed: [
     ex('Hip Flexor Sprint Drill', '3', '4 × 20m', '2:00', 'Rapid knee drive. Arms drive speed.',
       { methodType: 'concentric', intensityIntent: 'explosive', isRunning: true }),
-    ex('Single-Leg Broad Jump', '3', '5 each', '2:00', 'Push horizontally off one foot. Land controlled. Max distance.',
+    ex('Broad Jump', '3', '4', '2:00', 'Push horizontally off both feet. Load hips, drive arms. Land controlled — max distance every rep.',
       { methodType: 'reactive', intensityIntent: 'explosive' }),
     ex('Single-Leg Hip Thrust (Glute Focus)', '2', '10 each', '90s', 'Shoulders on bench, non-working leg raised. Full hip extension. Squeeze at top. Glute/hamstring motor units — horizontal force without any equipment beyond a bench or low surface.',
       { methodType: 'concentric', intensityIntent: 'moderate' }),

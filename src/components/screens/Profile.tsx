@@ -1173,10 +1173,12 @@ export function Profile({
             <div className="w-24 h-24 rounded-full overflow-hidden bg-brand-100 flex items-center justify-center border-4 border-white shadow-lg">
               {profilePicture ? (
                 <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
+              ) : getInitials(userProfile.firstName, userProfile.lastName) ? (
                 <span className="text-3xl font-bold text-brand-600">
                   {getInitials(userProfile.firstName, userProfile.lastName)}
                 </span>
+              ) : (
+                <User size={40} className="text-brand-600" />
               )}
             </div>
             <button

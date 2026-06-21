@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { ChevronRight, ChevronLeft, Dumbbell, Eye, EyeOff, Check, LogIn, UserPlus, Mail, Building2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { UserProfile } from '../../types';
@@ -7,6 +7,10 @@ import { supabase } from '../../lib/supabase';
 import { trackEvent } from '../../lib/analytics';
 import { hashPassword } from '../../lib/authUtils';
 import { validateEmail, sanitiseTeamCode, EMAIL_MAX, PASSWORD_MAX, TEAM_CODE_MAX } from '../../lib/validation';
+import { signInWithApple, isAppleSignInAvailable, signInWithGoogle, isGoogleSignInAvailable } from '../../lib/socialAuth';
+import { AppleSignInButton } from '../AppleSignInButton';
+import { GoogleSignInButton } from '../GoogleSignInButton';
+import { WheelPicker } from '../WheelPicker';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile, recommendedPlanId: string, userId?: string) => void;
@@ -14,6 +18,11 @@ interface OnboardingProps {
   /** When set, the user is already authenticated — skip auth step, go straight to profile setup */
   existingUserId?: string;
 }
+
+// Date-of-birth wheel options (leading blank keeps DOB optional)
+const DOB_DAY_OPTIONS = [{ value: '', label: '–' }, ...Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))];
+const DOB_MONTH_OPTIONS = [{ value: '', label: '–' }, ...['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((name, i) => ({ value: String(i + 1), label: name }))];
+const DOB_YEAR_OPTIONS = [{ value: '', label: '–' }, ...Array.from({ length: new Date().getFullYear() - 1939 }, (_, i) => { const y = String(new Date().getFullYear() - i); return { value: y, label: y }; })];
 
 const GENDERS = [
   { id: 'male',   label: 'Male'   },
@@ -81,6 +90,13 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
 
+  // Social sign-in (Apple). When a new user authenticates via Apple, we hold their
+  // Supabase user id here so the final step saves to that account instead of
+  // creating a fresh email/password one — same mechanism as an injected existingUserId.
+  const [socialUserId, setSocialUserId] = useState<string | undefined>(undefined);
+  const [socialLoading, setSocialLoading] = useState(false);
+  const [socialError, setSocialError]   = useState('');
+
   // Analytics: fire once when the user first lands in the onboarding flow
   useEffect(() => { trackEvent('onboarding_started'); }, []);
 
@@ -127,9 +143,6 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
   const [dobDay,         setDobDay]         = useState('');
   const [dobMonth,       setDobMonth]       = useState('');
   const [dobYear,        setDobYear]        = useState('');
-  const dobDayRef   = useRef<HTMLInputElement>(null);
-  const dobMonthRef = useRef<HTMLInputElement>(null);
-  const dobYearRef  = useRef<HTMLInputElement>(null);
   const [agreedToTerms,  setAgreedToTerms]  = useState(false);
   const [parentalConsent,setParentalConsent]= useState(false);
 
@@ -204,7 +217,10 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
 
   const passwordStrong = password.length >= 8 && password.length <= PASSWORD_MAX;
   const passwordsMatch = password === confirmPassword && confirmPassword !== '';
-  const canCreateAccount = existingUserId
+  // A social-authenticated user (socialUserId) needs no password, same as a
+  // coach-injected existingUserId — they only confirm name + email.
+  const socialOrExisting = existingUserId || socialUserId;
+  const canCreateAccount = socialOrExisting
     ? firstName.trim() !== '' && lastName.trim() !== '' && validateEmail(email).ok
     : firstName.trim() !== '' && lastName.trim() !== '' && validateEmail(email).ok && passwordStrong && passwordsMatch;
 
@@ -300,6 +316,75 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
     setStep(2);
   };
 
+  const handleAppleSignIn = async () => {
+    if (socialLoading) return;
+    setSocialLoading(true);
+    setSocialError('');
+    try {
+      const result = await signInWithApple();
+      trackEvent('apple_sign_in');
+
+      // Returning user — they already have an account; load their data and go in.
+      const loaded = await cloudLoadData(result.userId);
+      if (loaded) {
+        onLoginSuccess?.(result.userId);
+        return; // component unmounts — no state updates past here
+      }
+
+      // New user — pre-fill what Apple gave us (name/email only on first sign-in),
+      // remember the authenticated id, then skip the email/password step and go
+      // straight into the football questionnaire.
+      if (result.firstName) setFirstName(result.firstName);
+      if (result.lastName)  setLastName(result.lastName);
+      if (result.email)     setEmail(result.email);
+      setSocialUserId(result.userId);
+      // Apple only returns a name on the FIRST authorisation ever. If we didn't
+      // get one, send them to the name step so they're never left nameless;
+      // otherwise skip straight to the questionnaire.
+      setStep(result.firstName ? 2 : 1);
+    } catch (err: unknown) {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      // User-cancelled the Apple sheet — not an error worth surfacing.
+      if (msg.includes('cancel') || msg.includes('1001') || msg.includes('popup_closed')) {
+        // silent
+      } else {
+        setSocialError('Apple sign-in failed. Please try again or use email.');
+      }
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (socialLoading) return;
+    setSocialLoading(true);
+    setSocialError('');
+    try {
+      const result = await signInWithGoogle();
+      trackEvent('google_sign_in');
+      const loaded = await cloudLoadData(result.userId);
+      if (loaded) {
+        onLoginSuccess?.(result.userId);
+        return;
+      }
+      if (result.firstName) setFirstName(result.firstName);
+      if (result.lastName)  setLastName(result.lastName);
+      if (result.email)     setEmail(result.email);
+      setSocialUserId(result.userId);
+      // If Google didn't surface a name, collect it on the name step first.
+      setStep(result.firstName ? 2 : 1);
+    } catch (err: unknown) {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (msg.includes('cancel') || msg.includes('cancelled')) {
+        // silent
+      } else {
+        setSocialError('Google sign-in failed. Please try again or use email.');
+      }
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
   const handleEnterApp = async () => {
     if (submitting) return;
     setSubmitting(true);
@@ -340,7 +425,9 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         localStorage.setItem('vf_pending_team_code', teamCode.trim().toUpperCase());
       }
 
-      let userId: string | undefined = existingUserId;
+      // existingUserId = coach-injected; socialUserId = Apple-authenticated. Either
+      // means auth is already done, so skip cloudSignUp and just persist the profile.
+      let userId: string | undefined = existingUserId || socialUserId;
       let needsConfirmation = false;
       if (!userId && isSupabaseConfigured) {
         try {
@@ -502,6 +589,20 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
             </p>
 
             <div className="flex flex-col gap-3 w-full max-w-xs">
+              {isAppleSignInAvailable() && (
+                <AppleSignInButton onClick={handleAppleSignIn} loading={socialLoading} />
+              )}
+              {isGoogleSignInAvailable() && (
+                <GoogleSignInButton onClick={handleGoogleSignIn} loading={socialLoading} />
+              )}
+              {socialError && <p className="text-xs text-red-500 -mt-1 text-center">{socialError}</p>}
+              {(isAppleSignInAvailable() || isGoogleSignInAvailable()) && (
+                <div className="flex items-center gap-3 my-1">
+                  <div className="h-px flex-1 bg-gray-200" />
+                  <span className="text-xs text-gray-400 font-medium">or</span>
+                  <div className="h-px flex-1 bg-gray-200" />
+                </div>
+              )}
               <button
                 onClick={() => setStep(1)}
                 className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-brand-500 text-white font-bold text-base hover:bg-brand-600 transition-colors shadow-lg"
@@ -666,7 +767,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
         {step === 1 && (
           <div className="flex-1 flex flex-col py-12 pt-16">
             <p className="text-xs font-semibold text-brand-500 uppercase tracking-wider mb-1">Step 1 of 5</p>
-            {existingUserId ? (
+            {socialOrExisting ? (
               <>
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">Set up your profile</h2>
                 <p className="text-gray-500 text-sm mb-7">You're signed in — just fill in your details to get started.</p>
@@ -720,7 +821,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
                 />
               </div>
 
-              {!existingUserId && (
+              {!socialOrExisting && (
                 <>
                   <div>
                     <Label>Password</Label>
@@ -805,45 +906,13 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId }: Onboa
             <h2 className="text-2xl font-bold text-gray-900 mb-1">Age &amp; Terms</h2>
             <p className="text-gray-500 text-sm mb-7">We need to verify your age and confirm you agree to our terms before you start.</p>
 
-            {/* Date of birth */}
+            {/* Date of birth — inline scroll-wheel pickers */}
             <div className="mb-5">
               <Label>Date of Birth <span style={{fontWeight: 400, color: '#9ca3af', fontSize: '0.75rem'}}>(optional)</span></Label>
-              <div className="grid grid-cols-3 gap-2">
-                <input
-                  ref={dobDayRef}
-                  value={dobDay}
-                  onChange={e => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                    setDobDay(val);
-                    if (val.length === 2) dobMonthRef.current?.focus();
-                  }}
-                  placeholder="DD"
-                  inputMode="numeric"
-                  style={{ fontSize: '16px' }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
-                />
-                <input
-                  ref={dobMonthRef}
-                  value={dobMonth}
-                  onChange={e => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                    setDobMonth(val);
-                    if (val.length === 2) dobYearRef.current?.focus();
-                  }}
-                  placeholder="MM"
-                  inputMode="numeric"
-                  style={{ fontSize: '16px' }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
-                />
-                <input
-                  ref={dobYearRef}
-                  value={dobYear}
-                  onChange={e => setDobYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="YYYY"
-                  inputMode="numeric"
-                  style={{ fontSize: '16px' }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
-                />
+              <div className="grid grid-cols-3 gap-2 rounded-xl border border-gray-200 bg-white p-1">
+                <WheelPicker ariaLabel="Day"   options={DOB_DAY_OPTIONS}   value={dobDay}   onChange={setDobDay} />
+                <WheelPicker ariaLabel="Month" options={DOB_MONTH_OPTIONS} value={dobMonth} onChange={setDobMonth} />
+                <WheelPicker ariaLabel="Year"  options={DOB_YEAR_OPTIONS}  value={dobYear}  onChange={setDobYear} />
               </div>
               <p className="text-xs text-gray-400 mt-1.5 text-center">Day &nbsp;/&nbsp; Month &nbsp;/&nbsp; Year</p>
             </div>

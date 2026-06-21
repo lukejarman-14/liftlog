@@ -24,7 +24,7 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       // 2 — Max Strength
       ex('bench-press',          4, 6,  65, 180), ex('barbell-row',       4, 6,  55, 180), ex('ohp', 3, 8, 40, 150), ex('pull-up', 3, 8, 0, 120),
       // 3 — Tendon Stiffness
-      ex('reactive-drop-jump',   3, 5,  0,  150), ex('lateral-box-jump',  3, 8,  0,  90),  ex('pogo-jump', 3, 20, 0, 60),
+      ex('pogo-jump',            3, 20, 0,  60),
       // 4 — Eccentric
       ex('eccentric-calf-raise', 3, 12, 0,  90),  ex('eccentric-nordic',  3, 2,  0,  120),
       // 5 — Isometric
@@ -41,7 +41,7 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       // 2 — Max Strength
       ex('squat',                4, 6,  80, 240), ex('rdl',               3, 8,  65, 180), ex('hip-thrust', 3, 10, 75, 120),
       // 3 — Tendon Stiffness
-      ex('lateral-bound',        3, 8,  0,  90),  ex('skater-jump',       3, 10, 0,  90),  ex('pogo-jump', 3, 20, 0, 60),
+      ex('pogo-jump',            3, 20, 0,  60),
       // 4 — Eccentric
       ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
@@ -58,7 +58,7 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       // 2 — Max Strength
       ex('deadlift',             3, 5,  95, 240), ex('front-squat',       3, 6,  60, 180),
       // 3 — Tendon Stiffness
-      ex('reactive-drop-jump',   3, 5,  0,  150), ex('lateral-box-jump',  3, 8,  0,  90),
+      ex('pogo-jump',            3, 20, 0,  60),
       // 4 — Eccentric
       ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
