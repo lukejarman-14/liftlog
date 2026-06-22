@@ -92,6 +92,15 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
   const [confirmError, setConfirmError] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
+  // Inline "change email" on the confirmation screen — lets a user fix a mistyped
+  // address and get a fresh confirmation email without re-walking onboarding. We
+  // hold the built profile so its email can be updated in place.
+  const [pendingProfile, setPendingProfile] = useState<UserProfile | null>(null);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [changeEmailBusy, setChangeEmailBusy] = useState(false);
+  const [changeEmailError, setChangeEmailError] = useState('');
+  const [changeEmailSent, setChangeEmailSent] = useState(false);
 
   // Social sign-in (Apple). When a new user authenticates via Apple, we hold their
   // Supabase user id here so the final step saves to that account instead of
@@ -541,6 +550,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
           onComplete(profile, '', userId);
         };
         setPendingOnComplete(() => proceed);
+        setPendingProfile(profile);
         setHasSignedUp(true);
         setAwaitingEmailConfirm(true);
         return;
@@ -599,6 +609,52 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
       }
     };
 
+    // Fix a mistyped email: create a fresh Supabase signup under the corrected
+    // address (re-using the password already entered) so a new confirmation email
+    // is sent there. The old unconfirmed account is harmlessly orphaned. Updates
+    // the profile + the queued onComplete so the rest of the flow uses the new email.
+    const handleChangeEmail = async () => {
+      const next = pendingEmail.trim().toLowerCase();
+      const v = validateEmail(next);
+      if (!v.ok) { setChangeEmailError(v.error); return; }
+      if (next === email.trim().toLowerCase()) { setEditingEmail(false); return; }
+      setChangeEmailBusy(true);
+      setChangeEmailError('');
+      try {
+        const result = await cloudSignUp(next, password);
+        const newUserId = result.userId ?? undefined;
+        const base = pendingProfile ?? { email: next } as UserProfile;
+        const updatedProfile: UserProfile = { ...base, email: next };
+        localStorage.setItem('vf_user_profile', JSON.stringify(updatedProfile));
+        setPendingProfile(updatedProfile);
+        setEmail(next);
+        // Rebuild the queued completion so the confirm-link (SIGNED_IN) and the
+        // "I've confirmed" button both finish with the corrected email + new account id.
+        setPendingOnComplete(() => () => {
+          if (stayLoggedIn) rememberLogin(next); else forgetRememberedLogin();
+          onComplete(updatedProfile, '', newUserId);
+        });
+        setEditingEmail(false);
+        setResendSent(false);
+        setChangeEmailSent(true);
+      } catch (err: unknown) {
+        const msg = (err instanceof Error ? err.message : '').toLowerCase();
+        if (msg.includes('already registered') || msg.includes('already exists')) {
+          setChangeEmailError('That email already has an account. Try signing in instead.');
+        } else if (msg.includes('captcha') || msg.includes('verification')) {
+          setChangeEmailError('Security check did not finish. Wait a moment and try again.');
+        } else if (msg.includes('too_many') || msg.includes('rate') || msg.includes('too many')) {
+          setChangeEmailError('Too many attempts. Please wait a little while and try again.');
+        } else if (!navigator.onLine) {
+          setChangeEmailError('You are offline. Reconnect, then try again.');
+        } else {
+          setChangeEmailError('Could not update your email. Check your connection and try again.');
+        }
+      } finally {
+        setChangeEmailBusy(false);
+      }
+    };
+
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 text-center">
         <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center mb-6">
@@ -653,21 +709,69 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
 
         <p className="mt-4 text-xs text-gray-400">Can't find it? Check your spam folder.</p>
 
+        {/* Inline change-email — fixes a mistyped address without re-doing onboarding */}
+        {changeEmailSent && !editingEmail && (
+          <p className="mt-4 text-xs text-green-600 max-w-xs">✓ New confirmation link sent to {email}</p>
+        )}
+        {!editingEmail ? (
+          <button
+            onClick={() => {
+              setPendingEmail(email);
+              setEditingEmail(true);
+              setChangeEmailError('');
+              setChangeEmailSent(false);
+            }}
+            className="mt-4 text-xs text-brand-500 underline"
+          >
+            Wrong email? Change it
+          </button>
+        ) : (
+          <div className="w-full max-w-xs mt-4">
+            <input
+              type="email"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={pendingEmail}
+              maxLength={EMAIL_MAX}
+              onChange={e => setPendingEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 text-sm text-center focus:border-brand-400 focus:outline-none mb-2"
+            />
+            {changeEmailError && <p className="text-red-500 text-xs mb-2">{changeEmailError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setEditingEmail(false); setChangeEmailError(''); }}
+                className="flex-1 py-2.5 rounded-2xl bg-white border-2 border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangeEmail}
+                disabled={changeEmailBusy}
+                className="flex-1 py-2.5 rounded-2xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600 transition-colors disabled:opacity-50"
+              >
+                {changeEmailBusy ? 'Sending…' : 'Send link here'}
+              </button>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={() => {
-            // Let the user correct a mistyped email and create a fresh Supabase
-            // signup. The previous unconfirmed account may remain in Supabase,
-            // but it must not trap this browser in the old confirmation flow.
+            // Full re-edit: go back to the form to change name/details (not just email).
             setAwaitingEmailConfirm(false);
             setHasSignedUp(false);
             setPendingOnComplete(null);
             setConfirmError('');
             setResendSent(false);
+            setEditingEmail(false);
             setStep(1);
           }}
           className="mt-6 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
         >
-          <ChevronLeft size={14} /> Edit email or details
+          <ChevronLeft size={14} /> Edit other details
         </button>
       </div>
     );
