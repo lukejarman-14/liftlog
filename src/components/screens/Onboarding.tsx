@@ -187,24 +187,22 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
   // Optional squad invite code (personal players joining a coach/club).
   const [teamCode, setTeamCode] = useState('');
 
-  // Age computation from DOB inputs. DOB is required and must be a real calendar date.
+  // Age computation from DOB inputs. DOB is OPTIONAL (App Store requirement) —
+  // the picker shows a default date, so we only treat it as a real answer once
+  // the user actually interacts with the wheels (dobTouched). If they never
+  // touch it, no date of birth is recorded.
   const dobValidation = validateDateOfBirth(dobDay, dobMonth, dobYear);
-  // Age-gate: the picker shows a default date, so we must NOT treat that default
-  // as a real answer. Require the user to actually interact with the wheels
-  // before the date counts — otherwise an under-13 user could tap straight
-  // through and be recorded as the default 01/01/2000.
   const hasDobInput = dobTouched;
   const computedAge = dobValidation.ok && dobTouched ? dobValidation.value.age : null;
   const isUnderThirteen  = computedAge !== null && computedAge < 13;
   const needsParental    = computedAge !== null && computedAge >= 13 && computedAge < 16;
   const dobError = !dobValidation.ok && hasDobInput ? dobValidation.error : '';
-  // DOB must be explicitly set, a real date, age 13+, and parental consent for 13–15.
+  // DOB is optional: an untouched picker is fine. But IF the user volunteers a
+  // date it must be a real calendar date, age 13+, and have parental consent for 13–15
+  // (we won't knowingly accept an under-13 sign-up).
   const canProceedFromAgeTerms =
-    dobTouched &&
-    dobValidation.ok &&
-    !isUnderThirteen &&
     agreedToTerms &&
-    (!needsParental || parentalConsent);
+    (!dobTouched || (dobValidation.ok && !isUnderThirteen && (!needsParental || parentalConsent)));
 
   const heightCm: number | undefined = (() => {
     if (!heightStr) return undefined;
@@ -465,7 +463,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
         heightCm,
         weightKg,
         gender:          gender || undefined,
-        dateOfBirth:     dobValidation.value.isoDate,
+        dateOfBirth:     dobTouched && dobValidation.ok ? dobValidation.value.isoDate : undefined,
         termsAcceptedAt: Date.now(),
         accountType,
       };
@@ -1078,7 +1076,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
 
             {/* Date of birth — inline scroll-wheel pickers */}
             <div className="mb-5">
-              <Label>Date of Birth <span style={{fontWeight: 400, color: '#9ca3af', fontSize: '0.75rem'}}>(required)</span></Label>
+              <Label>Date of Birth <span style={{fontWeight: 400, color: '#9ca3af', fontSize: '0.75rem'}}>(optional)</span></Label>
               <DateScrollPicker
                 day={dobDay}
                 month={dobMonth}
@@ -1089,7 +1087,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
                 onInteract={() => setDobTouched(true)}
               />
               {!dobTouched && (
-                <p className="text-xs text-gray-400 mt-1.5 text-center">Scroll to set your date of birth.</p>
+                <p className="text-xs text-gray-400 mt-1.5 text-center">Optional — scroll to set your date of birth.</p>
               )}
               {dobError && (
                 <p className="text-xs text-red-500 mt-1.5 text-center">{dobError}</p>
