@@ -8,7 +8,8 @@ import {
   Exercise, WorkoutExercise, WorkoutTemplate, ExerciseCategory,
 } from '../../types';
 import { CATEGORY_COLORS } from '../../data/exercises';
-import { BUILT_IN_PROGRAMS, FOOTBALL_PROGRAMS, BuiltInTemplate, Program } from '../../data/programs';
+import { BUILT_IN_PROGRAMS, BuiltInTemplate, Program, FOOTBALL_CONDITIONING_OPTIONS, ConditioningOption } from '../../data/programs';
+import { FOOTBALL_STRENGTH_PROGRAMS } from '../../data/positionPlans';
 
 const CATEGORIES: ExerciseCategory[] = [
   'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Cardio', 'Full Body',
@@ -395,6 +396,65 @@ function ProgramGroup({
   );
 }
 
+function ConditioningCard({
+  option,
+  onLoad,
+}: {
+  option: ConditioningOption;
+  onLoad: (t: BuiltInTemplate) => void;
+}) {
+  const [levelIdx, setLevelIdx] = useState(0);
+  const multiLevel = option.levels.length > 1;
+  const level = option.levels[levelIdx] ?? option.levels[0];
+
+  return (
+    <Card className="p-4">
+      <div className="font-semibold text-gray-900 text-sm">{option.name}</div>
+      <div className="text-xs text-gray-400 mt-0.5">{option.description}</div>
+      <div className="flex items-center gap-2 mt-3">
+        {multiLevel && (
+          <div className="relative flex-1">
+            <select
+              value={levelIdx}
+              onChange={e => setLevelIdx(Number(e.target.value))}
+              className="w-full appearance-none bg-gray-50 border border-gray-200 rounded-xl pl-3 pr-8 py-2 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+              {option.levels.map((l, i) => (
+                <option key={l.label} value={i}>{l.label}</option>
+              ))}
+            </select>
+            <ChevronDown size={15} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+        )}
+        <Button
+          size="sm"
+          className={`flex-shrink-0 ${multiLevel ? '' : 'ml-auto'}`}
+          onClick={() => onLoad(level.template)}
+        >
+          Use
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function ConditioningGroup({
+  options,
+  onLoad,
+}: {
+  options: ConditioningOption[];
+  onLoad: (t: BuiltInTemplate) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      {options.map(opt => (
+        <ConditioningCard key={opt.key} option={opt} onLoad={onLoad} />
+      ))}
+    </div>
+  );
+}
+
+
 type ProgramTab = 'football' | 'general';
 
 function ProgramsBrowser({ onLoad }: { onLoad: (t: BuiltInTemplate) => void }) {
@@ -428,24 +488,39 @@ function ProgramsBrowser({ onLoad }: { onLoad: (t: BuiltInTemplate) => void }) {
         </button>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {programTab === 'football' && (
-          <ProgramGroup
-            programs={FOOTBALL_PROGRAMS}
-            openProgram={openProgram}
-            setOpenProgram={setOpenProgram}
-            onLoad={onLoad}
-          />
-        )}
-        {programTab === 'general' && (
+      {programTab === 'football' && (
+        <div className="flex flex-col gap-6">
+          {/* Football Strength — position-specific presets */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 px-1">Football Strength</h3>
+            <div className="flex flex-col gap-3">
+              <ProgramGroup
+                programs={FOOTBALL_STRENGTH_PROGRAMS}
+                openProgram={openProgram}
+                setOpenProgram={setOpenProgram}
+                onLoad={onLoad}
+              />
+            </div>
+          </div>
+
+          {/* Football Conditioning — 4 types with difficulty dropdown */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 px-1">Football Conditioning</h3>
+            <ConditioningGroup options={FOOTBALL_CONDITIONING_OPTIONS} onLoad={onLoad} />
+          </div>
+        </div>
+      )}
+
+      {programTab === 'general' && (
+        <div className="flex flex-col gap-3">
           <ProgramGroup
             programs={BUILT_IN_PROGRAMS}
             openProgram={openProgram}
             setOpenProgram={setOpenProgram}
             onLoad={onLoad}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -517,6 +592,10 @@ export function WorkoutBuilder({
   const [pendingTab, setPendingTab] = useState<Tab | null>(null);
   // Tracks the ID of the template currently being edited (set when loading from My Templates)
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(initial?.id ?? null);
+  // True when the current build was loaded from a built-in preset (position session or
+  // conditioning workout). Presets are "start and go" — they must never auto-save into My
+  // Templates. The user can still deliberately save a copy via the unsaved-changes prompt.
+  const [loadedFromPreset, setLoadedFromPreset] = useState(false);
 
   // Track saved state: items are "dirty" if they exist and differ from last save
   const savedItemsRef = useRef<string>(JSON.stringify(initial?.exercises ?? []));
@@ -572,10 +651,17 @@ export function WorkoutBuilder({
     setOverIndex(null);
   }, []);
 
-  const loadTemplate = (t: { id?: string; name: string; exercises: WorkoutExercise[] }) => {
+  const loadTemplate = (
+    t: { id?: string; name: string; exercises: WorkoutExercise[] },
+    opts?: { fromPreset?: boolean },
+  ) => {
+    const fromPreset = opts?.fromPreset ?? false;
     setName(t.name);
     setItems(t.exercises);
-    setEditingTemplateId(t.id ?? null);
+    // Presets are not editable templates — clear the editing id so nothing overwrites them
+    // and nothing is auto-saved into My Templates.
+    setEditingTemplateId(fromPreset ? null : (t.id ?? null));
+    setLoadedFromPreset(fromPreset);
     savedItemsRef.current = JSON.stringify(t.exercises);
     setTab('build');
   };
@@ -651,7 +737,7 @@ export function WorkoutBuilder({
     <Layout
       title="Workout"
       rightAction={
-        tab === 'build' && items.length > 0 ? (
+        tab === 'build' && items.length > 0 && !loadedFromPreset ? (
           <div className="flex items-center gap-1.5">
             {editingTemplateId && (
               <button
@@ -699,7 +785,7 @@ export function WorkoutBuilder({
       )}
 
       {/* Programs tab */}
-      {tab === 'programs' && <ProgramsBrowser onLoad={loadTemplate} />}
+      {tab === 'programs' && <ProgramsBrowser onLoad={t => loadTemplate(t, { fromPreset: true })} />}
 
       {/* My Templates tab */}
       {tab === 'mine' && (
@@ -713,7 +799,7 @@ export function WorkoutBuilder({
             <Button
               variant="secondary"
               fullWidth
-              onClick={() => { setName(''); setItems([]); setTab('build'); }}
+              onClick={() => { setName(''); setItems([]); setEditingTemplateId(null); setLoadedFromPreset(false); setTab('build'); }}
             >
               <Plus size={16} /> Build from Scratch
             </Button>
@@ -756,7 +842,7 @@ export function WorkoutBuilder({
               const isOver     = overIndex === idx && dragIndex !== null && dragIndex !== idx;
               return (
                 <div
-                  key={item.exerciseId}
+                  key={`${item.exerciseId}-${idx}`}
                   ref={el => { if (el) rowRefsMap.current.set(idx, el); else rowRefsMap.current.delete(idx); }}
                   className={`transition-all duration-150 ${
                     isDragging ? 'opacity-50 scale-[0.98]' : ''
@@ -783,13 +869,13 @@ export function WorkoutBuilder({
             <Plus size={16} /> Add Exercise
           </Button>
 
-          {/* Start button */}
+          {/* Start button — presets start without saving into My Templates */}
           {items.length > 0 && (
             <Button fullWidth size="lg" onClick={() => {
-              handleSave();
+              if (!loadedFromPreset) handleSave();
               onStart(name.trim() || 'My Workout', items);
             }}>
-              Save &amp; Start
+              {loadedFromPreset ? 'Start Workout' : 'Save & Start'}
             </Button>
           )}
         </>

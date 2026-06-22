@@ -433,6 +433,14 @@ const WARMUP_STRENGTH = [
 type GymKey = 'full' | 'basic' | 'none';
 type LoadKey = 'heavy' | 'moderate';
 
+// Periodization removed from the lifting blocks — strength + upper run as one flat
+// block every week, and progressive overload (progressiveOverload.ts) drives the
+// week-to-week load increase. We pin every lifting-library lookup to this single
+// canonical block. Foundation is used because it carries no Sled Push and no
+// Push Press (so those are dropped automatically) and its rep ranges leave the most
+// room for the continuous load ramp. Cardio still uses the real phase (future work).
+const LIFT_PHASE = 'Foundation';
+
 const STRENGTH_LIBRARY: Record<string, Record<GymKey, Record<LoadKey, ProgrammeExercise[]>>> = {
   Foundation: {
     full: {
@@ -861,7 +869,7 @@ function useBackSquat(inputs: ProgrammeInputs): boolean {
 /** Select primary lower compound — Trap Bar, Back Squat, or BSS — based on play style and athlete context. */
 function selectVerticalSquat(
   inputs: ProgrammeInputs,
-  phase: string,
+  _phase: string,
   gymKey: GymKey,
   loadScheme: LoadKey,
   strengthEx: ProgrammeExercise[],
@@ -869,14 +877,14 @@ function selectVerticalSquat(
   // Trap Bar replaces the squat for acceleration / horizontal-force play styles,
   // but never overrides an explicit player opt-in for Back Squat.
   if (TRAP_BAR_PLAY_STYLES.has(inputs.playStyle) && gymKey === 'full' && !inputs.preferBackSquat) {
-    const tbPhase = TRAP_BAR_LIBRARY[phase] ?? TRAP_BAR_LIBRARY.Build;
+    const tbPhase = TRAP_BAR_LIBRARY[LIFT_PHASE];
     const tbGym = tbPhase[gymKey] ?? tbPhase.basic;
     return (tbGym[loadScheme] ?? tbGym.moderate) as ProgrammeExercise;
   }
   if (useBackSquat(inputs)) {
     return strengthEx[0]; // Back Squat from STRENGTH_LIBRARY
   }
-  const bssPhase = BSS_LIBRARY[phase] ?? BSS_LIBRARY.Build;
+  const bssPhase = BSS_LIBRARY[LIFT_PHASE];
   const bssGym = bssPhase[gymKey] ?? bssPhase.basic;
   return bssGym[loadScheme] ?? bssGym.moderate;
 }
@@ -1160,28 +1168,22 @@ const CORE_BLOCK: ProgrammeExercise[] = [
 const UPPER: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
   Foundation: {
     full: [
-      ex('DB Bench Press', '2', '6', '2:30', 'Retract shoulder blades. Explosive push — treat every rep like a max attempt. 2 RIR. DBs allow full range — use it.',
-        { intensity: '75% effort', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Row', '2', '6', '2:00', 'Hinge 45°. Pull elbow hard to hip. Squeeze lat at the top. Maximum intent — not a warm-down.',
-        { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Shoulder Press', '2', '6', '2:00', 'Drive bar straight up. Brace through the core. Full lockout every rep. 2 RIR.',
-        { intensity: '75% effort', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Bench Press', '2', '5', '3:00', 'Horizontal push — the primary upper compound. Retract shoulder blades, explosive drive. 2 RIR. Add load each week as the bar keeps moving fast.',
+        { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Weighted Pull-Up', '2', '4', '3:00', 'Dead hang start. Drive elbows down hard. Chin over bar. Add 5–10kg. 2 RIR — add weight as you progress.',
+        { intensity: 'Add 5–10kg', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
     basic: [
-      ex('DB Bench Press', '2', '6', '2:30', 'Explosive push. Full range. 2 RIR. DBs allow natural arc — elbows at 45°, not flared.',
-        { intensity: '75% effort', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Pull-Up', '2', '6', '2:00', 'Dead hang start. Drive elbows down hard. Chin over bar. Full range every rep. 2 RIR — add a backpack if 6 reps is easy.',
-        { tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Shoulder Press', '2', '6', '2:00', 'Neutral spine. Drive hard. Full lockout overhead. 2 RIR.',
-        { intensity: '75% effort', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Bench Press', '2', '5', '3:00', 'Horizontal push — the primary upper compound. Explosive drive, bar moves fast. 2 RIR. Add load each week.',
+        { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Weighted Pull-Up', '2', '4', '3:00', 'Dead hang start. Drive elbows down hard. Chin over bar. Add weight via belt or backpack. 2 RIR.',
+        { intensity: 'Add 5–10kg', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
     none: [
-      ex('Push-Up (Max Effort)', '2', '6', '2:00', 'Hands just outside shoulders. Lower chest within 3cm of floor. Drive up explosively — leave the floor if possible. 2 RIR, not a comfortable set.',
+      ex('Push-Up (Max Effort)', '2', '6', '2:00', 'Hands just outside shoulders. Lower chest within 3cm of floor. Drive up explosively — leave the floor if possible. 2 RIR. Progress reps or elevate feet each week.',
         { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Inverted Row (Table or Low Bar)', '2', '6', '2:00', 'Pull chest hard to bar. Heels on floor, body straight. Maximum effort — add a backpack for load if 6 reps is easy.',
+      ex('Inverted Row (Table or Low Bar)', '2', '6', '2:00', 'Pull chest hard to bar. Heels on floor, body straight. Maximum effort — add a backpack or elevate feet as you progress.',
         { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Pike Push-Up', '2', '6', '90s', 'Hips high, inverted V. Lower head toward floor. Explode back up. 2 RIR. Vertical push at max effort.',
-        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
   },
   Build: {
@@ -1266,28 +1268,22 @@ const UPPER: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
 const UPPER_ROW: Record<string, Record<GymKey, ProgrammeExercise[]>> = {
   Foundation: {
     full: [
-      ex('DB Bench Press', '2', '6', '2:30', 'Retract shoulder blades. Explosive push — treat every rep like a max attempt. 2 RIR. DBs allow full range — use it.',
-        { intensity: '75% effort', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Row', '2', '6', '2:00', 'Hinge 45°. Pull elbow hard to hip. Squeeze lat at the top. Maximum intent — not a warm-down.',
-        { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Shoulder Press', '2', '6', '2:00', 'Drive bar straight up. Brace through the core. Full lockout every rep. 2 RIR.',
-        { intensity: '75% effort', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Bench Press', '2', '5', '3:00', 'Horizontal push — the primary upper compound. Retract shoulder blades, explosive drive. 2 RIR. Add load each week as the bar keeps moving fast.',
+        { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Row', '2', '5', '2:30', 'Hinge to 45°. Pull the bar hard to your lower ribs, squeeze the lats. 2 RIR. Add load each week.',
+        { intensity: '78% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
     basic: [
-      ex('DB Bench Press', '2', '6', '2:30', 'Explosive push. Full range. 2 RIR. DBs allow natural arc — elbows at 45°, not flared.',
-        { intensity: '75% effort', tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Row', '2', '6', '2:00', 'Hinge 45°. Pull elbow hard to hip. Squeeze lat at the top. Full range every rep. 2 RIR — load up when 6 reps is easy.',
-        { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('DB Shoulder Press', '2', '6', '2:00', 'Neutral spine. Drive hard. Full lockout overhead. 2 RIR.',
-        { intensity: '75% effort', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Bench Press', '2', '5', '3:00', 'Horizontal push — the primary upper compound. Explosive drive, bar moves fast. 2 RIR. Add load each week.',
+        { intensity: '78% 1RM', tempo: '1-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
+      ex('Barbell Row', '2', '5', '2:30', 'Hinge to 45°. Pull the bar hard to your lower ribs, squeeze the lats. 2 RIR. Add load each week.',
+        { intensity: '78% 1RM', tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
     none: [
-      ex('Push-Up (Max Effort)', '2', '6', '2:00', 'Hands just outside shoulders. Lower chest within 3cm of floor. Drive up explosively — leave the floor if possible. 2 RIR, not a comfortable set.',
+      ex('Push-Up (Max Effort)', '2', '6', '2:00', 'Hands just outside shoulders. Lower chest within 3cm of floor. Drive up explosively — leave the floor if possible. 2 RIR. Progress reps or elevate feet each week.',
         { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Inverted Row (Table or Low Bar)', '2', '6', '2:00', 'Pull chest hard to bar. Heels on floor, body straight. Maximum effort — add a backpack for load if 6 reps is easy.',
+      ex('Inverted Row (Table or Low Bar)', '2', '6', '2:00', 'Pull chest hard to bar. Heels on floor, body straight. Maximum effort — add a backpack or elevate feet as you progress.',
         { tempo: '1-1-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
-      ex('Pike Push-Up', '2', '6', '90s', 'Hips high, inverted V. Lower head toward floor. Explode back up. 2 RIR. Vertical push at max effort.',
-        { tempo: '2-0-x-0', methodType: 'concentric', intensityIntent: 'maximal' }),
     ],
   },
   Build: {
@@ -1439,126 +1435,63 @@ const PLAY_STYLE_EX: Record<string, ProgrammeExercise[]> = {
 };
 
 
-// 4 aerobic variants per training phase — rotated via session seed (no back-to-back repeats)
-const CONDITIONING_AEROBIC: Record<string, ProgrammeExercise[]> = {
-  Foundation: [
-    ex('Cardiac Output Run', '1', '30 min @ 65–70% HRmax', '—',
-      'Conversational pace — you should be able to hold a full sentence throughout. This is not easy jogging: it is deliberate cardiac training. 65–70% HRmax builds stroke volume, increases capillary density, and lowers resting heart rate. Foundation phase weeks 1–2: aerobic base only to reduce connective tissue injury risk before higher intensities are introduced. No watch needed — use the talk test.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Extensive Aerobic Intervals', '6', '4 min on · 2 min walk', '2:00 walk',
-      'Run each 4-minute rep at 72–75% HRmax — comfortable but purposeful. Walk recovery between reps. 6 reps = 24 min total work. This protocol maximises aerobic volume while managing fatigue. (2001) — interval aerobic at 75% HRmax produces superior cardiac adaptations to continuous running at matched volume.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Aerobic Threshold Run', '1', '20 min @ 75% HRmax', '—',
-      'Comfortably hard — you can speak in short phrases but not hold a full conversation. Just below lactate threshold. Builds lactate clearance capacity and aerobic power. Foundation phase: keep strictly to 75% — no heroics. This is infrastructure work.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Progressive Aerobic Run', '1', '25 min (build from 65% → 75%)', '—',
-      'First 10 min @ 65% HRmax (conversational), middle 10 min @ 70% (comfortable effort), final 5 min @ 75% (purposeful push). Progressive cardiac drift training — teaches your aerobic system to sustain output as intensity rises. Football demands sustained output across fatigue: this trains it.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-  ],
-  Build: [
-    ex('Extended Cardiac Output Run', '1', '35 min @ 70–75% HRmax', '—',
-      'Extended aerobic volume session. 70–75% HRmax throughout — sustainable effort with clear intent. Build phase cardiac output run: volume increased from Foundation. Sustained stroke volume stimulus. Fatigue management: this should feel manageable the day before strength training.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Threshold Intervals', '5', '5 min on · 90s walk', '90s walk',
-      '5 min at 78–82% HRmax — firmly at lactate threshold. 90s walk recovery. 5 reps = 25 min threshold work. This is where aerobic power is built.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Sustained Threshold Run', '1', '25 min @ 78% HRmax', '—',
-      'Hold 78% HRmax for the full 25 minutes without letting intensity drop. This is the Build phase benchmark: can you sustain threshold for 25 continuous minutes? If not, drop to 75% and build. If yes, push the pace slightly in the final 5 minutes.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Aerobic Fartlek', '1', '25 min mixed Z2/Z3', '—',
-      'Run 25 minutes at 70% HRmax base pace. Every 5 minutes insert a 1-minute surge to 82% HRmax, then return to base. 4 surges total. Unstructured intensity variation builds adaptability in aerobic energy system.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-  ],
-  'Strength & Power': [
-    ex('Aerobic Maintenance Run', '1', '30 min @ 70% HRmax', '—',
-      'Aerobic maintenance during peak strength phase. Volume maintained, intensity conservative. The goal here is to not lose the aerobic gains from Foundation/Build while strength work is the priority. 70% HRmax is enough stimulus to maintain cardiac adaptations without adding meaningful fatigue.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Reduced Threshold Intervals', '4', '6 min on · 2 min walk', '2:00 walk',
-      'Volume reduced from Build to manage cumulative fatigue during heavy strength training. 4 reps × 6 min at 78% HRmax. Quality over quantity in Strength & Power phase — the intervals themselves stay hard, there are just fewer of them.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Aerobic Threshold Maintenance', '1', '22 min @ 76% HRmax', '—',
-      'Shorter than Build phase to account for strength fatigue. Hold 76% HRmax for 22 minutes. Maintenance dose for lactate clearance capacity. If feeling strong, final 5 min can push to 80%.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Mixed Aerobic Circuit', '3', '8 min · build 65% → 78%', '2:00 walk',
-      'Three 8-minute aerobic blocks each increasing in intensity: block 1 @ 65%, block 2 @ 72%, block 3 @ 78% HRmax. 2-minute walk between blocks. Progressive stimulus within a lower total volume session — appropriate aerobic maintenance alongside heavy gym work.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-  ],
-  Peak: [
-    ex('Easy Aerobic Run', '1', '20 min @ 65% HRmax', '—',
-      'Peak phase: low volume, low intensity aerobic. Active recovery function only — do not push the effort. The goal is blood flow and recovery, not fitness gains. Fitness is already built. 65% HRmax, fully conversational, enjoy it.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Aerobic Maintenance Intervals', '3', '5 min on · 2 min walk', '2:00 walk',
-      'Minimum effective aerobic dose during taper. 3 reps × 5 min at 75% HRmax. 3 reps is enough.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Light Aerobic Run', '1', '15 min @ 68% HRmax', '—',
-      'Brief aerobic session to maintain blood flow and aerobic feel during peak week. No physiological loading intended. Well below threshold.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-    ex('Activation Jog', '1', '15 min with 3 × 30s pickups', '—',
-      '15 minutes @ 65% HRmax. Every 5 minutes insert one 30-second acceleration to 85%. Peak activation session: minimal fatigue, maximal neural readiness. Last aerobic session before competition.',
-      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true }),
-  ],
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// CONDITIONING — week-based progressive overload (rebuilt from scratch).
+// Three sections: Zone 2 (fixed), RSA (rep progression), HIIT (2 alternating
+// workouts, each with its own rep progression). Progression is driven purely by
+// weekNum — each conditioning type is scheduled at most once per week, so weekNum
+// is also the appearance count for any type that runs every week.
+// ─────────────────────────────────────────────────────────────────────────────
 
-// 4 HIIT variants per training phase — introduced progressively after week 2
+// HIIT Workout 1 — 18-yard shuttle. Three sub-sets of [1, 2, 4] reps in week 1.
+// Each subsequent appearance adds ONE rep, round-robin across the three sub-sets:
+//   1,2,4 → 2,2,4 → 2,3,4 → 2,3,5 → 3,3,5 → 3,4,5 → 3,4,6 …
+function shuttleReps(appearance: number): [number, number, number] {
+  const reps: [number, number, number] = [1, 2, 4];
+  const increments = Math.max(0, appearance - 1);
+  for (let i = 0; i < increments; i++) reps[i % 3]++;
+  return reps;
+}
 
-const CONDITIONING_HIIT: Record<string, ProgrammeExercise[]> = {
-  Foundation: [
-    ex('15/15 HIIT — Introduction', '16', '15s sprint · 15s jog', '—',
-      '16 reps of 15s at 120% MAS (maximal aerobic speed) + 15s active jog. First exposure to HIIT: 16 reps is conservative volume. (2004) — 15/15 at 120% MAS produces the highest VO₂max stimulus per unit time of any running protocol. Find your MAS: pace you can hold for exactly 6 minutes flat-out. 120% = noticeably faster than that pace. Every rep should feel hard but completable.',
-      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
-    ex('Short HIIT Intervals — Foundation', '8', '30s hard · 30s rest', '—',
-      '8 reps of 30s at 95–100% HRmax + 30s rest. After each rep, slowly jog back to the start — rest for any remaining seconds. Near-maximal effort every rep: as fast as you can sustain for 30s. Total hard work: 4 minutes.. (2007) — short supramaximal intervals drive VO₂max in less-trained athletes.',
-      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
-    ex('Sprint RSA Introduction', '3', '6 × 30m · 25s rest', '2:00 between sets',
-      '3 sets of 6 × 30m flat-out sprints with 25s passive recovery between sprints, 2 min between sets. RSA introduction at conservative volume. (2008) — repeated sprint ability is a key physical determinant of football performance, and the 30m/25s protocol closely replicates match demands. First exposure: 3 sets only.',
-      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
-    ex('30/30 Protocol — Foundation', '10', '30s @ 105% MAS · 30s jog', '—',
-      '10 reps of 30s at 105–110% MAS + 30s jog. Intermediate HIIT — higher volume than 15/15 but lower peak intensity. 105% MAS = slightly faster than your 6-minute test pace.',
-      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
-  ],
-  Build: [
-    ex('15/15 HIIT — Full Volume', '24', '15s sprint · 15s jog', '—',
-      '24 reps of 15s at 120% MAS + 15s active jog. Full Dupont protocol. (2004) — 24 reps optimises cardiac output stimulus without excessive glycolytic fatigue. 120% MAS: you should feel like you cannot continue past 10-12 seconds but must hold it. Active jog (not walk) between reps is critical — maintains blood lactate clearance.',
-      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
-    ex('Norwegian 4×4 HIIT', '4', '4 min @ 90–95% HRmax · 3 min jog', '3:00 jog',
-      '4 sets of 4 minutes at 90–95% HRmax with 3-minute active jog recovery. Gold-standard VO₂max protocol. (2007) — 4×4 at 90–95% HRmax produced a 10.8% VO₂max increase in football players over 8 weeks, superior to moderate-intensity training. Finishing sets 3 and 4 should feel very difficult — that is correct.',
-      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
-    ex('RSA Block Training', '4', '8 × 40m · 25s passive rest', '2:00 between sets',
-      '4 sets of 8 × 40m flat-out sprints. 25s passive recovery between sprints, 2 min between sets. Match-replication RSA protocol. (2010) — 40m/25s closely mirrors the work-to-rest ratios of high-intensity football actions. Rep 8 should be within 5% of Rep 1 for adequate fitness.',
-      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
-    ex('40/20 HIIT Protocol', '10', '40s @ 110% MAS · 20s rest', '—',
-      '10 reps of 40s at 110% MAS + 20s rest. After each rep, slowly jog back to the start — rest for any remaining seconds. Longer work period than 15/15 builds lactate tolerance alongside VO₂max.',
-      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
-  ],
-  'Strength & Power': [
-    ex('15/15 HIIT — Strength Phase', '20', '15s sprint · 15s jog', '—',
-      '20 reps of 15s at 120% MAS + 15s jog. Volume reduced from Build (24 reps → 20) to account for cumulative strength training fatigue. Intensity maintained.',
-      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
-    ex('3×4 HIIT — Reduced Volume', '3', '4 min @ 92% HRmax · 4 min jog', '4:00 jog',
-      '3 sets of 4 min at 92% HRmax + 4 min jog recovery (increased from 3 to 4 min to support recovery during strength-dominant phase). Reduced from 4×4 Build protocol. Maintains VO₂max stimulus at lower total volume.',
-      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
-    ex('RSA Maintenance Sprints', '3', '6 × 30m · 30s rest', '2:00 between sets',
-      '3 sets of 6 × 30m sprints, 30s passive recovery between sprints. Maintenance RSA dose during Strength & Power phase. Total sprint volume reduced from Build but quality maintained. Every rep flat-out.',
-      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
-    ex('Match Simulation Intervals', '3', '5 min high-intensity · 2 min jog', '2:00 jog',
-      '3 sets of 5 minutes at mixed high intensity (alternating 80% and 95% HRmax within each rep) + 2 min jog. Simulates the irregular high-intensity demand of a football match. No fixed pace — react to effort: hard when it feels manageable, very hard when it does not.',
-      { methodType: 'mixed', intensityIntent: 'maximal', isRunning: true }),
-  ],
-  Peak: [
-    ex('15/15 HIIT — Express', '12', '15s sprint · 15s jog', '—',
-      '12 reps of 15s at 120% MAS + 15s jog. Minimum effective HIIT dose during peak/taper phase. Quality is everything here — 12 perfect reps beats 20 tired ones.',
-      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
-    ex('2×4 HIIT — Peak Taper', '2', '4 min @ 90% HRmax · 4 min jog', '4:00 jog',
-      '2 sets only of 4 min at 90% HRmax + 4 min jog. Bare minimum to maintain cardiovascular sharpness before competition. Low volume, full intensity. The aerobic engine is built — this just keeps it switched on.',
-      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true }),
-    ex('RSA Activation Sprints', '2', '6 × 30m · 2 min rest', '3:00 between sets',
-      '2 sets of 6 × 30m max sprints. Extended rest (2 min between reps, 3 min between sets) to ensure full CNS recovery. Peak phase: this is sprint quality maintenance, not conditioning. Every rep must feel fast.',
-      { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true }),
-    ex('Short Sprint Activation', '3', '4 × 20m · 90s rest', '2:30 between sets',
-      '3 sets of 4 × 20m flat-out sprints with full recovery. CNS activation without fatigue accumulation. Peak-week purpose: stay sharp, stay fast. Do not add volume.',
-      { methodType: 'reactive', intensityIntent: 'explosive', isRunning: true }),
-  ],
-};
+// Builds the single HIIT main-work exercise for a given programme week.
+// Odd weeks → Workout 1 (shuttle); even weeks → Workout 2 (4-min max effort).
+// Each workout advances its own progression by how many times it has appeared.
+function buildHiitWorkout(weekNum: number): { label: string; exercise: ProgrammeExercise } {
+  const isShuttleWeek = weekNum % 2 === 1;
+
+  if (isShuttleWeek) {
+    const appearance = Math.ceil(weekNum / 2);       // shuttle runs wk 1,3,5… → 1st,2nd,3rd
+    const [s1, s2, s3] = shuttleReps(appearance);
+    return {
+      label: '18-Yard Shuttle Acceleration',
+      exercise: ex(
+        '18-Yard Shuttle Acceleration',
+        '3',
+        `${s1} → ${s2} → ${s3} reps`,
+        '60s between reps & sets',
+        `THE PATTERN (1 rep): Start on the goal line. Recovery jog to the 18-yard line, then run at 80% to the far 18-yard line. From there recovery jog to the far goal line, turn, and recovery jog back to the 18-yard line — then run 80% across to the near 18-yard line. That completes one rep. For multiple reps in a set, recovery jog back to the goal line and start the next rep. ` +
+        `THIS SESSION: 3 sets of ${s1}, then ${s2}, then ${s3} reps. 60 seconds rest between every rep and between every set. ` +
+        `Progressive overload: one rep is added each session — week on week the shuttle volume climbs (${s1}/${s2}/${s3} this week). Hit every 80% run at a controlled, repeatable speed — this is acceleration quality under fatigue, not flat-out sprinting.`,
+        { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true },
+      ),
+    };
+  }
+
+  const appearance = weekNum / 2;                     // 4-min run wk 2,4,6… → 1st,2nd,3rd
+  const reps = 4 + (appearance - 1);
+  return {
+    label: '4-Minute Max Effort Run',
+    exercise: ex(
+      '4-Minute Max Effort Run',
+      `${reps}`,
+      '4 min max effort',
+      '2:00 between',
+      `${reps} efforts of 4 minutes at the hardest pace you can hold for the full 4 minutes — any route, flat ground. 2 minutes complete rest between efforts. ` +
+      `Pace it so the last minute of every rep is a genuine grind but you never have to stop. Progressive overload: one extra 4-minute effort is added each time this workout comes round (${reps} efforts this week).`,
+      { methodType: 'concentric', intensityIntent: 'maximal', isRunning: true },
+    ),
+  };
+}
 
 /**
  * Selects the in-session conditioning exercise — guarantees TWO DIFFERENT TYPES each week.
@@ -1935,11 +1868,11 @@ function buildOffSeasonSession(
 
   // Use heavy load on heavy days, moderate on moderate days
   const loadScheme = slot.load === 'heavy' ? 'heavy' : 'moderate';
-  const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
+  const gymLib = STRENGTH_LIBRARY[LIFT_PHASE];
   const gymAccessLib = gymLib[gymAccess as GymKey] ?? gymLib.basic;
   const strengthEx = gymAccessLib[loadScheme] ?? gymAccessLib.moderate;
   const upperBlock = inputs.upperPullChoice === 'row' ? UPPER_ROW : UPPER;
-  const upperPhase = upperBlock[phase] ?? upperBlock.Build;
+  const upperPhase = upperBlock[LIFT_PHASE];
   const upperEx = upperPhase[gymAccess as GymKey] ?? upperPhase.basic;
 
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
@@ -2110,11 +2043,11 @@ function buildSession(
   const { position, biggestWeakness, injuryHistory, gymAccess } = inputs;
   const fv = getFVProfile(slot.mdDay);
 
-  const gymLib = STRENGTH_LIBRARY[phase] ?? STRENGTH_LIBRARY.Build;
+  const gymLib = STRENGTH_LIBRARY[LIFT_PHASE];
   const gymAccessLib = gymLib[gymAccess] ?? gymLib.basic;
   const strengthEx = gymAccessLib[fv.loadScheme === 'heavy' ? 'heavy' : 'moderate'] ?? gymAccessLib.moderate;
   const upperBlock = inputs.upperPullChoice === 'row' ? UPPER_ROW : UPPER;
-  const upperPhase = upperBlock[phase] ?? upperBlock.Build;
+  const upperPhase = upperBlock[LIFT_PHASE];
   const upperEx = upperPhase[gymAccess as GymKey] ?? upperPhase.basic;
 
   const playStyleEx = PLAY_STYLE_EX[inputs.playStyle] ?? [];
@@ -2345,19 +2278,19 @@ function buildConditioningSession(
   weekNum: number,
   emphasis?: TestEmphasis,
 ): ProgrammeSession {
-  const phaseAerobic = CONDITIONING_AEROBIC[phase] ?? CONDITIONING_AEROBIC.Build;
-  const phaseHiit    = CONDITIONING_HIIT[phase]    ?? CONDITIONING_HIIT.Build;
+  void phase; // phase no longer drives conditioning — progression is week-based
 
-  // Zone 2 — low-intensity aerobic, restorative, no fatigue cost
+  // Zone 2 — low-intensity aerobic, restorative, no fatigue cost. Fixed 20-min run.
   if (type === 'zone2') {
-    // Select zone2-appropriate exercise: submaximal aerobic from the phase library
-    const zoneEx = phaseAerobic[weekNum % phaseAerobic.length];
+    const zoneEx = ex('Zone 2 Steady-State Run', '1', '20 min @ 65–70% HRmax', '—',
+      'Conversational pace for the full 20 minutes — you should always be able to hold a complete sentence. This is deliberate cardiac training, not a hard run: 65–70% HRmax builds stroke volume, capillary density, and aerobic base with zero CNS cost. Fixed duration — keep it at 20 minutes every week. Use the talk test, no watch needed.',
+      { methodType: 'concentric', intensityIntent: 'submaximal', isRunning: true });
     return {
       mdDay: 'Zone 2',
       dayOfWeek,
       objective: `Zone 2 — Aerobic Base · Wk ${weekNum}`,
       readinessNote: 'Zone 2 is restorative — always complete. Reduce duration if needed, never skip.',
-      durationMin: 45,
+      durationMin: 30,
       fvProfile: '65–70% HRmax · mitochondrial density · no CNS fatigue',
       blocks: [
         {
@@ -2378,16 +2311,17 @@ function buildConditioningSession(
     };
   }
 
-  // Hi-Aerobic — high-intensity aerobic intervals (HIIT / Norwegian 4×4 / threshold)
+  // HIIT — two alternating workouts (odd weeks = 18-yard shuttle, even = 4-min max effort),
+  // each carrying its own week-based rep progression.
   if (type === 'hiAerobic') {
-    const hiEx = phaseHiit.filter(e => e.methodType !== 'reactive')[weekNum % Math.max(1, phaseHiit.filter(e => e.methodType !== 'reactive').length)];
+    const { label, exercise: hiEx } = buildHiitWorkout(weekNum);
     return {
-      mdDay: 'High Aerobic',
+      mdDay: 'HIIT',
       dayOfWeek,
-      objective: `High Intensity Aerobic · Wk ${weekNum}`,
+      objective: `HIIT — ${label} · Wk ${weekNum}`,
       readinessNote: 'Requires full effort. Low readiness: sub Zone 2 at 70% HR — valid choice.',
       durationMin: 50,
-      fvProfile: '85–95% HRmax · max VO₂max stimulus · after gym day',
+      fvProfile: 'Max-intensity intervals · VO₂max + repeated-effort tolerance · after gym day',
       blocks: [
         {
           title: '⚡ Sprint Activation',
@@ -2425,17 +2359,12 @@ function buildConditioningSession(
     };
   }
 
-  // RSA — repeated sprint ability, anaerobic / neuromuscular
-  const rsaPool = phaseHiit.filter(e => e.methodType === 'reactive');
-  const baseRsaEx = rsaPool.length > 0
-    ? rsaPool[weekNum % rsaPool.length]
-    : ex('RSA Sprint Sets', '4', '6 × 30m · 25s rest', '2:00 between sets',
-        '4 sets of 6 × 30m flat-out sprints. 25s passive recovery between sprints, 2 min between sets. Rep 6 should feel like rep 3 — if sprint times drop more than 10%, reduce to 3 sets.',
-        { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true });
-  // RSA grade emphasis boosts interval set count
-  const rsaEx = (emphasis?.rsaIntervalBoost ?? 0) > 0
-    ? boostExerciseSets([baseRsaEx], emphasis!.rsaIntervalBoost)[0]
-    : baseRsaEx;
+  // RSA — repeated sprint ability. 30m flat-out sprints, 30s rest. Start at 6 reps,
+  // add one rep every week. Fitness-test RSA grade can boost the starting volume.
+  const rsaReps = 6 + (weekNum - 1) + (emphasis?.rsaIntervalBoost ?? 0);
+  const rsaEx = ex('Repeated Sprints — 30m', '1', `${rsaReps} × 30m · 30s rest`, '—',
+    `${rsaReps} flat-out 30m sprints with 30 seconds of passive recovery between each. Every rep must be a genuine maximal sprint — if your times drop off by more than ~10%, you have found your current ceiling. Progressive overload: one extra sprint is added every week (${rsaReps} this week). Walk back slowly inside the 30s rest.`,
+    { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true });
 
   return {
     mdDay: 'RSA',
@@ -2548,7 +2477,7 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
 
     const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
       const weekNum = i + 1;
-      const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
+      const { phase } = getPhase(weekNum, totalWeeks);
       const sessions = osSlots.flatMap(slot => {
         if (slot.sessionType === 'gym') {
           const session = buildOffSeasonSession(
@@ -2562,8 +2491,8 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
       });
       return {
         weekNumber: weekNum,
-        phase,
-        phaseGoal: `${phaseGoal} [Wk ${weekNum}: ${progressNote(weekNum)}]`,
+        phase: 'Progressive Block',
+        phaseGoal: `Progressive overload — add load or reps vs last week. [Wk ${weekNum}: ${progressNote(weekNum)}]`,
         sessions,
       };
     });
@@ -2644,7 +2573,7 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
 
   const weeks: ProgrammeWeek[] = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNum = i + 1;
-    const { phase, phaseGoal } = getPhase(weekNum, totalWeeks);
+    const { phase } = getPhase(weekNum, totalWeeks);
 
     const gymSessions = gymSlots.map(slot =>
       buildSession(slot, inputs, phase, weekNum, { level: readinessLevel, volumeMultiplier, intensityNote }, emphasis),
@@ -2663,8 +2592,8 @@ export function generateProgramme(inputs: ProgrammeInputs): GeneratedProgramme {
 
     return {
       weekNumber: weekNum,
-      phase,
-      phaseGoal: `${phaseGoal} [Wk ${weekNum}: ${progressNote(weekNum)}]`,
+      phase: 'Progressive Block',
+      phaseGoal: `Progressive overload — add load or reps vs last week. [Wk ${weekNum}: ${progressNote(weekNum)}]`,
       sessions,
     };
   });

@@ -699,6 +699,32 @@ export const EXERCISE_DESCRIPTIONS: Record<string, ExerciseDescription> = {
 • 10m line = halfway between goal area and penalty area.
 This shuttle directly trains the short-burst changes of direction used in defending set pieces.`,
   },
+  'zone2-run': {
+    how: [
+      'Run at a steady, conversational pace — roughly 65–70% of your max heart rate. You should be able to hold a full sentence throughout.',
+      'Sustain for 20 minutes without letting the pace climb. This is deliberate cardiac training, not a hard run.',
+    ],
+    tips: ['Use the talk test — if you can\'t speak a full sentence comfortably, slow down.', 'Keep the duration fixed at 20 minutes every session; the work is in the consistency, not the intensity.'],
+    footballContext: 'Builds the aerobic base — stroke volume and capillary density — that lets you recover between high-intensity actions across 90 minutes. Zero CNS cost, so it slots in around heavy gym days.',
+  },
+  'shuttle-18yard': {
+    how: [
+      'Start on the goal line. Recovery jog to the 18-yard line, then run at 80% to the far 18-yard line.',
+      'From there, recovery jog to the far goal line, turn, and recovery jog back to the 18-yard line — then run 80% across to the near 18-yard line. That is ONE rep.',
+      'For multiple reps in a set, recovery jog back to the goal line and start the next rep. 60 seconds rest between every rep and between every set.',
+    ],
+    tips: ['The 80% runs are controlled, repeatable accelerations — this is acceleration quality under fatigue, not flat-out sprinting.', 'Difficulty levels set the rep structure across the three sets: Easy 1·2·4, Medium 2·3·4, Hard 3·3·4, Extra Hard 3·4·4.'],
+    footballContext: 'The 18-yard box markings give you a fixed, repeatable shuttle distance on any pitch. Trains repeated acceleration and deceleration — the exact pattern of pressing and recovering in a match.',
+  },
+  'max-effort-run': {
+    how: [
+      'Run at the hardest pace you can hold for the full 4 minutes — any route, flat ground.',
+      'Take 2 minutes of complete rest between efforts.',
+      'Repeat for the prescribed number of efforts (sets).',
+    ],
+    tips: ['Pace it so the final minute of every effort is a genuine grind, but you never have to stop.', 'Difficulty levels set the number of efforts: Easy 2, Medium 4, Hard 6, Extra Hard 8.'],
+    footballContext: 'Develops VO₂max and the ability to sustain high output — the engine behind box-to-box work rate. The 4-minute effort sits at the sweet spot for maximal aerobic power.',
+  },
   'ssg-simulation': {
     how: [
       'Run a pattern that mimics a small-sided game: jog → sprint → lateral shuffle → jog → sprint again.',

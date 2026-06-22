@@ -3,7 +3,7 @@
  *
  * Trial logic:
  *   - First time a free user hits a gated feature we stamp trialStartedAt.
- *   - Trial lasts 14 days. After that, isPremium must be true (paid).
+ *   - Trial lasts 30 days. After that, isPremium must be true (paid).
  *   - RevenueCat sets isPremium on successful purchase / restore.
  */
 

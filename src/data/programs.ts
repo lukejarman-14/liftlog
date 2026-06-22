@@ -701,72 +701,212 @@ export const FOOTBALL_PROGRAMS: Program[] = [
   },
   {
     name: 'Football Conditioning',
-    description: 'Energy system development specific to football — from aerobic base through to repeated sprint ability.',
+    description: 'Standalone conditioning sessions — Zone 2, Repeated Sprint Ability, and two HIIT workouts, each with difficulty levels. Pick a session and run it on its own.',
     sport: 'football',
     templates: [
       {
-        id: 'fb-cond-aerobic-base',
-        name: 'Aerobic Base',
-        description: 'Low-intensity steady state. Heart rate 65–75% max. Early pre-season block.',
+        id: 'fb-cond-zone2',
+        name: 'Zone 2 — Steady State',
+        description: '20 min continuous run at 65–70% max HR. Aerobic base, zero CNS cost — slots in around heavy gym days.',
         program: 'Football Conditioning',
         exercises: [
-          ex('aerobic-threshold-run', 1, 1, 0, 0),
-          ex('tempo-run',             4, 1, 0, 120),
+          ex('zone2-run', 1, 1, 0, 0),
+        ],
+      },
+
+      // ── RSA — 30m repeated sprints, 30s rest. Difficulty = number of sprints. ──
+      {
+        id: 'fb-cond-rsa-easy',
+        name: 'RSA — Easy (6 × 30m)',
+        description: '6 × 30m flat-out sprints, 30s recovery. Entry-level repeated sprint ability.',
+        program: 'Football Conditioning',
+        exercises: [
+          ex('repeated-sprint', 6, 1, 0, 30),
         ],
       },
       {
-        id: 'fb-cond-lactate',
-        name: 'Lactate Threshold Development',
-        description: 'Tempo efforts at 80–85% max HR. Builds engine for high-intensity play.',
-        program: 'Football Conditioning',
-        exercises: [
-          ex('lactate-threshold-run', 1, 1, 0, 0),
-          ex('tempo-run',             6, 1, 0, 90),
-        ],
-      },
-      {
-        id: 'fb-cond-hiit',
-        name: 'High Intensity Intervals (HIIT)',
-        description: 'Short, maximal efforts 15–30s on, 15–30s off. Targets anaerobic capacity.',
-        program: 'Football Conditioning',
-        exercises: [
-          ex('hiit-run',     10, 1, 0, 30),
-          ex('shuttle-run',   3, 1, 0, 90),
-        ],
-      },
-      {
-        id: 'fb-cond-rsa',
-        name: 'Repeated Sprint Ability (RSA)',
-        description: '6–10 × 30–40m sprints, 30s recovery. Mimics match demands.',
+        id: 'fb-cond-rsa-medium',
+        name: 'RSA — Medium (8 × 30m)',
+        description: '8 × 30m flat-out sprints, 30s recovery. Standard match-replication volume.',
         program: 'Football Conditioning',
         exercises: [
           ex('repeated-sprint', 8, 1, 0, 30),
-          ex('shuttle-run',     4, 1, 0, 60),
         ],
       },
       {
-        id: 'fb-cond-mixed',
-        name: 'Match Simulation Conditioning',
-        description: 'Mixed intensity session replicating a 90-minute match energy profile.',
+        id: 'fb-cond-rsa-hard',
+        name: 'RSA — Hard (10 × 30m)',
+        description: '10 × 30m flat-out sprints, 30s recovery. High repeated-sprint demand.',
         program: 'Football Conditioning',
         exercises: [
-          ex('tempo-run',       3, 1, 0, 120),
-          ex('hiit-run',        6, 1, 0, 30),
-          ex('repeated-sprint', 6, 1, 0, 30),
-          ex('ssg-simulation',  2, 1, 0, 180),
+          ex('repeated-sprint', 10, 1, 0, 30),
         ],
       },
       {
-        id: 'fb-cond-inseason',
-        name: 'In-Season Conditioning (Non-Match Days)',
-        description: 'Maintain fitness without accumulating fatigue. MD-3 / MD-2 appropriate.',
+        id: 'fb-cond-rsa-extra',
+        name: 'RSA — Extra Hard (12 × 30m)',
+        description: '12 × 30m flat-out sprints, 30s recovery. Maximal repeated-sprint capacity.',
         program: 'Football Conditioning',
         exercises: [
-          ex('tempo-run',       3, 1, 0, 90),
-          ex('shuttle-run',     4, 1, 0, 60),
-          ex('repeated-sprint', 3, 1, 0, 60),
+          ex('repeated-sprint', 12, 1, 0, 30),
         ],
       },
+
+      // ── HIIT Shuttle — 18-yard shuttle, 3 sub-sets, 60s rest. Difficulty = rep structure. ──
+      {
+        id: 'fb-cond-shuttle-easy',
+        name: 'HIIT Shuttle — Easy (1·2·4)',
+        description: '18-yard shuttle accelerations. Three sets of 1, 2, then 4 reps. 60s rest between every rep and set.',
+        program: 'Football Conditioning',
+        exercises: [
+          ex('shuttle-18yard', 1, 1, 0, 60),
+          ex('shuttle-18yard', 2, 1, 0, 60),
+          ex('shuttle-18yard', 4, 1, 0, 60),
+        ],
+      },
+      {
+        id: 'fb-cond-shuttle-medium',
+        name: 'HIIT Shuttle — Medium (2·3·4)',
+        description: '18-yard shuttle accelerations. Three sets of 2, 3, then 4 reps. 60s rest between every rep and set.',
+        program: 'Football Conditioning',
+        exercises: [
+          ex('shuttle-18yard', 2, 1, 0, 60),
+          ex('shuttle-18yard', 3, 1, 0, 60),
+          ex('shuttle-18yard', 4, 1, 0, 60),
+        ],
+      },
+      {
+        id: 'fb-cond-shuttle-hard',
+        name: 'HIIT Shuttle — Hard (3·3·4)',
+        description: '18-yard shuttle accelerations. Three sets of 3, 3, then 4 reps. 60s rest between every rep and set.',
+        program: 'Football Conditioning',
+        exercises: [
+          ex('shuttle-18yard', 3, 1, 0, 60),
+          ex('shuttle-18yard', 3, 1, 0, 60),
+          ex('shuttle-18yard', 4, 1, 0, 60),
+        ],
+      },
+      {
+        id: 'fb-cond-shuttle-extra',
+        name: 'HIIT Shuttle — Extra Hard (3·4·4)',
+        description: '18-yard shuttle accelerations. Three sets of 3, 4, then 4 reps. 60s rest between every rep and set.',
+        program: 'Football Conditioning',
+        exercises: [
+          ex('shuttle-18yard', 3, 1, 0, 60),
+          ex('shuttle-18yard', 4, 1, 0, 60),
+          ex('shuttle-18yard', 4, 1, 0, 60),
+        ],
+      },
+
+      // ── HIIT Max Effort — 4-min max-effort runs, 2 min rest. Difficulty = number of efforts. ──
+      {
+        id: 'fb-cond-maxeffort-easy',
+        name: 'HIIT Max Effort — Easy (2 × 4 min)',
+        description: '2 efforts of 4 minutes at max sustainable pace, 2 min rest. Entry-level VO₂max work.',
+        program: 'Football Conditioning',
+        exercises: [
+          ex('max-effort-run', 2, 1, 0, 120),
+        ],
+      },
+      {
+        id: 'fb-cond-maxeffort-medium',
+        name: 'HIIT Max Effort — Medium (4 × 4 min)',
+        description: '4 efforts of 4 minutes at max sustainable pace, 2 min rest. Standard VO₂max session.',
+        program: 'Football Conditioning',
+        exercises: [
+          ex('max-effort-run', 4, 1, 0, 120),
+        ],
+      },
+      {
+        id: 'fb-cond-maxeffort-hard',
+        name: 'HIIT Max Effort — Hard (6 × 4 min)',
+        description: '6 efforts of 4 minutes at max sustainable pace, 2 min rest. High aerobic-power demand.',
+        program: 'Football Conditioning',
+        exercises: [
+          ex('max-effort-run', 6, 1, 0, 120),
+        ],
+      },
+      {
+        id: 'fb-cond-maxeffort-extra',
+        name: 'HIIT Max Effort — Extra Hard (8 × 4 min)',
+        description: '8 efforts of 4 minutes at max sustainable pace, 2 min rest. Maximal aerobic-power capacity.',
+        program: 'Football Conditioning',
+        exercises: [
+          ex('max-effort-run', 8, 1, 0, 120),
+        ],
+      },
+    ],
+  },
+];
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Conditioning picker — groups the standalone Football Conditioning templates into
+// four selectable workout types, each exposing its difficulty levels as a dropdown.
+// Source of truth is the 'Football Conditioning' program above, so there is no
+// duplicated exercise data.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ConditioningLevel {
+  label: string;
+  template: BuiltInTemplate;
+}
+
+export interface ConditioningOption {
+  key: string;
+  name: string;
+  description: string;
+  levels: ConditioningLevel[];
+}
+
+const COND_PROGRAM = FOOTBALL_PROGRAMS.find(p => p.name === 'Football Conditioning');
+
+function condTemplate(id: string): BuiltInTemplate {
+  const t = COND_PROGRAM?.templates.find(tpl => tpl.id === id);
+  if (!t) throw new Error(`Conditioning template not found: ${id}`);
+  return t;
+}
+
+export const FOOTBALL_CONDITIONING_OPTIONS: ConditioningOption[] = [
+  {
+    key: 'zone2',
+    name: 'Zone 2 — Steady State',
+    description: '20 min continuous run at 65–70% max HR. Aerobic base, zero CNS cost.',
+    levels: [
+      { label: 'Standard', template: condTemplate('fb-cond-zone2') },
+    ],
+  },
+  {
+    key: 'rsa',
+    name: 'RSA — Repeated Sprints',
+    description: '30m flat-out sprints, 30s recovery. Difficulty sets the number of sprints.',
+    levels: [
+      { label: 'Easy · 6',        template: condTemplate('fb-cond-rsa-easy') },
+      { label: 'Medium · 8',      template: condTemplate('fb-cond-rsa-medium') },
+      { label: 'Hard · 10',       template: condTemplate('fb-cond-rsa-hard') },
+      { label: 'Extra Hard · 12', template: condTemplate('fb-cond-rsa-extra') },
+    ],
+  },
+  {
+    key: 'shuttle',
+    name: 'HIIT Shuttle — 18-Yard',
+    description: '18-yard shuttle accelerations, three sets, 60s rest. Difficulty sets the rep structure.',
+    levels: [
+      { label: 'Easy · 1·2·4',       template: condTemplate('fb-cond-shuttle-easy') },
+      { label: 'Medium · 2·3·4',     template: condTemplate('fb-cond-shuttle-medium') },
+      { label: 'Hard · 3·3·4',       template: condTemplate('fb-cond-shuttle-hard') },
+      { label: 'Extra Hard · 3·4·4', template: condTemplate('fb-cond-shuttle-extra') },
+    ],
+  },
+  {
+    key: 'maxeffort',
+    name: 'HIIT Max Effort — 4 min',
+    description: '4-minute max-effort runs, 2 min rest. Difficulty sets the number of efforts.',
+    levels: [
+      { label: 'Easy · 2',       template: condTemplate('fb-cond-maxeffort-easy') },
+      { label: 'Medium · 4',     template: condTemplate('fb-cond-maxeffort-medium') },
+      { label: 'Hard · 6',       template: condTemplate('fb-cond-maxeffort-hard') },
+      { label: 'Extra Hard · 8', template: condTemplate('fb-cond-maxeffort-extra') },
     ],
   },
 ];

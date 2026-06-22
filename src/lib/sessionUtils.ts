@@ -251,6 +251,11 @@ export const NAME_TO_ID: Record<string, string> = {
   'match simulation intervals': 'hiit-run',
   '2×4 hiit — peak taper': 'hiit-run',
   'short sprint activation': 'repeated-sprint',
+  // Rebuilt conditioning (week-based progressive overload)
+  'zone 2 steady-state run': 'aerobic-threshold-run',
+  '18-yard shuttle acceleration': 'repeated-sprint',
+  '4-minute max effort run': 'hiit-run',
+  'repeated sprints — 30m': 'repeated-sprint',
   // Sled variants
   'sled push': 'sled-push',
   'sled push (heavy)': 'sled-push',

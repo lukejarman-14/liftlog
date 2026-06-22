@@ -99,7 +99,7 @@ export function useStore() {
   const saveDailyReadiness = (entry: DailyReadiness) =>
     setDailyReadinessLog(prev => {
       const filtered = prev.filter(r => r.date !== entry.date);
-      return [entry, ...filtered].slice(0, 90); // keep 90 days
+      return [entry, ...filtered].slice(0, 400); // keep ~13 months (supports 1y / YTD recovery views)
     });
 
   const getTodayReadiness = (): DailyReadiness | null => {

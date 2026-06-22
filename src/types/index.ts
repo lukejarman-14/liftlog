@@ -154,6 +154,10 @@ export interface DailyReadiness {
   score: number;          // computed 1–5
   level: 'elite' | 'high' | 'moderate' | 'low';
   completedAt: number;    // timestamp
+  // Wearable-sourced metrics (optional — populated once health integration lands)
+  hrv?: number;           // heart-rate variability, ms
+  rhr?: number;           // resting heart rate, bpm
+  sleepHours?: number;    // total sleep duration, hours
 }
 
 
@@ -389,7 +393,7 @@ export interface GeneratedProgramme {
 export interface PremiumStatus {
   isPremium: boolean;
   plan?: 'monthly' | 'yearly' | 'lifetime'; // which subscription tier
-  trialStartedAt?: number;               // timestamp — when 14-day trial began
+  trialStartedAt?: number;               // timestamp — when 30-day trial began
   purchasedAt?: number;                  // timestamp — when they became premium
   expiresAt?: number;                    // timestamp — subscription expiry
   rcCustomerId?: string;                 // RevenueCat customer ID (set when integrating)

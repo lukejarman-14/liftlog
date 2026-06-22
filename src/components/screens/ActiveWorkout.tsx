@@ -1458,8 +1458,8 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   }, [conditioningExercises.length, onConditioningFeedback, finalFinish]);
 
   const getCondTypeLabel = (exerciseId: string): string => {
-    if (['aerobic-threshold-run', 'tempo-run', 'lactate-threshold-run'].includes(exerciseId)) return 'Zone 2';
-    if (['hiit-run', 'ssg-simulation'].includes(exerciseId)) return 'HIIT';
+    if (['aerobic-threshold-run', 'tempo-run', 'lactate-threshold-run', 'zone2-run'].includes(exerciseId)) return 'Zone 2';
+    if (['hiit-run', 'ssg-simulation', 'shuttle-18yard', 'max-effort-run'].includes(exerciseId)) return 'HIIT';
     if (['repeated-sprint', 'shuttle-run'].includes(exerciseId)) return 'RSA';
     return 'Conditioning';
   };

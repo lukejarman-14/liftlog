@@ -132,6 +132,9 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'repeated-sprint', name: 'Repeated Sprint (30m)', category: 'Conditioning', defaultRestSeconds: 30, muscleGroups: ['Hamstrings', 'Glutes', 'Cardiovascular'], measureType: 'reps' },
   { id: 'shuttle-run', name: 'Shuttle Run (5-10-5m)', category: 'Conditioning', defaultRestSeconds: 45, muscleGroups: ['Full Body', 'Cardiovascular'], measureType: 'reps' },
   { id: 'ssg-simulation', name: 'SSG Simulation Run', category: 'Conditioning', defaultRestSeconds: 180, muscleGroups: ['Cardiovascular', 'Full Body'], measureType: 'reps' },
+  { id: 'zone2-run', name: 'Zone 2 Steady-State Run', category: 'Conditioning', defaultRestSeconds: 0, muscleGroups: ['Cardiovascular'], measureType: 'time', unit: 's' },
+  { id: 'shuttle-18yard', name: '18-Yard Shuttle Acceleration', category: 'Conditioning', defaultRestSeconds: 60, muscleGroups: ['Quads', 'Hamstrings', 'Calves', 'Cardiovascular'], measureType: 'reps' },
+  { id: 'max-effort-run', name: '4-Minute Max Effort Run', category: 'Conditioning', defaultRestSeconds: 120, muscleGroups: ['Cardiovascular'], measureType: 'reps' },
 
   // Testing — Sprint
   { id: 'test-5m-sprint', name: '5m Sprint', category: 'Testing', secondaryCategory: 'Speed', defaultRestSeconds: 180, muscleGroups: ['Acceleration'], measureType: 'time', unit: 's' },

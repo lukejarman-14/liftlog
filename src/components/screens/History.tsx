@@ -2,10 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 
 /** How long (ms) a touch-triggered chart tooltip stays visible before auto-hiding. */
 const TOOLTIP_HIDE_DELAY_MS = 1_500;
-import { Trash2, Clock, TrendingUp, ChevronDown, ChevronUp, Activity, Zap, BarChart2, FlaskConical, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
+import { Trash2, Clock, TrendingUp, ChevronDown, ChevronUp, Activity, Zap, BarChart2, FlaskConical, ArrowUpRight, ArrowDownRight, Minus, Moon, Battery, Brain, HeartPulse, Heart } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
-import { WorkoutSession, MatchEntry, NavState, MeasureType, CompletedSet, TestType } from '../../types';
+import { WorkoutSession, MatchEntry, NavState, MeasureType, CompletedSet, TestType, ReadinessLevel, DailyReadiness } from '../../types';
 import { useStore } from '../../hooks/useStore';
 import { sessionAvgRpe, RIR_LABELS } from '../../lib/rpeProgression';
 import { GRADE_LABELS, GRADE_COLOURS, calcVo2Max, calcYoyoDistance } from '../../data/testingBattery';
@@ -1201,6 +1201,384 @@ function TestProgressionTab({ onNavigate }: { onNavigate: (nav: NavState) => voi
 }
 
 
+// ─── Recovery tab (WHOOP-style readiness tracking) ───────────────────────────
+
+const LEVEL_META: Record<ReadinessLevel, { color: string; label: string }> = {
+  elite:    { color: '#15803d', label: 'Elite' },
+  high:     { color: '#16a34a', label: 'High' },
+  moderate: { color: '#d97706', label: 'Moderate' },
+  low:      { color: '#dc2626', label: 'Low' },
+};
+
+/** Readiness score (1–5) → recovery percentage (0–100). */
+function scoreToPct(score: number): number {
+  return Math.max(0, Math.min(100, Math.round(((score - 1) / 4) * 100)));
+}
+
+function goodnessColor(g: number): string {
+  if (g >= 67) return '#16a34a';
+  if (g >= 34) return '#d97706';
+  return '#dc2626';
+}
+
+function RecoveryRing({ pct, color }: { pct: number; color: string }) {
+  const r = 54;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - pct / 100);
+  return (
+    <svg viewBox="0 0 140 140" className="w-40 h-40">
+      <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="13" />
+      <circle
+        cx="70" cy="70" r={r} fill="none" stroke={color} strokeWidth="13" strokeLinecap="round"
+        strokeDasharray={circumference} strokeDashoffset={offset}
+        transform="rotate(-90 70 70)"
+      />
+      <text x="70" y="72" textAnchor="middle" className="fill-gray-900" style={{ fontSize: 32, fontWeight: 800 }}>{pct}%</text>
+      <text x="70" y="92" textAnchor="middle" style={{ fontSize: 11, fontWeight: 600, fill: '#9ca3af' }}>Recovery</text>
+    </svg>
+  );
+}
+
+function MetricBar({
+  icon: Icon, label, rawText, goodness,
+}: { icon: typeof Moon; label: string; rawText: string; goodness: number }) {
+  const color = goodnessColor(goodness);
+  return (
+    <Card className="p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Icon size={14} style={{ color }} />
+        <span className="text-xs font-semibold text-gray-600">{label}</span>
+        <span className="ml-auto text-xs font-bold text-gray-900">{rawText}</span>
+      </div>
+      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${Math.max(4, goodness)}%`, background: color }} />
+      </div>
+    </Card>
+  );
+}
+
+type RecoveryRange = '1W' | '1M' | '6M' | '1Y' | 'YTD';
+
+const RECOVERY_RANGES: { key: RecoveryRange; label: string }[] = [
+  { key: '1W',  label: '1W'  },
+  { key: '1M',  label: '1M'  },
+  { key: '6M',  label: '6M'  },
+  { key: '1Y',  label: '1Y'  },
+  { key: 'YTD', label: 'YTD' },
+];
+
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function rangeCutoff(range: RecoveryRange): string {
+  const now = new Date();
+  if (range === 'YTD') return `${now.getFullYear()}-01-01`;
+  const days = range === '1W' ? 7 : range === '1M' ? 30 : range === '6M' ? 180 : 365;
+  const d = new Date();
+  d.setDate(d.getDate() - (days - 1));
+  return ymd(d);
+}
+
+function recoveryColor(pct: number): string {
+  if (pct >= 63) return '#16a34a';
+  if (pct >= 38) return '#d97706';
+  return '#dc2626';
+}
+
+const fmtDay = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+/** Buckets ascending entries by date: daily for short ranges, weekly for 6M, monthly for 1Y/YTD.
+ *  `getVal` extracts the value to average per bucket (e.g. recovery %, HRV ms, sleep h). */
+function bucketBy(
+  entriesAsc: DailyReadiness[],
+  range: RecoveryRange,
+  getVal: (e: DailyReadiness) => number,
+): { label: string; value: number }[] {
+  if (range === '1W' || range === '1M') {
+    return entriesAsc.map(e => ({ label: fmtDay(e.date), value: getVal(e) }));
+  }
+  const byMonth = range === '1Y' || range === 'YTD';
+  const buckets = new Map<string, { sum: number; n: number; label: string }>();
+  for (const e of entriesAsc) {
+    const d = new Date(e.date + 'T12:00:00');
+    let key: string, label: string;
+    if (byMonth) {
+      key = `${d.getFullYear()}-${d.getMonth()}`;
+      label = d.toLocaleDateString('en-GB', { month: 'short' });
+    } else {
+      const ws = new Date(d);
+      ws.setDate(ws.getDate() - ((ws.getDay() + 6) % 7)); // back to Monday
+      key = ymd(ws);
+      label = fmtDay(ymd(ws));
+    }
+    const b = buckets.get(key) ?? { sum: 0, n: 0, label };
+    b.sum += getVal(e); b.n += 1;
+    buckets.set(key, b);
+  }
+  return [...buckets.values()].map(b => ({ label: b.label, value: b.sum / b.n }));
+}
+
+/** Compact range-selector pill row (1W / 1M / 6M / 1Y / YTD). */
+function RangeSelector({ range, onChange }: { range: RecoveryRange; onChange: (r: RecoveryRange) => void }) {
+  return (
+    <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mt-3">
+      {RECOVERY_RANGES.map(r => (
+        <button
+          key={r.key}
+          onClick={() => onChange(r.key)}
+          className={`flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all ${
+            range === r.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {r.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Line/area chart card for a single wearable metric, with its own range selector. */
+function MetricLineChart({
+  title, icon: Icon, unit, color, log, getVal, decimals = 0,
+}: {
+  title: string;
+  icon: typeof Moon;
+  unit: string;
+  color: string;
+  log: DailyReadiness[];
+  getVal: (e: DailyReadiness) => number | undefined;
+  decimals?: number;
+}) {
+  const [range, setRange] = useState<RecoveryRange>('1M');
+  const [sel, setSel] = useState<number | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const pressing = useRef(false);
+
+  const cutoff = rangeCutoff(range);
+  const inRange = [...log]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .filter(e => e.date >= cutoff && getVal(e) != null);
+  const points = bucketBy(inRange, range, e => getVal(e)!);
+
+  const fmtVal = (v: number) => v.toFixed(decimals);
+  const latestVal = points.length ? points[points.length - 1].value : null;
+  const avgVal = points.length ? points.reduce((s, p) => s + p.value, 0) / points.length : null;
+
+  // SVG geometry
+  const W = 300, H = 88, PAD = 8;
+  const vals = points.map(p => p.value);
+  const min = vals.length ? Math.min(...vals) : 0;
+  const max = vals.length ? Math.max(...vals) : 1;
+  const span = max - min || 1;
+  const stepX = points.length > 1 ? (W - PAD * 2) / (points.length - 1) : 0;
+  const coords = points.map((p, i) => {
+    const x = points.length === 1 ? W / 2 : PAD + i * stepX;
+    const y = PAD + (1 - (p.value - min) / span) * (H - PAD * 2);
+    return [x, y] as const;
+  });
+  const linePath = coords.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+  const areaPath = coords.length
+    ? `${linePath} L${coords[coords.length - 1][0].toFixed(1)} ${H - PAD} L${coords[0][0].toFixed(1)} ${H - PAD} Z`
+    : '';
+  const gradId = `grad-${title.replace(/\s+/g, '')}`;
+
+  // Clamp any stale selection when range/data changes
+  const selIdx = sel == null ? null : Math.max(0, Math.min(sel, points.length - 1));
+  const selPt = selIdx != null ? points[selIdx] : null;
+  const selXpc = selIdx != null ? (coords[selIdx][0] / W) * 100 : 0;
+  const selYpc = selIdx != null ? (coords[selIdx][1] / H) * 100 : 0;
+
+  const pick = (clientX: number) => {
+    const el = chartRef.current;
+    if (!el || points.length === 0) return;
+    const rect = el.getBoundingClientRect();
+    const frac = (clientX - rect.left) / rect.width;
+    setSel(Math.max(0, Math.min(points.length - 1, Math.round(frac * (points.length - 1)))));
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon size={14} style={{ color }} />
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
+        {latestVal != null && (
+          <span className="ml-auto text-sm font-bold text-gray-900">
+            {fmtVal(latestVal)}<span className="text-[10px] font-semibold text-gray-400 ml-0.5">{unit}</span>
+          </span>
+        )}
+      </div>
+
+      {points.length === 0 ? (
+        <p className="text-xs text-gray-400 py-8 text-center">No data in this range.</p>
+      ) : (
+        <>
+          <div className="flex gap-2">
+            {/* Y-axis value labels */}
+            <div className="flex flex-col justify-between text-[9px] text-gray-400 text-right shrink-0" style={{ height: H, width: 26 }}>
+              <span>{fmtVal(max)}</span>
+              <span>{fmtVal((max + min) / 2)}</span>
+              <span>{fmtVal(min)}</span>
+            </div>
+
+            {/* Chart + touch overlay */}
+            <div
+              ref={chartRef}
+              className="relative flex-1 cursor-pointer touch-none select-none"
+              style={{ height: H }}
+              onPointerDown={e => { pressing.current = true; e.currentTarget.setPointerCapture?.(e.pointerId); pick(e.clientX); }}
+              onPointerMove={e => { if (pressing.current) pick(e.clientX); }}
+              onPointerUp={() => { pressing.current = false; }}
+              onPointerCancel={() => { pressing.current = false; }}
+            >
+              <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+                    <stop offset="100%" stopColor={color} stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                {areaPath && <path d={areaPath} fill={`url(#${gradId})`} />}
+                <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                {coords.length === 1 && <circle cx={coords[0][0]} cy={coords[0][1]} r="3" fill={color} />}
+              </svg>
+
+              {/* Scrub indicator */}
+              {selPt && (
+                <>
+                  <div className="absolute top-0 bottom-0 w-px bg-gray-300 pointer-events-none" style={{ left: `${selXpc}%` }} />
+                  <div
+                    className="absolute w-2.5 h-2.5 rounded-full border-2 border-white pointer-events-none"
+                    style={{ left: `${selXpc}%`, top: `${selYpc}%`, background: color, transform: 'translate(-50%, -50%)' }}
+                  />
+                  <div
+                    className="absolute -top-1 px-2 py-1 rounded-lg bg-gray-900 text-white text-[10px] font-semibold whitespace-nowrap pointer-events-none shadow-lg"
+                    style={{ left: `${Math.max(14, Math.min(86, selXpc))}%`, transform: 'translate(-50%, -100%)' }}
+                  >
+                    {selPt.label} · {fmtVal(selPt.value)}{unit}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-between mt-1.5 pl-7">
+            <span className="text-[10px] text-gray-400">{points[0].label}</span>
+            {avgVal != null && <span className="text-[10px] text-gray-400">avg {fmtVal(avgVal)}{unit}</span>}
+            <span className="text-[10px] text-gray-400">{points[points.length - 1].label}</span>
+          </div>
+        </>
+      )}
+
+      <RangeSelector range={range} onChange={setRange} />
+    </Card>
+  );
+}
+
+/** Recovery-score trend bar chart, with its own range selector below. */
+function RecoveryTrendCard({ log }: { log: DailyReadiness[] }) {
+  const [range, setRange] = useState<RecoveryRange>('1M');
+  const cutoff = rangeCutoff(range);
+  const inRangeAsc = [...log].sort((a, b) => a.date.localeCompare(b.date)).filter(e => e.date >= cutoff);
+  const buckets = bucketBy(inRangeAsc, range, e => scoreToPct(e.score)).map(b => ({ label: b.label, pct: Math.round(b.value) }));
+  const avg = inRangeAsc.length
+    ? Math.round(inRangeAsc.reduce((s, e) => s + scoreToPct(e.score), 0) / inRangeAsc.length)
+    : 0;
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <TrendingUp size={14} className="text-brand-500" />
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Recovery Trend</h3>
+        {buckets.length > 0 && <span className="ml-auto text-sm font-bold text-gray-900">{avg}%<span className="text-[10px] font-semibold text-gray-400 ml-0.5">avg</span></span>}
+      </div>
+      {buckets.length === 0 ? (
+        <p className="text-xs text-gray-400 py-8 text-center">No check-ins in this range.</p>
+      ) : (
+        <>
+          <div className="flex items-end gap-0.5 h-28">
+            {buckets.map((b, i) => (
+              <div
+                key={i}
+                className="flex-1 rounded-t transition-all"
+                style={{ height: `${Math.max(4, b.pct)}%`, background: recoveryColor(b.pct), minWidth: 2 }}
+                title={`${b.label}: ${b.pct}%`}
+              />
+            ))}
+          </div>
+          {buckets.length > 1 && (
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[10px] text-gray-400">{buckets[0].label}</span>
+              <span className="text-[10px] text-gray-400">{buckets[buckets.length - 1].label}</span>
+            </div>
+          )}
+        </>
+      )}
+      <RangeSelector range={range} onChange={setRange} />
+    </Card>
+  );
+}
+
+function RecoveryTab() {
+  const { dailyReadinessLog } = useStore();
+
+  const sortedDesc = [...dailyReadinessLog].sort((a, b) => b.date.localeCompare(a.date));
+
+  if (sortedDesc.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center mb-4">
+          <HeartPulse size={28} className="text-brand-500" />
+        </div>
+        <h3 className="text-lg font-bold text-gray-900 mb-2">No recovery data yet</h3>
+        <p className="text-sm text-gray-500 max-w-xs">
+          Log your daily readiness check-in on the Home screen each morning — your recovery score and trends will build here.
+        </p>
+      </div>
+    );
+  }
+
+  const latest = sortedDesc[0];
+  const now = new Date();
+  const todayStr = ymd(now);
+  const isToday = latest.date === todayStr;
+  const pct = scoreToPct(latest.score);
+  const meta = LEVEL_META[latest.level] ?? LEVEL_META.moderate;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Headline recovery ring — today only */}
+      <Card className="p-5 flex flex-col items-center">
+        <RecoveryRing pct={pct} color={meta.color} />
+        <span className="mt-1 text-sm font-bold" style={{ color: meta.color }}>{meta.label} Recovery</span>
+        <p className="text-xs text-gray-400 mt-0.5">
+          {isToday ? "Today's check-in" : `Last check-in · ${fmtDay(latest.date)}`}
+        </p>
+      </Card>
+
+      {/* Today's subjective metric breakdown */}
+      <div>
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
+          {isToday ? "Today's Metrics" : 'Latest Metrics'}
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <MetricBar icon={Moon}     label="Sleep"    rawText={`${latest.sleep}/5`}    goodness={((latest.sleep - 1) / 4) * 100} />
+          <MetricBar icon={Battery}  label="Fatigue"  rawText={`${latest.fatigue}/5`}  goodness={((5 - latest.fatigue) / 4) * 100} />
+          <MetricBar icon={Activity} label="Soreness" rawText={`${latest.soreness}/5`} goodness={((5 - latest.soreness) / 4) * 100} />
+          <MetricBar icon={Brain}    label="Stress"   rawText={`${latest.stress}/5`}   goodness={((5 - latest.stress) / 4) * 100} />
+        </div>
+      </div>
+
+      {/* Recovery trend (bar) — own range selector */}
+      <RecoveryTrendCard log={dailyReadinessLog} />
+
+      {/* Wearable metric line charts — each with its own range selector */}
+      <MetricLineChart title="HRV"   icon={Activity} unit=" ms"  color="#7c3aed" log={dailyReadinessLog} getVal={e => e.hrv} />
+      <MetricLineChart title="Sleep" icon={Moon}     unit=" h"   color="#2563eb" log={dailyReadinessLog} getVal={e => e.sleepHours} decimals={1} />
+      <MetricLineChart title="Resting Heart Rate" icon={Heart} unit=" bpm" color="#dc2626" log={dailyReadinessLog} getVal={e => e.rhr} />
+    </div>
+  );
+}
+
+
 interface HistoryProps {
   sessions: WorkoutSession[];
   matchEntries: MatchEntry[];
@@ -1211,7 +1589,7 @@ interface HistoryProps {
 }
 
 export function History({ sessions, matchEntries, onNavigate, onDeleteSession, isPremium, onUpgrade }: HistoryProps) {
-  const [activeTab, setActiveTab] = useState<'sessions' | 'load' | 'tests'>('sessions');
+  const [activeTab, setActiveTab] = useState<'sessions' | 'load' | 'tests' | 'recovery'>('sessions');
 
   const sorted = [...sessions].sort((a, b) => b.startTime - a.startTime);
 
@@ -1229,7 +1607,7 @@ export function History({ sessions, matchEntries, onNavigate, onDeleteSession, i
 
       {/* Tab switcher */}
       <div className="flex gap-1 p-1 bg-gray-100 rounded-2xl mb-5">
-        {(['sessions', 'load', 'tests'] as const).map(tab => (
+        {(['sessions', 'load', 'tests', 'recovery'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -1239,12 +1617,14 @@ export function History({ sessions, matchEntries, onNavigate, onDeleteSession, i
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {tab === 'sessions' ? 'Sessions' : tab === 'load' ? 'Load' : 'Tests'}
+            {tab === 'sessions' ? 'Sessions' : tab === 'load' ? 'Load' : tab === 'tests' ? 'Tests' : 'Recovery'}
           </button>
         ))}
       </div>
 
-      {activeTab === 'tests' ? (
+      {activeTab === 'recovery' ? (
+        <RecoveryTab />
+      ) : activeTab === 'tests' ? (
         <>
           <PerformanceOverview onNavigate={onNavigate} />
           <TestProgressionTab onNavigate={onNavigate} />

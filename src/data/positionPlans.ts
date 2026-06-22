@@ -1,5 +1,5 @@
 import { WorkoutExercise, PositionPlan, PlanWeek } from '../types';
-import { BuiltInTemplate } from './programs';
+import { BuiltInTemplate, Program } from './programs';
 
 function ex(
   exerciseId: string,
@@ -17,7 +17,7 @@ function ex(
 export const POSITION_TEMPLATES: BuiltInTemplate[] = [
 
   {
-    id: 'gk-session-a', name: 'GK — Reactive Power', description: 'Vertical jumps, upper body strength, reactive plyos, calf eccentrics, shoulder isometrics, shuttle conditioning.',
+    id: 'gk-session-a', name: 'GK — Reactive Power', description: 'Vertical jumps, upper body strength, reactive plyos, calf eccentrics, shoulder isometrics.',
     program: 'Goalkeeper', exercises: [
       // 1 — Max Velocity
       ex('approach-jump',        4, 5,  0,  120), ex('box-jump',          3, 5,  0,  120),
@@ -29,12 +29,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-calf-raise', 3, 12, 0,  90),  ex('eccentric-nordic',  3, 2,  0,  120),
       // 5 — Isometric
       ex('dead-hang',            3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('shuttle-run',          4, 1,  0,  60),
     ],
   },
   {
-    id: 'gk-session-b', name: 'GK — Lower Power', description: 'Broad jumps, squat-based strength, lateral tendon stiffness, hamstring eccentrics, hip isometrics, shuttle conditioning.',
+    id: 'gk-session-b', name: 'GK — Lower Power', description: 'Broad jumps, squat-based strength, lateral tendon stiffness, hamstring eccentrics, hip isometrics.',
     program: 'Goalkeeper', exercises: [
       // 1 — Max Velocity
       ex('broad-jump',           4, 5,  0,  120), ex('approach-jump',     3, 5,  0,  120),
@@ -46,12 +44,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('glute-bridge-hold',    2, 1,  0,  60),  ex('wall-sit',          2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('shuttle-run',          5, 1,  0,  60),
     ],
   },
   {
-    id: 'gk-session-c', name: 'GK — Full Body Power', description: 'Drop jumps, full posterior chain, reactive plyos, eccentric circuit, core isometrics, repeated sprint conditioning.',
+    id: 'gk-session-c', name: 'GK — Full Body Power', description: 'Drop jumps, full posterior chain, reactive plyos, eccentric circuit, core isometrics.',
     program: 'Goalkeeper', exercises: [
       // 1 — Max Velocity
       ex('box-jump',             4, 5,  0,  120), ex('depth-jump',        3, 5,  0,  150),
@@ -63,13 +59,11 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('copenhagen-plank',     3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('repeated-sprint',      5, 1,  0,  30),
     ],
   },
 
   {
-    id: 'cb-session-a', name: 'CB — Aerial Power', description: 'Vertical and broad jumps, heavy compound strength, tendon stiffness plyos, hamstring eccentrics, hip isometrics, sprint conditioning.',
+    id: 'cb-session-a', name: 'CB — Aerial Power', description: 'Vertical and broad jumps, heavy compound strength, tendon stiffness plyos, hamstring eccentrics, hip isometrics.',
     program: 'Centre Back', exercises: [
       // 1 — Max Velocity
       ex('approach-jump',        4, 5,  0,  120), ex('box-jump',          3, 5,  0,  120), ex('broad-jump', 3, 5, 0, 120),
@@ -81,12 +75,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('glute-bridge-hold',    2, 1,  0,  60),  ex('wall-sit',          2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('repeated-sprint',      6, 1,  0,  30),
     ],
   },
   {
-    id: 'cb-session-b', name: 'CB — Upper Strength', description: 'Jumps, upper body dominance, reactive plyos, hamstring eccentrics, core stability, shuttle conditioning.',
+    id: 'cb-session-b', name: 'CB — Upper Strength', description: 'Jumps, upper body dominance, reactive plyos, hamstring eccentrics, core stability.',
     program: 'Centre Back', exercises: [
       // 1 — Max Velocity
       ex('box-jump',             3, 5,  0,  120), ex('broad-jump',        3, 5,  0,  120),
@@ -98,12 +90,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('dead-hang',            3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('shuttle-run',          4, 1,  0,  60),
     ],
   },
   {
-    id: 'cb-session-c', name: 'CB — Full Power', description: 'Drop jumps, bounding, posterior chain strength, reactive plyos, full eccentric circuit, core isometrics, repeated sprints.',
+    id: 'cb-session-c', name: 'CB — Full Power', description: 'Drop jumps, bounding, posterior chain strength, reactive plyos, full eccentric circuit, core isometrics.',
     program: 'Centre Back', exercises: [
       // 1 — Max Velocity
       ex('depth-jump',           4, 5,  0,  150), ex('approach-jump',     3, 5,  0,  120), ex('hurdle-hop', 3, 8, 0, 90),
@@ -115,13 +105,11 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('copenhagen-plank',     3, 1,  0,  60),  ex('glute-bridge-hold', 2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('repeated-sprint',      6, 1,  0,  30),
     ],
   },
 
   {
-    id: 'fb-pos-session-a', name: 'FB — Lateral Speed', description: 'Sprints, broad jumps and bounding, balanced lower strength, lateral tendon stiffness, calf eccentrics, hip isometrics, shuttle conditioning.',
+    id: 'fb-pos-session-a', name: 'FB — Lateral Speed', description: 'Sprints, broad jumps and bounding, balanced lower strength, lateral tendon stiffness, calf eccentrics, hip isometrics.',
     program: 'Full Back', exercises: [
       // 1 — Max Velocity
       ex('sprint',               4, 1,  0,  180), ex('broad-jump',        4, 5,  0,  120), ex('bounding', 3, 8, 0, 120),
@@ -133,12 +121,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-calf-raise', 3, 12, 0,  90),  ex('eccentric-sl-rdl',  3, 8,  0,  90),
       // 5 — Isometric
       ex('side-plank',           3, 1,  0,  60),  ex('glute-bridge-hold', 2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('shuttle-run',          6, 1,  0,  45),
     ],
   },
   {
-    id: 'fb-pos-session-b', name: 'FB — Upper & Power', description: 'Box jumps, upper body strength, reactive plyos, hamstring/calf eccentrics, core stability, tempo conditioning.',
+    id: 'fb-pos-session-b', name: 'FB — Upper & Power', description: 'Box jumps, upper body strength, reactive plyos, hamstring/calf eccentrics, core stability.',
     program: 'Full Back', exercises: [
       // 1 — Max Velocity
       ex('box-jump',             4, 5,  0,  120), ex('approach-jump',     3, 5,  0,  120),
@@ -150,12 +136,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('side-plank',           3, 1,  0,  60),  ex('calf-raise-hold',   2, 1,  0,  45),
-      // 6 — Conditioning
-      ex('tempo-run',            5, 1,  0,  90),
     ],
   },
   {
-    id: 'fb-pos-session-c', name: 'FB — Full Body Endurance Power', description: 'Broad jumps and bounding, full posterior chain, tendon stiffness, eccentric circuit, core isometrics, repeated sprint conditioning.',
+    id: 'fb-pos-session-c', name: 'FB — Full Body Endurance Power', description: 'Broad jumps and bounding, full posterior chain, tendon stiffness, eccentric circuit, core isometrics.',
     program: 'Full Back', exercises: [
       // 1 — Max Velocity
       ex('broad-jump',           4, 5,  0,  120), ex('bounding',          3, 8,  0,  120), ex('hurdle-hop', 3, 8, 0, 90),
@@ -167,13 +151,11 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('copenhagen-plank',     3, 1,  0,  60),  ex('calf-raise-hold',   2, 1,  0,  45),
-      // 6 — Conditioning
-      ex('repeated-sprint',      8, 1,  0,  30),
     ],
   },
 
   {
-    id: 'cm-session-a', name: 'CM — Lower Endurance Power', description: 'Broad jumps and hurdle hops, balanced lower strength, tendon stiffness plyos, hamstring eccentrics, core isometrics, HIIT conditioning.',
+    id: 'cm-session-a', name: 'CM — Lower Endurance Power', description: 'Broad jumps and hurdle hops, balanced lower strength, tendon stiffness plyos, hamstring eccentrics, core isometrics.',
     program: 'Central Midfielder', exercises: [
       // 1 — Max Velocity
       ex('broad-jump',           4, 5,  0,  120), ex('hurdle-hop',        3, 8,  0,  90),
@@ -185,12 +167,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('wall-sit',             2, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('hiit-run',             8, 1,  0,  30),
     ],
   },
   {
-    id: 'cm-session-b', name: 'CM — Upper & Reactive', description: 'Box jumps, upper body strength, reactive plyos, calf eccentrics, core stability, HIIT conditioning.',
+    id: 'cm-session-b', name: 'CM — Upper & Reactive', description: 'Box jumps, upper body strength, reactive plyos, calf eccentrics, core stability.',
     program: 'Central Midfielder', exercises: [
       // 1 — Max Velocity
       ex('box-jump',             3, 5,  0,  120), ex('broad-jump',        3, 5,  0,  120),
@@ -202,12 +182,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('side-plank',           3, 1,  0,  60),  ex('glute-bridge-hold', 2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('hiit-run',             6, 1,  0,  30),
     ],
   },
   {
-    id: 'cm-session-c', name: 'CM — Full Body RSA', description: 'Broad jumps, bounding and hurdle hops, full posterior chain, tendon stiffness, eccentric circuit, core isometrics, repeated sprint ability.',
+    id: 'cm-session-c', name: 'CM — Full Body RSA', description: 'Broad jumps, bounding and hurdle hops, full posterior chain, tendon stiffness, eccentric circuit, core isometrics.',
     program: 'Central Midfielder', exercises: [
       // 1 — Max Velocity
       ex('broad-jump',           4, 5,  0,  120), ex('bounding',          3, 8,  0,  120), ex('hurdle-hop', 3, 8, 0, 90),
@@ -219,13 +197,11 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('copenhagen-plank',     3, 1,  0,  60),  ex('wall-sit',          2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('repeated-sprint',      8, 1,  0,  30),
     ],
   },
 
   {
-    id: 'w-session-a', name: 'Winger — Acceleration Power', description: 'Sprints, broad jumps and bounding, explosive lower strength, ankle tendon stiffness, calf eccentrics, ankle isometrics, sprint conditioning.',
+    id: 'w-session-a', name: 'Winger — Acceleration Power', description: 'Sprints, broad jumps and bounding, explosive lower strength, ankle tendon stiffness, calf eccentrics, ankle isometrics.',
     program: 'Winger', exercises: [
       // 1 — Max Velocity
       ex('sprint',               5, 1,  0,  180), ex('broad-jump',        4, 5,  0,  120), ex('bounding', 3, 8, 0, 120),
@@ -237,12 +213,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-calf-raise', 3, 12, 0,  90),  ex('eccentric-nordic',  3, 2,  0,  120),
       // 5 — Isometric
       ex('calf-raise-hold',      3, 1,  0,  45),  ex('glute-bridge-hold', 2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('repeated-sprint',      6, 1,  0,  30),
     ],
   },
   {
-    id: 'w-session-b', name: 'Winger — Lateral & Reactive', description: 'Approach and broad jumps, upper body strength, lateral tendon stiffness, hamstring eccentrics, core stability, shuttle conditioning.',
+    id: 'w-session-b', name: 'Winger — Lateral & Reactive', description: 'Approach and broad jumps, upper body strength, lateral tendon stiffness, hamstring eccentrics, core stability.',
     program: 'Winger', exercises: [
       // 1 — Max Velocity
       ex('approach-jump',        4, 5,  0,  120), ex('broad-jump',        3, 5,  0,  120),
@@ -254,12 +228,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('side-plank',           3, 1,  0,  60),  ex('calf-raise-hold',   2, 1,  0,  45),
-      // 6 — Conditioning
-      ex('shuttle-run',          5, 1,  0,  45),
     ],
   },
   {
-    id: 'w-session-c', name: 'Winger — Full Explosive', description: 'Sprints, drop jumps and bounding, full compound strength, reactive plyos, eccentric circuit, core isometrics, tempo conditioning.',
+    id: 'w-session-c', name: 'Winger — Full Explosive', description: 'Sprints, drop jumps and bounding, full compound strength, reactive plyos, eccentric circuit, core isometrics.',
     program: 'Winger', exercises: [
       // 1 — Max Velocity
       ex('sprint',               5, 1,  0,  180), ex('depth-jump',        4, 5,  0,  150), ex('approach-jump', 3, 5, 0, 120), ex('bounding', 3, 8, 0, 120),
@@ -271,13 +243,11 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('copenhagen-plank',     3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('tempo-run',            5, 1,  0,  90),
     ],
   },
 
   {
-    id: 'st-session-a', name: 'Striker — Explosive Lower', description: 'Approach jumps, drop jumps and broad jumps, power-focused lower strength, reactive plyos, hamstring eccentrics, power isometrics, sprint conditioning.',
+    id: 'st-session-a', name: 'Striker — Explosive Lower', description: 'Approach jumps, drop jumps and broad jumps, power-focused lower strength, reactive plyos, hamstring eccentrics, power isometrics.',
     program: 'Striker', exercises: [
       // 1 — Max Velocity
       ex('approach-jump',        4, 5,  0,  120), ex('depth-jump',        3, 5,  0,  150), ex('broad-jump', 3, 5, 0, 120),
@@ -289,12 +259,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-nordic',     3, 2,  0,  120), ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('wall-sit',             3, 1,  0,  60),  ex('glute-bridge-hold', 2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('repeated-sprint',      6, 1,  0,  30),
     ],
   },
   {
-    id: 'st-session-b', name: 'Striker — Upper & Reactive', description: 'Box and broad jumps, upper body strength for hold-up play, reactive plyos, calf eccentrics, core stability, repeated sprint conditioning.',
+    id: 'st-session-b', name: 'Striker — Upper & Reactive', description: 'Box and broad jumps, upper body strength for hold-up play, reactive plyos, calf eccentrics, core stability.',
     program: 'Striker', exercises: [
       // 1 — Max Velocity
       ex('box-jump',             4, 5,  0,  120), ex('broad-jump',        3, 5,  0,  120),
@@ -306,12 +274,10 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-calf-raise', 3, 12, 0,  90),  ex('eccentric-nordic',  3, 2,  0,  120),
       // 5 — Isometric
       ex('dead-hang',            3, 1,  0,  60),  ex('side-plank',        2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('repeated-sprint',      6, 1,  0,  30),
     ],
   },
   {
-    id: 'st-session-c', name: 'Striker — Full Power', description: 'Broad jumps, bounding and hurdle hops, full posterior chain, lateral tendon stiffness, eccentric circuit, core isometrics, repeated sprint conditioning.',
+    id: 'st-session-c', name: 'Striker — Full Power', description: 'Broad jumps, bounding and hurdle hops, full posterior chain, lateral tendon stiffness, eccentric circuit, core isometrics.',
     program: 'Striker', exercises: [
       // 1 — Max Velocity
       ex('broad-jump',           4, 5,  0,  120), ex('bounding',          3, 8,  0,  120), ex('hurdle-hop', 3, 8, 0, 90),
@@ -323,8 +289,6 @@ export const POSITION_TEMPLATES: BuiltInTemplate[] = [
       ex('eccentric-sl-rdl',     3, 8,  0,  90),  ex('eccentric-calf-raise', 3, 12, 0, 90),
       // 5 — Isometric
       ex('copenhagen-plank',     3, 1,  0,  60),  ex('glute-bridge-hold', 2, 1,  0,  60),
-      // 6 — Conditioning
-      ex('repeated-sprint',      8, 1,  0,  30),
     ],
   },
 ];
@@ -345,7 +309,7 @@ function week(
     phase,
     sessions: [
       { dayOfWeek: 0, templateId: monId, name: monName, tags: ['Plyometrics', 'Strength', 'Eccentric'] },
-      { dayOfWeek: 2, templateId: wedId, name: wedName, tags: ['Upper', 'Reactive', 'Conditioning'] },
+      { dayOfWeek: 2, templateId: wedId, name: wedName, tags: ['Upper', 'Reactive', 'Eccentric'] },
       { dayOfWeek: 4, templateId: friId, name: friName, tags: ['Power', 'Full Body'] },
     ],
   };
@@ -478,3 +442,13 @@ export function isSameDay(a: Date, b: Date): boolean {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
 }
+
+
+// Position-specific strength presets grouped for the Quick Workout "Football Strength"
+// section — one Program per position, each containing its 3 session archetypes (A/B/C).
+export const FOOTBALL_STRENGTH_PROGRAMS: Program[] = POSITION_PLANS.map(plan => ({
+  name: plan.position,
+  description: plan.description,
+  sport: 'football',
+  templates: POSITION_TEMPLATES.filter(t => t.program === plan.position),
+}));
