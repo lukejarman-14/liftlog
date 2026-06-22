@@ -14,21 +14,22 @@ export function deriveTeamCode(seed: string): string {
   return `VF-${code}`;
 }
 
-/** Coach/Club: ensure this user's squad row exists with the current tier. Idempotent.
+/** Coach/Club: ensure this user's squad row exists. Idempotent.
+ *  The squad TIER is decided SERVER-SIDE by the register_squad RPC from the
+ *  coach's genuine paid entitlement — the client can no longer claim 'pro'
+ *  (which previously let a user with spoofed local premium publish a Pro squad
+ *  and grant other players premium for free). team_code stays deterministic.
  *  Returns an error message on failure, or null on success. */
-export async function registerSquad(userId: string, tier: 'free' | 'pro'): Promise<string | null> {
+export async function registerSquad(userId: string): Promise<string | null> {
   if (!supabase) return 'not_configured';
-  const team_code = deriveTeamCode(userId);
   try {
-    const { error } = await supabase.from('coach_squads').upsert(
-      { coach_id: userId, team_code, tier, updated_at: new Date().toISOString() },
-      { onConflict: 'coach_id' },
-    );
+    const team_code = deriveTeamCode(userId);
+    const { error } = await supabase.rpc('register_squad', { p_team_code: team_code });
     if (error) {
       if (import.meta.env.DEV) console.warn('[teams] registerSquad failed:', error.message, error);
       return error.message;
     }
-    if (import.meta.env.DEV) console.log('[teams] registerSquad OK', { team_code, tier });
+    if (import.meta.env.DEV) console.log('[teams] registerSquad OK', { team_code });
     return null;
   } catch (e) {
     if (import.meta.env.DEV) console.warn('[teams] registerSquad threw:', e);

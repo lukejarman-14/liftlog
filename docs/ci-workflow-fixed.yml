@@ -1,0 +1,67 @@
+# ============================================================================
+# CORRECTED CI WORKFLOW — this file belongs at:  .github/workflows/ci.yml
+# ============================================================================
+# The live workflow is currently at the WRONG path:
+#     .github/workflows/.github/workflows/ci.yml
+# GitHub Actions only scans the top level of .github/workflows/, so it has
+# NEVER run. To fix it (I can't push workflow files — my token lacks the
+# `workflow` scope), do ONE of:
+#
+#   Option A (easiest, in the GitHub website):
+#     1. Open .github/workflows/.github/workflows/ci.yml → delete that file.
+#     2. Create a new file named  .github/workflows/ci.yml  and paste the
+#        content below (everything under this comment block).
+#
+#   Option B (let me push it for you):
+#     1. GitHub → Settings → Developer settings → Personal access tokens →
+#        your token → enable the "workflow" scope → update.
+#     2. Tell me, and I'll move it into place and push.
+#
+# (vs the old version this also adds `npm test` + a production dependency audit.)
+# ============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Audit (production deps)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
+          VITE_REVENUECAT_IOS_KEY: ${{ secrets.VITE_REVENUECAT_IOS_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_HCAPTCHA_SITE_KEY: ${{ secrets.VITE_HCAPTCHA_SITE_KEY }}
+          VITE_APP_VERSION: ci

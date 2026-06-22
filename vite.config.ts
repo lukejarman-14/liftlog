@@ -40,6 +40,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['node_modules/**', 'dist/**', 'ios/build/**', 'ios/App/**'],
   },
   build: {
     // Raise warning threshold — 500 KB is too low for a full SPA

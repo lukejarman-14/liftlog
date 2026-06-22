@@ -5,7 +5,7 @@
  * Referred:  gets 21-day trial instead of 14
  */
 
-import { supabase, supabasePublic } from './supabase';
+import { supabase } from './supabase';
 
 const REFERRAL_TRIAL_MS = 21 * 24 * 60 * 60 * 1000;   // 21 days
 const REFERRER_REWARD_MS = 14 * 24 * 60 * 60 * 1000;  // 14 days
@@ -46,19 +46,13 @@ export async function redeemReferralCode(
   if (!supabase) return { success: false, reason: 'error' };
 
   try {
-    // Use the anon client — RLS on the authenticated client only returns the
-    // current user's own row, which makes foreign codes appear invalid.
-    // Guard explicitly: falling back to the authenticated client would silently
-    // make all foreign codes look invalid due to RLS.
-    if (!supabasePublic) return { success: false, reason: 'error' };
-    const { data: codeRow, error } = await supabasePublic
-      .from('referral_codes')
-      .select('user_id')
-      .eq('code', code)
-      .single();
-
-    if (error || !codeRow) return { success: false, reason: 'invalid' };
-    if (codeRow.user_id === referredUserId) return { success: false, reason: 'self' };
+    // Look up the code's owner via a SECURITY DEFINER RPC (exact match only).
+    // The referral_codes table is no longer client-readable in bulk, so codes
+    // and user UUIDs can't be enumerated (migration 016).
+    const { data: ownerId, error } = await supabase.rpc('get_referral_owner', { p_code: code });
+    if (error) return { success: false, reason: 'error' };
+    if (!ownerId || typeof ownerId !== 'string') return { success: false, reason: 'invalid' };
+    if (ownerId === referredUserId) return { success: false, reason: 'self' };
 
     // Check not already used by this user
     const { data: existing } = await supabase
@@ -72,7 +66,7 @@ export async function redeemReferralCode(
     // Log the referral — reward_applied starts false (applied on referrer's next boot)
     const { error: insertError } = await supabase.from('referrals').insert({
       referral_code: code,
-      referrer_user_id: codeRow.user_id,
+      referrer_user_id: ownerId,
       referred_user_id: referredUserId,
       reward_applied: false,
     });

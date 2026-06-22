@@ -11,9 +11,11 @@
  */
 
 import posthog from 'posthog-js';
+import { Capacitor } from '@capacitor/core';
 
 const key = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
 const host = import.meta.env.VITE_POSTHOG_HOST as string | undefined;
+const CONSENT_KEY = 'vf_cookie_consent';
 
 if (key) {
   posthog.init(key, {
@@ -26,6 +28,9 @@ if (key) {
     autocapture: false,
     // Disable session recording until you explicitly enable it in PostHog UI
     disable_session_recording: true,
+    // Consent-first (GDPR): capture NOTHING until the user explicitly opts in.
+    // No events/identify are sent on boot before the cookie banner is answered.
+    opt_out_capturing_by_default: true,
   });
 }
 
@@ -65,7 +70,18 @@ export function applyAnalyticsOptOut(optOut: boolean): void {
   if (!key) return;
   if (optOut) {
     posthog.opt_out_capturing();
-  } else {
+    return;
+  }
+  // Opt-IN requested. On WEB, only honour it after explicit cookie consent —
+  // App.tsx applies the (default-off) opt-out setting on boot, and without this
+  // guard that would silently opt the user in before they answer the banner.
+  // Native (iOS) consent is handled by the App Store privacy flow.
+  const consented =
+    Capacitor.isNativePlatform() ||
+    localStorage.getItem(CONSENT_KEY) === 'accepted';
+  if (consented) {
     posthog.opt_in_capturing();
+  } else {
+    posthog.opt_out_capturing();
   }
 }

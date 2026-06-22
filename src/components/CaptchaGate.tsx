@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { HCAPTCHA_SITE_KEY, registerCaptchaExecutor } from '../lib/hcaptcha';
 
@@ -15,9 +15,20 @@ import { HCAPTCHA_SITE_KEY, registerCaptchaExecutor } from '../lib/hcaptcha';
  */
 export function CaptchaGate() {
   const ref = useRef<HCaptcha>(null);
+  const [mountKey, setMountKey] = useState(0);
+
+  useEffect(() => {
+    const remountAfterReconnect = () => {
+      registerCaptchaExecutor(null);
+      setMountKey(key => key + 1);
+    };
+    window.addEventListener('online', remountAfterReconnect);
+    return () => window.removeEventListener('online', remountAfterReconnect);
+  }, []);
 
   return (
     <HCaptcha
+      key={mountKey}
       ref={ref}
       sitekey={HCAPTCHA_SITE_KEY}
       size="invisible"
@@ -30,6 +41,9 @@ export function CaptchaGate() {
           ref.current?.resetCaptcha();
           return result?.response;
         });
+      }}
+      onError={() => {
+        registerCaptchaExecutor(null);
       }}
     />
   );

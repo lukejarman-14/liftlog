@@ -28,6 +28,7 @@ interface WeeklyCalendarProps {
   onSkipSession?: (weekIdx: number, sessionIdx: number, reason: string) => void;
   onRescheduleSession?: (weekIdx: number, sessionIdx: number, newDate: string) => void;
   onDeleteSession?: (id: string) => void;
+  onToggleSessionComplete?: (sessionKey: string, completed: boolean) => void;
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -42,8 +43,8 @@ const PHASE_COLOURS: Record<string, string> = {
 };
 
 
-export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onSkipSession, onRescheduleSession }: WeeklyCalendarProps) {
-  const { matchEntries, deleteSession: storeDeleteSession } = useStore();
+export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exercises = [], onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onSkipSession, onRescheduleSession, onToggleSessionComplete }: WeeklyCalendarProps) {
+  const { matchEntries, deleteSession: storeDeleteSession, saveSession } = useStore();
 
   // Default to the first programme week if the programme hasn't started yet
   const initialOffset = useMemo(() => {
@@ -78,7 +79,21 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
     availableDates: { label: string; date: string }[];
   } | null>(null);
   const [skipView, setSkipView] = useState<'pick' | 'skip-reason' | 'reschedule'>('pick');
-  const [uncompletePending, setUncompletePending] = useState<{ ids: string[]; name: string } | null>(null);
+  const [uncompletePending, setUncompletePending] = useState<{ ids: string[]; name: string; sessionKey?: string } | null>(null);
+
+  const handleQuickComplete = (dateStr: string, isCond: boolean, label: string, sessionKey?: string) => {
+    const now = Date.now();
+    saveSession({
+      id: `quick-${dateStr}-${now}`,
+      name: isCond ? `Conditioning — ${label}` : `Gym — ${label}`,
+      exercises: [],
+      startTime: now - 60_000,
+      endTime: now,
+      date: dateStr,
+    });
+    if (sessionKey) onToggleSessionComplete?.(sessionKey, true);
+  };
+
   const weekDates = getWeekDates(weekOffset);
   const today = new Date();
 
@@ -288,7 +303,6 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
 
           const daySessions = progSessionsByDay.get(i);
           const sessionCount = daySessions?.length ?? 0;
-
           const dayInner = (
             <>
               <span className={`text-xs font-medium ${isToday ? 'text-brand-500' : 'text-gray-400'}`}>
@@ -387,6 +401,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
       {/* Generated programme sessions (shown when no activePlan) */}
       {!hasPlan && generatedProgramme && progWeek && (() => {
         const skipped = generatedProgramme.skippedSessions ?? {};
+        const completedKeys = new Set(generatedProgramme.completedSessionKeys ?? []);
         return (
           <div className="flex flex-col gap-2 mb-2">
             {progSessionsThisWeek.map(({ session, effectiveDayIdx, effectiveDate, sessionKey, weekIdx, sessionIdx }) => {
@@ -394,7 +409,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
               const dateStr = localDateStr(date);
               const isCond = isConditioningSession(session);
               const typeCounts = completedByType.get(dateStr) ?? { gym: 0, cond: 0 };
-              const done = isCond ? typeCounts.cond > 0 : typeCounts.gym > 0;
+              const done = completedKeys.has(sessionKey) || (isCond ? typeCounts.cond > 0 : typeCounts.gym > 0);
               const isToday = isSameDay(date, today);
               const isPast = date < today && !isToday;
               const isMissed = isPast && !done;
@@ -413,15 +428,18 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                 }));
 
               return (
-                <div key={sessionKey} className={`rounded-2xl border p-3.5 flex items-center justify-between transition-all ${
-                  done       ? 'bg-green-50 border-green-200' :
-                  isSkipped  ? 'bg-gray-50 border-gray-200 opacity-70' :
-                  isMissed   ? 'bg-red-50 border-red-200' :
-                  isCond && isToday ? 'bg-emerald-50 border-emerald-300 shadow-sm' :
-                  isCond     ? 'bg-white border-emerald-200' :
-                  isToday    ? 'bg-brand-50 border-brand-300 shadow-sm' :
-                               'bg-white border-gray-100'
-                }`}>
+                <div
+                  key={sessionKey}
+                  className={`rounded-2xl border p-3.5 flex items-center justify-between transition-all ${
+                    done       ? 'bg-green-50 border-green-200' :
+                    isSkipped  ? 'bg-gray-50 border-gray-200 opacity-70' :
+                    isMissed   ? 'bg-red-50 border-red-200' :
+                    isCond && isToday ? 'bg-emerald-50 border-emerald-300 shadow-sm' :
+                    isCond     ? 'bg-white border-emerald-200' :
+                    isToday    ? 'bg-brand-50 border-brand-300 shadow-sm' :
+                                 'bg-white border-gray-100'
+                  }`}
+                >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
@@ -454,12 +472,11 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                       </div>
                     )}
                   </div>
-                  <div className="ml-3 flex-shrink-0 flex flex-col gap-1.5 items-end">
+                  <div className="ml-3 flex-shrink-0 flex items-center gap-1.5">
                     {done ? (
                       <button
                         onClick={() => {
                           const condKws = conditioningKeywords;
-                          // Collect IDs of all completed sessions of this type on this date
                           let toDelete = sessions.filter(s =>
                             s.date === dateStr &&
                             s.endTime != null &&
@@ -467,13 +484,12 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                               ? condKws.some(kw => s.name.toLowerCase().includes(kw))
                               : !condKws.some(kw => s.name.toLowerCase().includes(kw)))
                           ).map(s => s.id);
-                          // Fallback: any completed session on this date
                           if (toDelete.length === 0) {
                             toDelete = sessions
                               .filter(s => s.date === dateStr && s.endTime != null)
                               .map(s => s.id);
                           }
-                          setUncompletePending({ ids: toDelete, name: session.objective });
+                          setUncompletePending({ ids: toDelete, name: session.objective, sessionKey });
                         }}
                         title="Tap to uncomplete this session"
                         className="text-green-500 hover:text-red-400 transition-colors"
@@ -489,35 +505,44 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                       >
                         <X size={11} /> Missed
                       </button>
-                    ) : isToday && onStartProgrammeSession ? (
-                      <button
-                        onClick={() => {
-                          const wk = weekIdx >= 0 ? weekIdx + 1 : 1;
-                          setPreviewWeekNumber(wk);
-                          setPreviewOnStart(() => () => {
-                            const items = sessionToWorkoutExercises(session, exercises, {
-                              strengthSetup: generatedProgramme?.strengthSetup,
-                              weekNumber: weekIdx >= 0 ? weekIdx + 1 : 1,
-                              totalWeeks: generatedProgramme?.durationWeeks,
-                            });
-                            onStartProgrammeSession(`${mdDisplay} · ${session.dayOfWeek}`, items);
-                          });
-                          setPreviewSession(session);
-                        }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-colors ${
-                          isCond ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-brand-500 hover:bg-brand-600'
-                        }`}
-                      >
-                        <Play size={12} /> Start
-                      </button>
-                    ) : null}
-                    {!done && !isSkipped && (
-                      <button
-                        onClick={() => { setPreviewWeekNumber(progWeekIdx >= 0 ? progWeekIdx + 1 : 1); setPreviewSession(session); }}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                      >
-                        Preview
-                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleQuickComplete(dateStr, isCond, session.objective, sessionKey)}
+                          title="Mark as done"
+                          className={`w-6 h-6 rounded-full border-2 flex-shrink-0 transition-colors ${
+                            isCond ? 'border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50' : 'border-gray-300 hover:border-brand-400 hover:bg-brand-50'
+                          }`}
+                        />
+                        {isToday && onStartProgrammeSession && (
+                          <button
+                            onClick={() => {
+                              const wk = weekIdx >= 0 ? weekIdx + 1 : 1;
+                              setPreviewWeekNumber(wk);
+                              setPreviewOnStart(() => () => {
+                                const items = sessionToWorkoutExercises(session, exercises, {
+                                  strengthSetup: generatedProgramme?.strengthSetup,
+                                  weekNumber: weekIdx >= 0 ? weekIdx + 1 : 1,
+                                  totalWeeks: generatedProgramme?.durationWeeks,
+                                });
+                                onStartProgrammeSession(`${mdDisplay} · ${session.dayOfWeek}`, items);
+                              });
+                              setPreviewSession(session);
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-colors ${
+                              isCond ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-brand-500 hover:bg-brand-600'
+                            }`}
+                          >
+                            <Play size={12} /> Start
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setPreviewWeekNumber(progWeekIdx >= 0 ? progWeekIdx + 1 : 1); setPreviewSession(session); }}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                        >
+                          Preview
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -571,17 +596,24 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
                 {done ? (
                   <CheckCircle2 size={22} className="text-green-500 ml-3 flex-shrink-0" />
                 ) : (
-                  <button
-                    onClick={() => onStartWorkout(planSession.templateId, planSession.name)}
-                    className={`ml-3 flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                      isToday
-                        ? 'bg-brand-500 text-white hover:bg-brand-600'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Play size={12} />
-                    Start
-                  </button>
+                  <div className="ml-3 flex-shrink-0 flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleQuickComplete(dateStr, false, planSession.name)}
+                      title="Mark as done"
+                      className="w-6 h-6 rounded-full border-2 border-gray-300 hover:border-brand-400 hover:bg-brand-50 flex-shrink-0 transition-colors"
+                    />
+                    <button
+                      onClick={() => onStartWorkout(planSession.templateId, planSession.name)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                        isToday
+                          ? 'bg-brand-500 text-white hover:bg-brand-600'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Play size={12} />
+                      Start
+                    </button>
+                  </div>
                 )}
               </div>
             );
@@ -756,6 +788,7 @@ export function WeeklyCalendar({ sessions, activePlan, generatedProgramme, exerc
             <button
               onClick={() => {
                 uncompletePending.ids.forEach(id => storeDeleteSession(id));
+                if (uncompletePending.sessionKey) onToggleSessionComplete?.(uncompletePending.sessionKey, false);
                 setUncompletePending(null);
               }}
               className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"

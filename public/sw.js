@@ -50,6 +50,16 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
 
+  // Never cache auth/recovery/billing callbacks — these URLs carry one-time
+  // tokens (password recovery, OAuth code) or trigger entitlement changes
+  // (Stripe return). Always hit the network and never store the response.
+  const SENSITIVE_PARAMS = ['code', 'token', 'access_token', 'refresh_token',
+    'type', 'error', 'error_description', 'stripe_success', 'stripe_cancel'];
+  if (SENSITIVE_PARAMS.some(p => url.searchParams.has(p))) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // Hashed /assets/* — cache-first (immutable)
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
@@ -62,8 +72,11 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     fetch(request)
       .then(response => {
-        const clone = response.clone();
-        caches.open(STATIC_CACHE).then(cache => cache.put(request, clone));
+        // Only cache successful responses — never store errors/redirects.
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(STATIC_CACHE).then(cache => cache.put(request, clone));
+        }
         return response;
       })
       .catch(() => caches.match(request).then(cached => cached ?? caches.match('/')))

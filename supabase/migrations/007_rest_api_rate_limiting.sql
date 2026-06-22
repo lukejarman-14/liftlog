@@ -30,6 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_rest_rate_limits_user_table
 -- can write to this table.
 ALTER TABLE rest_rate_limits ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "rest_rate_limits_select_own" ON rest_rate_limits;
 CREATE POLICY "rest_rate_limits_select_own"
   ON rest_rate_limits FOR SELECT
   USING (user_id = auth.uid());

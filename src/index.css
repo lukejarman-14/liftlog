@@ -6,6 +6,13 @@
   * {
     -webkit-tap-highlight-color: transparent;
     box-sizing: border-box;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   html {
@@ -32,6 +39,18 @@
 
   input[type='number'] {
     -moz-appearance: textfield;
+  }
+
+  /*
+   * iOS WebView/Safari auto-zooms focused form controls below 16px and often
+   * leaves the viewport stuck zoomed after the user taps a confirm button.
+   * Keep the real control font size at 16px; surrounding labels/buttons can
+   * still use smaller Tailwind text utilities.
+   */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
   }
 
   /* Dark mode: ensure all raw <input> elements have visible text */

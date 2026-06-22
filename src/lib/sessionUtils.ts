@@ -1,5 +1,7 @@
-import { ProgrammeSession, WorkoutExercise, Exercise, GeneratedProgramme, StrengthSetup } from '../types';
+import { ProgrammeSession, WorkoutExercise, Exercise, GeneratedProgramme, StrengthSetup, WorkoutSession } from '../types';
 import { getLiftKey, prescribeWeekLoad, roundPlate } from './progressiveOverload';
+import { DAY_INDEX } from './utils';
+import { isConditioningSession } from '../utils/sessionClassify';
 
 
 export type ResolutionVia = 'exact' | 'partial' | 'fuzzy' | 'none';
@@ -133,6 +135,62 @@ export function getProgrammeAnchorMonday(programme: GeneratedProgramme): Date {
     : getCurrentWeekMonday(anchor);
 }
 
+// Logged-workout name keywords for conditioning — mirrors WeeklyCalendar so a
+// finished workout is classified the same way the calendar classifies it.
+const CONDITIONING_NAME_KEYWORDS = ['conditioning', 'rsa', 'zone 2', 'zone2', 'aerobic', 'hiit', 'hi aerobic'];
+
+function ymdLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Given a just-finished workout, find which scheduled programme session it
+ * completes — matching by effective date (anchor + week + day-of-week, or a
+ * reschedule override) AND gym/conditioning type. Returns the "wi-si" session
+ * key, or null if the workout isn't a scheduled programme session.
+ *
+ * This lets the normal Start→finish flow credit programme progress the same way
+ * the WeeklyCalendar quick-complete circle does, so completedSessionKeys is the
+ * single source of truth the Dashboard reads. Semantics intentionally match
+ * WeeklyCalendar's date-based completion (on-schedule completion credits the
+ * session; off-schedule still needs the manual tick).
+ */
+export function resolveProgrammeSessionKey(
+  programme: GeneratedProgramme,
+  finished: WorkoutSession,
+): string | null {
+  const anchor = getProgrammeAnchorMonday(programme);
+  const overrides = programme.sessionOverrides ?? {};
+  const already = new Set(programme.completedSessionKeys ?? []);
+  const finishedCond = CONDITIONING_NAME_KEYWORDS.some(kw => finished.name.toLowerCase().includes(kw));
+
+  for (let wi = 0; wi < programme.weeks.length; wi++) {
+    const week = programme.weeks[wi];
+    for (let si = 0; si < week.sessions.length; si++) {
+      const key = `${wi}-${si}`;
+      if (already.has(key)) continue;
+      const s = week.sessions[si];
+
+      let dateStr: string;
+      const override = overrides[key];
+      if (override) {
+        dateStr = override; // already YYYY-MM-DD
+      } else {
+        const off = DAY_INDEX[s.dayOfWeek];
+        if (off == null || off < 0) continue;
+        const d = new Date(anchor);
+        d.setDate(anchor.getDate() + wi * 7 + off);
+        dateStr = ymdLocal(d);
+      }
+
+      if (dateStr !== finished.date) continue;
+      if (isConditioningSession(s) !== finishedCond) continue;
+      return key;
+    }
+  }
+  return null;
+}
+
 
 export const NAME_TO_ID: Record<string, string> = {
   'back squat': 'squat', 'front squat': 'front-squat',
@@ -150,6 +208,7 @@ export const NAME_TO_ID: Record<string, string> = {
   'dead bug': 'dead-bug',
   // Ab Wheel Rollout — explicit to prevent fuzzy match
   'ab wheel rollout': 'ab-wheel',
+  'rotational cable chop': 'rotational-cable-chop',
   'pallof press': 'pallof-press',
   'bench press': 'bench-press', 'db bench press': 'db-bench',
   'pull-up': 'pull-up', 'weighted pull-up': 'pull-up',

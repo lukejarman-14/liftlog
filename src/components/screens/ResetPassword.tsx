@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Dumbbell, Eye, EyeOff, Check } from 'lucide-react';
 import { cloudUpdatePassword } from '../../lib/cloudSync';
+import { validatePassword } from '../../lib/validation';
+import { useActionCooldown } from '../../hooks/useActionCooldown';
 
 interface ResetPasswordProps {
   onDone: () => void;
@@ -14,19 +16,23 @@ export function ResetPassword({ onDone }: ResetPasswordProps) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const passwordCooldown = useActionCooldown('password-change', 'reset-link');
 
   useEffect(() => () => { if (doneTimerRef.current) clearTimeout(doneTimerRef.current); }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!password || loading) return;
+    if (!password || loading || passwordCooldown.coolingDown) return;
     if (password !== confirm) { setError('Passwords do not match.'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    // Central validator enforces both min (8) and max (128) length consistently.
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.ok) { setError(pwCheck.error); return; }
 
     setLoading(true);
     setError('');
     try {
       await cloudUpdatePassword(password);
+      passwordCooldown.start();
       setSuccess(true);
       doneTimerRef.current = setTimeout(onDone, 1500);
     } catch {
@@ -94,18 +100,23 @@ export function ResetPassword({ onDone }: ResetPasswordProps) {
                 } bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400`}
               />
               {error && <p className="text-xs text-red-500 mt-1.5">{error}</p>}
+              {passwordCooldown.coolingDown && (
+                <p className="text-xs text-amber-600 mt-1.5">
+                  You can change your password again in {passwordCooldown.label}.
+                </p>
+              )}
             </div>
 
             <button
               type="submit"
-              disabled={!password || !confirm || loading}
+              disabled={!password || !confirm || loading || passwordCooldown.coolingDown}
               className={`w-full py-3.5 rounded-xl text-sm font-bold transition-all ${
-                password && confirm && !loading
+                password && confirm && !loading && !passwordCooldown.coolingDown
                   ? 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
               }`}
             >
-              {loading ? 'Updating…' : 'Update Password'}
+              {loading ? 'Updating…' : passwordCooldown.coolingDown ? `Try again in ${passwordCooldown.label}` : 'Update Password'}
             </button>
           </form>
         )}

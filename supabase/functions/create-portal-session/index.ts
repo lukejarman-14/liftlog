@@ -10,6 +10,7 @@ const supabaseAdmin = createClient(
 
 const ALLOWED_ORIGINS = new Set([
   'https://vectorfootball.co.uk',
+  'capacitor://vectorfootball.co.uk',
   'capacitor://localhost',
   'http://localhost:5173',
   'http://localhost:5174',
@@ -27,6 +28,12 @@ function cors(req: Request): Record<string, string> {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors(req) });
+  }
+  // Only POST is valid — reject other verbs early.
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405, headers: { ...cors(req), 'Content-Type': 'application/json' },
+    });
   }
 
   const authHeader = req.headers.get('Authorization');
@@ -69,20 +76,22 @@ Deno.serve(async (req) => {
     const returnUrl = Deno.env.get('SITE_URL') ?? 'https://vectorfootball.co.uk';
     void await req.json().catch(() => ({})); // consume body to avoid parse errors
 
-    // Use the stored Stripe customer ID when available; fall back to email search
-    // for accounts created before the webhook started persisting it.
+    // Look up the Stripe customer id from the SERVER-ONLY stripe_customers table,
+    // keyed by the authenticated user's id. (Previously this read a client-writable
+    // value from user_data.app_data — an IDOR: a user could overwrite their blob
+    // with another customer's id and open that customer's billing portal.)
     let customerId: string | null = null;
 
-    const { data: userData } = await supabaseAdmin
-      .from('user_data')
-      .select('app_data')
-      .eq('id', user.id)
-      .single();
+    const { data: mapping } = await supabaseAdmin
+      .from('stripe_customers')
+      .select('stripe_customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    const storedCustomerId = (userData?.app_data as Record<string, unknown> | null)?.vf_stripe_customer_id;
-    if (typeof storedCustomerId === 'string' && storedCustomerId) {
-      customerId = storedCustomerId;
+    if (mapping?.stripe_customer_id) {
+      customerId = mapping.stripe_customer_id;
     } else {
+      // Legacy fallback — search Stripe by the JWT-verified email (NOT client input).
       // Legacy fallback — take the most recently created customer for this email.
       const searchRes = await fetch(
         `https://api.stripe.com/v1/customers?email=${encodeURIComponent(user.email!)}&limit=1`,
@@ -91,8 +100,11 @@ Deno.serve(async (req) => {
       const searchData = await searchRes.json();
 
       if (!searchRes.ok) {
-        return new Response(JSON.stringify({ error: searchData.error?.message ?? 'Stripe error' }), {
-          status: 500, headers: { ...cors(req), 'Content-Type': 'application/json' },
+        // Log the real Stripe error server-side; return a generic message so we
+        // don't leak Stripe internals to the client.
+        console.error('[create-portal-session] customer search failed:', searchData.error?.message);
+        return new Response(JSON.stringify({ error: 'Unable to open billing portal. Please try again.' }), {
+          status: 502, headers: { ...cors(req), 'Content-Type': 'application/json' },
         });
       }
 
@@ -121,8 +133,9 @@ Deno.serve(async (req) => {
     const portalData = await portalRes.json();
 
     if (!portalRes.ok) {
-      return new Response(JSON.stringify({ error: portalData.error?.message ?? 'Stripe error' }), {
-        status: 500, headers: { ...cors(req), 'Content-Type': 'application/json' },
+      console.error('[create-portal-session] portal create failed:', portalData.error?.message);
+      return new Response(JSON.stringify({ error: 'Unable to open billing portal. Please try again.' }), {
+        status: 502, headers: { ...cors(req), 'Content-Type': 'application/json' },
       });
     }
 

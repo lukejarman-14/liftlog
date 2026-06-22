@@ -30,6 +30,10 @@ interface ActiveWorkoutProps {
   onUpdateStrengthSetup?: (setup: StrengthSetup) => void;
 }
 
+function blurActiveFormControl() {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) active.blur();
+}
 
 // Persistent AudioContext ref — reused across all sound calls to avoid iOS 6-context limit.
 const _audioCtxRef = { current: null as AudioContext | null };
@@ -220,10 +224,10 @@ function TutorialPanel({ exerciseId, coachingCue, isPerSide }: { exerciseId: str
   if (!desc && !coachingCue && !isPerSide) return null;
 
   return (
-    <div className="border-t border-gray-100 mt-1">
+    <div className="border-t border-gray-100 dark:border-zinc-800 mt-1">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
       >
         <BookOpen size={14} className="text-brand-400 flex-shrink-0" />
         <span className="text-xs font-semibold text-brand-500 flex-1">
@@ -235,12 +239,12 @@ function TutorialPanel({ exerciseId, coachingCue, isPerSide }: { exerciseId: str
       </button>
 
       {open && (
-        <div className="px-4 pb-4 bg-gray-50/60">
+        <div className="px-4 pb-4 bg-gray-50/60 dark:bg-zinc-800/40">
           {/* Per-side order tip */}
           {isPerSide && (
-            <div className="mb-3 flex items-start gap-1.5 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+            <div className="mb-3 flex items-start gap-1.5 bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/30 rounded-lg px-3 py-2">
               <span className="text-orange-500 text-sm flex-shrink-0">💪</span>
-              <p className="text-xs font-semibold text-orange-700 leading-relaxed">
+              <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 leading-relaxed">
                 Always start with your <strong>weaker leg first</strong> — it gets the most quality reps when you're freshest.
               </p>
             </div>
@@ -250,24 +254,24 @@ function TutorialPanel({ exerciseId, coachingCue, isPerSide }: { exerciseId: str
             <div className="mb-3">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <Lightbulb size={12} className="text-brand-500" />
-                <span className="text-xs font-semibold text-brand-600">Coaching cue</span>
+                <span className="text-xs font-semibold text-brand-600 dark:text-brand-300">Coaching cue</span>
               </div>
-              <p className="text-xs text-gray-700 leading-relaxed">{coachingCue}</p>
+              <p className="text-xs text-gray-700 dark:text-zinc-300 leading-relaxed">{coachingCue}</p>
             </div>
           )}
           {desc && (
             <>
               <div className="flex items-center gap-1.5 mb-2">
                 <BookOpen size={12} className="text-brand-500" />
-                <span className="text-xs font-semibold text-gray-600">How to do it</span>
+                <span className="text-xs font-semibold text-gray-600 dark:text-zinc-400">How to do it</span>
               </div>
               <ol className="flex flex-col gap-1.5 mb-3">
                 {desc.how.map((step, i) => (
                   <li key={i} className="flex gap-2">
-                    <span className="flex-shrink-0 w-4 h-4 rounded-full bg-brand-100 text-brand-600 text-xs font-bold flex items-center justify-center mt-0.5">
+                    <span className="flex-shrink-0 w-4 h-4 rounded-full bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 text-xs font-bold flex items-center justify-center mt-0.5">
                       {i + 1}
                     </span>
-                    <span className="text-xs text-gray-700 leading-relaxed">{step}</span>
+                    <span className="text-xs text-gray-700 dark:text-zinc-300 leading-relaxed">{step}</span>
                   </li>
                 ))}
               </ol>
@@ -275,10 +279,10 @@ function TutorialPanel({ exerciseId, coachingCue, isPerSide }: { exerciseId: str
                 <div className="mb-2">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Lightbulb size={11} className="text-yellow-500" />
-                    <span className="text-xs font-semibold text-yellow-700">Tips</span>
+                    <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">Tips</span>
                   </div>
                   {desc.tips.map((tip, i) => (
-                    <p key={i} className="text-xs text-gray-600 leading-relaxed mb-1 pl-3">• {tip}</p>
+                    <p key={i} className="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed mb-1 pl-3">• {tip}</p>
                   ))}
                 </div>
               )}
@@ -286,9 +290,9 @@ function TutorialPanel({ exerciseId, coachingCue, isPerSide }: { exerciseId: str
                 <div>
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <MapPin size={11} className="text-green-600" />
-                    <span className="text-xs font-semibold text-green-700">Football context</span>
+                    <span className="text-xs font-semibold text-green-700 dark:text-green-400">Football context</span>
                   </div>
-                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line pl-3">
+                  <p className="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed whitespace-pre-line pl-3">
                     {desc.footballContext}
                   </p>
                 </div>
@@ -724,7 +728,7 @@ function SetRow({
         </div>
       )}
 
-      {measureType !== 'time' && (<div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
+      {measureType !== 'time' && (<div className={`flex items-center flex-wrap gap-3 p-3 rounded-xl transition-colors ${
         completed       ? 'bg-green-50 border border-green-100' :
         isAwaitingRpe   ? 'bg-brand-50 border border-brand-200' :
                           'bg-gray-50'
@@ -827,7 +831,7 @@ function SetRow({
                 onChange={e => setWeightStr(e.target.value)}
                 onFocus={e => e.target.select()}
                 style={{ fontSize: '16px' }}
-                className="w-20 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50" />
+                className="w-16 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50" />
               <button disabled={!isInteractive} onClick={() => setWeightStr(w => String(parseFloat((parseFloat(w || '0') + step).toFixed(2))))}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-white rounded-lg border border-gray-200 disabled:opacity-40">
                 <Plus size={12} />
@@ -1336,6 +1340,17 @@ interface NewPBEntry {
   prevReps: number | null;
 }
 
+// Maps a conditioning exercise id to its feedback type. Note: sprint
+// activation/warm-up primers resolve to 'repeated-sprint' too, so a Zone 2 or
+// Hi-Aerobic session will contain an 'RSA'-labelled primer — that is filtered
+// out of post-session feedback below (see feedbackConditioningExercises).
+function getCondTypeLabel(exerciseId: string): string {
+  if (['aerobic-threshold-run', 'tempo-run', 'lactate-threshold-run', 'zone2-run'].includes(exerciseId)) return 'Zone 2';
+  if (['hiit-run', 'ssg-simulation', 'shuttle-18yard', 'max-effort-run'].includes(exerciseId)) return 'HIIT';
+  if (['repeated-sprint', 'shuttle-run'].includes(exerciseId)) return 'RSA';
+  return 'Conditioning';
+}
+
 export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinish, onConditioningFeedback, conditioningStagnation, onDiscard, strengthSetup, onUpdateStrengthSetup }: ActiveWorkoutProps) {
   const timer = useTimer();
   const { getPB, getExercise, getLastSession, userSettings, updateSettings } = useStore();
@@ -1398,6 +1413,18 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     return exercise?.category === 'Conditioning';
   });
 
+  // Exercises that drive post-session conditioning feedback. A Zone 2 or
+  // Hi-Aerobic session opens with a short sprint-activation primer that resolves
+  // to 'repeated-sprint' (RSA). That primer is fixed CNS work, not the session's
+  // conditioning focus, so when a Zone 2 / HIIT exercise is present we drop the
+  // RSA-labelled primer — the athlete is only asked about the session's actual
+  // focus (e.g. "how hard was the Zone 2?"), never a stray RSA question.
+  const condTypeLabels = new Set(conditioningExercises.map(ex => getCondTypeLabel(ex.exerciseId)));
+  const rsaIsPrimerOnly = condTypeLabels.has('RSA') && (condTypeLabels.has('Zone 2') || condTypeLabels.has('HIIT'));
+  const feedbackConditioningExercises = rsaIsPrimerOnly
+    ? conditioningExercises.filter(ex => getCondTypeLabel(ex.exerciseId) !== 'RSA')
+    : conditioningExercises;
+
   // True when every non-warmup exercise is a conditioning exercise
   const isConditioningSession = session.exercises.length > 0 && session.exercises.every(ex => {
     const exercise = getExercise(ex.exerciseId);
@@ -1449,25 +1476,19 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   }, [strengthSetup, onUpdateStrengthSetup, buildRecalLifts]);
 
   const doFinish = useCallback((s: WorkoutSession) => {
-    if (conditioningExercises.length > 0 && onConditioningFeedback) {
+    if (feedbackConditioningExercises.length > 0 && onConditioningFeedback) {
       setPendingFinishSession(s);
       setShowCondModal(true);
     } else {
       finalFinish(s);
     }
-  }, [conditioningExercises.length, onConditioningFeedback, finalFinish]);
-
-  const getCondTypeLabel = (exerciseId: string): string => {
-    if (['aerobic-threshold-run', 'tempo-run', 'lactate-threshold-run', 'zone2-run'].includes(exerciseId)) return 'Zone 2';
-    if (['hiit-run', 'ssg-simulation', 'shuttle-18yard', 'max-effort-run'].includes(exerciseId)) return 'HIIT';
-    if (['repeated-sprint', 'shuttle-run'].includes(exerciseId)) return 'RSA';
-    return 'Conditioning';
-  };
+  }, [feedbackConditioningExercises.length, onConditioningFeedback, finalFinish]);
 
   const handleCondFeedbackConfirm = useCallback(() => {
     if (!pendingFinishSession || !onConditioningFeedback) return;
+    blurActiveFormControl();
     const updates: Record<string, number> = {};
-    conditioningExercises.forEach(ex => {
+    feedbackConditioningExercises.forEach(ex => {
       const typeLabel = getCondTypeLabel(ex.exerciseId);
       const delta = condFeedbackByType[typeLabel] ?? 0;
       updates[ex.exerciseId] = Math.max(4, Math.min(25, ex.targetSets + delta));
@@ -1477,7 +1498,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
     setCondFeedbackByType({});
     finalFinish(pendingFinishSession);
     setPendingFinishSession(null);
-  }, [pendingFinishSession, conditioningExercises, condFeedbackByType, onConditioningFeedback, finalFinish]);
+  }, [pendingFinishSession, feedbackConditioningExercises, condFeedbackByType, onConditioningFeedback, finalFinish]);
 
   const computeNewPBs = useCallback((s: WorkoutSession): NewPBEntry[] => {
     return s.exercises.flatMap(ex => {
@@ -1512,6 +1533,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
   }, []);
 
   const handleFinishConfirm = useCallback((s: WorkoutSession) => {
+    blurActiveFormControl();
     const finalSession = {
       ...s,
       endTime: Date.now(),
@@ -1811,7 +1833,16 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
             )}
 
             <div className="flex gap-3">
-              <Button variant="secondary" fullWidth onClick={() => setShowFinish(false)}>Continue</Button>
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => {
+                  blurActiveFormControl();
+                  setShowFinish(false);
+                }}
+              >
+                Continue
+              </Button>
               <Button fullWidth onClick={() => handleFinishConfirm(session)}>Finish</Button>
             </div>
             <button
@@ -1827,7 +1858,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
       {showCondModal && pendingFinishSession && (() => {
         // Group exercises by type label for per-type feedback
         const typeGroups: Map<string, { exercises: typeof conditioningExercises; stagnation: number }> = new Map();
-        conditioningExercises.forEach(ex => {
+        feedbackConditioningExercises.forEach(ex => {
           const typeLabel = getCondTypeLabel(ex.exerciseId);
           const existing = typeGroups.get(typeLabel);
           const stag = conditioningStagnation?.[ex.exerciseId] ?? 0;
@@ -2100,6 +2131,7 @@ export function ActiveWorkout({ session, showTutorials, onUpdateSession, onFinis
               <Button
                 fullWidth
                 onClick={() => {
+                  blurActiveFormControl();
                   const s = { ...pendingRpeSession, sessionRpe: selectedRpe };
                   setShowRpeModal(false);
                   setPendingRpeSession(null);

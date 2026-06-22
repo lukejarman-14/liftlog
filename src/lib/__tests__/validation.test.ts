@@ -14,6 +14,7 @@ import {
   validateName,
   validateEmail,
   validatePassword,
+  validateDateOfBirth,
   sanitiseTeamCode,
   validateTeamCode,
   sanitisePromoCode,
@@ -101,6 +102,41 @@ describe('validatePassword', () => {
   });
   it('rejects absurdly long passwords (DoS guard)', () => {
     expect(validatePassword('a'.repeat(PASSWORD_MAX + 1)).ok).toBe(false);
+  });
+});
+
+// ─── validateDateOfBirth (real calendar dates only) ─────────────────────────
+describe('validateDateOfBirth', () => {
+  const today = new Date(2026, 5, 10);
+
+  it('accepts a real date and returns ISO date plus age', () => {
+    expect(validateDateOfBirth('9', '6', '2006', today)).toEqual({
+      ok: true,
+      value: { isoDate: '2006-06-09', age: 20 },
+    });
+  });
+
+  it('accepts a real leap-day birthday in a leap year', () => {
+    expect(validateDateOfBirth('29', '02', '2008', today).ok).toBe(true);
+  });
+
+  it('rejects impossible day/month values', () => {
+    expect(validateDateOfBirth('40', '13', '2000', today).ok).toBe(false);
+  });
+
+  it('rejects calendar rollovers such as 31 April and non-leap 29 February', () => {
+    expect(validateDateOfBirth('31', '04', '2010', today).ok).toBe(false);
+    expect(validateDateOfBirth('29', '02', '2011', today).ok).toBe(false);
+  });
+
+  it('rejects non-4-digit or oversized years', () => {
+    expect(validateDateOfBirth('10', '06', '20002', today).ok).toBe(false);
+    expect(validateDateOfBirth('10', '06', '999', today).ok).toBe(false);
+  });
+
+  it('rejects future and unrealistic dates', () => {
+    expect(validateDateOfBirth('11', '06', '2026', today).ok).toBe(false);
+    expect(validateDateOfBirth('10', '06', '1800', today).ok).toBe(false);
   });
 });
 

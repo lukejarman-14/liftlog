@@ -1,12 +1,36 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { STORAGE_KEYS } from './dataSync';
 import { getCaptchaToken } from './hcaptcha';
+import { captureError } from './sentry';
+import type { Provider } from '@supabase/supabase-js';
 
 
 // Keys whose values are authoritative on the server only (written by webhooks/RevenueCat).
 // We never upload these from the client — a localStorage edit must never be able to
 // overwrite the server's record.  cloudLoadData restores them correctly on every boot.
 const SERVER_MANAGED_KEYS = new Set<string>(['vf_premium']);
+
+// ---------------------------------------------------------------------------
+// Shared-device account isolation
+// ---------------------------------------------------------------------------
+// localStorage is shared by every account used on this browser/device. Without a
+// guard, account B can inherit or overwrite account A's profile, premium, and
+// squad state (and a stale blob can be uploaded under B's id before B's cloud
+// data loads). We tag local data with the owning user id: we wipe on a mismatched
+// LOAD (sign-in) and refuse a mismatched SAVE — never wiping a fresh signup.
+const DATA_OWNER_KEY = 'vf_data_owner';
+
+/** Remove all app data from localStorage (leaves the Supabase session intact). */
+export function clearLocalAppData(): void {
+  for (const key of STORAGE_KEYS) localStorage.removeItem(key);
+  localStorage.removeItem('vf_pending_team_code');
+}
+
+/** Logout cleanup for a possibly-shared device: wipe app data AND the owner tag. */
+export function clearDataOwnership(): void {
+  clearLocalAppData();
+  localStorage.removeItem(DATA_OWNER_KEY);
+}
 
 function collectAllData(): Record<string, unknown> {
   const data: Record<string, unknown> = {};
@@ -21,10 +45,16 @@ function collectAllData(): Record<string, unknown> {
 
 function restoreAllData(data: Record<string, unknown>) {
   for (const key of STORAGE_KEYS) {
-    const val = data[key];
-    if (val !== undefined && val !== null) {
-      localStorage.setItem(key, JSON.stringify(val));
+    let val = data[key];
+    if (val === undefined || val === null) continue;
+    // Defensively strip any legacy password hash a pre-fix cloud row may still
+    // carry, so the device-only secret never repopulates onto a device.
+    if (key === 'vf_user_profile' && typeof val === 'object') {
+      const { passwordHash: _omit, ...rest } = val as Record<string, unknown>;
+      void _omit;
+      val = rest;
     }
+    localStorage.setItem(key, JSON.stringify(val));
   }
   window.dispatchEvent(new CustomEvent('vf-cloud-restored'));
 }
@@ -40,6 +70,8 @@ export type SignUpResult = {
   /** true when Supabase requires the user to click a confirmation email before a session is issued */
   needsEmailConfirmation: boolean;
 };
+
+export type OAuthProvider = Extract<Provider, 'apple' | 'google'>;
 
 /** Shared auth rate-limit guard — 5 attempts per 15 minutes per email.
  *  Throws 'too_many_attempts' if the limit is exceeded so callers can
@@ -93,6 +125,20 @@ export async function cloudSignIn(email: string, password: string): Promise<stri
   return data.user.id;
 }
 
+/** Start Apple / Google OAuth through Supabase. The browser redirects away. */
+export async function cloudSignInWithOAuth(provider: OAuthProvider): Promise<void> {
+  if (!supabase) throw new Error('not_configured');
+  const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: `${origin}/`,
+      queryParams: provider === 'google' ? { prompt: 'select_account' } : undefined,
+    },
+  });
+  if (error) throw error;
+}
+
 /** Sign out from Supabase. */
 export async function cloudSignOut(): Promise<void> {
   if (!supabase) return;
@@ -103,19 +149,16 @@ export async function cloudSignOut(): Promise<void> {
 export async function cloudDeleteAccount(): Promise<void> {
   if (!supabase) return;
   const { data: { user } } = await supabase.auth.getUser();
-  try {
-    if (user) {
-      // Auth must be deleted first — the RPC runs under the current session,
-      // so the session needs to be valid when it executes.
-      const { error: authError } = await supabase.rpc('delete_user');
-      if (authError) throw new Error(`Failed to delete auth account: ${authError.message}`);
-      // Clean up any orphaned app data (CASCADE should handle this, but be explicit).
-      await supabase.from('user_data').delete().eq('id', user.id);
-    }
-  } finally {
-    // Always sign out, even if deletion threw — the local session must not survive.
-    await supabase.auth.signOut();
-  }
+  if (!user) return;
+  // The SECURITY DEFINER RPC deletes every user-owned application row and then
+  // removes auth.users. Keep this as the single server-side delete path so the
+  // client never reports success after only a partial cleanup.
+  const { error: authError } = await supabase.rpc('delete_user');
+  if (authError) throw new Error(`Failed to delete account: ${authError.message}`);
+  // Sign out ONLY after a successful deletion. On failure we throw above WITHOUT
+  // signing out, so the user stays logged in and can retry — fail-closed, and
+  // never leaves them believing a failed deletion succeeded.
+  await supabase.auth.signOut();
 }
 
 /** Re-send the email confirmation link to the given address. */
@@ -145,6 +188,17 @@ export async function cloudResetPassword(email: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Re-authenticate with the current password before a sensitive change (e.g. a
+ *  password update from Profile). Returns true if the password is correct. An
+ *  active session alone must not be enough to set a new password. */
+export async function cloudVerifyPassword(email: string, password: string): Promise<boolean> {
+  if (!supabase) return true; // not configured — the local hash check governs
+  // CAPTCHA enforcement is on for signInWithPassword, so pass a fresh token.
+  const captchaToken = await getCaptchaToken();
+  const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
+  return !error;
+}
+
 /** Update the current user's password (used after clicking reset link). */
 export async function cloudUpdatePassword(newPassword: string): Promise<void> {
   if (!supabase) throw new Error('not_configured');
@@ -161,8 +215,18 @@ export async function getExistingSession(): Promise<string | null> {
 
 
 /** Push all localStorage data to Supabase for this user. */
-export async function cloudSaveData(userId: string): Promise<void> {
-  if (!supabase) return;
+export async function cloudSaveData(userId: string): Promise<boolean> {
+  if (!supabase) return false;
+  // Never upload one account's local data under another account's id. If the
+  // local data is owned by a different user (stale shared-device state), abort
+  // rather than contaminating this user's cloud row. (We do NOT wipe here — that
+  // would risk a fresh signup's just-entered profile; the LOAD path wipes.)
+  const owner = localStorage.getItem(DATA_OWNER_KEY);
+  if (owner && owner !== userId) {
+    if (import.meta.env.DEV) console.warn('[CloudSync] save aborted — local data belongs to a different account');
+    return false;
+  }
+  localStorage.setItem(DATA_OWNER_KEY, userId);
   const appData = collectAllData();
   // Strip the local password hash before uploading — it's device-only.
   const profile = appData['vf_user_profile'];
@@ -174,14 +238,24 @@ export async function cloudSaveData(userId: string): Promise<void> {
   const { error } = await supabase
     .from('user_data')
     .upsert({ id: userId, app_data: appData, updated_at: new Date().toISOString() });
-  if (error && import.meta.env.DEV) {
-    console.warn('[CloudSync] Save failed — will retry on next sync:', error.message);
+  if (error) {
+    // Report in PRODUCTION too (was dev-only console) so silent sync failures are
+    // visible in Sentry. Returns false so callers can react instead of assuming success.
+    captureError(error, { context: 'cloudSaveData', userId });
+    return false;
   }
+  return true;
 }
 
 /** Pull data from Supabase and write to localStorage. Returns true if data was found. */
 export async function cloudLoadData(userId: string): Promise<boolean> {
   if (!supabase) return false;
+  // Shared-device guard: if local data belongs to a different account, wipe it
+  // BEFORE loading (and before any early-return) so nothing from the previous
+  // user survives into this session — even if this user has no cloud row yet.
+  const owner = localStorage.getItem(DATA_OWNER_KEY);
+  if (owner && owner !== userId) clearLocalAppData();
+  localStorage.setItem(DATA_OWNER_KEY, userId);
   const { data, error } = await supabase
     .from('user_data')
     .select('app_data')

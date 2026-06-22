@@ -102,6 +102,195 @@ const SESSION_STYLE = {
   },
 };
 
+function getMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  d.setHours(12, 0, 0, 0);
+  return d;
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  d.setHours(12, 0, 0, 0);
+  return d;
+}
+
+function isWorkoutDragKey(key: string): boolean {
+  return key.startsWith('workout:');
+}
+
+function WeeklyRescheduler({
+  weekStart,
+  programmeDates,
+  scheduledWorkouts,
+  matchEntries,
+  dragKey,
+  dropTarget,
+  onPrevWeek,
+  onNextWeek,
+  onMoveItem,
+  onSessionDragStart,
+  onDragEnd,
+}: {
+  weekStart: Date;
+  programmeDates: Map<string, SessionDot[]>;
+  scheduledWorkouts: ScheduledWorkout[];
+  matchEntries: MatchEntry[];
+  dragKey: string | null;
+  dropTarget: string | null;
+  onPrevWeek: () => void;
+  onNextWeek: () => void;
+  onMoveItem: (dragId: string, toDate: string) => void;
+  onSessionDragStart: (dragId: string) => void;
+  onDragEnd: () => void;
+}) {
+  const [selectedDragId, setSelectedDragId] = useState<string | null>(null);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const end = days[6];
+  const label = `${weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+
+  const handleDrop = (dateStr: string, e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const dragId = e.dataTransfer.getData('text/plain');
+    if (!dragId) return;
+    onMoveItem(dragId, dateStr);
+  };
+
+  const handleDayTap = (dateStr: string) => {
+    if (!selectedDragId) return;
+    onMoveItem(selectedDragId, dateStr);
+    setSelectedDragId(null);
+  };
+
+  return (
+    <Card className="p-4 mb-4 border-brand-200 bg-brand-50/40">
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={onPrevWeek} className="p-2 rounded-xl bg-white border border-gray-200 text-gray-500">
+          <ChevronLeft size={15} />
+        </button>
+        <div className="text-center">
+          <p className="text-xs font-bold text-brand-600 uppercase tracking-wide">Weekly rescheduler</p>
+          <p className="text-sm font-extrabold text-gray-900">{label}</p>
+        </div>
+        <button onClick={onNextWeek} className="p-2 rounded-xl bg-white border border-gray-200 text-gray-500">
+          <ChevronRight size={15} />
+        </button>
+      </div>
+
+      <p className="text-xs text-gray-500 mb-3 text-center">
+        Drag sessions between days. On iPhone, tap a session, then tap the new day.
+      </p>
+
+      <div className="grid grid-cols-1 gap-2">
+        {days.map(day => {
+          const dateStr = localDateStr(day);
+          const programmeSessions = programmeDates.get(dateStr) ?? [];
+          const workouts = scheduledWorkouts.filter(w => w.date === dateStr);
+          const load = classifyDay(dateStr, matchEntries);
+          const isDropTarget = dropTarget === dateStr;
+          return (
+            <div
+              key={dateStr}
+              onClick={() => handleDayTap(dateStr)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={(e) => handleDrop(dateStr, e)}
+              className={`rounded-2xl border bg-white p-3 transition-all ${
+                isDropTarget ? 'border-brand-400 ring-2 ring-brand-200' : 'border-gray-100'
+              } ${selectedDragId ? 'cursor-pointer' : ''}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs font-bold text-gray-900">
+                    {day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </p>
+                  <p className="text-[11px] text-gray-400">{load === 'free' ? 'Free day' : load}</p>
+                </div>
+                {selectedDragId && (
+                  <span className="text-[11px] font-semibold text-brand-600 bg-brand-50 px-2 py-1 rounded-full">
+                    Tap to move here
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                {programmeSessions.map(s => {
+                  const style = SESSION_STYLE[s.type];
+                  const active = dragKey === s.sessionKey || selectedDragId === s.sessionKey;
+                  return (
+                    <button
+                      key={s.sessionKey}
+                      draggable
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedDragId(prev => (prev === s.sessionKey ? null : s.sessionKey));
+                      }}
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.setData('text/plain', s.sessionKey);
+                        e.dataTransfer.effectAllowed = 'move';
+                        onSessionDragStart(s.sessionKey);
+                      }}
+                      onDragEnd={() => {
+                        onDragEnd();
+                        setSelectedDragId(null);
+                      }}
+                      className={`rounded-xl border px-3 py-2 text-left cursor-grab active:cursor-grabbing ${style.lightBg} ${style.border} ${
+                        active ? 'ring-2 ring-brand-300 opacity-80' : ''
+                      }`}
+                    >
+                      <p className="text-xs font-semibold text-gray-800 line-clamp-2">{s.objective}</p>
+                    </button>
+                  );
+                })}
+
+                {workouts.map(w => {
+                  const dragId = `workout:${w.id}`;
+                  const active = dragKey === dragId || selectedDragId === dragId;
+                  return (
+                    <button
+                      key={w.id}
+                      draggable
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedDragId(prev => (prev === dragId ? null : dragId));
+                      }}
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.setData('text/plain', dragId);
+                        e.dataTransfer.effectAllowed = 'move';
+                        onSessionDragStart(dragId);
+                      }}
+                      onDragEnd={() => {
+                        onDragEnd();
+                        setSelectedDragId(null);
+                      }}
+                      className={`rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-left cursor-grab active:cursor-grabbing ${
+                        active ? 'ring-2 ring-brand-300 opacity-80' : ''
+                      }`}
+                    >
+                      <span className="text-[11px] font-bold text-violet-700">🏋️ Workout</span>
+                      <p className="text-xs font-semibold text-gray-800 line-clamp-2">{w.name}</p>
+                    </button>
+                  );
+                })}
+
+                {programmeSessions.length === 0 && workouts.length === 0 && (
+                  <p className="text-xs text-gray-300 italic py-1">No sessions</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 
 function MonthlyCalendarGrid({
   year,
@@ -236,8 +425,17 @@ function MonthlyCalendarGrid({
                   {dayScheduled.map(w => (
                     <div
                       key={w.id}
-                      className="flex-1 bg-violet-500 flex flex-col items-center justify-center select-none"
-                      title={w.name}
+                      draggable
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        const dragId = `workout:${w.id}`;
+                        e.dataTransfer.setData('text/plain', dragId);
+                        e.dataTransfer.effectAllowed = 'move';
+                        onSessionDragStart(dragId);
+                      }}
+                      onDragEnd={onDragEnd}
+                      className={`flex-1 bg-violet-500 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none ${`workout:${w.id}` === dragKey ? 'opacity-40' : ''}`}
+                      title={`${w.name} — drag to move`}
                     >
                       <span className="text-[9px] leading-none">🏋️</span>
                       <span className="text-white font-bold leading-none mt-0.5" style={{ fontSize: '7px' }}>WKT</span>
@@ -420,7 +618,7 @@ function DayModal({
                       <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl ${style.lightBg} border ${style.border}`}>
                         <div className={`w-3 h-3 rounded-full mt-0.5 flex-shrink-0 ${style.bg}`} />
                         <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-bold ${style.text}`}>{style.label}{moved ? ' (moved)' : ''}</p>
+                          {moved && <p className={`text-xs font-bold ${style.text}`}>(moved)</p>}
                           <p className="text-xs text-gray-600 mt-0.5 truncate">{s.objective}</p>
                           {moved && (
                             <p className="text-xs text-gray-400 mt-0.5">
@@ -877,7 +1075,9 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
   // Drag state
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [pendingMove, setPendingMove] = useState<{ sessionKey: string; newDate: string; reason: string } | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ dragId: string; newDate: string; reason: string } | null>(null);
+  const [showWeeklyRescheduler, setShowWeeklyRescheduler] = useState(false);
+  const [reschedulerWeekStart, setReschedulerWeekStart] = useState(() => localDateStr(getMonday(initialViewDate)));
 
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -897,19 +1097,43 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
     setSelectedDate(null);
   };
 
+  const handleMoveWorkout = (workoutId: string, newDate: string) => {
+    const workout = scheduledWorkouts.find(w => w.id === workoutId);
+    if (!workout) return;
+    saveScheduledWorkout({ ...workout, date: newDate });
+    setSelectedDate(null);
+  };
+
+  const applyMoveItem = (dragId: string, newDate: string) => {
+    if (isWorkoutDragKey(dragId)) {
+      handleMoveWorkout(dragId.replace('workout:', ''), newDate);
+    } else {
+      handleMoveSession(dragId, newDate);
+    }
+    setDragKey(null);
+    setDropTarget(null);
+  };
+
+  const requestMoveItem = (dragId: string, newDate: string) => {
+    if (!dragId) return;
+    setDragKey(null);
+    setDropTarget(null);
+    const { risky, reason } = isRiskyDay(newDate, matchEntries);
+    if (risky) {
+      setPendingMove({ dragId, newDate, reason });
+    } else {
+      applyMoveItem(dragId, newDate);
+    }
+  };
+
   const handleCellDrop = (toDate: string, e: DragEvent) => {
     e.preventDefault();
     // Read sessionKey from dataTransfer — more reliable than React state which may be stale
-    const sessionKey = e.dataTransfer.getData('text/plain');
-    if (!sessionKey || !/^\d+-\d+$/.test(sessionKey)) return;
+    const dragId = e.dataTransfer.getData('text/plain');
+    if (!dragId || (!/^\d+-\d+$/.test(dragId) && !isWorkoutDragKey(dragId))) return;
     setDropTarget(null);
     setDragKey(null);
-    const { risky, reason } = isRiskyDay(toDate, matchEntries);
-    if (risky) {
-      setPendingMove({ sessionKey, newDate: toDate, reason });
-    } else {
-      handleMoveSession(sessionKey, toDate);
-    }
+    requestMoveItem(dragId, toDate);
   };
 
   const upcomingMatches = matchEntries
@@ -935,6 +1159,45 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
 
   return (
     <Layout title="Match Load" onBack={onBack}>
+
+      {(programmeDates.size > 0 || scheduledWorkouts.length > 0) && (
+        <div className="mb-4">
+          <button
+            onClick={() => setShowWeeklyRescheduler(open => !open)}
+            className="w-full rounded-2xl border-2 border-brand-200 bg-white px-4 py-3 text-left flex items-center justify-between gap-3 shadow-sm"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center">
+                <ArrowRightLeft size={18} className="text-brand-600" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold text-gray-900">Weekly drag rescheduler</p>
+                <p className="text-xs text-gray-500">Open a week and move sessions between days.</p>
+              </div>
+            </div>
+            <ChevronDown
+              size={17}
+              className={`text-gray-400 transition-transform ${showWeeklyRescheduler ? 'rotate-180' : ''}`}
+            />
+          </button>
+        </div>
+      )}
+
+      {showWeeklyRescheduler && (
+        <WeeklyRescheduler
+          weekStart={new Date(reschedulerWeekStart + 'T12:00:00')}
+          programmeDates={programmeDates}
+          scheduledWorkouts={scheduledWorkouts}
+          matchEntries={matchEntries}
+          dragKey={dragKey}
+          dropTarget={dropTarget}
+          onPrevWeek={() => setReschedulerWeekStart(prev => localDateStr(addDays(new Date(prev + 'T12:00:00'), -7)))}
+          onNextWeek={() => setReschedulerWeekStart(prev => localDateStr(addDays(new Date(prev + 'T12:00:00'), 7)))}
+          onMoveItem={requestMoveItem}
+          onSessionDragStart={(key) => setDragKey(key)}
+          onDragEnd={() => { setDragKey(null); setDropTarget(null); }}
+        />
+      )}
 
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-4">
@@ -998,7 +1261,7 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
       </div>
 
       <div className="text-xs text-gray-400 text-center mb-5">
-        Tap any day to mark a match, training, or schedule a workout · Drag strips to reschedule
+        Tap any day to mark a match, training, or schedule a workout · Drag strips/cards to reschedule
       </div>
 
       {upcoming.length > 0 && (
@@ -1090,10 +1353,14 @@ export function LoadCalendar({ onBack, activeProgramme, onUpdateProgramme }: Loa
         <OverloadWarningModal
           reason={pendingMove.reason}
           onConfirm={() => {
-            handleMoveSession(pendingMove.sessionKey, pendingMove.newDate);
+            applyMoveItem(pendingMove.dragId, pendingMove.newDate);
             setPendingMove(null);
           }}
-          onCancel={() => setPendingMove(null)}
+          onCancel={() => {
+            setPendingMove(null);
+            setDragKey(null);
+            setDropTarget(null);
+          }}
         />
       )}
     </Layout>

@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap, FlaskConical, Dumbbell, Share2, Mail } from 'lucide-react';
+import { CalendarDays, AlertTriangle, ChevronRight, Activity, Zap, FlaskConical, Dumbbell, Share2, Mail, X } from 'lucide-react';
 import { Layout } from '../Layout';
 import { trackEvent } from '../../lib/analytics';
 import { ShareStatsCard } from '../ShareStatsCard';
@@ -9,9 +9,8 @@ import { WorkoutSession, NavState, ActivePlan, DailyReadiness, GeneratedProgramm
 import { useStore } from '../../hooks/useStore';
 import { cloudResendConfirmation } from '../../lib/cloudSync';
 import { POSITION_PLANS, getCurrentPlanWeek } from '../../data/positionPlans';
-import { getProgrammeWeekIndex, getProgrammeAnchorMonday } from '../../lib/sessionUtils';
+import { getProgrammeWeekIndex } from '../../lib/sessionUtils';
 import { localDateStr } from '../../lib/loadManagement';
-import { DAY_INDEX } from '../../lib/utils';
 
 interface DashboardProps {
   sessions: WorkoutSession[];
@@ -29,6 +28,7 @@ interface DashboardProps {
   onSkipSession?: (weekIdx: number, sessionIdx: number, reason: string) => void;
   onRescheduleSession?: (weekIdx: number, sessionIdx: number, newDate: string) => void;
   onDeleteSession?: (id: string) => void;
+  onToggleSessionComplete?: (sessionKey: string, completed: boolean) => void;
   referralCode?: string;
   cloudUnlinked?: boolean; // Supabase configured but no active session — data not backed up
   coachAnnouncements?: { id: string; date: string; text: string }[];
@@ -121,10 +121,17 @@ function IntensityPrompt({ date, onSave }: {
   );
 }
 
-export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup, onSkipSession, onRescheduleSession, onDeleteSession, referralCode, cloudUnlinked = false, coachAnnouncements = [] }: DashboardProps) {
+export function Dashboard({ sessions, activePlan, activeProgramme, profilePicture, todayReadiness, exercises, onSaveReadiness, onNavigate, onStartWorkout, onStartProgrammeSession, onStartTodayProgrammeSession, onOpenStrengthSetup, onSkipSession, onRescheduleSession, onDeleteSession, onToggleSessionComplete, referralCode, cloudUnlinked = false, coachAnnouncements = [] }: DashboardProps) {
   const { userProfile, getPendingIntensityCheck, saveFootballIntensity, saveMatchEntry, matchEntries, getDaysSinceLastTest } = useStore();
   const pendingIntensityDate = getPendingIntensityCheck();
   const [showShareCard, setShowShareCard] = useState(false);
+  const [dismissedStreak, setDismissedStreak] = useState(() => {
+    try { return Number(localStorage.getItem('vf_dismissed_streak') ?? '-1'); } catch { return -1; }
+  });
+  const handleDismissStreak = (streak: number) => {
+    try { localStorage.setItem('vf_dismissed_streak', String(streak)); } catch {}
+    setDismissedStreak(streak);
+  };
 
   // Email confirmation modal
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -188,6 +195,8 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
   let progLabel = '';
   let progPhase = '';
   let progPct: number | null = null;
+  let progSessionsDone = 0;
+  let progSessionsTotal = 0;
   if (activeProgramme) {
     progTotal = activeProgramme.durationWeeks;
     progWeek = getProgrammeWeekIndex(activeProgramme) + 1;
@@ -195,30 +204,14 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
     const weekData = activeProgramme.weeks[Math.min(progWeek - 1, activeProgramme.weeks.length - 1)];
     progPhase = weekData?.phase ?? '';
 
-    // Session-based completion: count programme session dates that have a matching completed session.
-    // Respect sessionOverrides so rescheduled sessions are checked against their new date.
-    const anchor = getProgrammeAnchorMonday(activeProgramme);
-    const completedDates = new Set(sessions.map(s => s.date));
-    const overrides = activeProgramme.sessionOverrides ?? {};
-    let totalSessions = 0;
-    let completedSessions = 0;
+    const completedKeys = new Set(activeProgramme.completedSessionKeys ?? []);
     activeProgramme.weeks.forEach((week, wi) => {
-      week.sessions.forEach((session, si) => {
-        const overrideKey = `${wi}-${si}`;
-        let dateStr: string;
-        if (overrides[overrideKey]) {
-          dateStr = overrides[overrideKey];
-        } else {
-          const dayIdx = DAY_INDEX[session.dayOfWeek] ?? 0;
-          const d = new Date(anchor);
-          d.setDate(anchor.getDate() + wi * 7 + dayIdx);
-          dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        }
-        totalSessions++;
-        if (completedDates.has(dateStr)) completedSessions++;
+      week.sessions.forEach((_session, si) => {
+        progSessionsTotal++;
+        if (completedKeys.has(`${wi}-${si}`)) progSessionsDone++;
       });
     });
-    progPct = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
+    progPct = progSessionsTotal > 0 ? Math.round((progSessionsDone / progSessionsTotal) * 100) : 0;
   } else if (activePlan) {
     const plan = POSITION_PLANS.find(p => p.id === activePlan.planId);
     if (plan) {
@@ -348,6 +341,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
           setShowShareCard(true);
         };
 
+        if (dismissedStreak === sessionStreak) return null;
         return (
           <div className={`mb-4 flex items-center gap-3 p-3.5 rounded-2xl border ${s.bg} ${s.border}`}>
             <div className={`flex-shrink-0 w-10 h-10 rounded-xl ${s.iconBg} flex items-center justify-center`}>
@@ -374,6 +368,13 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
                 className={`w-8 h-8 rounded-xl ${s.iconBg} flex items-center justify-center hover:opacity-80 transition-opacity`}
               >
                 <Share2 size={14} className={s.textSub} />
+              </button>
+              <button
+                onClick={() => handleDismissStreak(sessionStreak)}
+                className={`w-8 h-8 rounded-xl ${s.iconBg} flex items-center justify-center hover:opacity-80 transition-opacity`}
+                title="Dismiss"
+              >
+                <X size={14} className={s.textSub} />
               </button>
             </div>
           </div>
@@ -441,7 +442,12 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
                   style={{ width: `${progPct ?? 0}%` }}
                 />
               </div>
-              <div className="text-[11px] text-gray-400 mt-1.5">Week {progWeek} of {progTotal}</div>
+              <div className="text-[11px] text-gray-400 mt-1.5">
+                Week {progWeek} of {progTotal}
+                {progSessionsTotal > 0 && (
+                  <span className="ml-2 text-gray-400">· {progSessionsDone}/{progSessionsTotal} sessions</span>
+                )}
+              </div>
             </button>
           )}
         </div>
@@ -552,6 +558,7 @@ export function Dashboard({ sessions, activePlan, activeProgramme, profilePictur
         onSkipSession={onSkipSession}
         onRescheduleSession={onRescheduleSession}
         onDeleteSession={onDeleteSession}
+        onToggleSessionComplete={onToggleSessionComplete}
       />
 
       {/* Coach announcements — shown when the player is in a squad */}
