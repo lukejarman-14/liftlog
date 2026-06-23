@@ -93,10 +93,13 @@ export async function cloudSignUp(email: string, password: string): Promise<Sign
   await guardAuthRateLimit(email);
   // captchaToken is required when Supabase CAPTCHA is enabled; ignored when off.
   const captchaToken = await getCaptchaToken();
+  // Pin the confirmation-link target explicitly (same origin the password-reset
+  // flow uses) so a drifting dashboard Site URL can't silently break confirmation.
+  const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { captchaToken },
+    options: { captchaToken, emailRedirectTo: `${origin}/` },
   });
   if (error) throw error;
   // If email confirmation is disabled, Supabase returns a session immediately.
@@ -166,10 +169,11 @@ export async function cloudResendConfirmation(email: string): Promise<void> {
   if (!supabase) throw new Error('not_configured');
   // captchaToken is required when Supabase CAPTCHA is enabled; ignored when off.
   const captchaToken = await getCaptchaToken();
+  const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email,
-    options: { captchaToken },
+    options: { captchaToken, emailRedirectTo: `${origin}/` },
   });
   if (error) throw error;
 }
