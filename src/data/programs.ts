@@ -523,8 +523,8 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         program: 'Football Conditioning',
         exercises: [
           ex('shuttle-18yard', 1, 1, 0, 60),
-          ex('shuttle-18yard', 2, 1, 0, 60),
-          ex('shuttle-18yard', 4, 1, 0, 60),
+          ex('shuttle-18yard', 1, 2, 0, 60),
+          ex('shuttle-18yard', 1, 4, 0, 60),
         ],
       },
       {
@@ -533,9 +533,9 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: '18-yard shuttle accelerations. Three sets of 2, 3, then 4 reps. 60s rest between every rep and set.',
         program: 'Football Conditioning',
         exercises: [
-          ex('shuttle-18yard', 2, 1, 0, 60),
-          ex('shuttle-18yard', 3, 1, 0, 60),
-          ex('shuttle-18yard', 4, 1, 0, 60),
+          ex('shuttle-18yard', 1, 2, 0, 60),
+          ex('shuttle-18yard', 1, 3, 0, 60),
+          ex('shuttle-18yard', 1, 4, 0, 60),
         ],
       },
       {
@@ -544,9 +544,9 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: '18-yard shuttle accelerations. Three sets of 3, 3, then 4 reps. 60s rest between every rep and set.',
         program: 'Football Conditioning',
         exercises: [
-          ex('shuttle-18yard', 3, 1, 0, 60),
-          ex('shuttle-18yard', 3, 1, 0, 60),
-          ex('shuttle-18yard', 4, 1, 0, 60),
+          ex('shuttle-18yard', 1, 3, 0, 60),
+          ex('shuttle-18yard', 1, 3, 0, 60),
+          ex('shuttle-18yard', 1, 4, 0, 60),
         ],
       },
       {
@@ -555,9 +555,9 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         description: '18-yard shuttle accelerations. Three sets of 3, 4, then 4 reps. 60s rest between every rep and set.',
         program: 'Football Conditioning',
         exercises: [
-          ex('shuttle-18yard', 3, 1, 0, 60),
-          ex('shuttle-18yard', 4, 1, 0, 60),
-          ex('shuttle-18yard', 4, 1, 0, 60),
+          ex('shuttle-18yard', 1, 3, 0, 60),
+          ex('shuttle-18yard', 1, 4, 0, 60),
+          ex('shuttle-18yard', 1, 4, 0, 60),
         ],
       },
 

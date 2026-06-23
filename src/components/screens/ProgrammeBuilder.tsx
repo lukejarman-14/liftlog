@@ -527,7 +527,10 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
 
   // Step 1 — Schedule (season type drives offSeason boolean for generator)
   const [seasonType, setSeasonType] = useState<'in-season' | 'off-season' | 'pre-season' | null>(null);
-  const offSeason = seasonType === 'off-season' || seasonType === 'pre-season';
+  const offSeason = seasonType === 'off-season';
+  // Pre-season trains around matches exactly like in-season (it only carries the
+  // preSeason flag for the generator). Only true off-season has no matches.
+  const seasonWithMatches = seasonType === 'in-season' || seasonType === 'pre-season';
   const [gymSessionsPerWeek, setGymSessionsPerWeek] = useState<number>(2);
   const [conditioningTypes, setConditioningTypes] = useState<Set<CondType>>(new Set(['hiit', 'rsa', 'zone2']));
   // In-season specific
@@ -557,7 +560,7 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
 
   const matchIndicesSet = useMemo(() => {
     const s = new Set<number>();
-    if (seasonType === 'in-season') {
+    if (seasonWithMatches) {
       s.add(primaryMatchDayIndex);
       if (secondMatchDayKey) {
         const sk = DAY_KEYS.indexOf(secondMatchDayKey as typeof DAY_KEYS[number]);
@@ -605,13 +608,13 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
   // Derived total shown in Programme Duration step — matches what handleGenerate passes to the generator
   const sessionsPerWeek = offSeason
     ? gymSessionsPerWeek + condCount
-    : seasonType === 'in-season'
+    : seasonWithMatches
     ? effectiveInSeasonGym + inSeasonCondCount + matchesPerWeek
     : 3;
   // totalNeeded = training sessions only (match days are separate, not counted as "sessions")
   const totalNeeded = offSeason
     ? gymSessionsPerWeek + condCount
-    : seasonType === 'in-season'
+    : seasonWithMatches
     ? effectiveInSeasonGym + inSeasonCondCount
     : 0;
   const nonMatchAvailable = Array.from(availableDays).filter(i => !matchIndicesSet.has(i)).length;
@@ -939,8 +942,8 @@ export function ProgrammeBuilder({ userProfile, onGenerate, onBack, existingStre
             </>
           )}
 
-          {/* In-season: gym count + conditioning types + match info */}
-          {seasonType === 'in-season' && (
+          {/* In-season & pre-season: gym count + conditioning types + match info */}
+          {seasonWithMatches && (
             <>
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-2">Gym sessions per week</p>
