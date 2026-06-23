@@ -14,9 +14,12 @@ import type {
   UserProfile, PremiumStatus, WorkoutSession, DailyReadiness, ReadinessLevel,
   TestSession, WeightEntry, MatchEntry, BaselineTest, BaselineResults,
 } from '../types';
-import { APP_REVIEW_PASSWORD } from './appReviewDemo';
+import { hashPassword } from './authUtils';
 
 export const DEMO_FILMING_EMAIL = 'demo@vectorfootball.co.uk';
+// SHA-256(email + password) of the demo-filming credential — same one-way-hash
+// approach as appReviewDemo so the plaintext never ships in the JS bundle.
+const DEMO_FILMING_PASSWORD_HASH = '8b46f60bedebc0ac73ea1eb371da083c53a0aa34302e772c5e647d62cce431d7';
 
 const STORAGE_SYNC_EVENT = 'vf-storage-sync';
 const SEEDED_FLAG = 'vf_demo_seeded';
@@ -38,8 +41,9 @@ function writeSynced(key: string, value: unknown) {
   window.dispatchEvent(new CustomEvent(STORAGE_SYNC_EVENT, { detail: { key, serialized } }));
 }
 
-export function isDemoFilmingLogin(email: string, password: string): boolean {
-  return email.trim().toLowerCase() === DEMO_FILMING_EMAIL && password === APP_REVIEW_PASSWORD;
+export async function isDemoFilmingLogin(email: string, password: string): Promise<boolean> {
+  if (email.trim().toLowerCase() !== DEMO_FILMING_EMAIL) return false;
+  return (await hashPassword(password, DEMO_FILMING_EMAIL)) === DEMO_FILMING_PASSWORD_HASH;
 }
 
 export function isDemoSeeded(): boolean {

@@ -251,7 +251,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
     setLoginError('');
 
     try {
-      if (isAppReviewDemoLogin(loginEmail, loginPassword)) {
+      if (await isAppReviewDemoLogin(loginEmail, loginPassword)) {
         activateAppReviewDemo();
         if (stayLoggedIn) rememberLogin(loginEmail);
         else forgetRememberedLogin();
@@ -261,7 +261,7 @@ export function Onboarding({ onComplete, onLoginSuccess, existingUserId, initial
         return;
       }
 
-      if (isDemoFilmingLogin(loginEmail, loginPassword)) {
+      if (await isDemoFilmingLogin(loginEmail, loginPassword)) {
         activateDemoFilming();
         if (stayLoggedIn) rememberLogin(loginEmail);
         else forgetRememberedLogin();

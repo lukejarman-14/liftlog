@@ -90,7 +90,7 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
     setLoading(true);
     setError('');
 
-    if (isAppReviewDemoLogin(profile.email, password)) {
+    if (await isAppReviewDemoLogin(profile.email, password)) {
       activateAppReviewDemo();
       if (stayLoggedIn) rememberLogin(profile.email);
       else forgetRememberedLogin();
@@ -98,7 +98,7 @@ export function Login({ profile, onLogin, onStartOver }: LoginProps) {
       return;
     }
 
-    if (isDemoFilmingLogin(profile.email, password)) {
+    if (await isDemoFilmingLogin(profile.email, password)) {
       activateDemoFilming();
       if (stayLoggedIn) rememberLogin(profile.email);
       else forgetRememberedLogin();

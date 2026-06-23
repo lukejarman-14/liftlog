@@ -1,7 +1,13 @@
 import type { PremiumStatus, UserProfile } from '../types';
+import { hashPassword } from './authUtils';
 
 export const APP_REVIEW_EMAIL = 'review@vectorfootball.co.uk';
-export const APP_REVIEW_PASSWORD = 'VFReview2025!';
+// SHA-256(email + password) of the App Review demo credential. We embed the
+// one-way hash, NOT the plaintext, so the password can't be lifted from the
+// shipped JS bundle by view-source / grep. The account grants no premium and is
+// local-only, so this is defence-in-depth rather than a real secret. The live
+// password lives only in the App Store Connect "App Review Information" notes.
+const APP_REVIEW_PASSWORD_HASH = '5c2bc622d79ac93c4041ad49c7282c8f772ddd4754522dddf2b04c4fcfa963dc';
 
 const STORAGE_SYNC_EVENT = 'vf-storage-sync';
 const DATA_OWNER_KEY = 'vf_data_owner';
@@ -13,12 +19,11 @@ function writeSyncedJson(key: string, value: unknown) {
   window.dispatchEvent(new CustomEvent(STORAGE_SYNC_EVENT, { detail: { key, serialized } }));
 }
 
-export function isAppReviewDemoLogin(email: string, password: string): boolean {
-  return email.trim().toLowerCase() === APP_REVIEW_EMAIL && password === APP_REVIEW_PASSWORD;
-}
-
-export function isAppReviewDemoPassword(password: string): boolean {
-  return password === APP_REVIEW_PASSWORD;
+/** True only for the exact App Review email + password. Async because it hashes
+ *  the supplied password (the plaintext is never stored in the bundle). */
+export async function isAppReviewDemoLogin(email: string, password: string): Promise<boolean> {
+  if (email.trim().toLowerCase() !== APP_REVIEW_EMAIL) return false;
+  return (await hashPassword(password, APP_REVIEW_EMAIL)) === APP_REVIEW_PASSWORD_HASH;
 }
 
 export function activateAppReviewDemo() {
