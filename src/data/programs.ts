@@ -28,6 +28,20 @@ function ex(
     : { exerciseId, targetSets, targetReps, targetWeight, restSeconds };
 }
 
+// HIIT shuttle: one exercise, N sets, each set its own rep count (perSetReps).
+// targetReps stays 1 so ActiveWorkout treats every rep as a sprint (not a seconds
+// countdown); the guided interval timer reads perSetReps. 60s rest between sets only.
+function shuttleEx(perSetReps: number[]): WorkoutExercise {
+  return {
+    exerciseId: 'shuttle-18yard',
+    targetSets: perSetReps.length,
+    targetReps: 1,
+    targetWeight: 0,
+    restSeconds: 60,
+    perSetReps,
+  };
+}
+
 export const BUILT_IN_PROGRAMS: Program[] = [
   {
     name: 'Push / Pull / Legs',
@@ -515,49 +529,44 @@ export const FOOTBALL_PROGRAMS: Program[] = [
         ],
       },
 
-      // ── HIIT Shuttle — 18-yard shuttle, 3 sub-sets, 60s rest. Difficulty = rep structure. ──
+      // ── HIIT Shuttle — 18-yard shuttle, 3 sets, 60s rest between sets only.
+      // Difficulty = per-set rep structure. perSetReps drives the guided interval timer
+      // (one sprint per rep); targetReps stays 1 so the conditioning heuristic treats
+      // each rep as a sprint rather than a seconds-countdown. ──
       {
         id: 'fb-cond-shuttle-easy',
-        name: 'HIIT Shuttle — Easy (1·2·4)',
-        description: '18-yard shuttle accelerations. Three sets of 1, 2, then 4 reps. 60s rest between every rep and set.',
+        name: 'HIIT Shuttle — Easy',
+        description: '18-yard shuttle accelerations. Set 1: 1 rep, set 2: 2 reps, set 3: 4 reps. No rest between reps; 60s rest between sets only.',
         program: 'Football Conditioning',
         exercises: [
-          ex('shuttle-18yard', 1, 1, 0, 60),
-          ex('shuttle-18yard', 1, 2, 0, 60),
-          ex('shuttle-18yard', 1, 4, 0, 60),
+          shuttleEx([1, 2, 4]),
         ],
       },
       {
         id: 'fb-cond-shuttle-medium',
-        name: 'HIIT Shuttle — Medium (2·3·4)',
-        description: '18-yard shuttle accelerations. Three sets of 2, 3, then 4 reps. 60s rest between every rep and set.',
+        name: 'HIIT Shuttle — Medium',
+        description: '18-yard shuttle accelerations. Set 1: 2 reps, set 2: 3 reps, set 3: 4 reps. No rest between reps; 60s rest between sets only.',
         program: 'Football Conditioning',
         exercises: [
-          ex('shuttle-18yard', 1, 2, 0, 60),
-          ex('shuttle-18yard', 1, 3, 0, 60),
-          ex('shuttle-18yard', 1, 4, 0, 60),
+          shuttleEx([2, 3, 4]),
         ],
       },
       {
         id: 'fb-cond-shuttle-hard',
-        name: 'HIIT Shuttle — Hard (3·3·4)',
-        description: '18-yard shuttle accelerations. Three sets of 3, 3, then 4 reps. 60s rest between every rep and set.',
+        name: 'HIIT Shuttle — Hard',
+        description: '18-yard shuttle accelerations. Set 1: 3 reps, set 2: 3 reps, set 3: 4 reps. No rest between reps; 60s rest between sets only.',
         program: 'Football Conditioning',
         exercises: [
-          ex('shuttle-18yard', 1, 3, 0, 60),
-          ex('shuttle-18yard', 1, 3, 0, 60),
-          ex('shuttle-18yard', 1, 4, 0, 60),
+          shuttleEx([3, 3, 4]),
         ],
       },
       {
         id: 'fb-cond-shuttle-extra',
-        name: 'HIIT Shuttle — Extra Hard (3·4·4)',
-        description: '18-yard shuttle accelerations. Three sets of 3, 4, then 4 reps. 60s rest between every rep and set.',
+        name: 'HIIT Shuttle — Extra Hard',
+        description: '18-yard shuttle accelerations. Set 1: 3 reps, set 2: 4 reps, set 3: 4 reps. No rest between reps; 60s rest between sets only.',
         program: 'Football Conditioning',
         exercises: [
-          ex('shuttle-18yard', 1, 3, 0, 60),
-          ex('shuttle-18yard', 1, 4, 0, 60),
-          ex('shuttle-18yard', 1, 4, 0, 60),
+          shuttleEx([3, 4, 4]),
         ],
       },
 
@@ -653,7 +662,7 @@ export const FOOTBALL_CONDITIONING_OPTIONS: ConditioningOption[] = [
   {
     key: 'shuttle',
     name: 'HIIT Shuttle — 18-Yard',
-    description: '18-yard shuttle accelerations, three sets, 60s rest. Difficulty sets the rep structure.',
+    description: '18-yard shuttle accelerations, three sets, 60s rest between sets only. Difficulty sets the rep structure.',
     levels: [
       { label: 'Easy · 1·2·4',       template: condTemplate('fb-cond-shuttle-easy') },
       { label: 'Medium · 2·3·4',     template: condTemplate('fb-cond-shuttle-medium') },

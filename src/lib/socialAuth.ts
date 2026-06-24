@@ -5,7 +5,6 @@ import { supabase, isSupabaseConfigured } from './supabase';
 interface GoogleSignInPlugin {
   signIn(): Promise<{
     idToken: string;
-    accessToken: string;
     email: string;
     givenName: string;
     familyName: string;

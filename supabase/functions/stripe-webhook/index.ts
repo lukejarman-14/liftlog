@@ -26,6 +26,10 @@ const supabase = createClient(
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+  const contentLength = req.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > 1_048_576) {
+    return new Response('Request too large', { status: 413 });
+  }
 
   const signature = req.headers.get('stripe-signature');
   const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
@@ -36,6 +40,7 @@ Deno.serve(async (req) => {
   let event: Stripe.Event;
   try {
     const body = await req.text();
+    if (body.length > 1_048_576) return new Response('Request too large', { status: 413 });
     event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
   } catch (err) {
     return new Response(`Webhook error: ${(err as Error).message}`, { status: 400 });

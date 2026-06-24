@@ -143,6 +143,11 @@
     (Profile &rarr; Delete Account &amp; All Data). We will erase all such data from our servers within
     30 days. Note that deleting health data means we can no longer provide personalised training features.
   </p>
+  <p>
+    If you connect Apple Health, raw sleep, heart-rate variability, and resting-heart-rate values are
+    processed on your device to calculate readiness and are not uploaded to our servers. Your saved
+    readiness score and the manual ratings you enter may be included in cloud sync.
+  </p>
 
   <h2 id="s4">4. How we use your data &amp; legal bases</h2>
   <table>
@@ -185,8 +190,8 @@
     <p>Stripe processes web subscriptions and payments. Stripe handles all card data directly — we never see or store your card number, CVV, or full billing address. Stripe is PCI-DSS Level 1 certified and uses SCCs for international transfers. <a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe Privacy Policy &rarr;</a></p>
   </div>
   <div class="card">
-    <h3>Apple / App Store &mdash; iOS In-App Purchases</h3>
-    <p>iOS subscriptions are processed by Apple. Apple handles payment data under their own privacy policy. <a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener">Apple Privacy Policy &rarr;</a></p>
+    <h3>Apple and Google &mdash; Optional Account Sign-In</h3>
+    <p>If you choose social sign-in, Apple or Google authenticates you and supplies an identity token plus the name and email details you permit. Apple also processes iOS in-app purchases. <a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener">Apple Privacy Policy &rarr;</a> <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy &rarr;</a></p>
   </div>
   <div class="card">
     <h3>RevenueCat &mdash; Subscription Management (iOS)</h3>
@@ -194,13 +199,22 @@
   </div>
   <div class="card">
     <h3>PostHog &mdash; Product Analytics</h3>
-    <p>We send anonymised event data to PostHog (e.g. "workout_completed"). We do <strong>not</strong> send your name, email, raw workout content, or health metrics to PostHog. Your user ID is irreversibly hashed before transmission — PostHog never receives your actual account ID. You can opt out at any time via <strong>Profile &rarr; Privacy &rarr; Usage Analytics</strong>. <a href="https://posthog.com/privacy" target="_blank" rel="noopener">PostHog Privacy Policy &rarr;</a></p>
+    <p>We send pseudonymous product-interaction events to PostHog (e.g. "workout_completed"). We do <strong>not</strong> send your name, email, raw workout content, or health metrics. PostHog receives an account-derived pseudonymous identifier and may receive broad traits such as playing position. You can opt out at any time via <strong>Profile &rarr; Privacy &rarr; Usage Analytics</strong>. <a href="https://posthog.com/privacy" target="_blank" rel="noopener">PostHog Privacy Policy &rarr;</a></p>
+  </div>
+  <div class="card">
+    <h3>Sentry &mdash; Crash and Performance Diagnostics</h3>
+    <p>Sentry receives crash reports, app performance diagnostics, device and app-version information, and a user ID so we can diagnose failures. We do not intentionally send names, email addresses, raw workout content, or Apple Health values. <a href="https://sentry.io/privacy/" target="_blank" rel="noopener">Sentry Privacy Policy &rarr;</a></p>
+  </div>
+  <div class="card">
+    <h3>hCaptcha &mdash; Abuse Prevention</h3>
+    <p>hCaptcha processes technical and interaction data needed to distinguish legitimate authentication attempts from automated abuse. <a href="https://www.hcaptcha.com/privacy" target="_blank" rel="noopener">hCaptcha Privacy Policy &rarr;</a></p>
   </div>
 
   <h2 id="s7">7. International data transfers</h2>
   <p>
     We are based in the United Kingdom. Your data may be processed in countries outside the UK and
-    EU/EEA — specifically the United States (Supabase AWS, RevenueCat, PostHog, Stripe). Where
+    EU/EEA — including services operated by Supabase, RevenueCat, PostHog, Sentry, hCaptcha, Google,
+    Apple, and Stripe. Where
     transfers occur, we rely on:
   </p>
   <ul>

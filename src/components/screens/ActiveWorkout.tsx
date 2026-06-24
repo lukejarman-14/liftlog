@@ -4,6 +4,7 @@ import {
   CheckCircle2, SkipForward, Plus, Minus, ChevronDown, ChevronUp,
   Trophy, Clock, BookOpen, Lightbulb, MapPin, ChevronRight,
   TrendingUp, TrendingDown, Pencil, Save, AlertTriangle, FileText, Dumbbell,
+  Play, Pause,
 } from 'lucide-react';
 import { Layout } from '../Layout';
 import { Card } from '../ui/Card';
@@ -991,6 +992,275 @@ function CondSprintRow({
 }
 
 
+// Guided interval timer for rep-structured conditioning (e.g. HIIT shuttle).
+// Shows the full set/rep plan up front like a strength exercise — every set
+// lists its rep target. The player taps through the reps of the active set,
+// and a rest countdown only appears once that set's reps are ALL done (no rest
+// between reps; perSetReps e.g. [1,2,4]). Each completed set is logged as one
+// CompletedSet (reps = perSetReps[i]). A "how it works" explainer auto-opens the
+// first time the drill is opened, and can be reopened from the header.
+function ShuttleGuidedTimer({
+  perSetReps, restSeconds, completedSets, onCompleteSet,
+}: {
+  perSetReps: number[];
+  restSeconds: number;
+  completedSets: (CompletedSet | null)[];
+  onCompleteSet: (setIndex: number, set: CompletedSet) => void;
+}) {
+  // Cumulative sprint count at the end of each set, e.g. [1,2,4] -> [1,3,7].
+  let run = 0;
+  const cumulative = perSetReps.map(reps => (run += reps));
+  const totalSprints = cumulative[cumulative.length - 1] ?? 0;
+
+  // Resume mid-exercise: count sprints belonging to already-logged sets.
+  const initialDone = perSetReps.reduce((acc, reps, i) => acc + (completedSets[i] ? reps : 0), 0);
+
+  const [sprintDone, setSprintDone] = useState(initialDone);
+  const [phase, setPhase] = useState<'idle' | 'work' | 'rest' | 'paused'>(
+    initialDone > 0 && initialDone < totalSprints ? 'work' : 'idle',
+  );
+  const [restRemaining, setRestRemaining] = useState(restSeconds);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const endRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
+  // Auto-open the explainer the first time the player opens the drill (fresh start).
+  useEffect(() => { if (initialDone === 0) setShowHelp(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Rest countdown — absolute endTime so it survives backgrounding. Auto-advances
+  // to the next set ('work') when it reaches zero.
+  useEffect(() => {
+    if (phase !== 'rest') return;
+    endRef.current = Date.now() + restRemaining * 1000;
+    const tick = () => {
+      if (endRef.current == null) return;
+      const rem = Math.max(0, Math.ceil((endRef.current - Date.now()) / 1000));
+      setRestRemaining(rem);
+      if (rem <= 0) {
+        endRef.current = null;
+        playRestEndSound();
+        if ('vibrate' in navigator) navigator.vibrate(200);
+        if (mountedRef.current) setPhase('work');
+      }
+    };
+    const id = setInterval(tick, 250);
+    const onVis = () => { if (!document.hidden) tick(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Derive the current set + reps done within it from the single sprint counter.
+  const currentSetIdx = cumulative.findIndex(c => sprintDone < c); // -1 once every set is done
+  const allDone = currentSetIdx === -1;
+  const prevCumulative = currentSetIdx <= 0 ? 0 : cumulative[currentSetIdx - 1];
+  const repsDoneInSet = allDone ? 0 : sprintDone - prevCumulative;
+  const restPct = Math.max(0, Math.min(100, (restRemaining / Math.max(restSeconds, 1)) * 100));
+  const repWord = (n: number) => (n === 1 ? 'rep' : 'reps');
+
+  const completeRep = () => {
+    const cur = currentSetIdx;
+    if (cur === -1) return;
+    const next = sprintDone + 1;
+    setSprintDone(next);
+    if (next >= cumulative[cur]) {
+      // Last rep of the set — log it, then rest before the next set (if any).
+      onCompleteSet(cur, { reps: perSetReps[cur], weight: 0, completedAt: Date.now() });
+      playTimerDoneSound();
+      if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
+      if (next < totalSprints) {
+        setRestRemaining(restSeconds);
+        setPhase('rest');
+      } else {
+        setPhase('idle');
+      }
+    } else {
+      // Mid-set: straight to the next rep, no rest.
+      setPhase('work');
+    }
+  };
+
+  const help = showHelp && (
+    <div
+      className="fixed inset-0 z-[75] flex items-center justify-center bg-black/50 p-4"
+      onClick={() => setShowHelp(false)}
+    >
+      <div
+        className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-sm p-6 shadow-xl max-h-[85vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <MapPin size={18} className="text-emerald-500 flex-shrink-0" />
+          <p className="text-lg font-bold text-gray-900 dark:text-white">How the shuttle works</p>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          Plan · {perSetReps.join(' · ')} reps · {restSeconds}s rest between sets
+        </p>
+        <ol className="flex flex-col gap-2 mb-4">
+          {(EXERCISE_DESCRIPTIONS['shuttle-18yard']?.how ?? []).map((step, i) => (
+            <li key={i} className="flex gap-2">
+              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-bold flex items-center justify-center mt-0.5">
+                {i + 1}
+              </span>
+              <span className="text-xs text-gray-700 dark:text-zinc-300 leading-relaxed">{step}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="flex items-start gap-2 bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/30 rounded-xl px-3 py-2 mb-4">
+          <span className="text-orange-500 text-sm flex-shrink-0">⏱️</span>
+          <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 leading-relaxed">
+            No rest between reps — tap “Rep done” after each sprint. The {restSeconds}s rest timer
+            only starts once you finish every rep in a set, then the next set unlocks.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowHelp(false)}
+          className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-colors"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Plan header + reopen-explainer button */}
+      <div className="flex items-center justify-between px-1">
+        <span className="text-[11px] font-semibold text-emerald-500 uppercase tracking-wider">
+          Plan · {perSetReps.join(' · ')} reps
+        </span>
+        <button
+          onClick={() => setShowHelp(true)}
+          className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500 hover:text-emerald-600 active:scale-95 transition-all"
+        >
+          <BookOpen size={12} /> How it works
+        </button>
+      </div>
+
+      {/* Set list — visible up front like a strength exercise */}
+      {perSetReps.map((reps, i) => {
+        const setComplete = sprintDone >= cumulative[i];
+        const isActive = i === currentSetIdx;
+
+        // Completed set
+        if (setComplete) {
+          return (
+            <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-100 dark:border-green-500/20">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />
+                <span className="text-sm font-semibold text-green-700 dark:text-green-300">Set {i + 1}</span>
+              </div>
+              <span className="text-sm font-bold text-green-600 dark:text-green-400 tabular-nums">{reps} {repWord(reps)} done</span>
+            </div>
+          );
+        }
+
+        // Active set, resting before it unlocks (player just finished the previous set)
+        if (isActive && (phase === 'rest' || phase === 'paused')) {
+          return (
+            <div key={i} className="p-4 rounded-2xl bg-orange-50 dark:bg-orange-500/10 border-2 border-orange-200 dark:border-orange-500/30 flex flex-col items-center gap-3">
+              <div className="text-[11px] font-semibold text-orange-500 uppercase tracking-wide text-center">
+                {phase === 'paused' ? 'Paused' : `Rest · Set ${i + 1} (${reps} ${repWord(reps)}) coming up`}
+              </div>
+              <div className="text-4xl font-black tabular-nums text-orange-600">{formatRestTime(restRemaining)}</div>
+              <div className="w-full bg-orange-100 dark:bg-orange-500/20 rounded-full h-2">
+                <div className="bg-orange-400 h-2 rounded-full transition-all duration-300" style={{ width: `${restPct}%` }} />
+              </div>
+              <div className="flex items-center gap-2">
+                {phase === 'rest' ? (
+                  <button
+                    onClick={() => setPhase('paused')}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-white dark:bg-zinc-800 border border-orange-300 text-orange-600 rounded-xl text-sm font-bold hover:bg-orange-50 active:scale-95 transition-all"
+                  >
+                    <Pause size={16} /> Pause
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setPhase('rest')}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-bold hover:bg-orange-600 active:scale-95 transition-all"
+                  >
+                    <Play size={16} /> Resume
+                  </button>
+                )}
+                <button
+                  onClick={() => { endRef.current = null; setPhase('work'); }}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-500 rounded-xl text-sm font-bold hover:bg-gray-50 active:scale-95 transition-all"
+                >
+                  <SkipForward size={16} /> Skip rest
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        // Active set — not started yet (idle) or counting reps (work)
+        if (isActive) {
+          return (
+            <div key={i} className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-300 dark:border-emerald-500/40 flex flex-col items-center gap-3">
+              <div className="text-[11px] font-semibold text-emerald-500 uppercase tracking-wider">
+                Set {i + 1} · {reps} {repWord(reps)}
+              </div>
+              {/* Rep pips — how many sprints in this set, filled as you go */}
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: reps }).map((_, r) => (
+                  <span key={r} className={`w-3 h-3 rounded-full transition-colors ${r < repsDoneInSet ? 'bg-emerald-500' : 'bg-emerald-200 dark:bg-emerald-500/30'}`} />
+                ))}
+              </div>
+
+              {phase === 'idle' ? (
+                <>
+                  <div className="text-xs text-emerald-600 dark:text-emerald-300 text-center">
+                    {reps} back-to-back {repWord(reps)} — no rest between reps.
+                  </div>
+                  <button
+                    onClick={() => setPhase('work')}
+                    className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-base font-bold hover:bg-emerald-700 active:scale-95 transition-all"
+                  >
+                    <Play size={18} /> Start workout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="text-3xl font-black text-emerald-600 tabular-nums">REP {repsDoneInSet + 1}/{reps}</div>
+                  <div className="text-xs text-emerald-500">Sprint the 18-yard shuttle, then tap.</div>
+                  <button
+                    onClick={completeRep}
+                    className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-base font-bold hover:bg-emerald-700 active:scale-95 transition-all"
+                  >
+                    <CheckCircle2 size={18} /> Rep done
+                  </button>
+                </>
+              )}
+            </div>
+          );
+        }
+
+        // Upcoming set — locked preview so the player sees the whole plan
+        return (
+          <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-zinc-800 opacity-70">
+            <span className="text-sm font-semibold text-gray-400">Set {i + 1}</span>
+            <span className="text-sm font-medium text-gray-400 tabular-nums">{reps} {repWord(reps)}</span>
+          </div>
+        );
+      })}
+
+      {allDone && (
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-100 dark:border-green-500/20">
+          <CheckCircle2 size={18} className="text-green-500 flex-shrink-0" />
+          <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+            All {perSetReps.length} sets complete · {totalSprints} sprints done
+          </span>
+        </div>
+      )}
+
+      {help}
+    </div>
+  );
+}
+
+
 function ExerciseSection({
   sessionExercise,
   sessionId,
@@ -1236,6 +1506,15 @@ function ExerciseSection({
             )}
 
             <div className="flex flex-col gap-2">
+              {sessionExercise.perSetReps && sessionExercise.perSetReps.length > 0 ? (
+                <ShuttleGuidedTimer
+                  perSetReps={sessionExercise.perSetReps}
+                  restSeconds={sessionExercise.restSeconds || 60}
+                  completedSets={sessionExercise.perSetReps.map((_, i) => workingSets[i] ?? null)}
+                  onCompleteSet={(_setIndex, set) => onCompleteSet((primingWeights !== null ? primingCount : 0) + _setIndex, set)}
+                />
+              ) : (
+              <>
               {primingWeights && (
                 <>
                   <div className="flex items-center gap-2 pt-1 pb-0.5">
@@ -1322,6 +1601,8 @@ function ExerciseSection({
                   </div>
                 );
               })}
+              </>
+              )}
             </div>
           </div>
         </>

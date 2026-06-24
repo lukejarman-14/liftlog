@@ -115,6 +115,11 @@ Deno.serve(async (req) => {
     }
 
     const rawBody = await req.json();
+    if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
+      return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+        status: 400, headers: { ...cors(req), 'Content-Type': 'application/json' },
+      });
+    }
 
     // Whitelist accepted fields — reject any unexpected keys silently by ignoring them.
     // This prevents parameter pollution and makes the API surface explicit.

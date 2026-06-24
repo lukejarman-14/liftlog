@@ -55,6 +55,10 @@ interface RCEvent {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+  const contentLength = req.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > 65_536) {
+    return new Response('Request too large', { status: 413 });
+  }
 
   // Shared-secret auth — RevenueCat sends the configured Authorization header.
   const expected = Deno.env.get('REVENUECAT_WEBHOOK_AUTH');
@@ -79,6 +83,20 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const grantTypes = ['INITIAL_PURCHASE', 'RENEWAL', 'PRODUCT_CHANGE', 'UNCANCELLATION', 'NON_RENEWING_PURCHASE'];
+    const revokeTypes = ['EXPIRATION'];
+    const grantPlan = grantTypes.includes(event.type ?? '') ? planForProduct(event.product_id) : null;
+
+    // Validate product mapping before writing the idempotency ledger. If a product
+    // is configured incorrectly, a corrected webhook can then be retried instead
+    // of being permanently discarded as an already-processed event.
+    if (grantTypes.includes(event.type ?? '') && !grantPlan) {
+      console.error('[revenuecat-webhook] unknown product, refusing grant:', event.product_id);
+      return new Response(JSON.stringify({ error: 'unknown_product' }), {
+        status: 422, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // Idempotency — RevenueCat retries; only process each event id once.
     const { error: ledgerError } = await supabase
       .from('billing_events')
@@ -90,23 +108,12 @@ Deno.serve(async (req) => {
       throw new Error(`ledger insert failed: ${ledgerError.message}`);
     }
 
-    const grantTypes = ['INITIAL_PURCHASE', 'RENEWAL', 'PRODUCT_CHANGE', 'UNCANCELLATION', 'NON_RENEWING_PURCHASE'];
-    const revokeTypes = ['EXPIRATION'];
-
     if (grantTypes.includes(event.type ?? '')) {
-      const plan = planForProduct(event.product_id);
-      // Exact-allowlist: refuse to grant premium for an unrecognized product.
-      // (Without this, an unknown product → plan=null → could read as permanent
-      // premium downstream.) Ack so RevenueCat stops retrying.
-      if (!plan) {
-        console.error('[revenuecat-webhook] unknown product, refusing grant:', event.product_id);
-        return json({ received: true, ignored: 'unknown_product' });
-      }
       const periodEnd = event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null;
       const { error } = await supabase.from('entitlements').upsert({
         user_id: userId,
         is_premium: true,
-        plan,
+        plan: grantPlan,
         source: 'revenuecat',
         current_period_end: periodEnd,
         updated_at: new Date().toISOString(),

@@ -90,9 +90,23 @@ export function usePremium() {
       return;
     }
     if (supabase) {
-      // server owns the authoritative trial clock; ignore RPC errors and still
-      // set the local cache so the UI reflects the trial offline.
-      try { await supabase.rpc('start_trial'); } catch { /* offline — local only */ }
+      // Server owns the authoritative trial clock. Never grant a local trial when
+      // the RPC fails or reports no access, otherwise blocking the request becomes
+      // a repeatable paywall bypass.
+      const { data, error } = await supabase.rpc('start_trial');
+      const entitlement = data as { has_access?: boolean; expires_at?: number } | null;
+      if (error || entitlement?.has_access !== true) {
+        setPurchaseError('Could not start your trial. Check your connection and try again.');
+        return;
+      }
+      const updated: PremiumStatus = {
+        ...current,
+        trialStartedAt: Date.now(),
+        expiresAt: typeof entitlement.expires_at === 'number' ? entitlement.expires_at : undefined,
+      };
+      save(updated);
+      setStatusRaw(updated);
+      return;
     }
     const updated: PremiumStatus = { ...current, trialStartedAt: Date.now() };
     save(updated);

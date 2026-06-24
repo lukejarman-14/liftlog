@@ -71,6 +71,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const contentLength = req.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > 2048) {
+      return new Response(JSON.stringify({ error: 'Request too large' }), {
+        status: 413, headers: { ...cors(req), 'Content-Type': 'application/json' },
+      });
+    }
     // returnUrl is hardcoded server-side — never trusted from the client body
     // to prevent open-redirect attacks.
     const returnUrl = Deno.env.get('SITE_URL') ?? 'https://vectorfootball.co.uk';

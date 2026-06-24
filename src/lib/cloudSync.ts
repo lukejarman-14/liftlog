@@ -3,12 +3,40 @@ import { STORAGE_KEYS } from './dataSync';
 import { getCaptchaToken } from './hcaptcha';
 import { captureError } from './sentry';
 import type { Provider } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
 
 
 // Keys whose values are authoritative on the server only (written by webhooks/RevenueCat).
 // We never upload these from the client — a localStorage edit must never be able to
 // overwrite the server's record.  cloudLoadData restores them correctly on every boot.
 const SERVER_MANAGED_KEYS = new Set<string>(['vf_premium']);
+const PUBLIC_WEB_ORIGIN = 'https://vectorfootball.co.uk';
+const RAW_HEALTH_FIELDS = new Set([
+  'sleepHours',
+  'deepSleepHours',
+  'remSleepHours',
+  'awakeHours',
+  'hrvMs',
+  'restingHr',
+]);
+
+function authRedirectOrigin(): string {
+  const configured = (import.meta.env.VITE_PUBLIC_URL as string | undefined)?.trim();
+  if (configured) return configured.replace(/\/+$/, '');
+  return Capacitor.isNativePlatform() ? PUBLIC_WEB_ORIGIN : window.location.origin;
+}
+
+/** Keep raw Apple Health values device-only while syncing the derived readiness log. */
+function sanitiseCloudValue(key: string, value: unknown): unknown {
+  if (key !== 'vf_daily_readiness' || !Array.isArray(value)) return value;
+  return value.map(entry => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
+    return Object.fromEntries(
+      Object.entries(entry as Record<string, unknown>)
+        .filter(([field]) => !RAW_HEALTH_FIELDS.has(field)),
+    );
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Shared-device account isolation
@@ -37,7 +65,7 @@ function collectAllData(): Record<string, unknown> {
   for (const key of STORAGE_KEYS) {
     if (SERVER_MANAGED_KEYS.has(key)) continue; // never upload — managed by webhooks
     const raw = localStorage.getItem(key);
-    try { data[key] = raw ? JSON.parse(raw) : null; }
+    try { data[key] = sanitiseCloudValue(key, raw ? JSON.parse(raw) : null); }
     catch { data[key] = null; }
   }
   return data;
@@ -45,7 +73,7 @@ function collectAllData(): Record<string, unknown> {
 
 function restoreAllData(data: Record<string, unknown>) {
   for (const key of STORAGE_KEYS) {
-    let val = data[key];
+    let val = sanitiseCloudValue(key, data[key]);
     if (val === undefined || val === null) continue;
     // Defensively strip any legacy password hash a pre-fix cloud row may still
     // carry, so the device-only secret never repopulates onto a device.
@@ -95,11 +123,14 @@ export async function cloudSignUp(email: string, password: string): Promise<Sign
   const captchaToken = await getCaptchaToken();
   // Pin the confirmation-link target explicitly (same origin the password-reset
   // flow uses) so a drifting dashboard Site URL can't silently break confirmation.
-  const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
+  const origin = authRedirectOrigin();
+  // ?vf_confirm=1 marks this as an email-confirmation link so the landing page can
+  // tell it apart from a password-reset link — both arrive as PKCE ?code= redirects
+  // and are otherwise indistinguishable on the client.
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { captchaToken, emailRedirectTo: `${origin}/` },
+    options: { captchaToken, emailRedirectTo: `${origin}/?vf_confirm=1` },
   });
   if (error) throw error;
   // If email confirmation is disabled, Supabase returns a session immediately.
@@ -131,7 +162,7 @@ export async function cloudSignIn(email: string, password: string): Promise<stri
 /** Start Apple / Google OAuth through Supabase. The browser redirects away. */
 export async function cloudSignInWithOAuth(provider: OAuthProvider): Promise<void> {
   if (!supabase) throw new Error('not_configured');
-  const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
+  const origin = authRedirectOrigin();
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
@@ -169,11 +200,13 @@ export async function cloudResendConfirmation(email: string): Promise<void> {
   if (!supabase) throw new Error('not_configured');
   // captchaToken is required when Supabase CAPTCHA is enabled; ignored when off.
   const captchaToken = await getCaptchaToken();
-  const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
+  const origin = authRedirectOrigin();
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email,
-    options: { captchaToken, emailRedirectTo: `${origin}/` },
+    // Keep the ?vf_confirm=1 marker in sync with cloudSignUp so resent links also
+    // route to the "Email confirmed" landing rather than the password-reset screen.
+    options: { captchaToken, emailRedirectTo: `${origin}/?vf_confirm=1` },
   });
   if (error) throw error;
 }
@@ -182,11 +215,14 @@ export async function cloudResendConfirmation(email: string): Promise<void> {
 export async function cloudResetPassword(email: string): Promise<void> {
   if (!supabase) throw new Error('not_configured');
   await guardAuthRateLimit(email);
-  const origin = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
+  const origin = authRedirectOrigin();
   // captchaToken is required when Supabase CAPTCHA is enabled; ignored when off.
   const captchaToken = await getCaptchaToken();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/`,
+    // ?vf_reset=1 marks this as a password-reset link so auth-detect.js routes it to
+    // the reset screen. Mirrors ?vf_confirm=1 on confirmation links — both arrive as
+    // PKCE ?code= redirects and are otherwise indistinguishable on the client.
+    redirectTo: `${origin}/?vf_reset=1`,
     captchaToken,
   });
   if (error) throw error;
@@ -266,7 +302,10 @@ export async function cloudLoadData(userId: string): Promise<boolean> {
     .eq('id', userId)
     .single();
   if (error || !data?.app_data) return false;
-  const appData = data.app_data as Record<string, unknown>;
+  const appData = Object.fromEntries(
+    Object.entries(data.app_data as Record<string, unknown>)
+      .map(([key, value]) => [key, sanitiseCloudValue(key, value)]),
+  );
 
   // Skip the write + event dispatch if nothing has changed — avoids unnecessary
   // re-renders across all useLocalStorage hooks when the same data is polled.

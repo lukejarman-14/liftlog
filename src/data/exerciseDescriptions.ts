@@ -711,9 +711,9 @@ This shuttle directly trains the short-burst changes of direction used in defend
     how: [
       'Start on the goal line. Recovery jog to the 18-yard line, then run at 80% to the far 18-yard line.',
       'From there, recovery jog to the far goal line, turn, and recovery jog back to the 18-yard line — then run 80% across to the near 18-yard line. That is ONE rep.',
-      'For multiple reps in a set, recovery jog back to the goal line and start the next rep. 60 seconds rest between every rep and between every set.',
+      'For multiple reps in a set, recovery jog back to the goal line and start the next rep with no timed rest. Take 60 seconds rest only after the full set is complete.',
     ],
-    tips: ['The 80% runs are controlled, repeatable accelerations — this is acceleration quality under fatigue, not flat-out sprinting.', 'Difficulty levels set the rep structure across the three sets: Easy 1·2·4, Medium 2·3·4, Hard 3·3·4, Extra Hard 3·4·4.'],
+    tips: ['The 80% runs are controlled, repeatable accelerations — this is acceleration quality under fatigue, not flat-out sprinting.', 'Difficulty levels set the rep structure across the three sets: Easy 1·2·4, Medium 2·3·4, Hard 3·3·4, Extra Hard 3·4·4. Rest 60 seconds between sets only.'],
     footballContext: 'The 18-yard box markings give you a fixed, repeatable shuttle distance on any pitch. Trains repeated acceleration and deceleration — the exact pattern of pressing and recovering in a match.',
   },
   'max-effort-run': {

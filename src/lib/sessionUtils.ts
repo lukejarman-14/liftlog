@@ -559,6 +559,13 @@ export function sessionToWorkoutExercises(
         // Time-based aerobic (measureType: 'time'): show as 1 set × duration-in-seconds timer.
         // Only applies to single-set continuous runs (sets ≤ 1). Multi-set intervals (sets > 1)
         // go through the normal condWorkSecs path so all intervals show as countdown timers.
+        // HIIT-shuttle-style per-set rep structure (e.g. [1,2,4]). When present it
+        // drives the guided interval timer, so it overrides the generic conditioning
+        // set/rep parsing below — one set per entry, one sprint per rep, rest between
+        // sets only — keeping a generated-programme shuttle identical to the standalone one.
+        const perSetReps = Array.isArray(pe.perSetReps) && pe.perSetReps.length > 0
+          ? pe.perSetReps.map(n => Math.min(Math.max(Math.round(n), 1), MAX_REPS_CAP))
+          : undefined;
         const isTimedAerobic = isCond && exercise.measureType === 'time' && parseInt(pe.sets, 10) <= 1;
         // For interval conditioning: parse actual work duration from pe.reps.
         // e.g. "30s hard · 30s rest" → 30s work. Distance-based ("8 × 30m") → 0 (no timer).
@@ -568,10 +575,12 @@ export function sessionToWorkoutExercises(
         const distanceRepsPerSet = isCond && !isTimedAerobic && condWorkSecs === 0
           ? parseDistanceRepsPerSet(pe.sets, pe.reps)
           : 1;
-        const targetSets = isTimedAerobic ? 1
+        const targetSets = perSetReps ? perSetReps.length
+          : isTimedAerobic ? 1
           : isCond ? Math.min(Math.max(parseInt(pe.sets, 10) || 1, 1) * distanceRepsPerSet, 25)
           : parseSets(pe.sets);
-        const targetReps = isTimedAerobic
+        const targetReps = perSetReps ? 1
+          : isTimedAerobic
           ? (() => { const m = pe.reps?.match(/(\d+)\s*mins?/); return m ? parseInt(m[1], 10) * 60 : 1800; })()
           : isCond ? (condWorkSecs > 0 ? condWorkSecs : 1)
           : parseReps(pe.reps);
@@ -612,6 +621,7 @@ export function sessionToWorkoutExercises(
           targetReps,
           targetWeight,
           restSeconds,
+          perSetReps,
           blockTitle: isFirstInBlock ? block.title : undefined,
           displayName: pe.name !== exercise.name ? pe.name : undefined,
           coachingCue: pe.cue || undefined,

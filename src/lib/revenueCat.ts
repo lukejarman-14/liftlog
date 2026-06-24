@@ -20,6 +20,10 @@ const PLAN_TO_PACKAGE: Record<string, string> = {
 };
 
 export type RCPlan = 'monthly' | 'yearly' | 'lifetime';
+export type RCPlanPrice = {
+  price: string;
+  pricePerMonth?: string;
+};
 
 let isConfigured = false;
 let configuredUserId: string | null = null;
@@ -214,6 +218,24 @@ export async function rcGetOfferings() {
     console.error('[RC] getOfferings failed:', err);
     return null;
   }
+}
+
+/** StoreKit-localized prices for the packages shown on the native paywall. */
+export async function rcGetPlanPrices(): Promise<Partial<Record<RCPlan, RCPlanPrice>>> {
+  const offering = await rcGetOfferings();
+  if (!offering) return {};
+
+  const prices: Partial<Record<RCPlan, RCPlanPrice>> = {};
+  for (const plan of Object.keys(PLAN_TO_PACKAGE) as RCPlan[]) {
+    const packageId = PLAN_TO_PACKAGE[plan];
+    const pkg = offering.availablePackages.find(p => p.identifier === packageId);
+    if (!pkg) continue;
+    prices[plan] = {
+      price: pkg.product.priceString,
+      pricePerMonth: pkg.product.pricePerMonthString ?? undefined,
+    };
+  }
+  return prices;
 }
 
 export type RCPurchaseResult = {

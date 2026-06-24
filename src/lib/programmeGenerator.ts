@@ -97,6 +97,7 @@ function ex(
     methodType?: MethodType;
     intensityIntent?: IntensityIntent;
     isRunning?: boolean;
+    perSetReps?: number[];
   },
 ): ProgrammeExercise {
   return { name, exerciseId: resolveId(name), sets, reps, rest, cue, ...opts };
@@ -1535,11 +1536,13 @@ function buildHiitWorkout(weekNum: number): { label: string; exercise: Programme
         '18-Yard Shuttle Acceleration',
         '3',
         `${s1} → ${s2} → ${s3} reps`,
-        '60s between reps & sets',
+        '60s between sets only',
         `THE PATTERN (1 rep): Start on the goal line. Recovery jog to the 18-yard line, then run at 80% to the far 18-yard line. From there recovery jog to the far goal line, turn, and recovery jog back to the 18-yard line — then run 80% across to the near 18-yard line. That completes one rep. For multiple reps in a set, recovery jog back to the goal line and start the next rep. ` +
-        `THIS SESSION: 3 sets of ${s1}, then ${s2}, then ${s3} reps. 60 seconds rest between every rep and between every set. ` +
+        `THIS SESSION: 3 sets of ${s1}, then ${s2}, then ${s3} reps. Complete all reps in a set continuously with no timed rest between reps; take 60 seconds rest only after set 1 and set 2. ` +
         `Progressive overload: one rep is added each session — week on week the shuttle volume climbs (${s1}/${s2}/${s3} this week). Hit every 80% run at a controlled, repeatable speed — this is acceleration quality under fatigue, not flat-out sprinting.`,
-        { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true },
+        // perSetReps drives the guided interval timer (one sprint per rep, rest between
+        // sets only) so a generated-programme shuttle behaves exactly like the standalone one.
+        { methodType: 'reactive', intensityIntent: 'maximal', isRunning: true, perSetReps: [s1, s2, s3] },
       ),
     };
   }

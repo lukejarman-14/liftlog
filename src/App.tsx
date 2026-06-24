@@ -132,10 +132,19 @@ function detectRecoveryUrl(): boolean {
   );
 }
 
-// Detect email confirmation redirect — Supabase appends #type=signup after the user clicks the link
+// Detect email confirmation redirect. Implicit-flow links append #type=signup;
+// PKCE links arrive as ?code= with our explicit ?vf_confirm=1 marker (captured into
+// sessionStorage by auth-detect.js before Supabase strips the query). Checking the
+// marker is what keeps a confirmation link from being mistaken for a password reset.
 function detectEmailConfirmUrl(): boolean {
   if (typeof window === 'undefined') return false;
-  return window.location.hash.includes('type=signup');
+  if (window.location.search.includes('vf_confirm=1')) return true;
+  if (window.location.hash.includes('type=signup')) return true;
+  try {
+    return sessionStorage.getItem('vf_email_confirm') === '1';
+  } catch {
+    return false;
+  }
 }
 
 function EmailConfirmedLanding() {
@@ -186,8 +195,10 @@ export default function App() {
   const [authFinalizing, setAuthFinalizing] = useState(false);
   // true when the user has arrived via a password-reset link — bypasses profile/auth guards
   const [isRecoveryMode, setIsRecoveryMode] = useState(detectRecoveryUrl);
-  // true when the user has arrived via an email confirmation link — show landing page
-  const [isEmailConfirmLanding] = useState(detectEmailConfirmUrl);
+  // true when the user has arrived via an email confirmation link — show landing page.
+  // Settable because PKCE confirmation links only resolve to SIGNED_IN after the async
+  // code exchange, so the event handler may need to flip this on.
+  const [isEmailConfirmLanding, setIsEmailConfirmLanding] = useState(detectEmailConfirmUrl);
 
   const cloudUserIdRef = useRef<string | null>(null);
   const appMountedRef  = useRef(true);
@@ -288,6 +299,9 @@ export default function App() {
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
+    // Email-confirmation landing tab: don't restore a session or load cloud data —
+    // just show the "Email confirmed" screen and let the user return to the app.
+    if (detectEmailConfirmUrl()) { setSessionChecking(false); return; }
     getExistingSession()
       .then(async userId => {
         if (userId) {
@@ -405,6 +419,19 @@ export default function App() {
         const userId = session.user.id;
         // Email confirmed — clear the pending confirmation banner
         setPendingEmailConfirm(false);
+
+        // If this SIGNED_IN is the result of clicking the email-confirmation link
+        // (PKCE code exchange completing on the landing tab), show the "Email
+        // confirmed" screen and stop — don't load cloud data or authenticate here.
+        // The user returns to the app and taps "I've confirmed my email".
+        let isConfirmLanding = false;
+        try { isConfirmLanding = sessionStorage.getItem('vf_email_confirm') === '1'; } catch { /* ignore */ }
+        if (isConfirmLanding) {
+          setIsEmailConfirmLanding(true);
+          setSessionChecking(false);
+          return;
+        }
+
         // Only act if we're not already authenticated (avoids re-running on
         // normal sign-in flows that are handled by the Login screen directly).
         if (!cloudUserIdRef.current) {
@@ -626,6 +653,7 @@ export default function App() {
         targetReps: item.targetReps,
         targetWeight: item.targetWeight,
         restSeconds: item.restSeconds,
+        perSetReps: item.perSetReps,
         targetRir: item.targetRir,
         blockTitle: item.blockTitle,
         displayName: item.displayName,
@@ -823,13 +851,18 @@ export default function App() {
     if (res.success) {
       localStorage.removeItem('vf_pending_team_code');
       if (res.tier === 'pro') {
-        localStorage.setItem('vf_premium', JSON.stringify({ isPremium: true, plan: 'monthly', purchasedAt: Date.now(), squadGranted: true }));
-        premium.refresh();
-        setPendingEmailConfirm(false);
-        // Player already has Premium via their coach — skip the paywall entirely.
-        navigate({ screen: 'dashboard' });
+        // The squad row's cached tier can be stale after a coach subscription ends.
+        // Confirm access through the authoritative entitlement RPC before unlocking.
+        const entitlement = await premium.syncEntitlementFromServer();
+        if (computeHasAccess(entitlement)) {
+          setPendingEmailConfirm(false);
+          // Player already has Premium via their coach — skip the paywall entirely.
+          navigate({ screen: 'dashboard' });
+          setSquadJoinToast('pro');
+          return;
+        }
       }
-      setSquadJoinToast(res.tier);
+      setSquadJoinToast('free');
     } else if (res.reason === 'invalid' || res.reason === 'self') {
       localStorage.removeItem('vf_pending_team_code'); // bad code — don't retry forever
       setSquadJoinToast('invalid');

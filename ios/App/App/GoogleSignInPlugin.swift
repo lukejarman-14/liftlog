@@ -47,7 +47,6 @@ public class GoogleSignInPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
                 call.resolve([
                     "idToken": idToken,
-                    "accessToken": user.accessToken.tokenString,
                     "email": user.profile?.email ?? "",
                     "givenName": user.profile?.givenName ?? "",
                     "familyName": user.profile?.familyName ?? ""

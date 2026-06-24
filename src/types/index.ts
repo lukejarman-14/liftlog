@@ -56,6 +56,7 @@ export interface WorkoutExercise {
   targetReps: number;
   targetWeight: number;
   restSeconds: number;
+  perSetReps?: number[]; // per-set rep targets (e.g. HIIT shuttle [1,2,4]); length === targetSets. Drives the guided interval timer.
   targetRir?: number;    // 0–4, target Reps in Reserve (0 = max, 4 = very easy)
   blockTitle?: string;   // section heading shown before this exercise in active workout
   displayName?: string;  // programme-specific exercise name (overrides library name in header)
@@ -87,6 +88,7 @@ export interface SessionExercise {
   targetReps: number;
   targetWeight: number;
   restSeconds: number;
+  perSetReps?: number[]; // carried from WorkoutExercise — per-set rep targets for the guided interval timer
   targetRir?: number;    // carried from WorkoutExercise
   blockTitle?: string;   // carried from WorkoutExercise
   displayName?: string;  // carried from WorkoutExercise
@@ -330,6 +332,7 @@ export interface ProgrammeExercise {
   sets: string;
   reps: string;
   rest: string;
+  perSetReps?: number[];    // per-set rep targets (e.g. HIIT shuttle [1,2,4]) — carried to WorkoutExercise so the guided interval timer is used everywhere
   intensity?: string;
   tempo?: string;           // e.g. "3-0-1-0" (eccentric-pause-concentric-pause)
   methodType?: MethodType;

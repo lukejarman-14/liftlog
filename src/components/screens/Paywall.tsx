@@ -5,6 +5,7 @@ import { RCPlan } from '../../hooks/usePremium';
 import { trackEvent } from '../../lib/analytics';
 import { sanitisePromoCode, PROMO_CODE_MAX } from '../../lib/validation';
 import { REFERRALS_ENABLED } from '../../lib/featureFlags';
+import { rcGetPlanPrices, type RCPlanPrice } from '../../lib/revenueCat';
 
 interface PaywallProps {
   featureLabel?: string;
@@ -93,7 +94,23 @@ export function Paywall({
   const isClub = accountType === 'club';
   const isCoach = accountType === 'coach';
   const isSquad = isCoach || isClub;
-  const PLANS = isClub ? CLUB_PLANS : isCoach ? COACH_PLANS : PERSONAL_PLANS;
+  const isNative = Capacitor.isNativePlatform();
+  const nativeCoachUnavailable = isNative && isCoach;
+  const [nativePrices, setNativePrices] = useState<Partial<Record<RCPlan, RCPlanPrice>>>({});
+  const [nativePricesLoading, setNativePricesLoading] = useState(isNative && !isSquad);
+  const basePlans = isClub ? CLUB_PLANS : isCoach ? COACH_PLANS : PERSONAL_PLANS;
+  const PLANS = basePlans.map(plan => {
+    const storePrice = !isNative || isSquad ? undefined : nativePrices[plan.id];
+    if (!storePrice) return plan;
+    return {
+      ...plan,
+      price: storePrice.price,
+      sub: plan.id === 'yearly'
+        ? `${storePrice.pricePerMonth ?? storePrice.price}/mo · billed annually`
+        : plan.sub,
+      saving: undefined,
+    };
+  });
   const FEATURES = isClub ? CLUB_FEATURES : isCoach ? COACH_FEATURES : PERSONAL_FEATURES;
   const [selected, setSelected] = useState<RCPlan>('yearly');
   const [choosing, setChoosing] = useState(false);
@@ -114,6 +131,22 @@ export function Paywall({
 
   const selectedPlan = PLANS.find(p => p.id === selected)!;
   const busy = purchasing || restoring;
+  const nativeProductUnavailable =
+    isNative && !isSquad && !nativePricesLoading && !nativePrices[selected];
+  const purchaseDisabled = busy || nativePricesLoading || nativeProductUnavailable;
+
+  useEffect(() => {
+    if (!isNative || isSquad) {
+      setNativePricesLoading(false);
+      return;
+    }
+    let active = true;
+    setNativePricesLoading(true);
+    void rcGetPlanPrices()
+      .then(prices => { if (active) setNativePrices(prices); })
+      .finally(() => { if (active) setNativePricesLoading(false); });
+    return () => { active = false; };
+  }, [isNative, isSquad]);
 
   // Analytics: fire once when the paywall is rendered; derive source from featureLabel
   useEffect(() => {
@@ -267,7 +300,7 @@ export function Paywall({
         </div>
 
         {/* Plan selector — hidden for the sales-led Club tier */}
-        {!isClub && (
+        {!isClub && !nativeCoachUnavailable && (
         <div className="mb-5">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Choose a plan</p>
           <div className="flex flex-col gap-3">
@@ -278,7 +311,7 @@ export function Paywall({
                 <button
                   key={plan.id}
                   onClick={() => setSelected(plan.id)}
-                  disabled={busy}
+                  disabled={purchaseDisabled}
                   className={`w-full text-left rounded-2xl border-2 transition-all relative disabled:opacity-50 ${
                     isSelected ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white'
                   } ${isAnnual ? 'p-4' : 'p-3.5'}`}
@@ -320,10 +353,34 @@ export function Paywall({
             <p className="text-sm text-red-700 font-medium">{purchaseError}</p>
           </div>
         )}
+        {nativeProductUnavailable && (
+          <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200">
+            <p className="text-sm text-amber-800 font-medium">
+              This App Store product is unavailable. Check the RevenueCat offering before submitting.
+            </p>
+          </div>
+        )}
 
         {/* CTA */}
         <div className="flex flex-col gap-3">
-          {isClub ? (
+          {nativeCoachUnavailable ? (
+            <>
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200">
+                <p className="text-sm font-bold text-amber-900">Coach purchases are not available in this iOS build.</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  The coach App Store products still need their own RevenueCat packages. This prevents the personal plan being charged by mistake.
+                </p>
+              </div>
+              {onChangeAccountType && (
+                <button
+                  onClick={() => onChangeAccountType('personal')}
+                  className="w-full py-3.5 rounded-2xl border-2 border-brand-500 text-brand-600 font-extrabold text-base hover:bg-brand-50 transition-colors"
+                >
+                  Switch to Personal
+                </button>
+              )}
+            </>
+          ) : isClub ? (
             <>
               <a
                 href="mailto:clubs@vectorfootball.co.uk?subject=Vector%20Football%20Club%20enquiry"
@@ -343,7 +400,7 @@ export function Paywall({
                     (the stated terms must match the actual purchase: App Store 2.1b). */}
                 <button
                   onClick={() => handleSelectPlan('lifetime', true)}
-                  disabled={busy}
+                  disabled={purchaseDisabled}
                   className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {busy ? (
@@ -360,7 +417,7 @@ export function Paywall({
               <>
                 <button
                   onClick={handleStartTrial}
-                  disabled={busy}
+                  disabled={purchaseDisabled}
                   className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50"
                 >
                   Start 1-Month Free Trial
@@ -370,7 +427,7 @@ export function Paywall({
                 </p>
                 <button
                   onClick={() => handleSelectPlan(selected, true)}
-                  disabled={busy}
+                  disabled={purchaseDisabled}
                   className="w-full py-3.5 rounded-2xl border-2 border-brand-500 text-brand-600 font-extrabold text-base hover:bg-brand-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {busy ? (
@@ -385,7 +442,7 @@ export function Paywall({
             <>
               <button
                 onClick={() => handleSelectPlan(selected)}
-                disabled={busy}
+                disabled={purchaseDisabled}
                 className="w-full py-4 rounded-2xl bg-brand-500 text-white font-extrabold text-base shadow-md hover:bg-brand-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {purchasing ? (
@@ -402,7 +459,7 @@ export function Paywall({
             </>
           )}
 
-          {!isClub && (
+          {!isClub && !nativeCoachUnavailable && (
           <button
             onClick={onRestore}
             disabled={busy}

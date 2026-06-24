@@ -29,7 +29,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Used to set your profile photo.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Vector Football reads your sleep, heart rate variability and resting heart rate to personalise your daily readiness and training load. This data stays on your device and is never shared.</string>
+	<string>Vector Football reads sleep, heart rate variability, and resting heart rate to calculate daily readiness. Raw Apple Health values are processed on this device and are not uploaded.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Used to choose a profile photo from your library.</string>
 	<key>NSUserNotificationsUsageDescription</key>
@@ -38,10 +38,6 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>armv7</string>
-	</array>
 	<key>UIRequiresFullScreen</key>
 	<true/>
 	<key>UISupportedInterfaceOrientations</key>
